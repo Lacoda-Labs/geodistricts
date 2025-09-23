@@ -13,7 +13,7 @@
 1. In the Google Cloud Console, go to "APIs & Services" → "Library"
 2. Search for and enable these APIs:
    - Cloud Run API
-   - Container Registry API
+   - Artifact Registry API
    - Cloud Build API
 
 ## 3. Create Service Account
@@ -28,8 +28,10 @@
 
 Add these roles to your service account:
 - Cloud Run Admin
-- Storage Admin
+- Artifact Registry Writer
 - Service Account User
+
+**Note**: If you're using the existing service account, you may need to add the Artifact Registry Writer role to fix the deployment issue.
 
 ## 5. Create and Download Key
 
@@ -52,3 +54,28 @@ git push origin main
 ```
 
 Check the Actions tab in GitHub to see the deployment progress.
+
+## 7. Troubleshooting
+
+### Artifact Registry Permission Error
+
+If you see an error like:
+```
+denied: Permission "artifactregistry.repositories.uploadArtifacts" denied
+```
+
+**Solution**: Add the Artifact Registry Writer role to your service account:
+
+1. Go to Google Cloud Console → "IAM & Admin" → "IAM"
+2. Find your service account (e.g., `cloud-run-admin@geodistricts.iam.gserviceaccount.com`)
+3. Click the pencil icon to edit
+4. Click "Add Another Role"
+5. Select "Artifact Registry Writer"
+6. Click "Save"
+
+### Enable Artifact Registry API
+
+If the API isn't enabled:
+1. Go to "APIs & Services" → "Library"
+2. Search for "Artifact Registry API"
+3. Click "Enable"
