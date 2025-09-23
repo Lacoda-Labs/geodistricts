@@ -2,7 +2,19 @@
 
 A modern web application built with Angular and Node.js, deployed on Google Cloud Run.
 
-## Project Structure
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/geodistricts.git
+cd geodistricts
+
+# Run quick setup (installs dependencies and starts dev servers)
+chmod +x scripts/quick-start.sh
+./scripts/quick-start.sh
+```
+
+## 📁 Project Structure
 
 ```
 geodistricts/
