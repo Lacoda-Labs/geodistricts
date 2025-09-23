@@ -55,27 +55,42 @@ git push origin main
 
 Check the Actions tab in GitHub to see the deployment progress.
 
-## 7. Troubleshooting
+## 7. Create Artifact Registry Repository
 
-### Artifact Registry Permission Error
+1. Go to Google Cloud Console → "Artifact Registry"
+2. Click "Create Repository"
+3. Configure:
+   - **Name**: `geodistricts-repo`
+   - **Format**: Docker
+   - **Location**: `us-central1`
+   - **Description**: "Docker repository for GeoDistricts"
+4. Click "Create"
 
-If you see an error like:
+## 8. Troubleshooting
+
+### Artifact Registry Permission Errors
+
+If you see errors like:
 ```
 denied: Permission "artifactregistry.repositories.uploadArtifacts" denied
+denied: gcr.io repo does not exist. Creating on push requires the artifactregistry.repositories.createOnPush permission
 ```
 
-**Solution**: Add the Artifact Registry Writer role to your service account:
+**Solution**: Add the required roles to your service account:
 
 1. Go to Google Cloud Console → "IAM & Admin" → "IAM"
 2. Find your service account (e.g., `cloud-run-admin@geodistricts.iam.gserviceaccount.com`)
 3. Click the pencil icon to edit
-4. Click "Add Another Role"
-5. Select "Artifact Registry Writer"
-6. Click "Save"
+4. Click "Add Another Role" and add these roles:
+   - **Artifact Registry Writer**
+   - **Artifact Registry Repository Administrator** (for createOnPush permission)
+5. Click "Save"
 
-### Enable Artifact Registry API
+### Enable Required APIs
 
-If the API isn't enabled:
+If APIs aren't enabled:
 1. Go to "APIs & Services" → "Library"
-2. Search for "Artifact Registry API"
-3. Click "Enable"
+2. Search for and enable:
+   - **Artifact Registry API**
+   - **Cloud Resource Manager API**
+   - **Service Usage API**
