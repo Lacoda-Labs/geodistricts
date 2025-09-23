@@ -67,3 +67,4 @@ Thumbs.db
 
 # Google Cloud
 .gcloud/
+geodistricts-cloud-run-admin-key.json
