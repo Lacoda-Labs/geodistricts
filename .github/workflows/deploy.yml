@@ -10,7 +10,8 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GAR_LOCATION: us-central1
   GAR_REPOSITORY: geodistricts-repo
-  SERVICE: geodistricts-api
+  BACKEND_SERVICE: geodistricts-api
+  FRONTEND_SERVICE: geodistricts-web
   REGION: us-central1
 
 jobs:
@@ -23,15 +24,25 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    - name: Install dependencies
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
+    - name: Install backend dependencies
       run: |
         cd backend
         npm ci
-    - name: Run tests
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    - name: Run backend tests
       run: |
         cd backend
         npm test
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
 
   deploy:
     needs: test
@@ -48,16 +59,33 @@ jobs:
       uses: 'google-github-actions/setup-gcloud@v2'
     - name: Configure Docker
       run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
-    - name: Build and push
+    
+    # Deploy Backend
+    - name: Build and push backend
       run: |
         cd backend
-        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$SERVICE:$GITHUB_SHA .
-        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$SERVICE:$GITHUB_SHA
-    - name: Deploy to Cloud Run
+        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$BACKEND_SERVICE:$GITHUB_SHA .
+        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$BACKEND_SERVICE:$GITHUB_SHA
+    - name: Deploy backend to Cloud Run
       run: |
-        gcloud run deploy $SERVICE \
-          --image $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$SERVICE:$GITHUB_SHA \
+        gcloud run deploy $BACKEND_SERVICE \
+          --image $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$BACKEND_SERVICE:$GITHUB_SHA \
           --platform managed \
           --region $REGION \
           --service-account cloud-run-admin@$PROJECT_ID.iam.gserviceaccount.com \
+          --allow-unauthenticated
+    
+    # Deploy Frontend
+    - name: Build and push frontend
+      run: |
+        cd frontend
+        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$FRONTEND_SERVICE:$GITHUB_SHA .
+        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$FRONTEND_SERVICE:$GITHUB_SHA
+    - name: Deploy frontend to Cloud Run
+      run: |
+        gcloud run deploy $FRONTEND_SERVICE \
+          --image $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$FRONTEND_SERVICE:$GITHUB_SHA \
+          --platform managed \
+          --region $REGION \
+          --port 80 \
           --allow-unauthenticated
