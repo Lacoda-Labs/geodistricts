@@ -1,0 +1,22 @@
+{
+    "name": "geodistricts",
+    "version": "1.0.0",
+    "description": "A modern web application built with Angular and Node.js",
+    "scripts": {
+      "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
+      "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+      "dev:backend": "cd backend && npm run dev",
+      "dev:frontend": "cd frontend && ng serve",
+      "build": "cd frontend && ng build",
+      "test": "cd backend && npm test",
+      "install:all": "npm run install:backend && npm run install:frontend",
+      "install:backend": "cd backend && npm install",
+      "install:frontend": "cd frontend && npm install"
+    },
+    "devDependencies": {
+      "concurrently": "^8.2.2"
+    },
+    "keywords": ["angular", "nodejs", "express", "google-cloud-run"],
+    "author": "",
+    "license": "ISC"
+  }
