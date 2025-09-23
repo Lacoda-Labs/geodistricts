@@ -29,9 +29,11 @@
 Add these roles to your service account:
 - Cloud Run Admin
 - Artifact Registry Writer
+- Artifact Registry Repository Administrator
 - Service Account User
+- IAM Service Account User
 
-**Note**: If you're using the existing service account, you may need to add the Artifact Registry Writer role to fix the deployment issue.
+**Note**: If you're using the existing service account, you may need to add these additional roles to fix deployment issues.
 
 ## 5. Create and Download Key
 
@@ -85,6 +87,22 @@ denied: gcr.io repo does not exist. Creating on push requires the artifactregist
    - **Artifact Registry Writer**
    - **Artifact Registry Repository Administrator** (for createOnPush permission)
 5. Click "Save"
+
+### Service Account ActAs Permission Error
+
+If you see an error like:
+```
+Permission 'iam.serviceaccounts.actAs' denied on service account ***-compute@developer.gserviceaccount.com
+```
+
+**Solution**: Add the IAM Service Account User role:
+
+1. Go to Google Cloud Console → "IAM & Admin" → "IAM"
+2. Find your service account (e.g., `cloud-run-admin@geodistricts.iam.gserviceaccount.com`)
+3. Click the pencil icon to edit
+4. Click "Add Another Role"
+5. Select **"IAM Service Account User"**
+6. Click "Save"
 
 ### Enable Required APIs
 

@@ -59,4 +59,5 @@ jobs:
           --image $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$SERVICE:$GITHUB_SHA \
           --platform managed \
           --region $REGION \
+          --service-account cloud-run-admin@$PROJECT_ID.iam.gserviceaccount.com \
           --allow-unauthenticated
