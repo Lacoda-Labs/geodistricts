@@ -16,6 +16,8 @@ export class ApiService {
   }
 
   getHealth(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/../health`);
+    // Remove /api from the URL to get the base URL, then add /health
+    const baseUrl = this.apiUrl.replace('/api', '');
+    return this.http.get(`${baseUrl}/health`);
   }
 }
