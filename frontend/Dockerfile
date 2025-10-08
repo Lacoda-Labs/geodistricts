@@ -19,21 +19,14 @@ RUN npm run build
 # Production stage with nginx
 FROM nginx:alpine
 
-# Install envsubst for environment variable substitution
-RUN apk add --no-cache gettext
-
 # Copy built Angular app from build stage
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy startup script
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-# Expose port (will be set by Cloud Run)
+# Expose port 8080
 EXPOSE 8080
 
-# Start nginx with environment variable substitution
-CMD ["/start.sh"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
