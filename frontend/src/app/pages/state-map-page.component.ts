@@ -568,11 +568,12 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         
         if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
           console.log(`Loaded ${geojsonData.features.length} census tracts`);
-          this.loadingProgress = `Loading ${geojsonData.features.length} tracts...`;
+          this.loadingProgress = `Processing ${geojsonData.features.length} tracts...`;
           
           geojsonData.features.forEach((feature, index) => {
             if (index % 1000 === 0) {
               console.log(`Processing tract ${index + 1}/${geojsonData.features.length}`);
+              this.loadingProgress = `Processing tract ${index + 1}/${geojsonData.features.length}...`;
             }
             
             const tract = L.geoJSON(feature, {
