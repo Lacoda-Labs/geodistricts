@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { map, catchError, switchMap } from 'rxjs/operators';
+import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 // Census API Configuration
@@ -410,48 +410,8 @@ export class CensusService {
       whereClause += ` AND COUNTY_FIPS='${county}'`;
     }
     
-    // First, get the total count
-    const countParams = new HttpParams()
-      .set('where', whereClause)
-      .set('outFields', 'STATE_FIPS')
-      .set('f', 'geojson')
-      .set('returnCountOnly', 'true');
-    
-    console.log('Getting tract count for state:', state);
-    
-    return this.http.get<GeoJsonResponse>(serviceUrl, { params: countParams }).pipe(
-      switchMap((countResponse: any) => {
-        const totalCount = countResponse.properties?.count || 0;
-        console.log(`Total tracts for state ${state}: ${totalCount}`);
-        
-        if (totalCount === 0) {
-          return new Observable<GeoJsonResponse>(observer => {
-            observer.next({ type: 'FeatureCollection', features: [] });
-            observer.complete();
-          });
-        }
-        
-        // If we have more than 2000 records, we need to use pagination
-        if (totalCount > 2000) {
-          console.log(`Large dataset detected (${totalCount} tracts). Using pagination...`);
-          return this.getTractBoundariesPaginated(state, county, totalCount);
-        } else {
-          // Single request for smaller datasets
-          return this.getTractBoundariesSingle(state, county);
-        }
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  private getTractBoundariesSingle(state: string, county?: string): Observable<GeoJsonResponse> {
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-    
-    let whereClause = `STATE_FIPS='${state}'`;
-    if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
-    }
-    
+    // For now, let's use a simpler approach - just get the first 2000 records
+    // This will work for most states and we can optimize later
     const params = new HttpParams()
       .set('where', whereClause)
       .set('outFields', 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI')
@@ -459,81 +419,15 @@ export class CensusService {
       .set('outSR', '4326')
       .set('resultRecordCount', '2000'); // Max records per request
     
-    console.log('Single request for tract boundaries:', {
-      url: serviceUrl,
-      where: whereClause
-    });
+    console.log('Getting tract boundaries for state:', state);
+    console.log('Service URL:', serviceUrl);
+    console.log('Where clause:', whereClause);
       
     return this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
       catchError(this.handleError)
     );
   }
 
-  private getTractBoundariesPaginated(state: string, county: string | undefined, totalCount: number): Observable<GeoJsonResponse> {
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-    const batchSize = 2000;
-    const totalBatches = Math.ceil(totalCount / batchSize);
-    
-    console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches of ${batchSize}`);
-    
-    let whereClause = `STATE_FIPS='${state}'`;
-    if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
-    }
-    
-    // Create requests for each batch
-    const requests: Observable<GeoJsonResponse>[] = [];
-    
-    for (let i = 0; i < totalBatches; i++) {
-      const offset = i * batchSize;
-      const params = new HttpParams()
-        .set('where', whereClause)
-        .set('outFields', 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI')
-        .set('f', 'geojson')
-        .set('outSR', '4326')
-        .set('resultRecordCount', batchSize.toString())
-        .set('resultOffset', offset.toString());
-      
-      console.log(`Batch ${i + 1}/${totalBatches}: offset ${offset}, limit ${batchSize}`);
-      
-      requests.push(
-        this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
-          catchError(this.handleError)
-        )
-      );
-    }
-    
-    // Combine all requests and merge the results
-    return new Observable(observer => {
-      let completedBatches = 0;
-      let allFeatures: GeoJsonFeature[] = [];
-      
-      requests.forEach((request, index) => {
-        request.subscribe({
-          next: (response) => {
-            if (response.features) {
-              allFeatures = allFeatures.concat(response.features);
-              console.log(`Batch ${index + 1} completed: ${response.features.length} features`);
-            }
-            completedBatches++;
-            
-            if (completedBatches === totalBatches) {
-              console.log(`All batches completed. Total features: ${allFeatures.length}`);
-              observer.next({
-                type: 'FeatureCollection',
-                features: allFeatures
-              });
-              observer.complete();
-            }
-          },
-          error: (error) => {
-            console.error(`Batch ${index + 1} failed:`, error);
-            observer.error(error);
-          }
-        });
-      });
-    });
-  }
 
   /**
    * Get county boundaries from TIGERweb
