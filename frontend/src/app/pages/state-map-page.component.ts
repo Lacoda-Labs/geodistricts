@@ -547,6 +547,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.tractLayer) return;
 
     console.log('Loading census tract boundaries for state:', this.selectedState);
+    // Deployment fix: Ensure proper TypeScript compilation
     this.isLoadingTracts = true;
     this.loadingProgress = 'Getting tract count...';
     
