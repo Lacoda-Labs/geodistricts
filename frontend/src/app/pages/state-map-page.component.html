@@ -1,0 +1,118 @@
+<div class="state-map-page">
+  <div class="page-header">
+    <div class="breadcrumb">
+      <a routerLink="/">Home</a>
+      <span class="separator">›</span>
+      <span class="current">State Map</span>
+    </div>
+    
+    <h1>Census Tract Boundaries Map</h1>
+    <p class="page-description">
+      Interactive map showing census tract boundaries for states across the United States. 
+      Explore demographic data and geographic boundaries essential for fair districting analysis.
+    </p>
+  </div>
+
+  <div class="page-content">
+    <div class="controls-section">
+      <div class="state-selector">
+        <label for="stateSelect">Select State:</label>
+        <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
+          <option value="06">California</option>
+          <option value="12">Florida</option>
+          <option value="36">New York</option>
+          <option value="48">Texas</option>
+          <option value="17">Illinois</option>
+          <option value="13">Georgia</option>
+          <option value="01">Alabama</option>
+        </select>
+      </div>
+      
+      <div class="map-controls">
+        <button (click)="toggleTractBoundaries()" [class.active]="showTractBoundaries">
+          {{ showTractBoundaries ? 'Hide' : 'Show' }} Tract Boundaries
+        </button>
+        <button (click)="toggleCountyBoundaries()" [class.active]="showCountyBoundaries">
+          {{ showCountyBoundaries ? 'Hide' : 'Show' }} County Boundaries
+        </button>
+        <button (click)="resetMapView()">
+          Reset View
+        </button>
+      </div>
+      
+      <div class="loading-indicator" *ngIf="isLoadingTracts">
+        <div class="spinner"></div>
+        <span>{{ loadingProgress }}</span>
+      </div>
+    </div>
+
+    <div class="map-container">
+      <div class="map-wrapper">
+        <!-- Map will be rendered here -->
+        <div id="stateMap" class="map"></div>
+        
+        <div class="map-overlay">
+          <div class="map-info">
+            <h3>{{ getStateName(selectedState) }} Census Tracts</h3>
+            <p *ngIf="tractCount > 0">
+              {{ tractCount | number }} census tracts loaded
+            </p>
+            <p *ngIf="loading">Loading tract boundaries...</p>
+            
+            <div class="legend">
+              <h4>Legend</h4>
+              <div class="legend-item" *ngIf="showTractBoundaries">
+                <div class="legend-color tract-boundary"></div>
+                <span>Census Tract Boundaries</span>
+              </div>
+              <div class="legend-item" *ngIf="showCountyBoundaries">
+                <div class="legend-color county-boundary"></div>
+                <span>County Boundaries</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tract-info" *ngIf="selectedTract">
+      <h3>Tract Information</h3>
+      <div class="tract-details">
+        <div class="detail-item">
+          <span class="label">Name:</span>
+          <span class="value">{{ selectedTract.name }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">FIPS Code:</span>
+          <span class="value">{{ selectedTract.state }}{{ selectedTract.county }}{{ selectedTract.tract }}</span>
+        </div>
+        <div class="detail-item" *ngIf="selectedTract.population">
+          <span class="label">Population:</span>
+          <span class="value">{{ selectedTract.population | number }}</span>
+        </div>
+        <div class="detail-item" *ngIf="selectedTract.medianHouseholdIncome">
+          <span class="label">Median Income:</span>
+          <span class="value">${{ selectedTract.medianHouseholdIncome | number }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-info">
+      <h4>Map Data Sources</h4>
+      <p>
+        Census tract boundaries are provided by the U.S. Census Bureau's TIGER/Line Shapefiles. 
+        Demographic data comes from the American Community Survey (ACS) 5-Year Estimates.
+      </p>
+      <div class="footer-links">
+        <a href="https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html" target="_blank" rel="noopener">
+          TIGER/Line Shapefiles
+        </a>
+        <a href="https://www.census.gov/programs-surveys/acs/" target="_blank" rel="noopener">
+          American Community Survey
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
