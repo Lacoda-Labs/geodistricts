@@ -6,7 +6,7 @@ A modern web application built with Angular and Node.js, deployed on Google Clou
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/geodistricts.git
+git clone https://github.com/Lacoda-Labs/geodistricts.git
 cd geodistricts
 
 # Run quick setup (installs dependencies and starts dev servers)
