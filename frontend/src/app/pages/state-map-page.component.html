@@ -35,9 +35,89 @@
         <button (click)="toggleCountyBoundaries()" [class.active]="showCountyBoundaries">
           {{ showCountyBoundaries ? 'Hide' : 'Show' }} County Boundaries
         </button>
+        <button (click)="toggleDivisionMode()" [class.active]="useRecursiveDivision">
+          {{ useRecursiveDivision ? 'Switch to Two-Region' : 'Switch to Districts' }}
+        </button>
+        <button (click)="toggleStepThrough()" [class.active]="enableStepThrough" *ngIf="useRecursiveDivision">
+          {{ enableStepThrough ? 'Exit Step-Through' : 'Step-Through Mode' }}
+        </button>
         <button (click)="resetMapView()">
           Reset View
         </button>
+      </div>
+
+      <div *ngIf="useRecursiveDivision" class="district-controls" style="display: flex; align-items: center; gap: 15px; margin: 10px 0; padding: 10px; background: rgba(255, 255, 255, 0.9); border-radius: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <label for="targetDistricts">Target Districts:</label>
+          <input type="number" 
+                 id="targetDistricts" 
+                 [(ngModel)]="targetDistricts" 
+                 (change)="setTargetDistricts(targetDistricts)"
+                 min="1" 
+                 max="100" 
+                 style="width: 80px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;">
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <label for="populationTolerance">Population Tolerance (%):</label>
+          <input type="number" 
+                 id="populationTolerance" 
+                 [(ngModel)]="populationTolerance" 
+                 (change)="setPopulationTolerance(populationTolerance)"
+                 min="0.1" 
+                 max="10" 
+                 step="0.1"
+                 style="width: 80px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;">
+        </div>
+      </div>
+
+      <!-- Step-through Controls -->
+      <div *ngIf="enableStepThrough && divisionSteps.length > 0" class="step-through-controls" style="display: flex; align-items: center; gap: 15px; margin: 10px 0; padding: 15px; background: rgba(0, 123, 255, 0.1); border: 2px solid #007bff; border-radius: 8px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button (click)="resetSteps()" style="padding: 8px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            ⏮️ Reset
+          </button>
+          <button (click)="previousStep()" [disabled]="currentStep === 0" [style.opacity]="currentStep === 0 ? 0.5 : 1" class="step-button">
+            ⏪ Previous
+          </button>
+          <button (click)="togglePlay()" style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            {{ isPlaying ? '⏸️ Pause' : '▶️ Play' }}
+          </button>
+          <button (click)="nextStep()" [disabled]="currentStep === divisionSteps.length - 1" [style.opacity]="currentStep === divisionSteps.length - 1 ? 0.5 : 1" class="step-button">
+            Next ⏩
+          </button>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+          <label style="font-weight: 600; color: #333;">Step:</label>
+          <input type="range" 
+                 [min]="0" 
+                 [max]="divisionSteps.length - 1" 
+                 [(ngModel)]="currentStep" 
+                 (input)="goToStep(currentStep)"
+                 style="flex: 1; margin: 0 10px;">
+          <span style="font-weight: 600; color: #333; min-width: 80px;">
+            {{ currentStep + 1 }} / {{ divisionSteps.length }}
+          </span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 200px; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+            <div [style.width.%]="getStepProgress()" style="height: 100%; background: #007bff; transition: width 0.3s ease;"></div>
+          </div>
+          <span style="font-size: 12px; color: #666;">{{ getStepProgress() | number:'1.0-0' }}%</span>
+        </div>
+      </div>
+
+      <!-- Step Information -->
+      <div *ngIf="enableStepThrough && getCurrentStep()" class="step-info" style="margin: 10px 0; padding: 15px; background: rgba(255, 255, 255, 0.95); border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <h4 style="margin: 0 0 10px 0; color: #007bff;">Step {{ currentStep + 1 }}: {{ getCurrentStep()?.description }}</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 14px;">
+          <div><strong>Level:</strong> {{ getCurrentStep()?.level }}</div>
+          <div><strong>Groups:</strong> {{ getCurrentStep()?.totalGroups }}</div>
+          <div><strong>Target Districts:</strong> {{ getCurrentStep()?.totalDistricts }}</div>
+          <div><strong>Progress:</strong> {{ getStepProgress() | number:'1.0-0' }}%</div>
+        </div>
       </div>
       
       <div class="loading-indicator" *ngIf="isLoadingTracts">
@@ -59,15 +139,89 @@
             </p>
             <p *ngIf="loading">Loading tract boundaries...</p>
             
+            <!-- Step-through Information -->
+            <div *ngIf="enableStepThrough && getCurrentStep()" class="step-through-info">
+              <h4>Step {{ currentStep + 1 }} of {{ divisionSteps.length }}</h4>
+              <p><strong>Description:</strong> {{ getCurrentStep()?.description }}</p>
+              <p><strong>Level:</strong> {{ getCurrentStep()?.level }}</p>
+              <p><strong>Groups:</strong> {{ getCurrentStep()?.totalGroups }}</p>
+              <p><strong>Target Districts:</strong> {{ getCurrentStep()?.totalDistricts }}</p>
+              <p><strong>Progress:</strong> {{ getStepProgress() | number:'1.0-0' }}%</p>
+            </div>
+
+            <!-- Division Information -->
+            <div *ngIf="divisionResult && !enableStepThrough" class="division-info">
+              <h4>Division Results</h4>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>Division Type:</strong> Population-balanced geographic regions (50/50 split)
+              </p>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>Total Population:</strong> {{ divisionResult.totalPopulation | number }}
+              </p>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>North Region:</strong> {{ divisionResult.northTracts.length | number }} tracts ({{ divisionResult.northPopulation | number }} people) - Blue
+              </p>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>South Region:</strong> {{ divisionResult.southTracts.length | number }} tracts ({{ divisionResult.southPopulation | number }} people) - Green
+              </p>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>Division Line:</strong> {{ divisionResult.divisionLine | number:'1.4-4' }}° latitude
+              </p>
+              <p *ngIf="divisionResult.divisionType === 'population'">
+                <strong>Population Balance:</strong> {{ (divisionResult.divisionLine * 100) | number:'1.1-1' }}% / {{ ((1 - divisionResult.divisionLine) * 100) | number:'1.1-1' }}%
+              </p>
+              <p *ngIf="divisionResult.divisionType !== 'population'">
+                <strong>Division Line:</strong> {{ divisionResult.divisionLine | number:'1.4-4' }}° {{ divisionResult.divisionType }}
+              </p>
+              <p *ngIf="divisionResult.divisionType !== 'population'">
+                <strong>North Tracts:</strong> {{ divisionResult.northTracts.length | number }} (Blue)
+              </p>
+              <p *ngIf="divisionResult.divisionType !== 'population'">
+                <strong>South Tracts:</strong> {{ divisionResult.southTracts.length | number }} (Green)
+              </p>
+            </div>
+            
             <div class="legend">
               <h4>Legend</h4>
-              <div class="legend-item" *ngIf="showTractBoundaries">
-                <div class="legend-color tract-boundary"></div>
-                <span>Census Tract Boundaries</span>
+              
+              <!-- Step-through Legend -->
+              <div *ngIf="enableStepThrough && getCurrentStep()">
+                <div class="legend-item" *ngFor="let group of getCurrentStep()?.groups; let i = index">
+                  <div class="legend-color" [style.background]="getStepGroupColor(i, getCurrentStep()?.groups?.length || 1)"></div>
+                  <span>Group {{ group.id }} ({{ group.tracts.length | number }} tracts, {{ group.population | number }} people)</span>
+                </div>
               </div>
-              <div class="legend-item" *ngIf="showCountyBoundaries">
-                <div class="legend-color county-boundary"></div>
-                <span>County Boundaries</span>
+              
+              <!-- Regular Division Legend -->
+              <div *ngIf="!enableStepThrough">
+                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType === 'population'">
+                  <div class="legend-color" style="background: #007bff;"></div>
+                  <span>North Region ({{ divisionResult.northTracts.length | number }} tracts)</span>
+                </div>
+                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType === 'population'">
+                  <div class="legend-color" style="background: #28a745;"></div>
+                  <span>South Region ({{ divisionResult.southTracts.length | number }} tracts)</span>
+                </div>
+                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
+                  <div class="legend-color" style="background: #007bff;"></div>
+                  <span>North Region ({{ divisionResult.northTracts.length | number }} tracts)</span>
+                </div>
+                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
+                  <div class="legend-color" style="background: #28a745;"></div>
+                  <span>South Region ({{ divisionResult.southTracts.length | number }} tracts)</span>
+                </div>
+                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
+                  <div class="legend-color" style="background: #dc3545; border: 2px dashed #dc3545;"></div>
+                  <span>Division Line</span>
+                </div>
+                <div class="legend-item" *ngIf="showTractBoundaries && !divisionResult">
+                  <div class="legend-color tract-boundary"></div>
+                  <span>Census Tract Boundaries</span>
+                </div>
+                <div class="legend-item" *ngIf="showCountyBoundaries">
+                  <div class="legend-color county-boundary"></div>
+                  <span>County Boundaries</span>
+                </div>
               </div>
             </div>
           </div>
@@ -93,6 +247,77 @@
         <div class="detail-item" *ngIf="selectedTract.medianHouseholdIncome">
           <span class="label">Median Income:</span>
           <span class="value">${{ selectedTract.medianHouseholdIncome | number }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Districts List Section -->
+  <div class="districts-section" *ngIf="useRecursiveDivision && districtsResult && districtsResult.districts.length > 0">
+    <div class="districts-header">
+      <h3>Districts List</h3>
+      <div class="districts-controls">
+        <label for="sortBy">Sort by:</label>
+        <select id="sortBy" [(ngModel)]="districtsSortBy" (change)="sortDistricts()">
+          <option value="id">District ID</option>
+          <option value="population">Population</option>
+          <option value="tractCount">Tract Count</option>
+        </select>
+        <label for="sortOrder">Order:</label>
+        <select id="sortOrder" [(ngModel)]="districtsSortOrder" (change)="sortDistricts()">
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="districts-summary">
+      <div class="summary-item">
+        <span class="label">Total Districts:</span>
+        <span class="value">{{ districtsResult.districts.length }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Target Population:</span>
+        <span class="value">{{ (districtsResult.totalPopulation / districtsResult.districts.length) | number }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Population Variance:</span>
+        <span class="value">{{ districtsResult.populationVariance | number }}</span>
+      </div>
+    </div>
+
+    <div class="districts-list">
+      <div class="districts-table-header">
+        <div class="col-id">District</div>
+        <div class="col-population">Population</div>
+        <div class="col-tracts">Tracts</div>
+        <div class="col-deviation">Deviation</div>
+        <div class="col-color">Color</div>
+      </div>
+      
+      <div class="districts-table-body">
+        <div class="district-row" 
+             *ngFor="let district of sortedDistricts; trackBy: trackByDistrictId"
+             (click)="highlightDistrict(district)"
+             [class.highlighted]="highlightedDistrictId === district.id">
+          <div class="col-id">
+            <strong>{{ district.id }}</strong>
+          </div>
+          <div class="col-population">
+            {{ district.population | number }}
+          </div>
+          <div class="col-tracts">
+            {{ district.tracts.length | number }}
+          </div>
+          <div class="col-deviation" 
+               [class.positive]="getPopulationDeviation(district) > 0"
+               [class.negative]="getPopulationDeviation(district) < 0">
+            {{ getPopulationDeviation(district) | number:'1.1-1' }}%
+          </div>
+          <div class="col-color">
+            <div class="district-color-indicator" 
+                 [style.background-color]="getDistrictColor(district.id)"></div>
+          </div>
         </div>
       </div>
     </div>
