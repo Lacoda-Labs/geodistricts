@@ -81,8 +81,8 @@ gcloud run deploy $BACKEND_SERVICE \
   --region $REGION \
   --allow-unauthenticated \
   --port 8080 \
-  --memory 512Mi \
-  --cpu 1 \
+  --memory 2Gi \
+  --cpu 2 \
   --max-instances 10
 
 cd ..
