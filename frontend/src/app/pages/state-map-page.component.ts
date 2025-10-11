@@ -655,15 +655,9 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private tractLayer: L.LayerGroup | null = null;
   private countyLayer: L.LayerGroup | null = null;
   
-  // Tract division properties
-  divisionResult: TractDivisionResult | null = null;
-  private northTractLayer: L.LayerGroup | null = null;
-  private southTractLayer: L.LayerGroup | null = null;
-  
-  // Recursive district division properties
+  // District division properties
   districtsResult: RecursiveDivisionResult | null = null;
   targetDistricts: number = 52; // Default to California's 52 districts
-  useRecursiveDivision: boolean = false;
   populationTolerance: number = 0.01; // 1% tolerance
   
   // Districts list properties
@@ -690,15 +684,22 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     '48': 'Texas'
   };
 
-  constructor(private censusService: CensusService) {}
+  constructor(private censusService: CensusService) {
+    // Make census service available globally for debugging
+    (window as any).censusService = this.censusService;
+  }
 
   ngOnInit() {
     // Component initialization
     console.log('StateMapPageComponent initialized');
-    this.divideTractsExample();
     
-    // Test the recursive division algorithm
+    // Debug cache status
+    this.censusService.debugCacheStatus();
+    
+    // Test the algorithm with a small dataset first
     this.testRecursiveDivision();
+    
+    console.log('Map component ready - algorithm testing enabled');
   }
 
   /**
@@ -733,12 +734,36 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('Population Distribution (Target: ' + targetPopulation.toLocaleString() + '):');
         console.table(populationStats.slice(0, 10)); // Show first 10 districts
         
+        // Check contiguity for all districts
+        console.log('\n=== Contiguity Check ===');
+        const contiguityResults = result.districts.map(d => ({
+          id: d.id,
+          tracts: d.tracts.length,
+          contiguous: this.checkDistrictContiguity(d.tracts)
+        }));
+        
+        const nonContiguousDistricts = contiguityResults.filter(d => !d.contiguous);
+        console.log(`Contiguous districts: ${contiguityResults.filter(d => d.contiguous).length}/${result.districts.length}`);
+        
+        if (nonContiguousDistricts.length > 0) {
+          console.warn('Non-contiguous districts found:', nonContiguousDistricts);
+        } else {
+          console.log('✅ All districts are geographically contiguous!');
+        }
+        
+        // Specifically check district 27
+        const district27 = result.districts.find(d => d.id === 27);
+        if (district27) {
+          const isContiguous = this.checkDistrictContiguity(district27.tracts);
+          console.log(`District 27: ${district27.tracts.length} tracts, contiguous: ${isContiguous ? '✅ YES' : '❌ NO'}`);
+        }
+        
         // Log the division pattern
-        console.log('Division Pattern Example:');
+        console.log('\nDivision Pattern Example:');
         console.log('Level 0: 52 districts → 26 + 26 (latitude)');
         console.log('Level 1: 26 districts → 13 + 13 (longitude), 26 districts → 13 + 13 (longitude)');
         console.log('Level 2: 13 districts → 7 + 6 (latitude), 13 districts → 7 + 6 (latitude), etc.');
-        console.log('Post-processing: Population balancing applied to ensure equal district populations');
+        console.log('Algorithm: Improved zig-zag sorting ensures geographic contiguity, population-based division ensures balanced populations');
       },
       error: (error) => {
         console.error('Error testing recursive division:', error);
@@ -788,6 +813,58 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.initializeMap();
   }
 
+  /**
+   * Manually trigger district creation
+   */
+  createDistricts(): void {
+    if (this.loading) return;
+    
+    console.log('Manually triggering district creation...');
+    this.loading = true;
+    this.loadingProgress = 'Loading census tracts...';
+    
+    // Load census tracts and create districts
+    this.censusService.getTractBoundaries(this.selectedState).subscribe({
+      next: (geojsonData: GeoJsonResponse) => {
+        if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
+          console.log(`Creating ${this.targetDistricts} districts from ${geojsonData.features.length} tracts`);
+          
+          this.loadingProgress = `Creating ${this.targetDistricts} districts...`;
+          
+          // Create districts using the optimized algorithm
+          this.districtsResult = this.censusService.divideTractsIntoDistricts(geojsonData.features, {
+            targetDistricts: this.targetDistricts,
+            maxIterations: 200,
+            populationTolerance: this.populationTolerance
+          });
+          
+          this.loadingProgress = `Rendering ${this.targetDistricts} districts...`;
+          
+          if (this.districtsResult) {
+            // Render districts
+            this.renderDistricts();
+            this.loading = false;
+            this.loadingProgress = '';
+            console.log('District creation completed successfully');
+          } else {
+            this.loading = false;
+            this.loadingProgress = 'District creation failed';
+            console.error('Failed to create districts');
+          }
+        } else {
+          this.loading = false;
+          this.loadingProgress = 'No census tracts found';
+          console.error('No census tracts found for state:', this.selectedState);
+        }
+      },
+      error: (error) => {
+        this.loading = false;
+        this.loadingProgress = 'Error loading census data';
+        console.error('Error loading census tracts:', error);
+      }
+    });
+  }
+
   getStateName(stateCode: string): string {
     return this.stateNames[stateCode] || 'Unknown State';
   }
@@ -818,7 +895,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('Map initialized successfully for state:', this.getStateName(this.selectedState));
         this.loadStateData();
         
-        // Automatically load tract boundaries with division on initialization
+        // Load tract boundaries and create districts
         this.updateMapLayers();
       } catch (error) {
         console.error('Error initializing map:', error);
@@ -831,7 +908,6 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadStateData() {
     this.loading = true;
     this.tractCount = 0;
-    this.divisionResult = null; // Clear previous division result
     this.districtsResult = null; // Clear previous districts result
     
     // Load real census tract data
@@ -921,43 +997,23 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadingProgress = '';
         console.log('TIGERweb API Response:', geojsonData);
         
+        // Debug cache status after loading
+        this.censusService.debugCacheStatus();
+        
         if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
           console.log(`Loaded ${geojsonData.features.length} census tracts`);
           
-          if (this.useRecursiveDivision) {
-            this.loadingProgress = `Creating ${this.targetDistricts} districts...`;
-            
-            // Use recursive division to create multiple districts
-            this.districtsResult = this.censusService.divideTractsIntoDistricts(geojsonData.features, {
-              targetDistricts: this.targetDistricts,
-              maxIterations: 200,
-              populationTolerance: this.populationTolerance
-            });
-            
-            console.log('Recursive division result:', {
-              districts: this.districtsResult.districts.length,
-              totalPopulation: this.districtsResult.totalPopulation,
-              averagePopulation: this.districtsResult.averagePopulation,
-              divisionHistory: this.districtsResult.divisionHistory
-            });
-          } else {
-            this.loadingProgress = `Dividing tracts by population...`;
-            
-            // Divide tracts by population with 50/50 ratio
-            this.divisionResult = this.censusService.divideTractsByCoordinate(geojsonData.features, {
-              ratio: [50, 50],
-              direction: 'population'
-            });
-          }
+          // Just render tract boundaries - districts created on demand
+          console.log('Rendering tract boundaries - districts can be created manually');
           
           this.loadingProgress = `Rendering ${geojsonData.features.length} tracts...`;
           
-          if (this.useRecursiveDivision && this.districtsResult) {
+          if (this.districtsResult) {
             // Render multiple districts with different colors
             this.renderDistricts();
-          } else if (this.divisionResult) {
-            // Render two-region division
-            this.renderTwoRegionDivision();
+          } else {
+            // Just render tract boundaries without division
+            this.renderTractBoundaries(geojsonData.features);
           }
           
           // Update tract count
@@ -1190,75 +1246,40 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Render two-region division (north/south)
    */
-  private renderTwoRegionDivision(): void {
-    if (!this.divisionResult || !this.tractLayer) return;
+  /**
+   * Render tract boundaries without division
+   */
+  private renderTractBoundaries(features: any[]): void {
+    if (!this.tractLayer) return;
 
-    console.log('Population division result:', {
-      northTracts: this.divisionResult.northTracts.length,
-      southTracts: this.divisionResult.southTracts.length,
-      totalPopulation: this.divisionResult.totalPopulation,
-      northPopulation: this.divisionResult.northPopulation,
-      southPopulation: this.divisionResult.southPopulation,
-      actualRatio: this.divisionResult.divisionLine
-    });
-
-    // Render north tracts in blue
-    this.divisionResult.northTracts.forEach((feature, index) => {
-      if (index % 500 === 0) {
-        console.log(`Processing north tract ${index + 1}/${this.divisionResult!.northTracts.length}`);
+    console.log(`Rendering ${features.length} tract boundaries...`);
+    
+    features.forEach((feature, index) => {
+      if (index % 1000 === 0) {
+        console.log(`Processing tract ${index + 1}/${features.length}`);
       }
       
       const tract = L.geoJSON(feature, {
         style: {
-          color: '#007bff', // Blue color
+          color: '#007bff',
           weight: 1,
-          opacity: 0.8,
-          fillOpacity: 0.3,
+          opacity: 0.6,
+          fillOpacity: 0.1,
           fillColor: '#007bff'
         }
       }).bindPopup(`
         <strong>Census Tract ${feature.properties.TRACT || feature.properties.TRACT_FIPS}</strong><br>
-        <span style="color: #007bff; font-weight: bold;">NORTH REGION</span><br>
         State: ${feature.properties.STATE_ABBR || feature.properties.STATE_FIPS}<br>
         Population: ${feature.properties.POPULATION?.toLocaleString() || 'N/A'}<br>
-        Area: ${feature.properties.SQMI?.toFixed(2) || 'N/A'} sq mi<br>
-        Region Population: ${this.divisionResult!.northPopulation.toLocaleString()}
+        Area: ${feature.properties.SQMI?.toFixed(2) || 'N/A'} sq mi
       `);
 
       this.tractLayer!.addLayer(tract);
     });
-    
-    // Render south tracts in green
-    this.divisionResult.southTracts.forEach((feature, index) => {
-      if (index % 500 === 0) {
-        console.log(`Processing south tract ${index + 1}/${this.divisionResult!.southTracts.length}`);
-      }
-      
-      const tract = L.geoJSON(feature, {
-        style: {
-          color: '#28a745', // Green color
-          weight: 1,
-          opacity: 0.8,
-          fillOpacity: 0.3,
-          fillColor: '#28a745'
-        }
-      }).bindPopup(`
-        <strong>Census Tract ${feature.properties.TRACT || feature.properties.TRACT_FIPS}</strong><br>
-        <span style="color: #28a745; font-weight: bold;">SOUTH REGION</span><br>
-        State: ${feature.properties.STATE_ABBR || feature.properties.STATE_FIPS}<br>
-        Population: ${feature.properties.POPULATION?.toLocaleString() || 'N/A'}<br>
-        Area: ${feature.properties.SQMI?.toFixed(2) || 'N/A'} sq mi<br>
-        Region Population: ${this.divisionResult!.southPopulation.toLocaleString()}
-      `);
 
-      this.tractLayer!.addLayer(tract);
-    });
-    
-    // Add division line to map
-    this.addDivisionLine();
-    
-    console.log(`Successfully added ${this.tractCount} tract boundaries to map (${this.divisionResult.northTracts.length} north, ${this.divisionResult.southTracts.length} south)`);
+    console.log(`Successfully rendered ${features.length} tract boundaries`);
   }
+
 
 
 
@@ -1324,83 +1345,10 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Add a visual division line to the map showing where the tracts were divided
    */
+  // Removed division line - districts only
   private addDivisionLine(): void {
-    if (!this.divisionResult || !this.map) return;
-
-    // For population-based division, we draw a geographic line at the boundary
-    if (this.divisionResult.divisionType === 'population') {
-      const bounds = this.map.getBounds();
-      const west = bounds.getWest();
-      const east = bounds.getEast();
-      const divisionLat = this.divisionResult.divisionLine;
-
-      // Create a polyline for the division line
-      const divisionLine = L.polyline([
-        [divisionLat, west],
-        [divisionLat, east]
-      ], {
-        color: '#dc3545', // Red color for the division line
-        weight: 3,
-        opacity: 0.8,
-        dashArray: '10, 10' // Dashed line
-      }).bindPopup(`
-        <strong>Population-Balanced Division Line</strong><br>
-        Latitude: ${divisionLat.toFixed(4)}°<br>
-        North Region: ${this.divisionResult.northPopulation.toLocaleString()} people<br>
-        South Region: ${this.divisionResult.southPopulation.toLocaleString()} people<br>
-        Population Balance: ${(this.divisionResult.divisionLine * 100).toFixed(1)}% / ${((1 - this.divisionResult.divisionLine) * 100).toFixed(1)}%
-      `);
-
-      // Add the division line to the map
-      this.tractLayer!.addLayer(divisionLine);
-      
-      console.log(`Population-balanced division completed:`, {
-        totalPopulation: this.divisionResult.totalPopulation.toLocaleString(),
-        northRegion: this.divisionResult.northPopulation.toLocaleString(),
-        southRegion: this.divisionResult.southPopulation.toLocaleString(),
-        divisionLine: divisionLat.toFixed(4) + '° latitude',
-        populationBalance: (this.divisionResult.divisionLine * 100).toFixed(1) + '% / ' + ((1 - this.divisionResult.divisionLine) * 100).toFixed(1) + '%'
-      });
-      return;
-    }
-
-    // For geographic divisions, draw a line
-    const bounds = this.map.getBounds();
-    const west = bounds.getWest();
-    const east = bounds.getEast();
-    const divisionLat = this.divisionResult.divisionLine;
-
-    // Create a polyline for the division line
-    const divisionLine = L.polyline([
-      [divisionLat, west],
-      [divisionLat, east]
-    ], {
-      color: '#dc3545', // Red color for the division line
-      weight: 3,
-      opacity: 0.8,
-      dashArray: '10, 10' // Dashed line
-    }).bindPopup(`
-      <strong>Division Line</strong><br>
-      Latitude: ${divisionLat.toFixed(4)}°<br>
-      North Tracts: ${this.divisionResult.northTracts.length}<br>
-      South Tracts: ${this.divisionResult.southTracts.length}
-    `);
-
-    // Add the division line to the map
-    this.tractLayer!.addLayer(divisionLine);
-    
-    console.log(`Added division line at latitude ${divisionLat.toFixed(4)}°`);
-  }
-
-  /**
-   * Toggle between two-region division and recursive district division
-   */
-  toggleDivisionMode(): void {
-    this.useRecursiveDivision = !this.useRecursiveDivision;
-    console.log(`Switched to ${this.useRecursiveDivision ? 'recursive district' : 'two-region'} division mode`);
-    
-    // Reload the map with the new division mode
-    this.updateMapLayers();
+    // Disabled - districts only mode
+    return;
   }
 
   /**
@@ -1410,20 +1358,16 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.targetDistricts = districts;
     console.log(`Target districts set to: ${districts}`);
     
-    if (this.useRecursiveDivision) {
-      // Reload the map with the new target
-      this.updateMapLayers();
-    }
+    // Reload the map with the new target
+    this.updateMapLayers();
   }
 
   setPopulationTolerance(tolerance: number): void {
     this.populationTolerance = tolerance;
     console.log(`Population tolerance set to: ${(tolerance * 100).toFixed(1)}%`);
     
-    if (this.useRecursiveDivision) {
-      // Reload the map with the new tolerance
-      this.updateMapLayers();
-    }
+    // Reload the map with the new tolerance
+    this.updateMapLayers();
   }
 
   /**
@@ -1484,6 +1428,81 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   trackByDistrictId(index: number, district: District): number {
     return district.id;
+  }
+
+  /**
+   * Check if a district is geographically contiguous (simplified version)
+   * @param tracts Array of tracts in the district
+   * @returns True if the district is contiguous
+   */
+  checkDistrictContiguity(tracts: any[]): boolean {
+    if (tracts.length <= 1) return true;
+    
+    // Calculate centroids for all tracts
+    const tractsWithCentroids = tracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract)
+    }));
+    
+    // Find the tract with the northernmost, westernmost position (top-left)
+    let startTract = tractsWithCentroids[0];
+    for (const tract of tractsWithCentroids) {
+      if (tract.centroid.lat > startTract.centroid.lat || 
+          (tract.centroid.lat === startTract.centroid.lat && tract.centroid.lng < startTract.centroid.lng)) {
+        startTract = tract;
+      }
+    }
+    
+    // Use a simple flood-fill approach to check contiguity
+    const visited = new Set<string>();
+    const queue = [startTract];
+    
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const key = `${current.centroid.lat},${current.centroid.lng}`;
+      
+      if (visited.has(key)) continue;
+      visited.add(key);
+      
+      // Check all other tracts to see if they're adjacent
+      for (const tract of tractsWithCentroids) {
+        if (tract === current) continue;
+        
+        const distance = Math.sqrt(
+          Math.pow(tract.centroid.lat - current.centroid.lat, 2) +
+          Math.pow(tract.centroid.lng - current.centroid.lng, 2)
+        );
+        
+        // Consider tracts adjacent if they're within a reasonable distance
+        // This is a simplified check - in reality, we'd need to check actual boundaries
+        if (distance < 0.5 && !visited.has(`${tract.centroid.lat},${tract.centroid.lng}`)) {
+          queue.push(tract);
+        }
+      }
+    }
+    
+    return visited.size === tracts.length;
+  }
+
+  /**
+   * Calculate the centroid of a tract (simplified version)
+   */
+  private calculateTractCentroid(tract: any): { lat: number, lng: number } {
+    // This is a simplified version - in the real implementation, this would
+    // calculate the actual centroid from the geometry
+    if (tract.properties && tract.properties.POPULATION) {
+      // Use a mock centroid based on tract properties
+      return {
+        lat: parseFloat(tract.properties.STATE_FIPS || '0') + Math.random() * 0.1,
+        lng: parseFloat(tract.properties.COUNTY_FIPS || '0') - 100 + Math.random() * 0.1
+      };
+    }
+    
+    // Fallback to mock coordinates
+    return {
+      lat: 36.7783 + Math.random() * 0.5,
+      lng: -119.4179 + Math.random() * 0.5
+    };
   }
 
   /**

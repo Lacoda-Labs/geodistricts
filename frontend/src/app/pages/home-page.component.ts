@@ -12,7 +12,7 @@ import * as L from 'leaflet';
     <div class="app-container">
       <header class="app-header">
         <h1>{{ title }}</h1>
-        <p>100% objective and completely fair electoral districting for every jurisdiction in the United States.</p>
+        <p>An objective algorithm for calculating US Congressional district boundaries.</p>
       </header>
 
       <nav class="app-navigation">
@@ -34,44 +34,9 @@ import * as L from 'leaflet';
           <h2>Welcome to GeoDistricts</h2>
           <ul>
             <li>How does it work?</li>
-            <li>Voting Rights Act (VRA) of 1965</li>
           </ul>
         </div>
         
-        <div class="geodistricts-usa-map">
-          <h2>GeoDistricts USA Map</h2>
-          <p>This is a map of the United States with the electoral districts for each state.</p>
-          <div id="usaMap" style="height: 450px; width: 100%; border: 1px solid #ddd; border-radius: 8px;"></div>
-          <p>This is a map of the United States with the electoral districts for each state.</p>
-        </div>
-
-        <div class="california-census-map">
-          <h2>California Census Tracts</h2>
-          <p>Interactive map showing census tract boundaries across California for fair districting analysis.</p>
-          <div class="map-container">
-            <div id="californiaMap" style="height: 500px; width: 100%; border: 1px solid #ddd; border-radius: 8px;"></div>
-            <div class="map-overlay">
-              <div class="census-info">
-                <h3>Census Tract Data</h3>
-                <p>California has approximately 8,000+ census tracts used for demographic analysis and fair districting.</p>
-                <ul>
-                  <li>Each tract contains 1,200-8,000 people</li>
-                  <li>Boundaries follow visible features when possible</li>
-                  <li>Used for Voting Rights Act compliance</li>
-                  <li>Essential for fair redistricting</li>
-                </ul>
-                <div class="cta-section">
-                  <a routerLink="/census" class="cta-button">
-                    Explore Census Data →
-                  </a>
-                  <a routerLink="/map" class="cta-button">
-                    View State Maps →
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
 
       <footer class="app-footer">

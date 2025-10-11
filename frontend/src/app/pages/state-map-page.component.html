@@ -35,10 +35,10 @@
         <button (click)="toggleCountyBoundaries()" [class.active]="showCountyBoundaries">
           {{ showCountyBoundaries ? 'Hide' : 'Show' }} County Boundaries
         </button>
-        <button (click)="toggleDivisionMode()" [class.active]="useRecursiveDivision">
-          {{ useRecursiveDivision ? 'Switch to Two-Region' : 'Switch to Districts' }}
+        <button (click)="createDistricts()" [disabled]="loading">
+          {{ loading ? 'Creating Districts...' : 'Create Districts' }}
         </button>
-        <button (click)="toggleStepThrough()" [class.active]="enableStepThrough" *ngIf="useRecursiveDivision">
+        <button (click)="toggleStepThrough()" [class.active]="enableStepThrough">
           {{ enableStepThrough ? 'Exit Step-Through' : 'Step-Through Mode' }}
         </button>
         <button (click)="resetMapView()">
@@ -46,7 +46,7 @@
         </button>
       </div>
 
-      <div *ngIf="useRecursiveDivision" class="district-controls" style="display: flex; align-items: center; gap: 15px; margin: 10px 0; padding: 10px; background: rgba(255, 255, 255, 0.9); border-radius: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); flex-wrap: wrap;">
+      <div class="district-controls" style="display: flex; align-items: center; gap: 15px; margin: 10px 0; padding: 10px; background: rgba(255, 255, 255, 0.9); border-radius: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 5px;">
           <label for="targetDistricts">Target Districts:</label>
           <input type="number" 
@@ -150,34 +150,19 @@
             </div>
 
             <!-- Division Information -->
-            <div *ngIf="divisionResult && !enableStepThrough" class="division-info">
-              <h4>Division Results</h4>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>Division Type:</strong> Population-balanced geographic regions (50/50 split)
+            <div *ngIf="districtsResult && !enableStepThrough" class="division-info">
+              <h4>District Results</h4>
+              <p>
+                <strong>Total Districts:</strong> {{ districtsResult.districts.length }}
               </p>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>Total Population:</strong> {{ divisionResult.totalPopulation | number }}
+              <p>
+                <strong>Total Population:</strong> {{ districtsResult.totalPopulation | number }}
               </p>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>North Region:</strong> {{ divisionResult.northTracts.length | number }} tracts ({{ divisionResult.northPopulation | number }} people) - Blue
+              <p>
+                <strong>Average Population:</strong> {{ districtsResult.averagePopulation | number }}
               </p>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>South Region:</strong> {{ divisionResult.southTracts.length | number }} tracts ({{ divisionResult.southPopulation | number }} people) - Green
-              </p>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>Division Line:</strong> {{ divisionResult.divisionLine | number:'1.4-4' }}° latitude
-              </p>
-              <p *ngIf="divisionResult.divisionType === 'population'">
-                <strong>Population Balance:</strong> {{ (divisionResult.divisionLine * 100) | number:'1.1-1' }}% / {{ ((1 - divisionResult.divisionLine) * 100) | number:'1.1-1' }}%
-              </p>
-              <p *ngIf="divisionResult.divisionType !== 'population'">
-                <strong>Division Line:</strong> {{ divisionResult.divisionLine | number:'1.4-4' }}° {{ divisionResult.divisionType }}
-              </p>
-              <p *ngIf="divisionResult.divisionType !== 'population'">
-                <strong>North Tracts:</strong> {{ divisionResult.northTracts.length | number }} (Blue)
-              </p>
-              <p *ngIf="divisionResult.divisionType !== 'population'">
-                <strong>South Tracts:</strong> {{ divisionResult.southTracts.length | number }} (Green)
+              <p>
+                <strong>Population Variance:</strong> {{ districtsResult.populationVariance | number:'1.0-0' }}
               </p>
             </div>
             
@@ -194,27 +179,11 @@
               
               <!-- Regular Division Legend -->
               <div *ngIf="!enableStepThrough">
-                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType === 'population'">
+                <div class="legend-item" *ngIf="districtsResult">
                   <div class="legend-color" style="background: #007bff;"></div>
-                  <span>North Region ({{ divisionResult.northTracts.length | number }} tracts)</span>
+                  <span>Districts ({{ districtsResult.districts.length }}) - Various Colors</span>
                 </div>
-                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType === 'population'">
-                  <div class="legend-color" style="background: #28a745;"></div>
-                  <span>South Region ({{ divisionResult.southTracts.length | number }} tracts)</span>
-                </div>
-                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
-                  <div class="legend-color" style="background: #007bff;"></div>
-                  <span>North Region ({{ divisionResult.northTracts.length | number }} tracts)</span>
-                </div>
-                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
-                  <div class="legend-color" style="background: #28a745;"></div>
-                  <span>South Region ({{ divisionResult.southTracts.length | number }} tracts)</span>
-                </div>
-                <div class="legend-item" *ngIf="divisionResult && divisionResult.divisionType !== 'population'">
-                  <div class="legend-color" style="background: #dc3545; border: 2px dashed #dc3545;"></div>
-                  <span>Division Line</span>
-                </div>
-                <div class="legend-item" *ngIf="showTractBoundaries && !divisionResult">
+                <div class="legend-item" *ngIf="showTractBoundaries && !districtsResult">
                   <div class="legend-color tract-boundary"></div>
                   <span>Census Tract Boundaries</span>
                 </div>
@@ -253,7 +222,7 @@
   </div>
 
   <!-- Districts List Section -->
-  <div class="districts-section" *ngIf="useRecursiveDivision && districtsResult && districtsResult.districts.length > 0">
+    <div class="districts-section" *ngIf="districtsResult && districtsResult.districts.length > 0">
     <div class="districts-header">
       <h3>Districts List</h3>
       <div class="districts-controls">

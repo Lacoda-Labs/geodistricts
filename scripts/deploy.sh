@@ -50,6 +50,8 @@ echo -e "${BLUE}🔧 Enabling required APIs...${NC}"
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable artifactregistry.googleapis.com
+gcloud services enable firestore.googleapis.com
+gcloud services enable secretmanager.googleapis.com
 
 # Configure Docker for Artifact Registry
 echo -e "${BLUE}🔧 Configuring Docker for Artifact Registry...${NC}"
@@ -67,6 +69,15 @@ docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$BACKEND_SERV
 echo "  Pushing backend image to Artifact Registry..."
 docker push $REGION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$BACKEND_SERVICE:latest
 
+# Check if census-api-key secret exists
+echo "  Checking for census-api-key secret..."
+if ! gcloud secrets describe census-api-key &> /dev/null; then
+    echo -e "  ${YELLOW}⚠️  census-api-key secret not found. Please create it first:${NC}"
+    echo "     gcloud secrets create census-api-key --data-file=- <<< 'your-census-api-key'"
+    echo -e "  ${YELLOW}See CENSUS_API_KEY_SETUP.md for detailed instructions.${NC}"
+    exit 1
+fi
+
 # Deploy backend to Cloud Run
 echo "  Deploying backend to Cloud Run..."
 gcloud run deploy $BACKEND_SERVICE \
@@ -77,7 +88,9 @@ gcloud run deploy $BACKEND_SERVICE \
   --port 8080 \
   --memory 512Mi \
   --cpu 1 \
-  --max-instances 10
+  --max-instances 10 \
+  --set-env-vars NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID \
+  --set-env-vars FRONTEND_URL=https://geodistricts.org
 
 cd ..
 
@@ -132,10 +145,18 @@ echo -e "${BLUE}🧪 Testing deployment...${NC}"
 
 # Test backend health
 echo "  Testing backend health..."
-if curl -s -f "$BACKEND_URL/api/health" > /dev/null; then
+if curl -s -f "$BACKEND_URL/health" > /dev/null; then
     echo -e "  ${GREEN}✅ Backend is healthy${NC}"
 else
-    echo -e "  ${YELLOW}⚠️  Backend health check failed (this might be expected if no health endpoint exists)${NC}"
+    echo -e "  ${YELLOW}⚠️  Backend health check failed${NC}"
+fi
+
+# Test census proxy endpoints
+echo "  Testing census proxy endpoints..."
+if curl -s -f "$BACKEND_URL/api/census/cache-info" > /dev/null; then
+    echo -e "  ${GREEN}✅ Census proxy is working${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  Census proxy test failed${NC}"
 fi
 
 # Test frontend
@@ -152,9 +173,18 @@ echo "  ✅ Backend deployed to: $BACKEND_URL"
 echo "  ✅ Frontend deployed to: $FRONTEND_URL"
 echo ""
 echo -e "${BLUE}📝 Next Steps:${NC}"
-echo "  1. Visit the frontend URL to test the application"
-echo "  2. Check the browser console for any errors"
-echo "  3. Test the census tract mapping functionality"
-echo "  4. Verify all states load their complete tract data"
+echo "  1. Ensure the census-api-key secret is created with a valid API key:"
+echo "     gcloud secrets create census-api-key --data-file=- <<< 'your-census-api-key'"
+echo "  2. Grant Secret Manager access to the Cloud Run service:"
+echo "     gcloud projects add-iam-policy-binding $PROJECT_ID \\"
+echo "       --member=\"serviceAccount:\$(gcloud run services describe $BACKEND_SERVICE --region=$REGION --format='value(spec.template.spec.serviceAccountName)')\" \\"
+echo "       --role=\"roles/secretmanager.secretAccessor\""
+echo "  3. Visit the frontend URL to test the application"
+echo "  4. Check the browser console for any errors"
+echo "  5. Test the census tract mapping functionality"
+echo "  6. Verify all states load their complete tract data"
+echo "  7. Test the census proxy cache functionality"
 echo ""
-echo -e "${GREEN}🚀 GeoDistricts is now live on Google Cloud Run!${NC}"
+echo -e "${BLUE}📚 For detailed API key setup instructions, see: CENSUS_API_KEY_SETUP.md${NC}"
+echo ""
+echo -e "${GREEN}🚀 GeoDistricts is now live on Google Cloud Run with Census Proxy!${NC}"

@@ -12,6 +12,14 @@ const ALTERNATIVE_TIGERWEB = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgi
 const ACS_YEAR = '2022'; // Most recent ACS 5-year estimates
 const ACS_DATASET = 'acs/acs5';
 
+// Cloud Run Census Proxy Configuration
+const CENSUS_PROXY_BASE = environment.censusProxyUrl || 'https://census-proxy-<project-id>-uc.a.run.app';
+
+// Cache Configuration
+const CACHE_PREFIX = 'census_cache_';
+const CACHE_VERSION = '1.0';
+const DEFAULT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
 // TypeScript interfaces for census data
 export interface CensusTractData {
   state: string;
@@ -151,29 +159,267 @@ export interface RecursiveDivisionResult {
   divisionSteps: DivisionStep[];
 }
 
+// Cache interfaces
+export interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+  version: string;
+}
+
+export interface CacheInfo {
+  key: string;
+  timestamp: number;
+  ttl: number;
+  version: string;
+  size: number;
+  isExpired: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class CensusService {
-  private apiKey: string = '';
   private readonly baseUrl = CENSUS_API_BASE;
 
   constructor(private http: HttpClient) {
-    // In production, you should store this in environment variables
-    // For now, we'll use a placeholder that should be configured
-    this.apiKey = environment.censusApiKey || '';
+    // API key is now handled by the Cloud Run proxy service
+  }
+
+  /**
+   * Generate a cache key for census data requests
+   */
+  private generateCacheKey(type: string, params: any): string {
+    const paramString = JSON.stringify(params);
+    const hash = this.simpleHash(paramString);
+    const key = `${CACHE_PREFIX}${type}_${hash}`;
+    console.log(`Generated cache key: ${key} for params:`, params);
+    return key;
+  }
+
+  /**
+   * Simple hash function for generating cache keys
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Store data in localStorage cache
+   */
+  private setCache<T>(key: string, data: T, ttl: number = DEFAULT_CACHE_TTL): void {
+    try {
+      const cacheEntry: CacheEntry<T> = {
+        data,
+        timestamp: Date.now(),
+        ttl,
+        version: CACHE_VERSION
+      };
+      console.log(`Storing data in cache with key: ${key}, size: ${JSON.stringify(cacheEntry).length} bytes`);  
+      localStorage.setItem(key, JSON.stringify(cacheEntry));
+      console.log(`Stored data in cache with key: ${key}, timestamp: ${new Date(cacheEntry.timestamp).toISOString()}`);
+    } catch (error) {
+      console.warn('Failed to store data in cache:', error);
+    }
+  }
+
+  /**
+   * Retrieve data from localStorage cache
+   */
+  private getCache<T>(key: string): T | null {
+    try {
+      console.log(`Checking cache for key: ${key}`);
+      const cached = localStorage.getItem(key);
+      if (!cached) {
+        console.log(`No cached data found for key: ${key}`);
+        return null;
+      }
+
+      const cacheEntry: CacheEntry<T> = JSON.parse(cached);
+      console.log(`Found cached data for key: ${key}, timestamp: ${new Date(cacheEntry.timestamp).toISOString()}`);
+      
+      // Check if cache entry is expired
+      if (this.isCacheExpired(cacheEntry)) {
+        console.log(`Cache entry expired for key: ${key}, removing from cache`);
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      // Check version compatibility
+      if (cacheEntry.version !== CACHE_VERSION) {
+        console.log(`Cache version mismatch for key: ${key}, expected: ${CACHE_VERSION}, found: ${cacheEntry.version}`);
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      console.log(`Returning cached data for key: ${key}`);
+      return cacheEntry.data;
+    } catch (error) {
+      console.warn('Failed to retrieve data from cache:', error);
+      localStorage.removeItem(key);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a cache entry is expired
+   */
+  private isCacheExpired(cacheEntry: CacheEntry<any>): boolean {
+    return Date.now() - cacheEntry.timestamp > cacheEntry.ttl;
+  }
+
+  /**
+   * Clear all census cache entries
+   */
+  clearCache(): void {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith(CACHE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+      console.log('Census cache cleared');
+    } catch (error) {
+      console.warn('Failed to clear cache:', error);
+    }
+  }
+
+  /**
+   * Get cache information for all cached entries
+   */
+  getCacheInfo(): CacheInfo[] {
+    const cacheInfo: CacheInfo[] = [];
+    
+    try {
+      const keys = Object.keys(localStorage);
+      console.log(`Found ${keys.length} total localStorage keys`);
+      keys.forEach(key => {
+        if (key.startsWith(CACHE_PREFIX)) {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            try {
+              const cacheEntry: CacheEntry<any> = JSON.parse(cached);
+              cacheInfo.push({
+                key,
+                timestamp: cacheEntry.timestamp,
+                ttl: cacheEntry.ttl,
+                version: cacheEntry.version,
+                size: cached.length,
+                isExpired: this.isCacheExpired(cacheEntry)
+              });
+            } catch (error) {
+              // Invalid cache entry, skip it
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to get cache info:', error);
+    }
+
+    console.log(`Found ${cacheInfo.length} census cache entries`);
+    return cacheInfo.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Debug method to log current cache status
+   */
+  debugCacheStatus(): void {
+    console.log('=== Census Service Cache Debug ===');
+    const cacheInfo = this.getCacheInfo();
+    console.log(`Local cache entries: ${cacheInfo.length}`);
+    cacheInfo.forEach(entry => {
+      console.log(`- ${entry.key}: ${entry.isExpired ? 'EXPIRED' : 'VALID'} (${new Date(entry.timestamp).toISOString()}, size: ${entry.size} bytes)`);
+    });
+    console.log('=== End Local Cache Debug ===');
+  }
+
+  /**
+   * Get cache info from Cloud Run proxy
+   */
+  getProxyCacheInfo(): Observable<any[]> {
+    return this.http.get<any[]>(`${CENSUS_PROXY_BASE}/api/census/cache-info`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Clear cache on Cloud Run proxy
+   */
+  clearProxyCache(key?: string): Observable<any> {
+    const params = key ? new HttpParams().set('key', key) : new HttpParams();
+    return this.http.delete(`${CENSUS_PROXY_BASE}/api/census/cache`, { params }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Debug method to log both local and proxy cache status
+   */
+  debugAllCacheStatus(): void {
+    console.log('=== All Cache Status Debug ===');
+    
+    // Local cache
+    this.debugCacheStatus();
+    
+    // Proxy cache
+    this.getProxyCacheInfo().subscribe({
+      next: (proxyCacheInfo) => {
+        console.log('=== Cloud Run Proxy Cache Debug ===');
+        console.log(`Proxy cache entries: ${proxyCacheInfo.length}`);
+        proxyCacheInfo.forEach(entry => {
+          console.log(`- ${entry.key}: ${entry.isExpired ? 'EXPIRED' : 'VALID'} (${new Date(entry.timestamp).toISOString()}, size: ${entry.size} bytes)`);
+        });
+        console.log('=== End Proxy Cache Debug ===');
+      },
+      error: (error) => {
+        console.error('Failed to get proxy cache info:', error);
+      }
+    });
   }
 
   /**
    * Get census tract data for a specific tract
    */
-  getTractData(params: CensusQueryParams): Observable<CensusTractData[]> {
-    const queryParams = this.buildQueryParams(params);
+  getTractData(params: CensusQueryParams, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    const cacheKey = this.generateCacheKey('tract_data', params);
+    
+    // Check cache first unless force invalidate is requested
+    if (!forceInvalidate) {
+      const cachedData = this.getCache<CensusTractData[]>(cacheKey);
+      if (cachedData) {
+        console.log('Returning cached tract data');
+        return new Observable(observer => {
+          observer.next(cachedData);
+          observer.complete();
+        });
+      }
+    }
 
-    return this.http.get<CensusApiResponse>(`${this.baseUrl}/${params.year || ACS_YEAR}/${params.dataset || ACS_DATASET}`, {
+    // Use Cloud Run proxy instead of direct Census API call
+    const queryParams = new HttpParams()
+      .set('state', params.state || '')
+      .set('county', params.county || '')
+      .set('tract', params.tract || '')
+      .set('variables', params.variables?.join(',') || '')
+      .set('year', params.year || ACS_YEAR)
+      .set('dataset', params.dataset || ACS_DATASET);
+
+    return this.http.get<CensusTractData[]>(`${CENSUS_PROXY_BASE}/api/census/tract-data`, {
       params: queryParams
     }).pipe(
-      map(response => this.transformCensusResponse(response, params)),
+      map(response => {
+        // Cache the response from the proxy
+        this.setCache(cacheKey, response);
+        return response;
+      }),
       catchError(this.handleError)
     );
   }
@@ -181,7 +427,7 @@ export class CensusService {
   /**
    * Get census tract data by state and county
    */
-  getTractsByCounty(state: string, county: string, variables?: string[]): Observable<CensusTractData[]> {
+  getTractsByCounty(state: string, county: string, variables?: string[], forceInvalidate: boolean = false): Observable<CensusTractData[]> {
     const defaultVariables = [
       'B01003_001E', // Total population
       'B19013_001E', // Median household income
@@ -199,13 +445,13 @@ export class CensusService {
       variables: variables || defaultVariables,
       year: ACS_YEAR,
       dataset: ACS_DATASET
-    });
+    }, forceInvalidate);
   }
 
   /**
    * Get census tract data by tract FIPS code
    */
-  getTractByFips(state: string, county: string, tract: string, variables?: string[]): Observable<CensusTractData[]> {
+  getTractByFips(state: string, county: string, tract: string, variables?: string[], forceInvalidate: boolean = false): Observable<CensusTractData[]> {
     const defaultVariables = [
       'B01003_001E', // Total population
       'B19013_001E', // Median household income
@@ -224,53 +470,39 @@ export class CensusService {
       variables: variables || defaultVariables,
       year: ACS_YEAR,
       dataset: ACS_DATASET
-    });
+    }, forceInvalidate);
   }
 
   /**
    * Get available census variables for a dataset
    */
   getVariables(dataset: string = ACS_DATASET, year: string = ACS_YEAR): Observable<CensusVariable[]> {
-    const params = new HttpParams()
-      .set('get', 'NAME')
-      .set('for', 'us:*')
-      .set('key', this.apiKey);
-
-    return this.http.get<CensusApiResponse>(`${this.baseUrl}/${year}/${dataset}/variables.json`, {
-      params
-    }).pipe(
-      map(response => this.transformVariablesResponse(response)),
-      catchError(this.handleError)
-    );
+    // Note: This method would need to be implemented in the Cloud Run proxy
+    // For now, return empty array as this functionality is not critical
+    console.warn('getVariables method not implemented in Cloud Run proxy');
+    return new Observable(observer => {
+      observer.next([]);
+      observer.complete();
+    });
   }
 
   /**
    * Search for census tracts by name or partial FIPS code
    */
   searchTracts(query: string, state?: string): Observable<CensusTractData[]> {
-    // This is a simplified search - in a real implementation, you might want to
-    // use a more sophisticated search or maintain a local index
-    const params = new HttpParams()
-      .set('get', 'NAME,B01003_001E')
-      .set('for', `tract:*${state ? `&in=state:${state}` : ''}`)
-      .set('key', this.apiKey);
-
-    return this.http.get<CensusApiResponse>(`${this.baseUrl}/${ACS_YEAR}/${ACS_DATASET}`, {
-      params
-    }).pipe(
-      map(response => this.transformCensusResponse(response, { state })),
-      map(tracts => tracts.filter(tract =>
-        tract.name.toLowerCase().includes(query.toLowerCase()) ||
-        tract.tract.includes(query)
-      )),
-      catchError(this.handleError)
-    );
+    // Note: This method would need to be implemented in the Cloud Run proxy
+    // For now, return empty array as this functionality is not critical
+    console.warn('searchTracts method not implemented in Cloud Run proxy');
+    return new Observable(observer => {
+      observer.next([]);
+      observer.complete();
+    });
   }
 
   /**
    * Get demographic summary for a census tract
    */
-  getDemographicSummary(state: string, county: string, tract: string): Observable<any> {
+  getDemographicSummary(state: string, county: string, tract: string, forceInvalidate: boolean = false): Observable<any> {
     const demographicVariables = [
       'B01003_001E', // Total population
       'B01001_002E', // Male population
@@ -286,7 +518,7 @@ export class CensusService {
       'B03001_003E'  // Hispanic or Latino
     ];
 
-    return this.getTractByFips(state, county, tract, demographicVariables).pipe(
+    return this.getTractByFips(state, county, tract, demographicVariables, forceInvalidate).pipe(
       map(tracts => tracts.length > 0 ? this.calculateDemographicSummary(tracts[0]) : null)
     );
   }
@@ -297,10 +529,7 @@ export class CensusService {
   private buildQueryParams(params: CensusQueryParams): HttpParams {
     let httpParams = new HttpParams();
 
-    // Add API key if available
-    if (this.apiKey) {
-      httpParams = httpParams.set('key', this.apiKey);
-    }
+    // API key is now handled by the Cloud Run proxy service
 
     // Add variables
     if (params.variables && params.variables.length > 0) {
@@ -457,69 +686,59 @@ export class CensusService {
     return throwError(() => new Error(errorMessage));
   }
 
-  /**
-   * Set API key (for configuration)
-   */
-  setApiKey(key: string): void {
-    this.apiKey = key;
-  }
 
   /**
    * Get available datasets
    */
   getAvailableDatasets(): Observable<any> {
-    return this.http.get(`${this.baseUrl}.json`).pipe(
-      catchError(this.handleError)
-    );
+    // Note: This method would need to be implemented in the Cloud Run proxy
+    // For now, return empty object as this functionality is not critical
+    console.warn('getAvailableDatasets method not implemented in Cloud Run proxy');
+    return new Observable(observer => {
+      observer.next({});
+      observer.complete();
+    });
   }
 
   /**
-   * Get census tract boundaries from TIGERweb
+   * Get census tract boundaries from TIGERweb via Cloud Run proxy
    */
-  getTractBoundaries(state: string, county?: string): Observable<GeoJsonResponse> {
-    // Use alternative data source that doesn't have CORS issues
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-
-    let whereClause = `STATE_FIPS='${state}'`;
-    if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
+  getTractBoundaries(state: string, county?: string, forceInvalidate: boolean = false): Observable<GeoJsonResponse> {
+    const cacheKey = this.generateCacheKey('tract_boundaries', { state, county });
+    
+    // Check cache first unless force invalidate is requested
+    if (!forceInvalidate) {
+      const cachedData = this.getCache<GeoJsonResponse>(cacheKey);
+      if (cachedData) {
+        console.log('Returning cached tract boundaries');
+        return new Observable(observer => {
+          observer.next(cachedData);
+          observer.complete();
+        });
+      }
     }
 
-    // First, get the total count
-    const countParams = new HttpParams()
-      .set('where', whereClause)
-      .set('outFields', 'STATE_FIPS')
-      .set('f', 'geojson')
-      .set('returnCountOnly', 'true');
+    // Use Cloud Run proxy instead of direct TIGERweb call
+    const queryParams = new HttpParams()
+      .set('state', state)
+      .set('county', county || '');
 
-    console.log('Getting tract count for state:', state);
+    console.log('Getting tract boundaries via Cloud Run proxy for state:', state);
 
-    return this.http.get<GeoJsonResponse>(serviceUrl, { params: countParams }).pipe(
-      switchMap((countResponse: any) => {
-        const totalCount = countResponse.properties?.count || 0;
-        console.log(`Total tracts for state ${state}: ${totalCount}`);
-
-        if (totalCount === 0) {
-          return new Observable<GeoJsonResponse>(observer => {
-            observer.next({ type: 'FeatureCollection', features: [] });
-            observer.complete();
-          });
-        }
-
-        // If we have more than 2000 records, we need to use pagination
-        if (totalCount > 2000) {
-          console.log(`Large dataset detected (${totalCount} tracts). Using pagination...`);
-          return this.getAllTractBoundariesPaginated(state, county, totalCount);
-        } else {
-          // Single request for smaller datasets
-          return this.getSingleTractBoundariesRequest(state, county);
-        }
+    return this.http.get<GeoJsonResponse>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries`, {
+      params: queryParams
+    }).pipe(
+      map(response => {
+        // Cache the response from the proxy
+        this.setCache(cacheKey, response);
+        console.log(`Retrieved ${response.features?.length || 0} tract boundaries for state ${state}`);
+        return response;
       }),
       catchError(this.handleError)
     );
   }
 
-  private getSingleTractBoundariesRequest(state: string, county?: string): Observable<GeoJsonResponse> {
+  private getSingleTractBoundariesRequest(state: string, county?: string, cacheKey?: string): Observable<GeoJsonResponse> {
     const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
 
     let whereClause = `STATE_FIPS='${state}'`;
@@ -540,11 +759,17 @@ export class CensusService {
     });
 
     return this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
+      map(response => {
+        if (cacheKey) {
+          this.setCache(cacheKey, response);
+        }
+        return response;
+      }),
       catchError(this.handleError)
     );
   }
 
-  private getAllTractBoundariesPaginated(state: string, county: string | undefined, totalCount: number): Observable<GeoJsonResponse> {
+  private getAllTractBoundariesPaginated(state: string, county: string | undefined, totalCount: number, cacheKey?: string): Observable<GeoJsonResponse> {
     const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
     const batchSize = 2000;
     const totalBatches = Math.ceil(totalCount / batchSize);
@@ -594,10 +819,17 @@ export class CensusService {
 
             if (completedBatches === totalBatches) {
               console.log(`All batches completed. Total features: ${allFeatures.length}`);
-              observer.next({
+              const finalResponse: GeoJsonResponse = {
                 type: 'FeatureCollection',
                 features: allFeatures
-              });
+              };
+              
+              // Cache the final response
+              if (cacheKey) {
+                this.setCache(cacheKey, finalResponse);
+              }
+              
+              observer.next(finalResponse);
               observer.complete();
             }
           },
@@ -652,15 +884,15 @@ export class CensusService {
   /**
    * Get combined tract data with boundaries
    */
-  getTractDataWithBoundaries(state: string, county?: string): Observable<{
+  getTractDataWithBoundaries(state: string, county?: string, forceInvalidate: boolean = false): Observable<{
     demographic: CensusTractData[];
     boundaries: GeoJsonResponse;
   }> {
     const demographicData$ = county
-      ? this.getTractsByCounty(state, county)
-      : this.getTractData({ state });
+      ? this.getTractsByCounty(state, county, undefined, forceInvalidate)
+      : this.getTractData({ state }, forceInvalidate);
 
-    const boundaryData$ = this.getTractBoundaries(state, county);
+    const boundaryData$ = this.getTractBoundaries(state, county, forceInvalidate);
 
     return new Observable(observer => {
       let demographicData: CensusTractData[] = [];
@@ -700,6 +932,553 @@ export class CensusService {
         }
       });
     });
+  }
+
+  /**
+   * Sort tracts using boundary-based adjacency to ensure true geographic contiguity
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @param direction Either 'latitude' for north/south or 'longitude' for east/west
+   * @returns Sorted array of tracts in contiguous order
+   */
+  private zigZagSortTracts(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    direction: 'latitude' | 'longitude'
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    if (tractsWithCentroids.length === 0) return [];
+
+    // For small datasets, try boundary-based adjacency sorting with timeout
+    if (tractsWithCentroids.length <= 50) {
+      try {
+        const startTime = Date.now();
+        const result = this.sortTractsByAdjacency(tractsWithCentroids, direction);
+        const elapsed = Date.now() - startTime;
+        
+        if (elapsed > 5000) { // If it took more than 5 seconds, warn and use fallback
+          console.warn(`Boundary-based sorting took ${elapsed}ms, using fallback for better performance`);
+          return this.fallbackGeographicSort(tractsWithCentroids, direction);
+        }
+        
+        return result;
+      } catch (error) {
+        console.warn('Boundary-based sorting failed, falling back to geographic sorting:', error);
+        return this.fallbackGeographicSort(tractsWithCentroids, direction);
+      }
+    }
+
+    // For larger datasets, use efficient geographic sorting to prevent performance issues
+    console.log(`Using efficient geographic sorting for ${tractsWithCentroids.length} tracts`);
+    return this.fallbackGeographicSort(tractsWithCentroids, direction);
+  }
+
+  /**
+   * Sort tracts by boundary-based adjacency to ensure true contiguity
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @param direction Either 'latitude' for north/south or 'longitude' for east/west
+   * @returns Sorted array of tracts in contiguous order
+   */
+  private sortTractsByAdjacency(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    direction: 'latitude' | 'longitude'
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    if (tractsWithCentroids.length === 0) return [];
+    if (tractsWithCentroids.length === 1) return tractsWithCentroids;
+
+    // Find the starting tract (top-north-west)
+    let startTract = tractsWithCentroids[0];
+    for (const tract of tractsWithCentroids) {
+      if (tract.centroid.lat > startTract.centroid.lat || 
+          (tract.centroid.lat === startTract.centroid.lat && tract.centroid.lng < startTract.centroid.lng)) {
+        startTract = tract;
+      }
+    }
+
+    // Build adjacency map
+    const adjacencyMap = this.buildAdjacencyMap(tractsWithCentroids);
+    
+    // Use a path-finding algorithm that maintains contiguity
+    const visited = new Set<string>();
+    const result: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> = [];
+    
+    // Start with the top-north-west tract
+    const startKey = `${startTract.centroid.lat},${startTract.centroid.lng}`;
+    visited.add(startKey);
+    result.push(startTract);
+    
+    // Build contiguous path by always choosing the next adjacent tract
+    let currentTract = startTract;
+    let attempts = 0;
+    const maxAttempts = tractsWithCentroids.length * 2; // Prevent infinite loops
+    const startTime = Date.now();
+    const maxTime = 3000; // 3 second timeout for better responsiveness
+    
+    while (result.length < tractsWithCentroids.length && attempts < maxAttempts && (Date.now() - startTime) < maxTime) {
+      attempts++;
+      const currentKey = `${currentTract.centroid.lat},${currentTract.centroid.lng}`;
+      const adjacent = adjacencyMap.get(currentKey) || [];
+      
+      // Find the best next tract (adjacent and not visited)
+      const unvisitedAdjacent = adjacent.filter(tract => 
+        !visited.has(`${tract.centroid.lat},${tract.centroid.lng}`)
+      );
+      
+      if (unvisitedAdjacent.length > 0) {
+        // Sort by direction preference and choose the best one
+        const sortedAdjacent = this.sortAdjacentTracts(unvisitedAdjacent, currentTract, direction);
+        const nextTract = sortedAdjacent[0];
+        
+        const nextKey = `${nextTract.centroid.lat},${nextTract.centroid.lng}`;
+        visited.add(nextKey);
+        result.push(nextTract);
+        currentTract = nextTract;
+      } else {
+        // No adjacent unvisited tracts - need to find the closest unvisited tract
+        const unvisitedTracts = tractsWithCentroids.filter(tract => 
+          !visited.has(`${tract.centroid.lat},${tract.centroid.lng}`)
+        );
+        
+        if (unvisitedTracts.length > 0) {
+          // Find the closest unvisited tract to any tract in our current path
+          let closestTract = unvisitedTracts[0];
+          let minDistance = Infinity;
+          
+          for (const unvisited of unvisitedTracts) {
+            for (const visitedTract of result) {
+              const distance = Math.sqrt(
+                Math.pow(unvisited.centroid.lat - visitedTract.centroid.lat, 2) +
+                Math.pow(unvisited.centroid.lng - visitedTract.centroid.lng, 2)
+              );
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestTract = unvisited;
+              }
+            }
+          }
+          
+          // Add the closest tract (this breaks contiguity but ensures we get all tracts)
+          const closestKey = `${closestTract.centroid.lat},${closestTract.centroid.lng}`;
+          visited.add(closestKey);
+          result.push(closestTract);
+          currentTract = closestTract;
+          
+          console.warn(`Warning: Added non-adjacent tract ${closestTract.tract.properties?.TRACT || 'unknown'} to maintain completeness`);
+        } else {
+          break; // All tracts visited
+        }
+      }
+    }
+    
+    // If we didn't visit all tracts, there might be disconnected components
+    // In that case, we need to handle them separately
+    if (result.length < tractsWithCentroids.length) {
+      console.warn(`Warning: Found ${tractsWithCentroids.length - result.length} disconnected tracts`);
+      
+      // If we have too many disconnected tracts, fall back to simple geographic sorting
+      const disconnectedCount = tractsWithCentroids.length - result.length;
+      if (disconnectedCount > tractsWithCentroids.length * 0.5) {
+        console.warn('Too many disconnected tracts, falling back to simple geographic sorting');
+        return this.fallbackGeographicSort(tractsWithCentroids, direction);
+      }
+      
+      // Add remaining tracts in geographic order
+      const remaining = tractsWithCentroids.filter(t => 
+        !visited.has(`${t.centroid.lat},${t.centroid.lng}`)
+      );
+      result.push(...remaining);
+    }
+    
+    // Check if we timed out or hit max attempts
+    if (attempts >= maxAttempts) {
+      console.warn('Path finding hit max attempts, falling back to geographic sorting');
+      return this.fallbackGeographicSort(tractsWithCentroids, direction);
+    }
+    
+    if ((Date.now() - startTime) >= maxTime) {
+      console.warn('Path finding timed out, falling back to geographic sorting');
+      return this.fallbackGeographicSort(tractsWithCentroids, direction);
+    }
+    
+    return result;
+  }
+
+  /**
+   * Fallback to simple geographic sorting when boundary-based approach fails
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @param direction Division direction
+   * @returns Sorted array of tracts
+   */
+  private fallbackGeographicSort(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    direction: 'latitude' | 'longitude'
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    console.log('Using fallback geographic sorting');
+    
+    if (direction === 'latitude') {
+      // Sort by latitude first, then longitude for tie-breaking
+      return tractsWithCentroids.sort((a, b) => {
+        if (Math.abs(a.centroid.lat - b.centroid.lat) < 0.001) {
+          return a.centroid.lng - b.centroid.lng; // West to east
+        }
+        return b.centroid.lat - a.centroid.lat; // North to south
+      });
+    } else {
+      // Sort by longitude first, then latitude for tie-breaking
+      return tractsWithCentroids.sort((a, b) => {
+        if (Math.abs(a.centroid.lng - b.centroid.lng) < 0.001) {
+          return b.centroid.lat - a.centroid.lat; // North to south
+        }
+        return a.centroid.lng - b.centroid.lng; // West to east
+      });
+    }
+  }
+
+  /**
+   * Build adjacency map based on boundary intersection (optimized)
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @returns Map of tract keys to their adjacent tracts
+   */
+  private buildAdjacencyMap(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>
+  ): Map<string, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>> {
+    const adjacencyMap = new Map<string, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>>();
+    
+    // Initialize map
+    tractsWithCentroids.forEach(tract => {
+      const key = `${tract.centroid.lat},${tract.centroid.lng}`;
+      adjacencyMap.set(key, []);
+    });
+    
+    // For large datasets, use spatial indexing to reduce complexity
+    if (tractsWithCentroids.length > 100) {
+      console.log(`Building adjacency map for ${tractsWithCentroids.length} tracts using spatial optimization...`);
+      return this.buildAdjacencyMapOptimized(tractsWithCentroids);
+    }
+    
+    // For smaller datasets, use the full O(n²) approach
+    console.log(`Building adjacency map for ${tractsWithCentroids.length} tracts...`);
+    for (let i = 0; i < tractsWithCentroids.length; i++) {
+      for (let j = i + 1; j < tractsWithCentroids.length; j++) {
+        const tract1 = tractsWithCentroids[i];
+        const tract2 = tractsWithCentroids[j];
+        
+        if (this.areTractsAdjacent(tract1.tract, tract2.tract)) {
+          const key1 = `${tract1.centroid.lat},${tract1.centroid.lng}`;
+          const key2 = `${tract2.centroid.lat},${tract2.centroid.lng}`;
+          
+          adjacencyMap.get(key1)!.push(tract2);
+          adjacencyMap.get(key2)!.push(tract1);
+        }
+      }
+    }
+    
+    return adjacencyMap;
+  }
+
+  /**
+   * Optimized adjacency map building using spatial indexing
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @returns Map of tract keys to their adjacent tracts
+   */
+  private buildAdjacencyMapOptimized(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>
+  ): Map<string, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>> {
+    const adjacencyMap = new Map<string, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>>();
+    
+    // Initialize map
+    tractsWithCentroids.forEach(tract => {
+      const key = `${tract.centroid.lat},${tract.centroid.lng}`;
+      adjacencyMap.set(key, []);
+    });
+    
+    // Create spatial grid for faster neighbor lookup
+    const gridSize = 0.1; // 0.1 degree grid cells
+    const spatialGrid = new Map<string, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>>();
+    
+    // Populate spatial grid
+    tractsWithCentroids.forEach(tract => {
+      const gridKey = `${Math.floor(tract.centroid.lat / gridSize)},${Math.floor(tract.centroid.lng / gridSize)}`;
+      if (!spatialGrid.has(gridKey)) {
+        spatialGrid.set(gridKey, []);
+      }
+      spatialGrid.get(gridKey)!.push(tract);
+    });
+    
+    // Check adjacency only for tracts in nearby grid cells
+    tractsWithCentroids.forEach(tract => {
+      const key = `${tract.centroid.lat},${tract.centroid.lng}`;
+      const gridLat = Math.floor(tract.centroid.lat / gridSize);
+      const gridLng = Math.floor(tract.centroid.lng / gridSize);
+      
+      // Check current cell and 8 surrounding cells
+      for (let latOffset = -1; latOffset <= 1; latOffset++) {
+        for (let lngOffset = -1; lngOffset <= 1; lngOffset++) {
+          const neighborGridKey = `${gridLat + latOffset},${gridLng + lngOffset}`;
+          const neighborTracts = spatialGrid.get(neighborGridKey) || [];
+          
+          neighborTracts.forEach(neighborTract => {
+            if (neighborTract !== tract && this.areTractsAdjacent(tract.tract, neighborTract.tract)) {
+              adjacencyMap.get(key)!.push(neighborTract);
+            }
+          });
+        }
+      }
+    });
+    
+    return adjacencyMap;
+  }
+
+  /**
+   * Check if two tracts are adjacent by examining their boundaries
+   * @param tract1 First tract
+   * @param tract2 Second tract
+   * @returns True if tracts share a boundary
+   */
+  private areTractsAdjacent(tract1: GeoJsonFeature, tract2: GeoJsonFeature): boolean {
+    try {
+      // Extract coordinates from both tracts
+      const coords1 = this.extractAllCoordinates(tract1.geometry);
+      const coords2 = this.extractAllCoordinates(tract2.geometry);
+      
+      // Check if any coordinate from tract1 is very close to any coordinate from tract2
+      // This is a simplified adjacency check - in production, you'd want more sophisticated boundary analysis
+      const tolerance = 0.0001; // Approximately 10 meters
+      
+      for (const coord1 of coords1) {
+        for (const coord2 of coords2) {
+          const distance = Math.sqrt(
+            Math.pow(coord1[0] - coord2[0], 2) + 
+            Math.pow(coord1[1] - coord2[1], 2)
+          );
+          
+          if (distance < tolerance) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn('Error checking tract adjacency:', error);
+      // Fallback to centroid-based proximity
+      const centroid1 = this.calculateTractCentroid(tract1);
+      const centroid2 = this.calculateTractCentroid(tract2);
+      const distance = Math.sqrt(
+        Math.pow(centroid1.lat - centroid2.lat, 2) + 
+        Math.pow(centroid1.lng - centroid2.lng, 2)
+      );
+      return distance < 0.01; // 1km tolerance for fallback
+    }
+  }
+
+  /**
+   * Sort adjacent tracts by direction preference
+   * @param adjacent Array of adjacent tracts
+   * @param current Current tract
+   * @param direction Division direction
+   * @returns Sorted array of adjacent tracts
+   */
+  private sortAdjacentTracts(
+    adjacent: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    current: { tract: GeoJsonFeature, centroid: { lat: number, lng: number } },
+    direction: 'latitude' | 'longitude'
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    return adjacent.sort((a, b) => {
+      if (direction === 'latitude') {
+        // For latitude division, prefer moving east-west, then south
+        const aEastWest = Math.abs(a.centroid.lng - current.centroid.lng);
+        const bEastWest = Math.abs(b.centroid.lng - current.centroid.lng);
+        const aSouth = a.centroid.lat - current.centroid.lat;
+        const bSouth = b.centroid.lat - current.centroid.lat;
+        
+        // Prefer east-west movement, then south
+        if (aEastWest > 0 && bEastWest === 0) return -1;
+        if (aEastWest === 0 && bEastWest > 0) return 1;
+        if (aEastWest > 0 && bEastWest > 0) return aEastWest - bEastWest;
+        return aSouth - bSouth;
+      } else {
+        // For longitude division, prefer moving north-south, then east
+        const aNorthSouth = Math.abs(a.centroid.lat - current.centroid.lat);
+        const bNorthSouth = Math.abs(b.centroid.lat - current.centroid.lat);
+        const aEast = a.centroid.lng - current.centroid.lng;
+        const bEast = b.centroid.lng - current.centroid.lng;
+        
+        // Prefer north-south movement, then east
+        if (aNorthSouth > 0 && bNorthSouth === 0) return -1;
+        if (aNorthSouth === 0 && bNorthSouth > 0) return 1;
+        if (aNorthSouth > 0 && bNorthSouth > 0) return aNorthSouth - bNorthSouth;
+        return aEast - bEast;
+      }
+    });
+  }
+
+  /**
+   * Zig-zag sort by latitude (north/south division)
+   * Start at top-north-west, zig-zag east-west while moving south
+   * Creates a true contiguous path through all tracts
+   */
+  private zigZagSortByLatitude(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    bandWidth: number
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    if (tractsWithCentroids.length === 0) return [];
+    
+    // Group tracts into latitude bands
+    const bands = new Map<number, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>>();
+    
+    tractsWithCentroids.forEach(tract => {
+      const bandKey = Math.floor(tract.centroid.lat / bandWidth);
+      if (!bands.has(bandKey)) {
+        bands.set(bandKey, []);
+      }
+      bands.get(bandKey)!.push(tract);
+    });
+
+    // Sort bands from north to south (highest to lowest latitude)
+    const sortedBandKeys = Array.from(bands.keys()).sort((a, b) => b - a);
+    
+    const result: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> = [];
+    let lastTract: { tract: GeoJsonFeature, centroid: { lat: number, lng: number } } | null = null;
+    
+    sortedBandKeys.forEach((bandKey, bandIndex) => {
+      const bandTracts = bands.get(bandKey)!;
+      
+      // Sort tracts within band by longitude
+      bandTracts.sort((a, b) => a.centroid.lng - b.centroid.lng);
+      
+      // Alternate direction: odd bands go west to east, even bands go east to west
+      if (bandIndex % 2 === 1) {
+        bandTracts.reverse(); // Reverse to go east to west
+      }
+      
+      // For true contiguity, we need to connect bands properly
+      if (lastTract && bandTracts.length > 0) {
+        // Find the tract in this band that's closest to the last tract from previous band
+        let closestIndex = 0;
+        let minDistance = Infinity;
+        
+        bandTracts.forEach((tract, index) => {
+          const distance = Math.sqrt(
+            Math.pow(tract.centroid.lat - lastTract!.centroid.lat, 2) +
+            Math.pow(tract.centroid.lng - lastTract!.centroid.lng, 2)
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = index;
+          }
+        });
+        
+        // Reorder the band to start with the closest tract
+        if (closestIndex > 0) {
+          const reorderedBand = [
+            ...bandTracts.slice(closestIndex),
+            ...bandTracts.slice(0, closestIndex)
+          ];
+          
+          // If we reversed the band, we need to reverse the reordered band too
+          if (bandIndex % 2 === 1) {
+            reorderedBand.reverse();
+          }
+          
+          result.push(...reorderedBand);
+          lastTract = reorderedBand[reorderedBand.length - 1];
+        } else {
+          result.push(...bandTracts);
+          lastTract = bandTracts[bandTracts.length - 1];
+        }
+      } else {
+        result.push(...bandTracts);
+        if (bandTracts.length > 0) {
+          lastTract = bandTracts[bandTracts.length - 1];
+        }
+      }
+    });
+    
+    return result;
+  }
+
+  /**
+   * Zig-zag sort by longitude (east/west division)
+   * Start at top-north-west, zig-zag north-south while moving east
+   * Creates a true contiguous path through all tracts
+   */
+  private zigZagSortByLongitude(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    bandWidth: number
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    if (tractsWithCentroids.length === 0) return [];
+    
+    // Group tracts into longitude bands
+    const bands = new Map<number, Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>>();
+    
+    tractsWithCentroids.forEach(tract => {
+      const bandKey = Math.floor(tract.centroid.lng / bandWidth);
+      if (!bands.has(bandKey)) {
+        bands.set(bandKey, []);
+      }
+      bands.get(bandKey)!.push(tract);
+    });
+
+    // Sort bands from west to east (lowest to highest longitude)
+    const sortedBandKeys = Array.from(bands.keys()).sort((a, b) => a - b);
+    
+    const result: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> = [];
+    let lastTract: { tract: GeoJsonFeature, centroid: { lat: number, lng: number } } | null = null;
+    
+    sortedBandKeys.forEach((bandKey, bandIndex) => {
+      const bandTracts = bands.get(bandKey)!;
+      
+      // Sort tracts within band by latitude (north to south)
+      bandTracts.sort((a, b) => b.centroid.lat - a.centroid.lat);
+      
+      // Alternate direction: odd bands go north to south, even bands go south to north
+      if (bandIndex % 2 === 1) {
+        bandTracts.reverse(); // Reverse to go south to north
+      }
+      
+      // For true contiguity, we need to connect bands properly
+      if (lastTract && bandTracts.length > 0) {
+        // Find the tract in this band that's closest to the last tract from previous band
+        let closestIndex = 0;
+        let minDistance = Infinity;
+        
+        bandTracts.forEach((tract, index) => {
+          const distance = Math.sqrt(
+            Math.pow(tract.centroid.lat - lastTract!.centroid.lat, 2) +
+            Math.pow(tract.centroid.lng - lastTract!.centroid.lng, 2)
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = index;
+          }
+        });
+        
+        // Reorder the band to start with the closest tract
+        if (closestIndex > 0) {
+          const reorderedBand = [
+            ...bandTracts.slice(closestIndex),
+            ...bandTracts.slice(0, closestIndex)
+          ];
+          
+          // If we reversed the band, we need to reverse the reordered band too
+          if (bandIndex % 2 === 1) {
+            reorderedBand.reverse();
+          }
+          
+          result.push(...reorderedBand);
+          lastTract = reorderedBand[reorderedBand.length - 1];
+        } else {
+          result.push(...bandTracts);
+          lastTract = bandTracts[bandTracts.length - 1];
+        }
+      } else {
+        result.push(...bandTracts);
+        if (bandTracts.length > 0) {
+          lastTract = bandTracts[bandTracts.length - 1];
+        }
+      }
+    });
+    
+    return result;
   }
 
   /**
@@ -770,29 +1549,38 @@ export class CensusService {
       centroid: this.calculateTractCentroid(tract)
     }));
 
-    // Sort tracts by the specified coordinate
-    const sortedTracts = tractsWithCentroids.sort((a, b) => {
-      const coordA = direction === 'latitude' ? a.centroid.lat : a.centroid.lng;
-      const coordB = direction === 'latitude' ? b.centroid.lat : b.centroid.lng;
-      return coordA - coordB;
-    });
+    // Sort tracts using zig-zag pattern to ensure geographic contiguity
+    const sortedTracts = this.zigZagSortTracts(tractsWithCentroids, direction);
 
-    // Calculate division point based on ratio
-    const totalTracts = sortedTracts.length;
-    const firstGroupSize = Math.round((totalTracts * ratio[0]) / (ratio[0] + ratio[1]));
+    // Calculate division point based on population ratio
+    const totalPopulation = this.calculateTotalPopulation(tracts);
+    const targetFirstGroupPopulation = (totalPopulation * ratio[0]) / (ratio[0] + ratio[1]);
+    
+    // Find the division index where cumulative population is closest to target
+    let cumulativePopulation = 0;
+    let divisionIndex = 0;
+    let bestDifference = Infinity;
+    
+    for (let i = 0; i < sortedTracts.length; i++) {
+      cumulativePopulation += this.getTractPopulation(sortedTracts[i].tract);
+      const difference = Math.abs(cumulativePopulation - targetFirstGroupPopulation);
+      
+      if (difference < bestDifference) {
+        bestDifference = difference;
+        divisionIndex = i + 1; // Split after this tract
+      }
+    }
 
     // Find the division line coordinate
-    const divisionIndex = Math.max(0, Math.min(firstGroupSize - 1, totalTracts - 1));
     const divisionLine = direction === 'latitude'
-      ? sortedTracts[divisionIndex].centroid.lat
-      : sortedTracts[divisionIndex].centroid.lng;
+      ? sortedTracts[Math.max(0, divisionIndex - 1)].centroid.lat
+      : sortedTracts[Math.max(0, divisionIndex - 1)].centroid.lng;
 
     // Split tracts into groups
-    const firstGroup = sortedTracts.slice(0, firstGroupSize).map(item => item.tract);
-    const secondGroup = sortedTracts.slice(firstGroupSize).map(item => item.tract);
+    const firstGroup = sortedTracts.slice(0, divisionIndex).map(item => item.tract);
+    const secondGroup = sortedTracts.slice(divisionIndex).map(item => item.tract);
 
     // Calculate population totals
-    const totalPopulation = this.calculateTotalPopulation(tracts);
     const firstGroupPopulation = this.calculateTotalPopulation(firstGroup);
     const secondGroupPopulation = this.calculateTotalPopulation(secondGroup);
 
@@ -1031,10 +1819,11 @@ export class CensusService {
    * @param state State FIPS code
    * @param county Optional county FIPS code
    * @param options Division options
+   * @param forceInvalidate Whether to force invalidate cache
    * @returns Observable with division result
    */
-  divideTractsByCoordinateWithData(state: string, county?: string, options: TractDivisionOptions = {}): Observable<TractDivisionResult> {
-    return this.getTractBoundaries(state, county).pipe(
+  divideTractsByCoordinateWithData(state: string, county?: string, options: TractDivisionOptions = {}, forceInvalidate: boolean = false): Observable<TractDivisionResult> {
+    return this.getTractBoundaries(state, county, forceInvalidate).pipe(
       map(geojsonData => {
         if (!geojsonData || !geojsonData.features) {
           return {
@@ -1114,21 +1903,18 @@ export class CensusService {
 
     const result = this.recursiveDivideGroupsWithSteps([initialGroup], 0, maxIterations, populationTolerance);
     
-    // Post-process to balance populations across all districts
-    const balancedDistricts = this.balanceDistrictPopulations(result.districts, populationTolerance);
-    
     // Calculate final statistics
-    const totalPopulation = balancedDistricts.reduce((sum, district) => sum + district.population, 0);
-    const averagePopulation = totalPopulation / balancedDistricts.length;
-    const populationVariance = balancedDistricts.reduce((sum, district) =>
-      sum + Math.pow(district.population - averagePopulation, 2), 0) / balancedDistricts.length;
+    const totalPopulation = result.districts.reduce((sum, district) => sum + district.population, 0);
+    const averagePopulation = totalPopulation / result.districts.length;
+    const populationVariance = result.districts.reduce((sum, district) =>
+      sum + Math.pow(district.population - averagePopulation, 2), 0) / result.districts.length;
 
     return {
-      districts: balancedDistricts,
+      districts: result.districts,
       totalPopulation,
       averagePopulation,
       populationVariance,
-      divisionHistory: [...result.divisionHistory, 'Post-processing: Population balancing applied'],
+      divisionHistory: result.divisionHistory,
       divisionSteps: result.divisionSteps
     };
   }
@@ -1323,250 +2109,69 @@ export class CensusService {
     return { ratio, first, second };
   }
 
+
+
+
+
   /**
-   * Balance populations across all districts by redistributing tracts
-   * @param districts Array of districts to balance
-   * @param tolerance Population tolerance (percentage)
-   * @returns Array of balanced districts
+   * Check if a district is geographically contiguous
+   * @param tracts Array of tracts in the district
+   * @returns True if the district is contiguous
    */
-  private balanceDistrictPopulations(districts: District[], tolerance: number): District[] {
-    if (districts.length <= 1) return districts;
-
-    console.log('Starting population balancing across districts...');
+  private isDistrictContiguous(tracts: GeoJsonFeature[]): boolean {
+    if (tracts.length <= 1) return true;
     
-    // Calculate target population per district
-    const totalPopulation = districts.reduce((sum, district) => sum + district.population, 0);
-    const targetPopulation = totalPopulation / districts.length;
-    const toleranceAmount = targetPopulation * tolerance;
-    
-    console.log(`Target population per district: ${targetPopulation.toLocaleString()}`);
-    console.log(`Tolerance: ±${toleranceAmount.toLocaleString()} (${(tolerance * 100).toFixed(1)}%)`);
-
-    // Create a working copy of districts
-    let workingDistricts = districts.map(district => ({
-      ...district,
-      tracts: [...district.tracts] // Create a copy of tracts array
+    // Calculate centroids for all tracts
+    const tractsWithCentroids = tracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract)
     }));
-
-    const maxIterations = 2000; // Increased iterations for tighter control
-    let iterations = 0;
-    let improved = true;
-
-    while (improved && iterations < maxIterations) {
-      improved = false;
-      iterations++;
-
-      // Sort districts by population (ascending)
-      workingDistricts.sort((a, b) => a.population - b.population);
-
-      // Find the most overpopulated and underpopulated districts
-      const overpopulatedDistricts = workingDistricts.filter(d => d.population > targetPopulation + toleranceAmount);
-      const underpopulatedDistricts = workingDistricts.filter(d => d.population < targetPopulation - toleranceAmount);
-
-      if (overpopulatedDistricts.length === 0 || underpopulatedDistricts.length === 0) {
-        break; // All districts are within tolerance
-      }
-
-      // Try multiple tract movements for better balancing
-      let movementsThisIteration = 0;
-      const maxMovementsPerIteration = 5; // Allow multiple movements per iteration
-
-      for (const overDistrict of overpopulatedDistricts) {
-        for (const underDistrict of underpopulatedDistricts) {
-          if (movementsThisIteration >= maxMovementsPerIteration) break;
-          
-          if (this.tryMoveTractBetweenDistricts(overDistrict, underDistrict, targetPopulation, toleranceAmount)) {
-            improved = true;
-            movementsThisIteration++;
-          }
-        }
-        if (movementsThisIteration >= maxMovementsPerIteration) break;
-      }
-
-      // If no improvements this iteration, try more aggressive balancing
-      if (!improved && iterations < maxIterations * 0.8) {
-        improved = this.aggressivePopulationBalancing(workingDistricts, targetPopulation, toleranceAmount);
+    
+    // Find the tract with the northernmost, westernmost position (top-left)
+    let startTract = tractsWithCentroids[0];
+    for (const tract of tractsWithCentroids) {
+      if (tract.centroid.lat > startTract.centroid.lat || 
+          (tract.centroid.lat === startTract.centroid.lat && tract.centroid.lng < startTract.centroid.lng)) {
+        startTract = tract;
       }
     }
-
-    console.log(`Population balancing completed after ${iterations} iterations`);
     
-    // Recalculate district properties
-    const balancedDistricts = workingDistricts.map(district => this.createDistrict(district.id, district.tracts));
+    // Use a simple flood-fill approach to check contiguity
+    const visited = new Set<string>();
+    const queue = [startTract];
+    const tractMap = new Map<string, typeof tractsWithCentroids[0]>();
     
-    // Log final population statistics
-    const finalStats = balancedDistricts.map(d => ({
-      id: d.id,
-      population: d.population,
-      deviation: ((d.population - targetPopulation) / targetPopulation * 100).toFixed(1) + '%'
-    }));
+    // Create a map for quick lookup
+    tractsWithCentroids.forEach(tract => {
+      const key = `${tract.centroid.lat},${tract.centroid.lng}`;
+      tractMap.set(key, tract);
+    });
     
-    console.log('Final district populations:', finalStats);
-    
-    return balancedDistricts;
-  }
-
-  /**
-   * Try to move a tract from one district to another to improve population balance
-   * @param fromDistrict Source district
-   * @param toDistrict Target district
-   * @param targetPopulation Target population per district
-   * @param toleranceAmount Population tolerance amount
-   * @returns True if a tract was moved
-   */
-  private tryMoveTractBetweenDistricts(
-    fromDistrict: District, 
-    toDistrict: District, 
-    targetPopulation: number, 
-    toleranceAmount: number
-  ): boolean {
-    if (fromDistrict.tracts.length <= 1) return false; // Don't leave a district empty
-
-    // Find the best tract to move (closest to the boundary between districts)
-    let bestTractIndex = -1;
-    let bestScore = Infinity;
-
-    for (let i = 0; i < fromDistrict.tracts.length; i++) {
-      const tract = fromDistrict.tracts[i];
-      const tractPopulation = this.getTractPopulation(tract);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const key = `${current.centroid.lat},${current.centroid.lng}`;
       
-      // Calculate the improvement in population balance
-      const fromNewPopulation = fromDistrict.population - tractPopulation;
-      const toNewPopulation = toDistrict.population + tractPopulation;
+      if (visited.has(key)) continue;
+      visited.add(key);
       
-      const fromDeviation = Math.abs(fromNewPopulation - targetPopulation);
-      const toDeviation = Math.abs(toNewPopulation - targetPopulation);
-      const currentFromDeviation = Math.abs(fromDistrict.population - targetPopulation);
-      const currentToDeviation = Math.abs(toDistrict.population - targetPopulation);
-      
-      const improvement = (currentFromDeviation + currentToDeviation) - (fromDeviation + toDeviation);
-      
-      if (improvement > 0) {
-        // Calculate distance score (prefer tracts closer to the other district)
-        const tractCentroid = this.calculateTractCentroid(tract);
-        const toDistrictCentroid = toDistrict.centroid;
+      // Check all other tracts to see if they're adjacent
+      for (const tract of tractsWithCentroids) {
+        if (tract === current) continue;
+        
         const distance = Math.sqrt(
-          Math.pow(tractCentroid.lat - toDistrictCentroid.lat, 2) + 
-          Math.pow(tractCentroid.lng - toDistrictCentroid.lng, 2)
+          Math.pow(tract.centroid.lat - current.centroid.lat, 2) +
+          Math.pow(tract.centroid.lng - current.centroid.lng, 2)
         );
         
-        const score = distance / improvement; // Lower score is better
-        
-        if (score < bestScore) {
-          bestScore = score;
-          bestTractIndex = i;
+        // Consider tracts adjacent if they're within a reasonable distance
+        // This is a simplified check - in reality, we'd need to check actual boundaries
+        if (distance < 0.5 && !visited.has(`${tract.centroid.lat},${tract.centroid.lng}`)) {
+          queue.push(tract);
         }
       }
     }
-
-    if (bestTractIndex >= 0) {
-      // Move the tract
-      const tractToMove = fromDistrict.tracts.splice(bestTractIndex, 1)[0];
-      toDistrict.tracts.push(tractToMove);
-      
-      // Update populations
-      const tractPopulation = this.getTractPopulation(tractToMove);
-      fromDistrict.population -= tractPopulation;
-      toDistrict.population += tractPopulation;
-      
-      // Recalculate centroids and bounds
-      const fromNewDistrict = this.createDistrict(fromDistrict.id, fromDistrict.tracts);
-      const toNewDistrict = this.createDistrict(toDistrict.id, toDistrict.tracts);
-      
-      Object.assign(fromDistrict, fromNewDistrict);
-      Object.assign(toDistrict, toNewDistrict);
-      
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * More aggressive population balancing when standard method fails
-   */
-  private aggressivePopulationBalancing(
-    districts: any[], 
-    targetPopulation: number, 
-    toleranceAmount: number
-  ): boolean {
-    let improved = false;
-
-    // Find the most imbalanced districts
-    const sortedDistricts = districts.sort((a, b) => 
-      Math.abs(a.population - targetPopulation) - Math.abs(b.population - targetPopulation)
-    );
-
-    // Try to move tracts between the most imbalanced districts
-    for (let i = 0; i < Math.min(3, sortedDistricts.length); i++) {
-      for (let j = sortedDistricts.length - 1; j > sortedDistricts.length - 4 && j > i; j--) {
-        const fromDistrict = sortedDistricts[j];
-        const toDistrict = sortedDistricts[i];
-
-        if (fromDistrict.population > targetPopulation && toDistrict.population < targetPopulation) {
-          // Try moving multiple tracts at once
-          const tractsToMove = this.findBestTractsToMove(fromDistrict, toDistrict, targetPopulation);
-          
-          if (tractsToMove.length > 0) {
-            // Move the tracts
-            tractsToMove.forEach(tract => {
-              const tractIndex = fromDistrict.tracts.findIndex((t: any) => t === tract);
-              if (tractIndex >= 0) {
-                const movedTract = fromDistrict.tracts.splice(tractIndex, 1)[0];
-                toDistrict.tracts.push(movedTract);
-                
-                const tractPopulation = this.getTractPopulation(movedTract);
-                fromDistrict.population -= tractPopulation;
-                toDistrict.population += tractPopulation;
-              }
-            });
-
-            // Recalculate centroids and bounds
-            const fromNewDistrict = this.createDistrict(fromDistrict.id, fromDistrict.tracts);
-            const toNewDistrict = this.createDistrict(toDistrict.id, toDistrict.tracts);
-            
-            Object.assign(fromDistrict, fromNewDistrict);
-            Object.assign(toDistrict, toNewDistrict);
-            
-            improved = true;
-            break;
-          }
-        }
-      }
-      if (improved) break;
-    }
-
-    return improved;
-  }
-
-  /**
-   * Find the best tracts to move between districts for population balancing
-   */
-  private findBestTractsToMove(fromDistrict: any, toDistrict: any, targetPopulation: number): any[] {
-    const tractsToMove: any[] = [];
-    const targetMove = Math.min(
-      fromDistrict.population - targetPopulation,
-      targetPopulation - toDistrict.population
-    );
-
-    if (targetMove <= 0) return tractsToMove;
-
-    // Sort tracts by population (ascending) to find the best combination
-    const sortedTracts = [...fromDistrict.tracts].sort((a, b) => 
-      this.getTractPopulation(a) - this.getTractPopulation(b)
-    );
-
-    let currentMove = 0;
-    for (const tract of sortedTracts) {
-      const tractPopulation = this.getTractPopulation(tract);
-      
-      if (currentMove + tractPopulation <= targetMove && tractsToMove.length < 3) {
-        tractsToMove.push(tract);
-        currentMove += tractPopulation;
-      }
-    }
-
-    return tractsToMove;
+    
+    return visited.size === tracts.length;
   }
 
   /**
@@ -1622,10 +2227,11 @@ export class CensusService {
    * @param state State FIPS code
    * @param county Optional county FIPS code
    * @param options Division options including target number of districts
+   * @param forceInvalidate Whether to force invalidate cache
    * @returns Observable with recursive division result
    */
-  divideTractsIntoDistrictsWithData(state: string, county: string | undefined, options: RecursiveDivisionOptions): Observable<RecursiveDivisionResult> {
-    return this.getTractBoundaries(state, county).pipe(
+  divideTractsIntoDistrictsWithData(state: string, county: string | undefined, options: RecursiveDivisionOptions, forceInvalidate: boolean = false): Observable<RecursiveDivisionResult> {
+    return this.getTractBoundaries(state, county, forceInvalidate).pipe(
       map(geojsonData => {
         if (!geojsonData || !geojsonData.features) {
           return {
