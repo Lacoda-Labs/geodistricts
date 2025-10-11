@@ -1,24 +1,15 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError, switchMap, mergeMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
-// Census API Configuration
-const CENSUS_API_BASE = 'https://api.census.gov/data';
-const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
-// Alternative data source that doesn't have CORS issues
-const ALTERNATIVE_TIGERWEB = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0';
-const ACS_YEAR = '2022'; // Most recent ACS 5-year estimates
-const ACS_DATASET = 'acs/acs5';
+// Census API Configuration is now handled by the backend proxy service
 
 // Cloud Run Census Proxy Configuration
 const CENSUS_PROXY_BASE = environment.censusProxyUrl || 'https://census-proxy-<project-id>-uc.a.run.app';
 
-// Cache Configuration
-const CACHE_PREFIX = 'census_cache_';
-const CACHE_VERSION = '1.0';
-const DEFAULT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+// Cache is now handled by the backend proxy service
 
 // TypeScript interfaces for census data
 export interface CensusTractData {
@@ -34,27 +25,9 @@ export interface CensusTractData {
   [key: string]: any; // Allow for additional dynamic properties
 }
 
-export type CensusApiResponse = string[][];
+// Census API response types are now handled by the backend proxy service
 
-export interface CensusQueryParams {
-  state?: string;
-  county?: string;
-  tract?: string;
-  variables?: string[];
-  year?: string;
-  dataset?: string;
-}
-
-export interface CensusVariable {
-  code: string;
-  label: string;
-  concept: string;
-  predicateType: string;
-  group: string;
-  limit: number;
-  attributes: string;
-  predicateOnly: boolean;
-}
+// Census variable types are now handled by the backend proxy service
 
 export interface GeoJsonFeature {
   type: 'Feature';
@@ -123,6 +96,7 @@ export interface RecursiveDivisionOptions {
   targetDistricts: number;
   maxIterations?: number;
   populationTolerance?: number; // Percentage tolerance for population balance
+  preserveCountyBoundaries?: boolean; // Whether to prioritize county boundaries (default: true)
 }
 
 export interface DivisionStep {
@@ -159,187 +133,34 @@ export interface RecursiveDivisionResult {
   divisionSteps: DivisionStep[];
 }
 
-// Cache interfaces
-export interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-  version: string;
+export interface CountyGroup {
+  countyId: string;
+  countyName: string;
+  tracts: GeoJsonFeature[];
+  population: number;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  centroid: {
+    lat: number;
+    lng: number;
+  };
 }
 
-export interface CacheInfo {
-  key: string;
-  timestamp: number;
-  ttl: number;
-  version: string;
-  size: number;
-  isExpired: boolean;
-}
+// Cache is now handled by the backend proxy service
 
 @Injectable({
   providedIn: 'root'
 })
 export class CensusService {
-  private readonly baseUrl = CENSUS_API_BASE;
-
   constructor(private http: HttpClient) {
     // API key is now handled by the Cloud Run proxy service
   }
 
-  /**
-   * Generate a cache key for census data requests
-   */
-  private generateCacheKey(type: string, params: any): string {
-    const paramString = JSON.stringify(params);
-    const hash = this.simpleHash(paramString);
-    const key = `${CACHE_PREFIX}${type}_${hash}`;
-    console.log(`Generated cache key: ${key} for params:`, params);
-    return key;
-  }
-
-  /**
-   * Simple hash function for generating cache keys
-   */
-  private simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
-  }
-
-  /**
-   * Store data in localStorage cache
-   */
-  private setCache<T>(key: string, data: T, ttl: number = DEFAULT_CACHE_TTL): void {
-    try {
-      const cacheEntry: CacheEntry<T> = {
-        data,
-        timestamp: Date.now(),
-        ttl,
-        version: CACHE_VERSION
-      };
-      console.log(`Storing data in cache with key: ${key}, size: ${JSON.stringify(cacheEntry).length} bytes`);  
-      localStorage.setItem(key, JSON.stringify(cacheEntry));
-      console.log(`Stored data in cache with key: ${key}, timestamp: ${new Date(cacheEntry.timestamp).toISOString()}`);
-    } catch (error) {
-      console.warn('Failed to store data in cache:', error);
-    }
-  }
-
-  /**
-   * Retrieve data from localStorage cache
-   */
-  private getCache<T>(key: string): T | null {
-    try {
-      console.log(`Checking cache for key: ${key}`);
-      const cached = localStorage.getItem(key);
-      if (!cached) {
-        console.log(`No cached data found for key: ${key}`);
-        return null;
-      }
-
-      const cacheEntry: CacheEntry<T> = JSON.parse(cached);
-      console.log(`Found cached data for key: ${key}, timestamp: ${new Date(cacheEntry.timestamp).toISOString()}`);
-      
-      // Check if cache entry is expired
-      if (this.isCacheExpired(cacheEntry)) {
-        console.log(`Cache entry expired for key: ${key}, removing from cache`);
-        localStorage.removeItem(key);
-        return null;
-      }
-
-      // Check version compatibility
-      if (cacheEntry.version !== CACHE_VERSION) {
-        console.log(`Cache version mismatch for key: ${key}, expected: ${CACHE_VERSION}, found: ${cacheEntry.version}`);
-        localStorage.removeItem(key);
-        return null;
-      }
-
-      console.log(`Returning cached data for key: ${key}`);
-      return cacheEntry.data;
-    } catch (error) {
-      console.warn('Failed to retrieve data from cache:', error);
-      localStorage.removeItem(key);
-      return null;
-    }
-  }
-
-  /**
-   * Check if a cache entry is expired
-   */
-  private isCacheExpired(cacheEntry: CacheEntry<any>): boolean {
-    return Date.now() - cacheEntry.timestamp > cacheEntry.ttl;
-  }
-
-  /**
-   * Clear all census cache entries
-   */
-  clearCache(): void {
-    try {
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (key.startsWith(CACHE_PREFIX)) {
-          localStorage.removeItem(key);
-        }
-      });
-      console.log('Census cache cleared');
-    } catch (error) {
-      console.warn('Failed to clear cache:', error);
-    }
-  }
-
-  /**
-   * Get cache information for all cached entries
-   */
-  getCacheInfo(): CacheInfo[] {
-    const cacheInfo: CacheInfo[] = [];
-    
-    try {
-      const keys = Object.keys(localStorage);
-      console.log(`Found ${keys.length} total localStorage keys`);
-      keys.forEach(key => {
-        if (key.startsWith(CACHE_PREFIX)) {
-          const cached = localStorage.getItem(key);
-          if (cached) {
-            try {
-              const cacheEntry: CacheEntry<any> = JSON.parse(cached);
-              cacheInfo.push({
-                key,
-                timestamp: cacheEntry.timestamp,
-                ttl: cacheEntry.ttl,
-                version: cacheEntry.version,
-                size: cached.length,
-                isExpired: this.isCacheExpired(cacheEntry)
-              });
-            } catch (error) {
-              // Invalid cache entry, skip it
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.warn('Failed to get cache info:', error);
-    }
-
-    console.log(`Found ${cacheInfo.length} census cache entries`);
-    return cacheInfo.sort((a, b) => b.timestamp - a.timestamp);
-  }
-
-  /**
-   * Debug method to log current cache status
-   */
-  debugCacheStatus(): void {
-    console.log('=== Census Service Cache Debug ===');
-    const cacheInfo = this.getCacheInfo();
-    console.log(`Local cache entries: ${cacheInfo.length}`);
-    cacheInfo.forEach(entry => {
-      console.log(`- ${entry.key}: ${entry.isExpired ? 'EXPIRED' : 'VALID'} (${new Date(entry.timestamp).toISOString()}, size: ${entry.size} bytes)`);
-    });
-    console.log('=== End Local Cache Debug ===');
-  }
+  // Cache is now handled by the backend proxy service
 
   /**
    * Get cache info from Cloud Run proxy
@@ -354,8 +175,8 @@ export class CensusService {
    * Clear cache on Cloud Run proxy
    */
   clearProxyCache(key?: string): Observable<any> {
-    const params = key ? new HttpParams().set('key', key) : new HttpParams();
-    return this.http.delete(`${CENSUS_PROXY_BASE}/api/census/cache`, { params }).pipe(
+    const url = key ? `${CENSUS_PROXY_BASE}/api/census/cache?key=${encodeURIComponent(key)}` : `${CENSUS_PROXY_BASE}/api/census/cache`;
+    return this.http.delete(url).pipe(
       catchError(this.handleError)
     );
   }
@@ -366,8 +187,8 @@ export class CensusService {
   debugAllCacheStatus(): void {
     console.log('=== All Cache Status Debug ===');
     
-    // Local cache
-    this.debugCacheStatus();
+    // Local cache is now handled by the backend proxy service
+    console.log('Local cache is now handled by the backend proxy service');
     
     // Proxy cache
     this.getProxyCacheInfo().subscribe({
@@ -388,38 +209,14 @@ export class CensusService {
   /**
    * Get census tract data for a specific tract
    */
-  getTractData(params: CensusQueryParams, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
-    const cacheKey = this.generateCacheKey('tract_data', params);
-    
-    // Check cache first unless force invalidate is requested
-    if (!forceInvalidate) {
-      const cachedData = this.getCache<CensusTractData[]>(cacheKey);
-      if (cachedData) {
-        console.log('Returning cached tract data');
-        return new Observable(observer => {
-          observer.next(cachedData);
-          observer.complete();
-        });
-      }
-    }
+  getTractData(state: string, county?: string, tract?: string, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    const params = new URLSearchParams();
+    params.set('state', state);
+    if (county) params.set('county', county);
+    if (tract) params.set('tract', tract);
+    if (forceInvalidate) params.set('forceInvalidate', 'true');
 
-    // Use Cloud Run proxy instead of direct Census API call
-    const queryParams = new HttpParams()
-      .set('state', params.state || '')
-      .set('county', params.county || '')
-      .set('tract', params.tract || '')
-      .set('variables', params.variables?.join(',') || '')
-      .set('year', params.year || ACS_YEAR)
-      .set('dataset', params.dataset || ACS_DATASET);
-
-    return this.http.get<CensusTractData[]>(`${CENSUS_PROXY_BASE}/api/census/tract-data`, {
-      params: queryParams
-    }).pipe(
-      map(response => {
-        // Cache the response from the proxy
-        this.setCache(cacheKey, response);
-        return response;
-      }),
+    return this.http.get<CensusTractData[]>(`${CENSUS_PROXY_BASE}/api/census/tract-data?${params.toString()}`).pipe(
       catchError(this.handleError)
     );
   }
@@ -428,55 +225,20 @@ export class CensusService {
    * Get census tract data by state and county
    */
   getTractsByCounty(state: string, county: string, variables?: string[], forceInvalidate: boolean = false): Observable<CensusTractData[]> {
-    const defaultVariables = [
-      'B01003_001E', // Total population
-      'B19013_001E', // Median household income
-      'B01002_001E', // Median age
-      'B17001_002E', // Poverty status (below poverty level)
-      'B15003_022E', // Bachelor's degree
-      'B15003_023E', // Master's degree
-      'B15003_024E', // Professional degree
-      'B15003_025E'  // Doctorate degree
-    ];
-
-    return this.getTractData({
-      state,
-      county,
-      variables: variables || defaultVariables,
-      year: ACS_YEAR,
-      dataset: ACS_DATASET
-    }, forceInvalidate);
+    return this.getTractData(state, county, undefined, forceInvalidate);
   }
 
   /**
    * Get census tract data by tract FIPS code
    */
   getTractByFips(state: string, county: string, tract: string, variables?: string[], forceInvalidate: boolean = false): Observable<CensusTractData[]> {
-    const defaultVariables = [
-      'B01003_001E', // Total population
-      'B19013_001E', // Median household income
-      'B01002_001E', // Median age
-      'B17001_002E', // Poverty status
-      'B15003_022E', // Bachelor's degree
-      'B15003_023E', // Master's degree
-      'B15003_024E', // Professional degree
-      'B15003_025E'  // Doctorate degree
-    ];
-
-    return this.getTractData({
-      state,
-      county,
-      tract,
-      variables: variables || defaultVariables,
-      year: ACS_YEAR,
-      dataset: ACS_DATASET
-    }, forceInvalidate);
+    return this.getTractData(state, county, tract, forceInvalidate);
   }
 
   /**
    * Get available census variables for a dataset
    */
-  getVariables(dataset: string = ACS_DATASET, year: string = ACS_YEAR): Observable<CensusVariable[]> {
+  getVariables(dataset: string = 'acs/acs5', year: string = '2022'): Observable<any[]> {
     // Note: This method would need to be implemented in the Cloud Run proxy
     // For now, return empty array as this functionality is not critical
     console.warn('getVariables method not implemented in Cloud Run proxy');
@@ -523,123 +285,13 @@ export class CensusService {
     );
   }
 
-  /**
-   * Build query parameters for census API
-   */
-  private buildQueryParams(params: CensusQueryParams): HttpParams {
-    let httpParams = new HttpParams();
+  // Direct Census API calls are now handled by the backend proxy service
 
-    // API key is now handled by the Cloud Run proxy service
+  // Census API response transformation is now handled by the backend proxy service
 
-    // Add variables
-    if (params.variables && params.variables.length > 0) {
-      httpParams = httpParams.set('get', params.variables.join(','));
-    } else {
-      // Default variables
-      httpParams = httpParams.set('get', 'NAME,B01003_001E,B19013_001E,B01002_001E');
-    }
 
-    // Add geography
-    if (params.tract) {
-      // Specific tract
-      httpParams = httpParams.set('for', `tract:${params.tract}`);
-      httpParams = httpParams.set('in', `state:${params.state} county:${params.county}`);
-    } else if (params.county) {
-      // All tracts in county
-      httpParams = httpParams.set('for', 'tract:*');
-      httpParams = httpParams.set('in', `state:${params.state} county:${params.county}`);
-    } else if (params.state) {
-      // All tracts in state
-      httpParams = httpParams.set('for', 'tract:*');
-      httpParams = httpParams.set('in', `state:${params.state}`);
-    } else {
-      // All tracts
-      httpParams = httpParams.set('for', 'tract:*');
-    }
 
-    return httpParams;
-  }
-
-  /**
-   * Transform census API response to our data structure
-   */
-  private transformCensusResponse(response: CensusApiResponse, params: CensusQueryParams): CensusTractData[] {
-    console.log('Census API Response:', response);
-
-    if (!response || response.length === 0) {
-      console.log('No data in response');
-      return [];
-    }
-
-    const headers = response[0];
-    const dataRows = response.slice(1);
-
-    console.log('Headers:', headers);
-    console.log('Data rows count:', dataRows.length);
-
-    return dataRows.map(row => {
-      const tractData: CensusTractData = {
-        state: '',
-        county: '',
-        tract: '',
-        name: '',
-        population: 0,
-        medianHouseholdIncome: 0,
-        medianAge: 0
-      };
-
-      // Map data based on headers
-      headers.forEach((header, index) => {
-        const value = row[index];
-
-        switch (header) {
-          case 'NAME':
-            tractData.name = value;
-            break;
-          case 'B01003_001E': // Total population
-            tractData.population = parseInt(value) || 0;
-            break;
-          case 'B19013_001E': // Median household income
-            tractData.medianHouseholdIncome = parseInt(value) || 0;
-            break;
-          case 'B01002_001E': // Median age
-            tractData.medianAge = parseFloat(value) || 0;
-            break;
-          case 'B17001_002E': // Poverty status
-            tractData.povertyRate = parseInt(value) || 0;
-            break;
-          case 'B15003_022E': // Bachelor's degree
-          case 'B15003_023E': // Master's degree
-          case 'B15003_024E': // Professional degree
-          case 'B15003_025E': // Doctorate degree
-            tractData.educationLevel = (tractData.educationLevel || 0) + (parseInt(value) || 0);
-            break;
-          case 'state':
-            tractData.state = value;
-            break;
-          case 'county':
-            tractData.county = value;
-            break;
-          case 'tract':
-            tractData.tract = value;
-            break;
-          default:
-            tractData[header] = value;
-        }
-      });
-
-      return tractData;
-    });
-  }
-
-  /**
-   * Transform variables response
-   */
-  private transformVariablesResponse(response: any): CensusVariable[] {
-    // This would need to be implemented based on the actual API response structure
-    // for variables endpoint
-    return [];
-  }
+  // Variables response transformation is now handled by the backend proxy service
 
   /**
    * Calculate demographic summary
@@ -704,33 +356,15 @@ export class CensusService {
    * Get census tract boundaries from TIGERweb via Cloud Run proxy
    */
   getTractBoundaries(state: string, county?: string, forceInvalidate: boolean = false): Observable<GeoJsonResponse> {
-    const cacheKey = this.generateCacheKey('tract_boundaries', { state, county });
-    
-    // Check cache first unless force invalidate is requested
-    if (!forceInvalidate) {
-      const cachedData = this.getCache<GeoJsonResponse>(cacheKey);
-      if (cachedData) {
-        console.log('Returning cached tract boundaries');
-        return new Observable(observer => {
-          observer.next(cachedData);
-          observer.complete();
-        });
-      }
-    }
-
-    // Use Cloud Run proxy instead of direct TIGERweb call
-    const queryParams = new HttpParams()
-      .set('state', state)
-      .set('county', county || '');
+    const params = new URLSearchParams();
+    params.set('state', state);
+    if (county) params.set('county', county);
+    if (forceInvalidate) params.set('forceInvalidate', 'true');
 
     console.log('Getting tract boundaries via Cloud Run proxy for state:', state);
 
-    return this.http.get<GeoJsonResponse>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries`, {
-      params: queryParams
-    }).pipe(
+    return this.http.get<GeoJsonResponse>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`).pipe(
       map(response => {
-        // Cache the response from the proxy
-        this.setCache(cacheKey, response);
         console.log(`Retrieved ${response.features?.length || 0} tract boundaries for state ${state}`);
         return response;
       }),
@@ -738,118 +372,18 @@ export class CensusService {
     );
   }
 
-  private getSingleTractBoundariesRequest(state: string, county?: string, cacheKey?: string): Observable<GeoJsonResponse> {
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
+  // Direct TIGERweb calls are now handled by the backend proxy service
 
-    let whereClause = `STATE_FIPS='${state}'`;
-    if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
-    }
-
-    const params = new HttpParams()
-      .set('where', whereClause)
-      .set('outFields', 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI')
-      .set('f', 'geojson')
-      .set('outSR', '4326')
-      .set('resultRecordCount', '2000');
-
-    console.log('Single request for tract boundaries:', {
-      url: serviceUrl,
-      where: whereClause
-    });
-
-    return this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
-      map(response => {
-        if (cacheKey) {
-          this.setCache(cacheKey, response);
-        }
-        return response;
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  private getAllTractBoundariesPaginated(state: string, county: string | undefined, totalCount: number, cacheKey?: string): Observable<GeoJsonResponse> {
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-    const batchSize = 2000;
-    const totalBatches = Math.ceil(totalCount / batchSize);
-
-    console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches of ${batchSize}`);
-
-    let whereClause = `STATE_FIPS='${state}'`;
-    if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
-    }
-
-    // Create an array of batch requests
-    const batchRequests: Observable<GeoJsonResponse>[] = [];
-
-    for (let i = 0; i < totalBatches; i++) {
-      const offset = i * batchSize;
-      const params = new HttpParams()
-        .set('where', whereClause)
-        .set('outFields', 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI')
-        .set('f', 'geojson')
-        .set('outSR', '4326')
-        .set('resultRecordCount', batchSize.toString())
-        .set('resultOffset', offset.toString());
-
-      console.log(`Batch ${i + 1}/${totalBatches}: offset ${offset}, limit ${batchSize}`);
-
-      batchRequests.push(
-        this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
-          catchError(this.handleError)
-        )
-      );
-    }
-
-    // Use mergeMap to combine all requests and flatten the results
-    return new Observable<GeoJsonResponse>(observer => {
-      let completedBatches = 0;
-      let allFeatures: GeoJsonFeature[] = [];
-
-      batchRequests.forEach((request, index) => {
-        request.subscribe({
-          next: (response) => {
-            if (response.features) {
-              allFeatures = allFeatures.concat(response.features);
-              console.log(`Batch ${index + 1} completed: ${response.features.length} features`);
-            }
-            completedBatches++;
-
-            if (completedBatches === totalBatches) {
-              console.log(`All batches completed. Total features: ${allFeatures.length}`);
-              const finalResponse: GeoJsonResponse = {
-                type: 'FeatureCollection',
-                features: allFeatures
-              };
-              
-              // Cache the final response
-              if (cacheKey) {
-                this.setCache(cacheKey, finalResponse);
-              }
-              
-              observer.next(finalResponse);
-              observer.complete();
-            }
-          },
-          error: (error) => {
-            console.error(`Batch ${index + 1} failed:`, error);
-            observer.error(error);
-          }
-        });
-      });
-    });
-  }
+  // Paginated TIGERweb calls are now handled by the backend proxy service
 
 
   /**
    * Get county boundaries from TIGERweb
    */
   getCountyBoundaries(state: string): Observable<GeoJsonResponse> {
-    // For now, return empty response for counties to avoid CORS issues
-    // In production, you'd want to implement a server-side proxy
-    console.log('County boundaries temporarily disabled due to CORS issues');
+    // Note: This method would need to be implemented in the Cloud Run proxy
+    // For now, return empty response as this functionality is not critical
+    console.warn('getCountyBoundaries method not implemented in Cloud Run proxy');
     return new Observable(observer => {
       observer.next({
         type: 'FeatureCollection',
@@ -863,22 +397,16 @@ export class CensusService {
    * Get state boundaries from TIGERweb
    */
   getStateBoundaries(state?: string): Observable<GeoJsonResponse> {
-    const serviceUrl = `${TIGERWEB_BASE}/tigerWMS_Current/MapServer/5/query`;
-
-    let whereClause = '1=1'; // Get all states by default
-    if (state) {
-      whereClause = `STATE='${state}'`;
-    }
-
-    const params = new HttpParams()
-      .set('where', whereClause)
-      .set('outFields', 'STATE,NAME,ALAND,AWATER')
-      .set('f', 'geojson')
-      .set('outSR', '4326');
-
-    return this.http.get<GeoJsonResponse>(serviceUrl, { params }).pipe(
-      catchError(this.handleError)
-    );
+    // Note: This method would need to be implemented in the Cloud Run proxy
+    // For now, return empty response as this functionality is not critical
+    console.warn('getStateBoundaries method not implemented in Cloud Run proxy');
+    return new Observable(observer => {
+      observer.next({
+        type: 'FeatureCollection',
+        features: []
+      });
+      observer.complete();
+    });
   }
 
   /**
@@ -890,7 +418,7 @@ export class CensusService {
   }> {
     const demographicData$ = county
       ? this.getTractsByCounty(state, county, undefined, forceInvalidate)
-      : this.getTractData({ state }, forceInvalidate);
+      : this.getTractData(state, undefined, undefined, forceInvalidate);
 
     const boundaryData$ = this.getTractBoundaries(state, county, forceInvalidate);
 
@@ -1855,7 +1383,7 @@ export class CensusService {
    * @returns Result with array of districts and statistics
    */
   divideTractsIntoDistricts(tracts: GeoJsonFeature[], options: RecursiveDivisionOptions): RecursiveDivisionResult {
-    const { targetDistricts, maxIterations = 100, populationTolerance = 0.01 } = options;
+    const { targetDistricts, maxIterations = 100, populationTolerance = 0.01, preserveCountyBoundaries = true } = options;
 
     if (tracts.length === 0 || targetDistricts <= 0) {
       return {
@@ -1893,15 +1421,23 @@ export class CensusService {
 
     console.log(`Starting recursive division: ${tracts.length} tracts → ${targetDistricts} districts`);
 
-    // Start with all tracts as a single group
-    const initialGroup = {
-      tracts: tracts,
-      targetDistricts: targetDistricts,
-      level: 0,
-      direction: 'latitude' as 'latitude' | 'longitude'
-    };
+    let result: { districts: District[], divisionHistory: string[], divisionSteps: DivisionStep[] };
 
-    const result = this.recursiveDivideGroupsWithSteps([initialGroup], 0, maxIterations, populationTolerance);
+    if (preserveCountyBoundaries) {
+      console.log('Using county-aware division to preserve county boundaries');
+      result = this.divideTractsIntoDistrictsWithCountyPreservation(tracts, targetDistricts, maxIterations, populationTolerance);
+    } else {
+      console.log('Using standard geographic division');
+      // Start with all tracts as a single group
+      const initialGroup = {
+        tracts: tracts,
+        targetDistricts: targetDistricts,
+        level: 0,
+        direction: 'latitude' as 'latitude' | 'longitude'
+      };
+
+      result = this.recursiveDivideGroupsWithSteps([initialGroup], 0, maxIterations, populationTolerance);
+    }
     
     // Calculate final statistics
     const totalPopulation = result.districts.reduce((sum, district) => sum + district.population, 0);
@@ -1917,6 +1453,305 @@ export class CensusService {
       divisionHistory: result.divisionHistory,
       divisionSteps: result.divisionSteps
     };
+  }
+
+  /**
+   * Divide tracts into districts while preserving county boundaries
+   * Groups tracts by county first, then consumes entire counties when possible
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param targetDistricts Target number of districts
+   * @param maxIterations Maximum iterations to prevent infinite loops
+   * @param populationTolerance Population balance tolerance
+   * @returns Result with districts, division history, and division steps
+   */
+  private divideTractsIntoDistrictsWithCountyPreservation(
+    tracts: GeoJsonFeature[],
+    targetDistricts: number,
+    maxIterations: number,
+    populationTolerance: number
+  ): { districts: District[], divisionHistory: string[], divisionSteps: DivisionStep[] } {
+    
+    // Group tracts by county
+    const countyGroups = this.groupTractsByCounty(tracts);
+    console.log(`Grouped ${tracts.length} tracts into ${countyGroups.length} counties`);
+    
+    // Calculate target population per district
+    const totalPopulation = countyGroups.reduce((sum, county) => sum + county.population, 0);
+    const targetPopulationPerDistrict = totalPopulation / targetDistricts;
+    
+    console.log(`Target population per district: ${targetPopulationPerDistrict.toLocaleString()}`);
+    
+    // Sort counties by population (largest first) to optimize assignment
+    const sortedCounties = countyGroups.sort((a, b) => b.population - a.population);
+    
+    // Create districts by assigning counties
+    const districts: District[] = [];
+    const divisionHistory: string[] = [];
+    const divisionSteps: DivisionStep[] = [];
+    
+    // Initialize districts
+    for (let i = 0; i < targetDistricts; i++) {
+      districts.push({
+        id: i + 1,
+        tracts: [],
+        population: 0,
+        bounds: { north: -90, south: 90, east: -180, west: 180 },
+        centroid: { lat: 0, lng: 0 }
+      });
+    }
+    
+    // Assign counties to districts
+    const countyAssignments: Array<{ county: CountyGroup, districtId: number }> = [];
+    
+    for (const county of sortedCounties) {
+      // Find the district with the smallest population that can accommodate this county
+      let bestDistrict = districts[0];
+      let bestDistrictIndex = 0;
+      let smallestPopulation = districts[0].population;
+      
+      for (let i = 0; i < districts.length; i++) {
+        if (districts[i].population < smallestPopulation) {
+          smallestPopulation = districts[i].population;
+          bestDistrict = districts[i];
+          bestDistrictIndex = i;
+        }
+      }
+      
+      // Assign county to the best district
+      countyAssignments.push({ county, districtId: bestDistrictIndex + 1 });
+      
+      // Update district
+      bestDistrict.tracts.push(...county.tracts);
+      bestDistrict.population += county.population;
+      
+      // Update bounds
+      bestDistrict.bounds.north = Math.max(bestDistrict.bounds.north, county.bounds.north);
+      bestDistrict.bounds.south = Math.min(bestDistrict.bounds.south, county.bounds.south);
+      bestDistrict.bounds.east = Math.max(bestDistrict.bounds.east, county.bounds.east);
+      bestDistrict.bounds.west = Math.min(bestDistrict.bounds.west, county.bounds.west);
+      
+      divisionHistory.push(`Assigned ${county.countyName} (${county.population.toLocaleString()} people) to District ${bestDistrictIndex + 1}`);
+    }
+    
+    // Recalculate centroids for all districts
+    districts.forEach(district => {
+      if (district.tracts.length > 0) {
+        const centroid = this.calculateDistrictCentroid(district.tracts);
+        district.centroid = centroid;
+      }
+    });
+    
+    // Create division steps
+    const step = this.createDivisionStepFromDistricts(districts, 0, 'County-based district assignment completed');
+    divisionSteps.push(step);
+    
+    // Handle any remaining population imbalance by splitting large counties if necessary
+    const balancedResult = this.balanceDistrictsBySplittingCounties(districts, targetPopulationPerDistrict, populationTolerance);
+    
+    return {
+      districts: balancedResult.districts,
+      divisionHistory: [...divisionHistory, ...balancedResult.divisionHistory],
+      divisionSteps: [...divisionSteps, ...balancedResult.divisionSteps]
+    };
+  }
+
+  /**
+   * Group tracts by county
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @returns Array of county groups
+   */
+  private groupTractsByCounty(tracts: GeoJsonFeature[]): CountyGroup[] {
+    const countyMap = new Map<string, CountyGroup>();
+    
+    for (const tract of tracts) {
+      const countyId = tract.properties?.COUNTY_FIPS || tract.properties?.COUNTY || 'unknown';
+      const countyName = tract.properties?.NAME || `County ${countyId}`;
+      
+      if (!countyMap.has(countyId)) {
+        countyMap.set(countyId, {
+          countyId,
+          countyName,
+          tracts: [],
+          population: 0,
+          bounds: { north: -90, south: 90, east: -180, west: 180 },
+          centroid: { lat: 0, lng: 0 }
+        });
+      }
+      
+      const county = countyMap.get(countyId)!;
+      county.tracts.push(tract);
+      county.population += this.getTractPopulation(tract);
+    }
+    
+    // Calculate bounds and centroids for each county
+    const counties = Array.from(countyMap.values());
+    counties.forEach(county => {
+      if (county.tracts.length > 0) {
+        county.bounds = this.calculateCountyBounds(county.tracts);
+        county.centroid = this.calculateDistrictCentroid(county.tracts);
+      }
+    });
+    
+    return counties;
+  }
+
+  /**
+   * Calculate bounds for a group of tracts
+   * @param tracts Array of tracts
+   * @returns Bounds object
+   */
+  private calculateCountyBounds(tracts: GeoJsonFeature[]): { north: number; south: number; east: number; west: number } {
+    let north = -90, south = 90, east = -180, west = 180;
+    
+    tracts.forEach(tract => {
+      const centroid = this.calculateTractCentroid(tract);
+      north = Math.max(north, centroid.lat);
+      south = Math.min(south, centroid.lat);
+      east = Math.max(east, centroid.lng);
+      west = Math.min(west, centroid.lng);
+    });
+    
+    return { north, south, east, west };
+  }
+
+  /**
+   * Calculate centroid for a group of tracts
+   * @param tracts Array of tracts
+   * @returns Centroid coordinates
+   */
+  private calculateDistrictCentroid(tracts: GeoJsonFeature[]): { lat: number; lng: number } {
+    if (tracts.length === 0) {
+      return { lat: 0, lng: 0 };
+    }
+    
+    let totalLat = 0, totalLng = 0;
+    
+    tracts.forEach(tract => {
+      const centroid = this.calculateTractCentroid(tract);
+      totalLat += centroid.lat;
+      totalLng += centroid.lng;
+    });
+    
+    return {
+      lat: totalLat / tracts.length,
+      lng: totalLng / tracts.length
+    };
+  }
+
+  /**
+   * Balance districts by splitting counties if necessary
+   * @param districts Array of districts
+   * @param targetPopulationPerDistrict Target population per district
+   * @param populationTolerance Population balance tolerance
+   * @returns Balanced result
+   */
+  private balanceDistrictsBySplittingCounties(
+    districts: District[],
+    targetPopulationPerDistrict: number,
+    populationTolerance: number
+  ): { districts: District[], divisionHistory: string[], divisionSteps: DivisionStep[] } {
+    
+    const divisionHistory: string[] = [];
+    const divisionSteps: DivisionStep[] = [];
+    const tolerance = targetPopulationPerDistrict * populationTolerance;
+    
+    // Check if any districts are significantly over or under target
+    let needsBalancing = false;
+    for (const district of districts) {
+      const deviation = Math.abs(district.population - targetPopulationPerDistrict);
+      if (deviation > tolerance) {
+        needsBalancing = true;
+        break;
+      }
+    }
+    
+    if (!needsBalancing) {
+      divisionHistory.push('Districts are within acceptable population balance');
+      return { districts, divisionHistory, divisionSteps };
+    }
+    
+    // Find the most overpopulated and underpopulated districts
+    let mostOverpopulated = districts[0];
+    let mostUnderpopulated = districts[0];
+    let maxOverpopulation = 0;
+    let maxUnderpopulation = 0;
+    
+    for (const district of districts) {
+      const deviation = district.population - targetPopulationPerDistrict;
+      if (deviation > maxOverpopulation) {
+        maxOverpopulation = deviation;
+        mostOverpopulated = district;
+      }
+      if (deviation < -maxUnderpopulation) {
+        maxUnderpopulation = -deviation;
+        mostUnderpopulated = district;
+      }
+    }
+    
+    // If the overpopulated district has counties that can be split, do so
+    if (maxOverpopulation > tolerance && mostOverpopulated.tracts.length > 1) {
+      divisionHistory.push(`Attempting to balance District ${mostOverpopulated.id} (${mostOverpopulated.population.toLocaleString()} people) with District ${mostUnderpopulated.id} (${mostUnderpopulated.population.toLocaleString()} people)`);
+      
+      // Group tracts by county within the overpopulated district
+      const countyGroups = this.groupTractsByCounty(mostOverpopulated.tracts);
+      
+      // Find the smallest county that can help balance
+      const sortedCounties = countyGroups.sort((a, b) => a.population - b.population);
+      
+      for (const county of sortedCounties) {
+        if (county.population <= maxOverpopulation && county.population > 0) {
+          // Move this entire county to the underpopulated district
+          mostOverpopulated.tracts = mostOverpopulated.tracts.filter(tract => 
+            !county.tracts.includes(tract)
+          );
+          mostUnderpopulated.tracts.push(...county.tracts);
+          
+          mostOverpopulated.population -= county.population;
+          mostUnderpopulated.population += county.population;
+          
+          // Recalculate bounds and centroids
+          mostOverpopulated.bounds = this.calculateCountyBounds(mostOverpopulated.tracts);
+          mostUnderpopulated.bounds = this.calculateCountyBounds(mostUnderpopulated.tracts);
+          mostOverpopulated.centroid = this.calculateDistrictCentroid(mostOverpopulated.tracts);
+          mostUnderpopulated.centroid = this.calculateDistrictCentroid(mostUnderpopulated.tracts);
+          
+          divisionHistory.push(`Moved ${county.countyName} (${county.population.toLocaleString()} people) from District ${mostOverpopulated.id} to District ${mostUnderpopulated.id}`);
+          break;
+        }
+      }
+    }
+    
+    // Create final step
+    const finalStep = this.createDivisionStepFromDistricts(districts, 1, 'County-based balancing completed');
+    divisionSteps.push(finalStep);
+    
+    return { districts, divisionHistory, divisionSteps };
+  }
+
+  /**
+   * Create a division step from districts
+   * @param districts Array of districts
+   * @param level Division level
+   * @param description Step description
+   * @returns Division step
+   */
+  private createDivisionStepFromDistricts(districts: District[], level: number, description: string): DivisionStep {
+    const stepGroups = districts.map(district => ({
+      id: district.id,
+      tracts: district.tracts,
+      targetDistricts: 1,
+      direction: 'latitude' as 'latitude' | 'longitude',
+      bounds: district.bounds,
+      centroid: district.centroid,
+      population: district.population
+    }));
+
+    return this.createDivisionStep(
+      level,
+      level,
+      stepGroups,
+      description
+    );
   }
 
   /**
@@ -2220,6 +2055,38 @@ export class CensusService {
         lng: totalLng / totalPoints
       }
     };
+  }
+
+  /**
+   * Test method to verify county grouping functionality
+   * @param state State FIPS code
+   * @param forceInvalidate Whether to force invalidate cache
+   * @returns Observable with county grouping test result
+   */
+  testCountyGrouping(state: string, forceInvalidate: boolean = false): Observable<{ counties: CountyGroup[], totalTracts: number, totalPopulation: number }> {
+    return this.getTractBoundaries(state, undefined, forceInvalidate).pipe(
+      map(geojsonData => {
+        if (!geojsonData || !geojsonData.features) {
+          return { counties: [], totalTracts: 0, totalPopulation: 0 };
+        }
+
+        const counties = this.groupTractsByCounty(geojsonData.features);
+        const totalTracts = geojsonData.features.length;
+        const totalPopulation = counties.reduce((sum, county) => sum + county.population, 0);
+
+        console.log(`County Grouping Test Results for State ${state}:`);
+        console.log(`- Total tracts: ${totalTracts}`);
+        console.log(`- Total counties: ${counties.length}`);
+        console.log(`- Total population: ${totalPopulation.toLocaleString()}`);
+        console.log(`- Counties by population:`);
+        counties.sort((a, b) => b.population - a.population).forEach((county, index) => {
+          console.log(`  ${index + 1}. ${county.countyName}: ${county.population.toLocaleString()} people (${county.tracts.length} tracts)`);
+        });
+
+        return { counties, totalTracts, totalPopulation };
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /**

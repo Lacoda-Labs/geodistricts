@@ -28,6 +28,15 @@ democracy is preserved as no centralized state authority can be compromised into
 - number of congressional districts 
 
 ### Approach
+The algorithm now supports two modes of operation:
+
+#### County-Aware Division (Default)
+- **County Preservation Priority**: Groups census tracts by county first, then assigns entire counties to districts when possible to preserve county boundaries
+- **County Assignment**: Sorts counties by population (largest first) and assigns each county to the district with the smallest current population
+- **Population Balancing**: If districts become significantly imbalanced, moves entire counties between districts to achieve better population balance
+- **Fallback to Geographic Division**: Only splits counties when absolutely necessary for population balance
+
+#### Standard Geographic Division (Legacy)
 - starting with a states number of allocation congressional representatives, divide total population (of each census tract) to determine target population for each resulting district ("geodistrict").
 - repeatedly divide the total state census tracts geopgraphically by latitude and logitude, beginning with latitude, and a given ration (e.g. 50%/50%) to distribute census tracts into either north and south (latitude) or east and west (longitude) according to the ratio. resulting division is two groups of districts, geographically distributed according to population ratio.
 - division of district groups is repeated on each distict group has only one district.

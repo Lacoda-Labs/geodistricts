@@ -694,7 +694,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('StateMapPageComponent initialized');
     
     // Debug cache status
-    this.censusService.debugCacheStatus();
+    this.censusService.debugAllCacheStatus();
     
     // Test the algorithm with a small dataset first
     this.testRecursiveDivision();
@@ -706,19 +706,27 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Test the recursive division algorithm with a simple example
    */
   private testRecursiveDivision(): void {
-    console.log('=== Testing Recursive Division Algorithm ===');
+    console.log('=== Testing County-Aware Division Algorithm ===');
     
-    // Test with California's 52 districts
-    this.censusService.divideTractsIntoDistrictsWithData('06', undefined, {
-      targetDistricts: 52,
-      maxIterations: 200,
-      populationTolerance: this.populationTolerance
-    }).subscribe({
-      next: (result: RecursiveDivisionResult) => {
-        console.log('California 52 Districts Test Result:', {
-          districts: result.districts.length,
-          totalPopulation: result.totalPopulation,
-          averagePopulation: result.averagePopulation,
+    // First test county grouping
+    console.log('Testing county grouping...');
+    this.censusService.testCountyGrouping('06', false).subscribe({
+      next: (countyResult) => {
+        console.log('County grouping test completed:', countyResult);
+        
+        // Now test with California's 52 districts using county-aware division
+        console.log('Testing county-aware division with 52 districts...');
+        this.censusService.divideTractsIntoDistrictsWithData('06', undefined, {
+          targetDistricts: 52,
+          maxIterations: 200,
+          populationTolerance: this.populationTolerance,
+          preserveCountyBoundaries: true // Explicitly enable county preservation
+        }).subscribe({
+          next: (result: RecursiveDivisionResult) => {
+            console.log('California 52 Districts Test Result:', {
+              districts: result.districts.length,
+              totalPopulation: result.totalPopulation,
+              averagePopulation: result.averagePopulation,
           populationVariance: result.populationVariance,
           divisionHistory: result.divisionHistory.slice(0, 10) // Show first 10 steps
         });
@@ -731,42 +739,47 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
           deviation: ((d.population - targetPopulation) / targetPopulation * 100).toFixed(1) + '%'
         }));
         
-        console.log('Population Distribution (Target: ' + targetPopulation.toLocaleString() + '):');
-        console.table(populationStats.slice(0, 10)); // Show first 10 districts
-        
-        // Check contiguity for all districts
-        console.log('\n=== Contiguity Check ===');
-        const contiguityResults = result.districts.map(d => ({
-          id: d.id,
-          tracts: d.tracts.length,
+            console.log('Population Distribution (Target: ' + targetPopulation.toLocaleString() + '):');
+            console.table(populationStats.slice(0, 10)); // Show first 10 districts
+            
+            // Check contiguity for all districts
+            console.log('\n=== Contiguity Check ===');
+            const contiguityResults = result.districts.map(d => ({
+              id: d.id,
+              tracts: d.tracts.length,
           contiguous: this.checkDistrictContiguity(d.tracts)
         }));
         
-        const nonContiguousDistricts = contiguityResults.filter(d => !d.contiguous);
-        console.log(`Contiguous districts: ${contiguityResults.filter(d => d.contiguous).length}/${result.districts.length}`);
-        
-        if (nonContiguousDistricts.length > 0) {
-          console.warn('Non-contiguous districts found:', nonContiguousDistricts);
-        } else {
-          console.log('✅ All districts are geographically contiguous!');
-        }
-        
-        // Specifically check district 27
-        const district27 = result.districts.find(d => d.id === 27);
-        if (district27) {
-          const isContiguous = this.checkDistrictContiguity(district27.tracts);
-          console.log(`District 27: ${district27.tracts.length} tracts, contiguous: ${isContiguous ? '✅ YES' : '❌ NO'}`);
-        }
-        
-        // Log the division pattern
-        console.log('\nDivision Pattern Example:');
-        console.log('Level 0: 52 districts → 26 + 26 (latitude)');
-        console.log('Level 1: 26 districts → 13 + 13 (longitude), 26 districts → 13 + 13 (longitude)');
-        console.log('Level 2: 13 districts → 7 + 6 (latitude), 13 districts → 7 + 6 (latitude), etc.');
-        console.log('Algorithm: Improved zig-zag sorting ensures geographic contiguity, population-based division ensures balanced populations');
+            const nonContiguousDistricts = contiguityResults.filter(d => !d.contiguous);
+            console.log(`Contiguous districts: ${contiguityResults.filter(d => d.contiguous).length}/${result.districts.length}`);
+            
+            if (nonContiguousDistricts.length > 0) {
+              console.warn('Non-contiguous districts found:', nonContiguousDistricts);
+            } else {
+              console.log('✅ All districts are geographically contiguous!');
+            }
+            
+            // Specifically check district 27
+            const district27 = result.districts.find(d => d.id === 27);
+            if (district27) {
+              const isContiguous = this.checkDistrictContiguity(district27.tracts);
+              console.log(`District 27: ${district27.tracts.length} tracts, contiguous: ${isContiguous ? '✅ YES' : '❌ NO'}`);
+            }
+            
+            // Log the division pattern
+            console.log('\nCounty-Aware Division Pattern:');
+            console.log('Step 1: Group tracts by county');
+            console.log('Step 2: Assign entire counties to districts based on population balance');
+            console.log('Step 3: Balance districts by moving entire counties if needed');
+            console.log('Algorithm: County boundaries preserved, population balanced, geographic contiguity maintained');
+          },
+          error: (error) => {
+            console.error('Error testing county-aware division:', error);
+          }
+        });
       },
       error: (error) => {
-        console.error('Error testing recursive division:', error);
+        console.error('Error testing county grouping:', error);
       }
     });
   }
@@ -998,7 +1011,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('TIGERweb API Response:', geojsonData);
         
         // Debug cache status after loading
-        this.censusService.debugCacheStatus();
+        this.censusService.debugAllCacheStatus();
         
         if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
           console.log(`Loaded ${geojsonData.features.length} census tracts`);
