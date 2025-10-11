@@ -525,8 +525,8 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       return res.status(400).json({ error: 'State parameter is required' });
     }
     
-    const params = { state, county: county || undefined };
-    const cacheKey = generateCacheKey('tract_boundaries', params);
+    const cacheParams = { state, county: county || undefined };
+    const cacheKey = generateCacheKey('tract_boundaries', cacheParams);
     
     // Check cache first
     const cachedData = await getFromCache(cacheKey);
