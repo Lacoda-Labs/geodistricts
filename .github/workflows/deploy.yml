@@ -87,5 +87,5 @@ jobs:
           --image $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$GAR_REPOSITORY/$FRONTEND_SERVICE:$GITHUB_SHA \
           --platform managed \
           --region $REGION \
-          --port 80 \
+          --port 8080 \
           --allow-unauthenticated
