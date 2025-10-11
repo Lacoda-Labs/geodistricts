@@ -36,7 +36,11 @@ const CACHE_VERSION = '1.0';
 app.use(helmet());
 app.use(compression());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:4200',
+    'https://geodistricts.org',
+    'https://www.geodistricts.org'
+  ],
   credentials: true
 }));
 app.use(morgan('combined'));
