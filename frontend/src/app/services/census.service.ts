@@ -363,13 +363,47 @@ export class CensusService {
 
     console.log('Getting tract boundaries via Cloud Run proxy for state:', state);
 
-    return this.http.get<GeoJsonResponse>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`).pipe(
+    return this.http.get<any>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`).pipe(
       map(response => {
-        console.log(`Retrieved ${response.features?.length || 0} tract boundaries for state ${state}`);
-        return response;
+        // Check if response is ultra-compressed format
+        if (response.t === 'FeatureCollection' && response.f) {
+          console.log(`Retrieved ultra-compressed ${response.f.length} tract boundaries for state ${state}`);
+          return this.decompressGeoJson(response);
+        } else {
+          console.log(`Retrieved ${response.features?.length || 0} tract boundaries for state ${state}`);
+          return response;
+        }
       }),
       catchError(this.handleError)
     );
+  }
+
+  /**
+   * Decompress ultra-compressed GeoJSON format
+   */
+  private decompressGeoJson(compressed: any): GeoJsonResponse {
+    if (!compressed || compressed.t !== 'FeatureCollection' || !compressed.f) {
+      return compressed;
+    }
+
+    const features = compressed.f.map((feature: any) => ({
+      type: feature.t,
+      properties: {
+        STATE_FIPS: feature.p.s,
+        COUNTY_FIPS: feature.p.c,
+        TRACT_FIPS: feature.p.t,
+        POPULATION: feature.p.pop
+      },
+      geometry: {
+        type: feature.g.t,
+        coordinates: feature.g.c
+      }
+    }));
+
+    return {
+      type: 'FeatureCollection',
+      features: features
+    };
   }
 
   // Direct TIGERweb calls are now handled by the backend proxy service

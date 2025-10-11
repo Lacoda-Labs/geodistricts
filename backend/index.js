@@ -180,12 +180,56 @@ function compressGeoJson(geojson) {
     return geojson;
   }
   
+  // Ultra-compress for large datasets
+  if (geojson.features.length > 1000) {
+    return ultraCompressGeoJson(geojson);
+  }
+  
   return {
     ...geojson,
     features: geojson.features.map(feature => ({
       ...feature,
       geometry: simplifyGeometry(feature.geometry, 0.0001) // Reduce precision
     }))
+  };
+}
+
+/**
+ * Ultra-compress GeoJSON data for faster transfer
+ */
+function ultraCompressGeoJson(geojson) {
+  if (!geojson || !geojson.features) {
+    return geojson;
+  }
+  
+  // Create a more compact format
+  const compressedFeatures = geojson.features.map(feature => {
+    // Round coordinates to 4 decimal places (about 11m precision)
+    const compressCoordinates = (coords) => {
+      if (Array.isArray(coords[0])) {
+        return coords.map(compressCoordinates);
+      }
+      return coords.map(coord => Math.round(coord * 10000) / 10000);
+    };
+    
+    return {
+      t: feature.type,
+      p: {
+        s: feature.properties.STATE_FIPS,
+        c: feature.properties.COUNTY_FIPS,
+        t: feature.properties.TRACT_FIPS,
+        pop: feature.properties.POPULATION || 0
+      },
+      g: {
+        t: feature.geometry.type,
+        c: compressCoordinates(feature.geometry.coordinates)
+      }
+    };
+  });
+  
+  return {
+    t: 'FeatureCollection',
+    f: compressedFeatures
   };
 }
 
@@ -417,9 +461,9 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     
     let allFeatures = [];
     
-    if (totalCount > 1000) {
+    if (totalCount > 500) {
       // Use pagination for large datasets
-      const batchSize = 1000;
+      const batchSize = 500;
       const totalBatches = Math.ceil(totalCount / batchSize);
       
       console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches`);
@@ -429,7 +473,7 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
         const offset = i * batchSize;
         const batchParams = new URLSearchParams({
           where: whereClause,
-          outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI',
+          outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
           f: 'geojson',
           outSR: '4326',
           resultRecordCount: batchSize.toString(),
@@ -450,7 +494,7 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       // Single request for smaller datasets
       const params = new URLSearchParams({
         where: whereClause,
-        outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,STATE_ABBR,POPULATION,SQMI',
+        outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
         f: 'geojson',
         outSR: '4326',
         resultRecordCount: '2000'
