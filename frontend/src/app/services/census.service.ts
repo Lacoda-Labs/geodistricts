@@ -363,7 +363,10 @@ export class CensusService {
 
     console.log('Getting tract boundaries via Cloud Run proxy for state:', state);
 
-    return this.http.get<any>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`).pipe(
+    return this.http.get<any>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`, {
+      // Increase timeout for large datasets
+      timeout: 300000 // 5 minutes
+    }).pipe(
       map(response => {
         // Check if response is ultra-compressed format
         if (response.t === 'FeatureCollection' && response.f) {

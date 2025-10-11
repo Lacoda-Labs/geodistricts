@@ -416,6 +416,105 @@ app.get('/api/census/tract-data', async (req, res) => {
 });
 
 /**
+ * Get tract count for a state/county
+ */
+async function getTractCount(state, county) {
+  const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
+  let whereClause = `STATE_FIPS='${state}'`;
+  if (county) {
+    whereClause += ` AND COUNTY_FIPS='${county}'`;
+  }
+  
+  const countParams = new URLSearchParams({
+    where: whereClause,
+    outFields: 'STATE_FIPS',
+    f: 'geojson',
+    returnCountOnly: 'true'
+  });
+  
+  const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`);
+  return countResponse.data.properties?.count || 0;
+}
+
+/**
+ * Handle streaming response for large datasets
+ */
+async function handleStreamingResponse(req, res, state, county, cacheKey, totalCount) {
+  const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
+  let whereClause = `STATE_FIPS='${state}'`;
+  if (county) {
+    whereClause += ` AND COUNTY_FIPS='${county}'`;
+  }
+  
+  // Set up streaming response
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.write('{"type":"FeatureCollection","features":[');
+  
+  const batchSize = 500;
+  const totalBatches = Math.ceil(totalCount / batchSize);
+  let isFirstBatch = true;
+  let allFeatures = [];
+  
+  try {
+    for (let i = 0; i < totalBatches; i++) {
+      const offset = i * batchSize;
+      const batchParams = new URLSearchParams({
+        where: whereClause,
+        outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
+        f: 'geojson',
+        outSR: '4326',
+        resultRecordCount: batchSize.toString(),
+        resultOffset: offset.toString()
+      });
+      
+      console.log(`Streaming batch ${i + 1}/${totalBatches} (offset: ${offset})`);
+      const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
+      const batchFeatures = batchResponse.data.features || [];
+      
+      // Stream this batch to client
+      if (batchFeatures.length > 0) {
+        if (!isFirstBatch) {
+          res.write(',');
+        }
+        isFirstBatch = false;
+        
+        // Send features as JSON array
+        const featuresJson = batchFeatures.map(feature => JSON.stringify(feature)).join(',');
+        res.write(featuresJson);
+        
+        // Force response to flush
+        res.flush();
+      }
+      
+      allFeatures.push(...batchFeatures);
+      
+      // Force garbage collection every few batches
+      if (global.gc && i % 3 === 0) {
+        global.gc();
+      }
+    }
+    
+    // Close the JSON response
+    res.write(']}');
+    res.end();
+    
+    // Cache the complete result for future requests
+    const completeResponse = {
+      type: 'FeatureCollection',
+      features: allFeatures
+    };
+    const compressedData = compressGeoJson(completeResponse);
+    await setCache(cacheKey, compressedData);
+    
+    console.log(`Streamed ${allFeatures.length} tract boundaries for state ${state}`);
+  } catch (error) {
+    console.error('Error in streaming response:', error);
+    res.status(500).json({ error: 'Failed to stream tract boundaries' });
+  }
+}
+
+/**
  * Get tract boundaries from TIGERweb
  */
 app.get('/api/census/tract-boundaries', async (req, res) => {
@@ -434,6 +533,12 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     if (cachedData) {
       return res.json(cachedData);
     }
+
+    // For large datasets, use streaming response
+    const totalCount = await getTractCount(state, county);
+    if (totalCount > 2000) {
+      return handleStreamingResponse(req, res, state, county, cacheKey, totalCount);
+    }
     
     const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
     let whereClause = `STATE_FIPS='${state}'`;
@@ -441,80 +546,27 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       whereClause += ` AND COUNTY_FIPS='${county}'`;
     }
     
-    // First, get the total count
-    const countParams = new URLSearchParams({
+    // For smaller datasets, use single request
+    const params = new URLSearchParams({
       where: whereClause,
-      outFields: 'STATE_FIPS',
+      outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
       f: 'geojson',
-      returnCountOnly: 'true'
+      outSR: '4326',
+      resultRecordCount: '2000'
     });
     
-    console.log(`Getting tract count for state: ${state}`);
-    const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`);
-    const totalCount = countResponse.data.properties?.count || 0;
-    
-    if (totalCount === 0) {
-      const emptyResponse = { type: 'FeatureCollection', features: [] };
-      await setCache(cacheKey, emptyResponse);
-      return res.json(emptyResponse);
-    }
-    
-    let allFeatures = [];
-    
-    if (totalCount > 500) {
-      // Use pagination for large datasets
-      const batchSize = 500;
-      const totalBatches = Math.ceil(totalCount / batchSize);
-      
-      console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches`);
-      
-      // Process batches sequentially to avoid memory issues
-      for (let i = 0; i < totalBatches; i++) {
-        const offset = i * batchSize;
-        const batchParams = new URLSearchParams({
-          where: whereClause,
-          outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
-          f: 'geojson',
-          outSR: '4326',
-          resultRecordCount: batchSize.toString(),
-          resultOffset: offset.toString()
-        });
-        
-        console.log(`Fetching batch ${i + 1}/${totalBatches} (offset: ${offset})`);
-        const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
-        const batchFeatures = batchResponse.data.features || [];
-        allFeatures.push(...batchFeatures);
-        
-        // Force garbage collection between batches for large datasets
-        if (global.gc && i % 2 === 0) {
-          global.gc();
-        }
-      }
-    } else {
-      // Single request for smaller datasets
-      const params = new URLSearchParams({
-        where: whereClause,
-        outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
-        f: 'geojson',
-        outSR: '4326',
-        resultRecordCount: '2000'
-      });
-      
-      const response = await axios.get(`${serviceUrl}?${params.toString()}`);
-      allFeatures = response.data.features || [];
-    }
-    
+    console.log(`Fetching tract boundaries for state ${state} (small dataset)`);
+    const response = await axios.get(`${serviceUrl}?${params.toString()}`);
     const geojsonResponse = {
       type: 'FeatureCollection',
-      features: allFeatures
+      features: response.data.features || []
     };
     
-    // Compress and cache the result
-    const compressedData = compressGeoJson(geojsonResponse);
-    await setCache(cacheKey, compressedData);
+    // Cache the response
+    await setCache(cacheKey, geojsonResponse);
     
-    console.log(`Fetched ${allFeatures.length} tract boundaries for state ${state}`);
-    res.json(compressedData);
+    console.log(`Retrieved ${geojsonResponse.features.length} tract boundaries for state ${state}`);
+    res.json(geojsonResponse);
   } catch (error) {
     console.error('Error fetching tract boundaries:', error);
     res.status(500).json({ 
