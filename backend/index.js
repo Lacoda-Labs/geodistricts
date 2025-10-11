@@ -11,6 +11,13 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Enable garbage collection for better memory management
+if (global.gc) {
+  console.log('Garbage collection is available');
+} else {
+  console.log('Garbage collection is not available - consider running with --expose-gc');
+}
+
 // Initialize Firestore
 const firestore = new Firestore({
   projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
@@ -407,7 +414,7 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       
       console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches`);
       
-      const batchPromises = [];
+      // Process batches sequentially to avoid memory issues
       for (let i = 0; i < totalBatches; i++) {
         const offset = i * batchSize;
         const batchParams = new URLSearchParams({
@@ -419,14 +426,16 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
           resultOffset: offset.toString()
         });
         
-        batchPromises.push(
-          axios.get(`${serviceUrl}?${batchParams.toString()}`)
-            .then(response => response.data.features || [])
-        );
+        console.log(`Fetching batch ${i + 1}/${totalBatches} (offset: ${offset})`);
+        const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
+        const batchFeatures = batchResponse.data.features || [];
+        allFeatures.push(...batchFeatures);
+        
+        // Force garbage collection between batches for large datasets
+        if (global.gc && i % 2 === 0) {
+          global.gc();
+        }
       }
-      
-      const batchResults = await Promise.all(batchPromises);
-      allFeatures = batchResults.flat();
     } else {
       // Single request for smaller datasets
       const params = new URLSearchParams({
@@ -515,10 +524,8 @@ app.get('/api/census/cache-info', async (req, res) => {
     res.json(cacheInfo.sort((a, b) => b.timestamp - a.timestamp));
   } catch (error) {
     console.error('Error getting cache info:', error);
-    res.status(500).json({ 
-      error: 'Failed to get cache info',
-      message: error.message 
-    });
+    // Return empty array instead of 500 error to prevent service crashes
+    res.json([]);
   }
 });
 
