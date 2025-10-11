@@ -143,7 +143,7 @@ async function getFromCache(key) {
       return null;
     }
     
-    console.log(`Cache hit for key: ${key}`);
+    console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
     return data.data;
   } catch (error) {
     console.error('Error getting from cache:', error);
@@ -166,7 +166,7 @@ async function setCache(key, data, ttl = CACHE_TTL) {
     };
     
     await firestore.collection('census_cache').doc(key).set(cacheEntry);
-    console.log(`Cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
+    console.log(`✅ FIRESTORE CACHE: Cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
   } catch (error) {
     console.error('Error setting cache:', error);
   }
@@ -454,7 +454,8 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
   const batchSize = 500;
   const totalBatches = Math.ceil(totalCount / batchSize);
   let isFirstBatch = true;
-  let allFeatures = [];
+  let totalFeaturesStreamed = 0;
+  let allFeatures = []; // Collect for caching
   
   try {
     for (let i = 0; i < totalBatches; i++) {
@@ -487,7 +488,9 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
         res.flush();
       }
       
+      // Collect features for caching (but don't keep in memory long)
       allFeatures.push(...batchFeatures);
+      totalFeaturesStreamed += batchFeatures.length;
       
       // Force garbage collection every few batches
       if (global.gc && i % 3 === 0) {
@@ -499,15 +502,28 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
     res.write(']}');
     res.end();
     
-    // Cache the complete result for future requests
+    // Cache the complete result for future requests (this will be served from cache)
     const completeResponse = {
       type: 'FeatureCollection',
       features: allFeatures
     };
-    const compressedData = compressGeoJson(completeResponse);
-    await setCache(cacheKey, compressedData);
     
-    console.log(`Streamed ${allFeatures.length} tract boundaries for state ${state}`);
+    // Use ultra-compression for large datasets
+    let cacheData = completeResponse;
+    if (allFeatures.length > 1000) {
+      console.log(`Ultra-compressing ${allFeatures.length} features for caching`);
+      cacheData = ultraCompressGeoJson(completeResponse);
+    }
+    
+    await setCache(cacheKey, cacheData);
+    
+    console.log(`Streamed ${totalFeaturesStreamed} tract boundaries for state ${state} and cached to Firestore`);
+    
+    // Clear memory immediately after caching
+    allFeatures = null;
+    if (global.gc) {
+      global.gc();
+    }
   } catch (error) {
     console.error('Error in streaming response:', error);
     res.status(500).json({ error: 'Failed to stream tract boundaries' });
