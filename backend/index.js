@@ -54,6 +54,16 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Timeout middleware for long-running requests
+app.use((req, res, next) => {
+  // Set timeout to 5 minutes for census data requests
+  if (req.path.includes('/api/census/')) {
+    req.setTimeout(300000); // 5 minutes
+    res.setTimeout(300000);
+  }
+  next();
+});
+
 // Census Proxy Utility Functions
 /**
  * Get Census API key from Secret Manager
@@ -407,9 +417,9 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     
     let allFeatures = [];
     
-    if (totalCount > 2000) {
+    if (totalCount > 1000) {
       // Use pagination for large datasets
-      const batchSize = 2000;
+      const batchSize = 1000;
       const totalBatches = Math.ceil(totalCount / batchSize);
       
       console.log(`Fetching ${totalCount} tracts in ${totalBatches} batches`);
@@ -478,10 +488,11 @@ app.delete('/api/census/cache', async (req, res) => {
     const { key } = req.query;
     
     if (key) {
+      // Clear specific cache entry
       await firestore.collection('census_cache').doc(key).delete();
       res.json({ message: `Cache entry ${key} cleared` });
     } else {
-      // Clear all census cache entries
+      // Clear all cache entries
       const snapshot = await firestore.collection('census_cache').get();
       const batch = firestore.batch();
       
