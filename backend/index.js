@@ -93,7 +93,11 @@ async function getCensusApiKey() {
  * Generate cache key for requests
  */
 function generateCacheKey(type, params) {
-  const paramString = JSON.stringify(params);
+  // Filter out undefined values to avoid Firestore issues
+  const cleanParams = Object.fromEntries(
+    Object.entries(params).filter(([key, value]) => value !== undefined)
+  );
+  const paramString = JSON.stringify(cleanParams);
   const hash = simpleHash(paramString);
   return `census_${type}_${hash}`;
 }
@@ -571,9 +575,14 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
       totalCount: totalFeaturesStreamed,
       timestamp: new Date().toISOString(),
       state: state,
-      county: county,
       note: 'Large dataset - will be streamed from source on each request'
     };
+    
+    // Only add county if it's defined (not undefined)
+    if (county) {
+      cacheMarker.county = county;
+    }
+    
     await setCache(cacheKey, cacheMarker);
     
     console.log(`Streamed ${totalFeaturesStreamed} tract boundaries for state ${state} and cached marker`);
