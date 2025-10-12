@@ -12,7 +12,7 @@ import * as L from 'leaflet';
     <div class="app-container">
       <header class="app-header">
         <h1>{{ title }}</h1>
-        <p>An objective algorithm for calculating US Congressional district boundaries.</p>
+        <p>An objective approach for calculating US Congressional district boundaries.</p>
       </header>
 
       <nav class="app-navigation">
@@ -25,6 +25,12 @@ import * as L from 'leaflet';
           </a>
           <a routerLink="/map" routerLinkActive="active">
             State Map
+          </a>
+          <a routerLink="/districts" routerLinkActive="active">
+            Congressional Districts
+          </a>
+          <a routerLink="/geodistrict" routerLinkActive="active">
+            Geodistrict Algorithm
           </a>
         </div>
       </nav>

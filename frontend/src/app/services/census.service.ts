@@ -3,13 +3,16 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError, switchMap, mergeMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { API_KEYS } from '../../config/api-keys';
 
-// Census API Configuration is now handled by the backend proxy service
+// Census API Configuration
+const CENSUS_API_BASE = 'https://api.census.gov/data';
+const CENSUS_API_KEY = API_KEYS.CENSUS_API_KEY;
+const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
+const ALTERNATIVE_TIGERWEB = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0';
 
-// Cloud Run Census Proxy Configuration
+// Cloud Run Census Proxy Configuration (fallback)
 const CENSUS_PROXY_BASE = environment.censusProxyUrl || 'https://census-proxy-<project-id>-uc.a.run.app';
-
-// Cache is now handled by the backend proxy service
 
 // TypeScript interfaces for census data
 export interface CensusTractData {
@@ -156,6 +159,9 @@ export interface CountyGroup {
   providedIn: 'root'
 })
 export class CensusService {
+  // Cache for direct API calls
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
   constructor(private http: HttpClient) {
     // API key is now handled by the Cloud Run proxy service
   }
@@ -2189,6 +2195,318 @@ export class CensusService {
       }),
       catchError(this.handleError)
     );
+  }
+
+  // ===== DIRECT CENSUS.GOV API METHODS =====
+
+  /**
+   * Get census tract data directly from census.gov API
+   * @param state State FIPS code
+   * @param county Optional county FIPS code
+   * @param tract Optional tract FIPS code
+   * @param variables Array of census variables to fetch
+   * @param year Census year (default: 2022)
+   * @param forceInvalidate Whether to force invalidate cache
+   * @returns Observable with census tract data
+   */
+  getTractDataDirect(state: string, county?: string, tract?: string, variables: string[] = ['B01003_001E'], year: string = '2022', forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    const cacheKey = `tract-data-${state}-${county || 'all'}-${tract || 'all'}-${year}-${variables.join(',')}`;
+    
+    if (!forceInvalidate && this.isCacheValid(cacheKey)) {
+      return new Observable(observer => {
+        observer.next(this.cache.get(cacheKey)!.data);
+        observer.complete();
+      });
+    }
+
+    // Use the same approach as the backend
+    const queryParams = new URLSearchParams();
+    queryParams.set('key', CENSUS_API_KEY);
+    
+    // Add variables (use same defaults as backend)
+    if (variables && variables.length > 0) {
+      queryParams.set('get', ['NAME', 'STATE', 'COUNTY', 'TRACT', ...variables].join(','));
+    } else {
+      queryParams.set('get', 'NAME,B01003_001E,B19013_001E,B01002_001E,STATE,COUNTY,TRACT');
+    }
+    
+    // Add geography (same logic as backend)
+    if (tract) {
+      queryParams.set('for', `tract:${tract}`);
+      queryParams.set('in', `state:${state} county:${county}`);
+    } else if (county) {
+      queryParams.set('for', 'tract:*');
+      queryParams.set('in', `state:${state} county:${county}`);
+    } else if (state) {
+      queryParams.set('for', 'tract:*');
+      queryParams.set('in', `state:${state}`);
+    } else {
+      queryParams.set('for', 'tract:*');
+    }
+
+    const url = `${CENSUS_API_BASE}/${year}/acs/acs5?${queryParams.toString()}`;
+    console.log(`Fetching census data from: ${url}`);
+
+    return this.http.get<any[]>(url).pipe(
+      map(response => {
+        console.log(`Census API response:`, response);
+        
+        // Handle null response (likely CORS issue)
+        if (response === null || response === undefined) {
+          throw new Error('Census API returned null response - likely CORS issue. Use backend proxy instead.');
+        }
+        
+        const transformedData = this.transformCensusResponse(response, variables);
+        console.log(`Transformed ${transformedData.length} census records`);
+        console.log('Sample census record:', transformedData[0]);
+        return transformedData;
+      }),
+      map(data => {
+        this.setCache(cacheKey, data, 3600000); // 1 hour cache
+        return data;
+      }),
+      catchError(error => {
+        console.error('Census API error:', error);
+        if (error.message && error.message.includes('CORS')) {
+          throw new Error('Census API blocked by CORS. Please use backend proxy instead.');
+        }
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
+   * Get census tract boundaries directly from TIGERweb
+   * @param state State FIPS code
+   * @param county Optional county FIPS code
+   * @param forceInvalidate Whether to force invalidate cache
+   * @returns Observable with GeoJSON tract boundaries
+   */
+  getTractBoundariesDirect(state: string, county?: string, forceInvalidate: boolean = false): Observable<GeoJsonResponse> {
+    const cacheKey = `tract-boundaries-${state}-${county || 'all'}`;
+    
+    if (!forceInvalidate && this.isCacheValid(cacheKey)) {
+      return new Observable(observer => {
+        observer.next(this.cache.get(cacheKey)!.data);
+        observer.complete();
+      });
+    }
+
+    // Use the same endpoint and parameters as the backend
+    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
+    let whereClause = `STATE_FIPS='${state}'`;
+    if (county) {
+      whereClause += ` AND COUNTY_FIPS='${county}'`;
+    }
+
+    const params = new URLSearchParams({
+      where: whereClause,
+      outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
+      f: 'geojson',
+      outSR: '4326',
+      resultRecordCount: '2000'
+    });
+
+    const url = `${serviceUrl}?${params.toString()}`;
+    console.log(`Fetching tract boundaries from: ${url}`);
+
+    return this.http.get<any>(url).pipe(
+      map(response => {
+        console.log(`Tract boundaries response:`, response);
+        
+        // Handle null response (likely CORS issue)
+        if (response === null || response === undefined) {
+          throw new Error('TIGERweb API returned null response - likely CORS issue. Use backend proxy instead.');
+        }
+        
+        // Handle the response format from the ArcGIS service
+        let features = [];
+        if (response.features && Array.isArray(response.features)) {
+          features = response.features;
+        } else if (response.data && response.data.features && Array.isArray(response.data.features)) {
+          features = response.data.features;
+        }
+        
+        const geojsonResponse: GeoJsonResponse = {
+          type: 'FeatureCollection',
+          features: features
+        };
+        
+        console.log(`Processed ${geojsonResponse.features.length} tract boundaries`);
+        this.setCache(cacheKey, geojsonResponse, 3600000); // 1 hour cache
+        return geojsonResponse;
+      }),
+      catchError(error => {
+        console.error('TIGERweb API error:', error);
+        if (error.message && error.message.includes('CORS')) {
+          throw new Error('TIGERweb API blocked by CORS. Please use backend proxy instead.');
+        }
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
+   * Get combined tract data with boundaries directly from census.gov
+   * @param state State FIPS code
+   * @param county Optional county FIPS code
+   * @param forceInvalidate Whether to force invalidate cache
+   * @returns Observable with combined demographic and boundary data
+   */
+  getTractDataWithBoundariesDirect(state: string, county?: string, forceInvalidate: boolean = false): Observable<{
+    demographic: CensusTractData[];
+    boundaries: GeoJsonResponse;
+  }> {
+    // Use the same default variables as the backend
+    const demographicData$ = this.getTractDataDirect(state, county, undefined, ['B01003_001E'], '2022', forceInvalidate);
+    const boundaryData$ = this.getTractBoundariesDirect(state, county, forceInvalidate);
+
+    return new Observable(observer => {
+      let demographicData: CensusTractData[] = [];
+      let boundaryData: GeoJsonResponse | null = null;
+      let completed = 0;
+
+      const checkComplete = () => {
+        completed++;
+        if (completed === 2) {
+          observer.next({
+            demographic: demographicData,
+            boundaries: boundaryData!
+          });
+          observer.complete();
+        }
+      };
+
+      demographicData$.subscribe({
+        next: (data) => {
+          demographicData = data;
+          checkComplete();
+        },
+        error: (error) => {
+          console.warn('Failed to load demographic data:', error);
+          checkComplete();
+        }
+      });
+
+      boundaryData$.subscribe({
+        next: (data) => {
+          boundaryData = data;
+          checkComplete();
+        },
+        error: (error) => {
+          console.warn('Failed to load boundary data:', error);
+          checkComplete();
+        }
+      });
+    });
+  }
+
+  /**
+   * Transform census API response to CensusTractData format
+   * @param response Raw census API response
+   * @param variables Array of census variables
+   * @returns Array of CensusTractData objects
+   */
+  private transformCensusResponse(response: any[], variables: string[]): CensusTractData[] {
+    if (!response || response.length < 2) {
+      return [];
+    }
+
+    const headers = response[0];
+    const dataRows = response.slice(1);
+
+    return dataRows.map(row => {
+      const tractData: CensusTractData = {
+        state: '',
+        county: '',
+        tract: '',
+        name: '',
+        population: 0
+      };
+
+      headers.forEach((header: string, index: number) => {
+        const value = row[index];
+        
+        switch (header) {
+          case 'NAME':
+            tractData.name = value;
+            break;
+          case 'STATE':
+            tractData.state = value;
+            break;
+          case 'COUNTY':
+            tractData.county = value;
+            break;
+          case 'TRACT':
+            tractData.tract = value;
+            break;
+          case 'B01003_001E':
+            tractData.population = parseInt(value) || 0;
+            break;
+          default:
+            if (variables.includes(header)) {
+              tractData[header] = parseInt(value) || 0;
+            }
+            break;
+        }
+      });
+
+      return tractData;
+    });
+  }
+
+  /**
+   * Check if cache entry is valid
+   * @param key Cache key
+   * @returns True if cache is valid
+   */
+  private isCacheValid(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    
+    const now = Date.now();
+    return (now - entry.timestamp) < entry.ttl;
+  }
+
+  /**
+   * Set cache entry
+   * @param key Cache key
+   * @param data Data to cache
+   * @param ttl Time to live in milliseconds
+   */
+  private setCache(key: string, data: any, ttl: number): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  /**
+   * Clear cache
+   * @param key Optional specific cache key to clear
+   */
+  clearCache(key?: string): void {
+    if (key) {
+      this.cache.delete(key);
+    } else {
+      this.cache.clear();
+    }
+  }
+
+  /**
+   * Get cache info
+   * @returns Array of cache entries
+   */
+  getCacheInfo(): Array<{ key: string; size: number; timestamp: number; ttl: number; isExpired: boolean }> {
+    const now = Date.now();
+    return Array.from(this.cache.entries()).map(([key, entry]) => ({
+      key,
+      size: JSON.stringify(entry.data).length,
+      timestamp: entry.timestamp,
+      ttl: entry.ttl,
+      isExpired: (now - entry.timestamp) >= entry.ttl
+    }));
   }
 }
 
