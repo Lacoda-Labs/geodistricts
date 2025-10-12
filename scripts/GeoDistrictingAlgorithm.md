@@ -31,8 +31,10 @@ democracy is preserved as no centralized state authority can be compromised into
 The algorithm now supports two modes of operation:
 
 #### County-Aware Division (Default)
-- **County Preservation Priority**: Groups census tracts by county first, then assigns entire counties to districts when possible to preserve county boundaries
-- **County Assignment**: Sorts counties by population (largest first) and assigns each county to the district with the smallest current population
+- **Smart County Assignment**: 
+  - If county population ≥ target district size: Creates a district entirely from that county's tracts
+  - If county population < target district size: Assigns county to district with smallest current population to preserve county boundaries
+- **County Assignment**: Sorts counties by population (largest first) and processes each county based on its size relative to target district size
 - **Population Balancing**: If districts become significantly imbalanced, moves entire counties between districts to achieve better population balance
 - **Fallback to Geographic Division**: Only splits counties when absolutely necessary for population balance
 

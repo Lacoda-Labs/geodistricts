@@ -1541,33 +1541,70 @@ export class CensusService {
     const countyAssignments: Array<{ county: CountyGroup, districtId: number }> = [];
     
     for (const county of sortedCounties) {
-      // Find the district with the smallest population that can accommodate this county
-      let bestDistrict = districts[0];
-      let bestDistrictIndex = 0;
-      let smallestPopulation = districts[0].population;
-      
-      for (let i = 0; i < districts.length; i++) {
-        if (districts[i].population < smallestPopulation) {
-          smallestPopulation = districts[i].population;
-          bestDistrict = districts[i];
-          bestDistrictIndex = i;
+      // Check if county population is greater than or equal to target district size
+      if (county.population >= targetPopulationPerDistrict) {
+        // County is large enough to be its own district
+        // Find an empty district or the district with smallest population
+        let bestDistrict = districts[0];
+        let bestDistrictIndex = 0;
+        let smallestPopulation = districts[0].population;
+        
+        for (let i = 0; i < districts.length; i++) {
+          if (districts[i].population === 0) {
+            // Prefer empty districts
+            bestDistrict = districts[i];
+            bestDistrictIndex = i;
+            break;
+          } else if (districts[i].population < smallestPopulation) {
+            smallestPopulation = districts[i].population;
+            bestDistrict = districts[i];
+            bestDistrictIndex = i;
+          }
         }
+        
+        // Assign entire county to this district
+        countyAssignments.push({ county, districtId: bestDistrictIndex + 1 });
+        
+        // Update district with entire county
+        bestDistrict.tracts.push(...county.tracts);
+        bestDistrict.population += county.population;
+        
+        // Update bounds
+        bestDistrict.bounds.north = Math.max(bestDistrict.bounds.north, county.bounds.north);
+        bestDistrict.bounds.south = Math.min(bestDistrict.bounds.south, county.bounds.south);
+        bestDistrict.bounds.east = Math.max(bestDistrict.bounds.east, county.bounds.east);
+        bestDistrict.bounds.west = Math.min(bestDistrict.bounds.west, county.bounds.west);
+        
+        divisionHistory.push(`Created District ${bestDistrictIndex + 1} entirely from ${county.countyName} (${county.population.toLocaleString()} people) - county population ≥ target district size`);
+      } else {
+        // County is smaller than target district size - assign to district with smallest population
+        let bestDistrict = districts[0];
+        let bestDistrictIndex = 0;
+        let smallestPopulation = districts[0].population;
+        
+        for (let i = 0; i < districts.length; i++) {
+          if (districts[i].population < smallestPopulation) {
+            smallestPopulation = districts[i].population;
+            bestDistrict = districts[i];
+            bestDistrictIndex = i;
+          }
+        }
+        
+        // Assign county to the best district
+        countyAssignments.push({ county, districtId: bestDistrictIndex + 1 });
+        
+        // Update district
+        bestDistrict.tracts.push(...county.tracts);
+        bestDistrict.population += county.population;
+        
+        // Update bounds
+        bestDistrict.bounds.north = Math.max(bestDistrict.bounds.north, county.bounds.north);
+        bestDistrict.bounds.south = Math.min(bestDistrict.bounds.south, county.bounds.south);
+        bestDistrict.bounds.east = Math.max(bestDistrict.bounds.east, county.bounds.east);
+        bestDistrict.bounds.west = Math.min(bestDistrict.bounds.west, county.bounds.west);
+        
+        divisionHistory.push(`Assigned ${county.countyName} (${county.population.toLocaleString()} people) to District ${bestDistrictIndex + 1} - county population < target district size`);
       }
-      
-      // Assign county to the best district
-      countyAssignments.push({ county, districtId: bestDistrictIndex + 1 });
-      
-      // Update district
-      bestDistrict.tracts.push(...county.tracts);
-      bestDistrict.population += county.population;
-      
-      // Update bounds
-      bestDistrict.bounds.north = Math.max(bestDistrict.bounds.north, county.bounds.north);
-      bestDistrict.bounds.south = Math.min(bestDistrict.bounds.south, county.bounds.south);
-      bestDistrict.bounds.east = Math.max(bestDistrict.bounds.east, county.bounds.east);
-      bestDistrict.bounds.west = Math.min(bestDistrict.bounds.west, county.bounds.west);
-      
-      divisionHistory.push(`Assigned ${county.countyName} (${county.population.toLocaleString()} people) to District ${bestDistrictIndex + 1}`);
     }
     
     // Recalculate centroids for all districts
