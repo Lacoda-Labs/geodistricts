@@ -69,6 +69,3 @@ Thumbs.db
 # Google Cloud
 .gcloud/
 geodistricts-cloud-run-admin-key.json
-
-# API Keys and sensitive configuration
-frontend/src/config/api-keys.ts
