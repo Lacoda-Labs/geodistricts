@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions } from '../services/geodistrict-algorithm.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
 
@@ -509,8 +510,8 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
       width: 100%;
     }
 
-    .mini-map svg {
-      border-radius: 6px;
+    .mini-map .minimal-tiles {
+      filter: grayscale(100%) brightness(1.2) contrast(0.8);
     }
 
     .group-content {
@@ -542,8 +543,8 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
       width: 100%;
     }
 
-    .step-overview-map-view svg {
-      border-radius: 8px;
+    .step-overview-map-view .minimal-tiles {
+      filter: grayscale(100%) brightness(1.2) contrast(0.8);
     }
 
     .group-header {
@@ -897,8 +898,8 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   algorithmResult: GeodistrictResult | null = null;
   currentStepIndex: number = 0;
   currentStep: GeodistrictStep | null = null;
-  private groupSvgs: Map<number, SVGElement> = new Map();
-  private stepOverviewSvg: SVGElement | null = null;
+  private groupMaps: Map<number, L.Map> = new Map();
+  private stepOverviewMap: L.Map | null = null;
 
   private subscriptions: Subscription[] = [];
 
@@ -918,24 +919,24 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.cleanupSvgs();
+    this.cleanupMaps();
   }
 
-  private cleanupSvgs(): void {
-    this.groupSvgs.forEach((svg, groupIndex) => {
-      if (svg && svg.parentNode) {
-        svg.parentNode.removeChild(svg);
+  private cleanupMaps(): void {
+    this.groupMaps.forEach((map, groupIndex) => {
+      if (map) {
+        map.remove();
       }
     });
-    this.groupSvgs.clear();
+    this.groupMaps.clear();
     
-    if (this.stepOverviewSvg && this.stepOverviewSvg.parentNode) {
-      this.stepOverviewSvg.parentNode.removeChild(this.stepOverviewSvg);
-      this.stepOverviewSvg = null;
+    if (this.stepOverviewMap) {
+      this.stepOverviewMap.remove();
+      this.stepOverviewMap = null;
     }
   }
 
-  private createGroupSvg(groupIndex: number, group: DistrictGroup, color: string): void {
+  private createGroupMap(groupIndex: number, group: DistrictGroup, color: string): void {
     const mapId = `groupMap${groupIndex}`;
     const mapElement = document.getElementById(mapId);
     
@@ -944,44 +945,56 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       return;
     }
 
-    // Clean up existing SVG if it exists
-    if (this.groupSvgs.has(groupIndex)) {
-      const existingSvg = this.groupSvgs.get(groupIndex);
-      if (existingSvg && existingSvg.parentNode) {
-        existingSvg.parentNode.removeChild(existingSvg);
-      }
+    // Clean up existing map if it exists
+    if (this.groupMaps.has(groupIndex)) {
+      this.groupMaps.get(groupIndex)?.remove();
     }
 
-    // Clear the container
-    mapElement.innerHTML = '';
+    // Create new map
+    const map = L.map(mapId, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
+      boxZoom: false,
+      keyboard: false
+    }).setView([group.centroid.lat, group.centroid.lng], 8);
 
-    // Create SVG element
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', '0 0 400 300');
-    svg.style.background = '#f8f9fa';
+    // Add tile layer with minimal styling
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      className: 'minimal-tiles'
+    }).addTo(map);
 
     // Create a single contiguous polygon from all tracts
     if (group.censusTracts && group.censusTracts.length > 0) {
+      // Combine all tract geometries into a single feature
       const combinedGeometry = this.combineTractGeometries(group.censusTracts);
       
       if (combinedGeometry) {
-        // Calculate bounds and create viewBox
-        const bounds = this.calculateGeometryBounds(combinedGeometry);
-        if (bounds) {
-          const padding = 20;
-          const viewBox = `${bounds.minX - padding} ${bounds.minY - padding} ${bounds.width + 2 * padding} ${bounds.height + 2 * padding}`;
-          svg.setAttribute('viewBox', viewBox);
-        }
+        // Create a single polygon with solid color
+        L.geoJSON(combinedGeometry, {
+          style: {
+            color: color,
+            weight: 2,
+            opacity: 1.0,
+            fillOpacity: 1.0,
+            fillColor: color
+          }
+        }).addTo(map);
 
-        // Draw the polygon(s)
-        this.drawGeometryToSvg(svg, combinedGeometry, color);
+        // Fit map to the combined bounds
+        const geoJson = L.geoJSON(combinedGeometry);
+        const bounds = geoJson.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [10, 10] });
+        }
       }
     }
 
-    mapElement.appendChild(svg);
-    this.groupSvgs.set(groupIndex, svg);
+    this.groupMaps.set(groupIndex, map);
   }
 
   private combineTractGeometries(tracts: any[]): any {
@@ -1014,81 +1027,6 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     };
   }
 
-  private calculateGeometryBounds(geometry: any): { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number } | null {
-    if (!geometry || !geometry.geometry) return null;
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    const processCoordinates = (coords: any) => {
-      if (Array.isArray(coords)) {
-        if (typeof coords[0] === 'number') {
-          // Single coordinate pair
-          const [x, y] = coords;
-          minX = Math.min(minX, x);
-          minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x);
-          maxY = Math.max(maxY, y);
-        } else {
-          // Array of coordinates
-          coords.forEach(processCoordinates);
-        }
-      }
-    };
-
-    if (geometry.geometry.type === 'Polygon') {
-      geometry.geometry.coordinates.forEach(processCoordinates);
-    } else if (geometry.geometry.type === 'MultiPolygon') {
-      geometry.geometry.coordinates.forEach((polygon: any) => {
-        polygon.forEach(processCoordinates);
-      });
-    }
-
-    if (minX === Infinity) return null;
-
-    return {
-      minX,
-      minY,
-      maxX,
-      maxY,
-      width: maxX - minX,
-      height: maxY - minY
-    };
-  }
-
-  private drawGeometryToSvg(svg: SVGElement, geometry: any, color: string): void {
-    if (!geometry || !geometry.geometry) return;
-
-    if (geometry.geometry.type === 'Polygon') {
-      geometry.geometry.coordinates.forEach((ring: number[][], index: number) => {
-        const polygon = this.createSvgPolygon(ring, color, index === 0);
-        svg.appendChild(polygon);
-      });
-    } else if (geometry.geometry.type === 'MultiPolygon') {
-      geometry.geometry.coordinates.forEach((polygonCoords: number[][][]) => {
-        polygonCoords.forEach((ring: number[][], index: number) => {
-          const polygon = this.createSvgPolygon(ring, color, index === 0);
-          svg.appendChild(polygon);
-        });
-      });
-    }
-  }
-
-  private createSvgPolygon(coordinates: number[][], color: string, isExterior: boolean): SVGElement {
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    
-    // Convert coordinates to SVG points string
-    const points = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(' ');
-    polygon.setAttribute('points', points);
-    
-    // Style the polygon
-    polygon.setAttribute('fill', isExterior ? color : 'white');
-    polygon.setAttribute('stroke', color);
-    polygon.setAttribute('stroke-width', '1');
-    polygon.setAttribute('fill-opacity', '1');
-    polygon.setAttribute('stroke-opacity', '1');
-    
-    return polygon;
-  }
 
   onStateChange(): void {
     this.clearResults();
@@ -1111,19 +1049,19 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   private createMapsForCurrentStep(): void {
     if (!this.currentStep) return;
     
-    this.cleanupSvgs();
+    this.cleanupMaps();
     
     // Create the step overview map first
-    this.createStepOverviewSvg();
+    this.createStepOverviewMap();
     
     // Then create individual group maps
     this.currentStep.districtGroups.forEach((group, index) => {
       const color = this.getGroupColor(index);
-      this.createGroupSvg(index, group, color);
+      this.createGroupMap(index, group, color);
     });
   }
 
-  private createStepOverviewSvg(): void {
+  private createStepOverviewMap(): void {
     if (!this.currentStep) return;
 
     const mapElement = document.getElementById('stepOverviewMap');
@@ -1132,76 +1070,64 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       return;
     }
 
-    // Clean up existing SVG
-    if (this.stepOverviewSvg && this.stepOverviewSvg.parentNode) {
-      this.stepOverviewSvg.parentNode.removeChild(this.stepOverviewSvg);
+    // Clean up existing map
+    if (this.stepOverviewMap) {
+      this.stepOverviewMap.remove();
     }
 
-    // Clear the container
-    mapElement.innerHTML = '';
-
-    // Create SVG element
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', '0 0 800 600');
-    svg.style.background = '#f8f9fa';
-
-    // Calculate overall bounds for all groups
-    let overallBounds: { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number } | null = null;
-
-    this.currentStep.districtGroups.forEach((group, index) => {
-      const combinedGeometry = this.combineTractGeometries(group.censusTracts);
-      
-      if (combinedGeometry) {
-        const bounds = this.calculateGeometryBounds(combinedGeometry);
-        if (bounds) {
-          if (!overallBounds) {
-            overallBounds = { ...bounds };
-          } else {
-            overallBounds.minX = Math.min(overallBounds.minX, bounds.minX);
-            overallBounds.minY = Math.min(overallBounds.minY, bounds.minY);
-            overallBounds.maxX = Math.max(overallBounds.maxX, bounds.maxX);
-            overallBounds.maxY = Math.max(overallBounds.maxY, bounds.maxY);
-            overallBounds.width = overallBounds.maxX - overallBounds.minX;
-            overallBounds.height = overallBounds.maxY - overallBounds.minY;
-          }
-        }
-      }
+    // Create new map
+    this.stepOverviewMap = L.map('stepOverviewMap', {
+      zoomControl: true,
+      attributionControl: true
     });
 
-    // Set viewBox based on overall bounds
-    if (overallBounds !== null) {
-      const padding = 50;
-      const bounds = overallBounds as { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number };
-      const viewBox = `${bounds.minX - padding} ${bounds.minY - padding} ${bounds.width + 2 * padding} ${bounds.height + 2 * padding}`;
-      svg.setAttribute('viewBox', viewBox);
-    }
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      className: 'minimal-tiles'
+    }).addTo(this.stepOverviewMap);
 
-    // Add all district groups to the SVG
+    // Add all district groups to the map
+    const bounds = L.latLngBounds([]);
+    let hasBounds = false;
+
     this.currentStep.districtGroups.forEach((group, index) => {
       const color = this.getGroupColor(index);
       const combinedGeometry = this.combineTractGeometries(group.censusTracts);
       
       if (combinedGeometry) {
-        // Create a group element for this district group
-        const groupElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        groupElement.setAttribute('data-group-index', index.toString());
+        const geoJson = L.geoJSON(combinedGeometry, {
+          style: {
+            color: color,
+            weight: 2,
+            opacity: 1.0,
+            fillOpacity: 1.0,
+            fillColor: color
+          }
+        }).bindPopup(`
+          <strong>Group ${index + 1}</strong><br>
+          Districts: ${group.startDistrictNumber}-${group.endDistrictNumber}<br>
+          Population: ${group.totalPopulation.toLocaleString()}<br>
+          Tracts: ${group.censusTracts.length}
+        `);
         
-        // Add title for tooltip
-        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-        title.textContent = `Group ${index + 1} - Districts: ${group.startDistrictNumber}-${group.endDistrictNumber} - Population: ${group.totalPopulation.toLocaleString()} - Tracts: ${group.censusTracts.length}`;
-        groupElement.appendChild(title);
+        if (this.stepOverviewMap) {
+          geoJson.addTo(this.stepOverviewMap);
+        }
 
-        // Draw the geometry
-        this.drawGeometryToSvg(groupElement, combinedGeometry, color);
-        
-        svg.appendChild(groupElement);
+        // Extend bounds
+        const groupBounds = geoJson.getBounds();
+        if (groupBounds.isValid()) {
+          bounds.extend(groupBounds);
+          hasBounds = true;
+        }
       }
     });
 
-    mapElement.appendChild(svg);
-    this.stepOverviewSvg = svg;
+    // Fit map to show all groups
+    if (hasBounds && bounds.isValid()) {
+      this.stepOverviewMap.fitBounds(bounds, { padding: [20, 20] });
+    }
   }
 
   runAlgorithm(): void {
