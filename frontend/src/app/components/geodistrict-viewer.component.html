@@ -1,0 +1,259 @@
+<div class="geodistrict-viewer">
+  <div class="header">
+    <h1>Geodistrict Algorithm Visualization</h1>
+    <p>Visualizing the Fresh Approach algorithm for creating congressional districts</p>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label for="stateSelect">State:</label>
+      <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
+        <option value="CA">California (52 districts)</option>
+        <option value="TX">Texas (38 districts)</option>
+        <option value="FL">Florida (28 districts)</option>
+        <option value="NY">New York (26 districts)</option>
+        <option value="PA">Pennsylvania (17 districts)</option>
+        <option value="IL">Illinois (17 districts)</option>
+        <option value="OH">Ohio (15 districts)</option>
+        <option value="GA">Georgia (14 districts)</option>
+        <option value="NC">North Carolina (14 districts)</option>
+        <option value="MI">Michigan (13 districts)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>
+        <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
+        Use Direct Census API (development only - production uses Secret Manager)
+      </label>
+    </div>
+
+    <div class="control-group">
+      <button (click)="runAlgorithm()" [disabled]="isLoading">
+        {{ isLoading ? 'Running Algorithm...' : 'Run Geodistrict Algorithm' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="results" *ngIf="algorithmResult">
+    <div class="summary">
+      <h2>Algorithm Results</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Total Population:</span>
+          <span class="value">{{ algorithmResult.totalPopulation.toLocaleString() }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Average District Population:</span>
+          <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Population Variance:</span>
+          <span class="value">{{ algorithmResult.populationVariance.toLocaleString() }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total Districts:</span>
+          <span class="value">{{ algorithmResult.finalDistricts.length }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-navigation">
+      <h3>Algorithm Steps</h3>
+      <div class="step-controls">
+        <button (click)="previousStep()" [disabled]="currentStepIndex <= 0">Previous</button>
+        <span class="step-info">
+          Step {{ currentStepIndex + 1 }} of {{ algorithmResult.steps.length }}
+        </span>
+        <button (click)="nextStep()" [disabled]="currentStepIndex >= algorithmResult.steps.length - 1">Next</button>
+      </div>
+      
+      <div class="step-selector">
+        <label for="stepSelect">Jump to Step:</label>
+        <select id="stepSelect" [(ngModel)]="currentStepIndex" (change)="onStepChange()">
+          <option *ngFor="let step of algorithmResult.steps; let i = index" [value]="i">
+            Step {{ i + 1 }}: {{ step.description }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="current-step" *ngIf="currentStep">
+      <h3>{{ currentStep.description }}</h3>
+      <div class="step-details">
+        <div class="step-meta">
+          <span class="label">Level:</span> {{ currentStep.level }}
+          <span class="label">Groups:</span> {{ currentStep.totalGroups }}
+          <span class="label">Total Districts:</span> {{ currentStep.totalDistricts }}
+          <span class="label">Direction:</span> {{ currentStep.divisionDirection }}
+        </div>
+      </div>
+
+      <div class="step-overview-map">
+        <h4>Step Overview Map</h4>
+        <div class="full-width-map-container">
+          <div id="stepOverviewMap" class="step-overview-map-view"></div>
+        </div>
+      </div>
+
+      <div class="district-groups">
+        <h4>District Groups ({{ currentStep.districtGroups.length }})</h4>
+        <div class="groups-grid">
+          <div *ngFor="let group of currentStep.districtGroups; let i = index" 
+               class="district-group" 
+               [style.background-color]="getGroupColor(i)">
+            <div class="group-map">
+              <div [id]="'groupMap' + i" class="mini-map"></div>
+            </div>
+            
+            <div class="group-content">
+              <div class="group-header">
+                <h5>Group {{ i + 1 }}</h5>
+                <span class="district-range">
+                  Districts {{ group.startDistrictNumber }}-{{ group.endDistrictNumber }}
+                </span>
+              </div>
+              
+              <div class="group-stats">
+              <div class="stat">
+                <span class="label">Tracts:</span>
+                <span class="value">{{ group.censusTracts.length }}</span>
+              </div>
+              <div class="stat">
+                <span class="label">Population:</span>
+                <span class="value">{{ group.totalPopulation.toLocaleString() }}</span>
+              </div>
+              <div class="stat">
+                <span class="label">Target Districts:</span>
+                <span class="value">{{ group.totalDistricts }}</span>
+              </div>
+            </div>
+            <div class="group-bounds">
+              <div class="bound">
+                <span class="label">North:</span> {{ group.bounds.north.toFixed(4) }}
+              </div>
+              <div class="bound">
+                <span class="label">South:</span> {{ group.bounds.south.toFixed(4) }}
+              </div>
+              <div class="bound">
+                <span class="label">East:</span> {{ group.bounds.east.toFixed(4) }}
+              </div>
+              <div class="bound">
+                <span class="label">West:</span> {{ group.bounds.west.toFixed(4) }}
+              </div>
+            </div>
+            <div class="group-centroid">
+              <span class="label">Centroid:</span> 
+              ({{ group.centroid.lat.toFixed(4) }}, {{ group.centroid.lng.toFixed(4) }})
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="final-districts">
+      <h3>Final Geodistricts</h3>
+      
+      <div class="district-stats">
+        <div class="stat-card">
+          <h4>Population Statistics</h4>
+          <div class="stat-item">
+            <span class="label">Average Population:</span>
+            <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Population Variance:</span>
+            <span class="value">{{ algorithmResult.populationVariance.toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Standard Deviation:</span>
+            <span class="value">{{ getPopulationStdDev().toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Min Population:</span>
+            <span class="value">{{ getMinPopulation().toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Max Population:</span>
+            <span class="value">{{ getMaxPopulation().toLocaleString() }}</span>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <h4>District Statistics</h4>
+          <div class="stat-item">
+            <span class="label">Total Districts:</span>
+            <span class="value">{{ algorithmResult.finalDistricts.length }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Total Tracts:</span>
+            <span class="value">{{ getTotalTracts() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Average Tracts per District:</span>
+            <span class="value">{{ getAverageTractsPerDistrict().toFixed(1) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Target Population per District:</span>
+            <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Average Population Variance:</span>
+            <span class="value">{{ getAveragePopulationVariance().toFixed(2) }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="districts-table-container">
+        <table class="districts-table">
+          <thead>
+            <tr>
+              <th>District</th>
+              <th>Population</th>
+              <th>Tract Count</th>
+              <th>Population Variance</th>
+              <th>Centroid</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let district of algorithmResult.finalDistricts; let i = index">
+              <td class="district-number">{{ i + 1 }}</td>
+              <td class="population">{{ district.population.toLocaleString() }}</td>
+              <td class="tract-count">{{ district.censusTracts.length }}</td>
+              <td class="population-variance" 
+                  [class.positive]="calculatePopulationVariance(district.population) > 0"
+                  [class.negative]="calculatePopulationVariance(district.population) < 0">
+                {{ calculatePopulationVariance(district.population).toFixed(2) }}%
+              </td>
+              <td class="centroid">
+                ({{ district.centroid.lat.toFixed(4) }}, {{ district.centroid.lng.toFixed(4) }})
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="algorithm-history">
+      <h3>Algorithm History</h3>
+      <div class="history-log">
+        <div *ngFor="let entry of algorithmResult.divisionHistory" class="history-entry">
+          <span class="step-number">Step {{ entry.step }}:</span>
+          <span class="entry-text">{{ entry.description }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="error" *ngIf="error">
+    <h3>Error</h3>
+    <p>{{ error }}</p>
+    <button (click)="clearError()">Dismiss</button>
+  </div>
+
+  <div class="loading" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Running geodistrict algorithm...</p>
+  </div>
+</div>
