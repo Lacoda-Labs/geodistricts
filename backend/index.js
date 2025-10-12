@@ -283,8 +283,20 @@ function transformCensusResponse(response, params) {
     return [];
   }
   
+  // Check if response is an array (expected format)
+  if (!Array.isArray(response)) {
+    console.error('Census API returned non-array response:', response);
+    return [];
+  }
+  
   const headers = response[0];
   const dataRows = response.slice(1);
+  
+  // Check if dataRows is an array
+  if (!Array.isArray(dataRows)) {
+    console.error('Census API dataRows is not an array:', dataRows);
+    return [];
+  }
   
   return dataRows.map(row => {
     const tractData = {
@@ -470,6 +482,10 @@ app.get('/api/census/tract-data', async (req, res) => {
     console.log(`Fetching from Census API: ${apiUrl}`);
     
     const response = await axios.get(apiUrl);
+    console.log(`Census API response type:`, typeof response.data);
+    console.log(`Census API response length:`, response.data ? response.data.length : 'null');
+    console.log(`Census API response preview:`, JSON.stringify(response.data).substring(0, 500));
+    
     const transformedData = transformCensusResponse(response.data, params);
     
     // Cache the result

@@ -892,7 +892,7 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
 })
 export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedState: string = 'CA';
-  useDirectAPI: boolean = false; // Default to backend proxy (uses Secret Manager in production)
+  useDirectAPI: boolean = true; // Temporarily enable direct API to test
   isLoading: boolean = false;
   errorMessage: string = '';
   algorithmResult: GeodistrictResult | null = null;
