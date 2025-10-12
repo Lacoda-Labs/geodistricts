@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, forkJoin } from 'rxjs';
 import { map, catchError, switchMap, mergeMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -41,6 +41,12 @@ export interface CensusTractData {
   povertyRate?: number;
   educationLevel?: number;
   [key: string]: any; // Allow for additional dynamic properties
+}
+
+export interface CountyData {
+  name: string;
+  fips: string;
+  state: string;
 }
 
 // Census API response types are now handled by the backend proxy service
@@ -468,15 +474,75 @@ export class CensusService {
   }
 
   /**
-   * Get combined tract data with boundaries
+   * Get counties for a state
+   */
+  getCountiesForState(state: string): Observable<CountyData[]> {
+    const url = `${CENSUS_PROXY_BASE}/api/census/counties?state=${state}`;
+    return this.http.get<CountyData[]>(url).pipe(
+      catchError(error => {
+        console.error('Error fetching counties:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Get tract data for a specific state and county
+   */
+  getTractDataByCounty(state: string, county: string, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    const url = `${CENSUS_PROXY_BASE}/api/census/tract-data?state=${state}&county=${county}${forceInvalidate ? '&forceInvalidate=true' : ''}`;
+    return this.http.get<CensusTractData[]>(url).pipe(
+      catchError(error => {
+        console.error('Error fetching tract data by county:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Get all tract data for a state by fetching all counties
+   */
+  getAllTractDataForState(state: string, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    return this.getCountiesForState(state).pipe(
+      switchMap(counties => {
+        console.log(`Found ${counties.length} counties for state ${state}`);
+        
+        // Fetch tract data for each county in parallel
+        const countyRequests = counties.map(county => 
+          this.getTractDataByCounty(state, county.fips, forceInvalidate).pipe(
+            catchError(error => {
+              console.warn(`Failed to fetch tracts for county ${county.name} (${county.fips}):`, error);
+              return []; // Return empty array for failed requests
+            })
+          )
+        );
+        
+        // Use forkJoin to wait for all county requests to complete
+        return forkJoin(countyRequests);
+      }),
+      map(countyDataArrays => {
+        // Flatten all county data into a single array
+        const allTracts = countyDataArrays.flat();
+        console.log(`Total tracts fetched for state ${state}: ${allTracts.length}`);
+        return allTracts;
+      }),
+      catchError(error => {
+        console.error('Error fetching all tract data for state:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Get combined tract data with boundaries using county-based approach
    */
   getTractDataWithBoundaries(state: string, county?: string, forceInvalidate: boolean = false): Observable<{
     demographic: CensusTractData[];
     boundaries: GeoJsonResponse;
   }> {
     const demographicData$ = county
-      ? this.getTractsByCounty(state, county, undefined, forceInvalidate)
-      : this.getTractData(state, undefined, undefined, forceInvalidate);
+      ? this.getTractDataByCounty(state, county, forceInvalidate)
+      : this.getAllTractDataForState(state, forceInvalidate);
 
     const boundaryData$ = this.getTractBoundaries(state, county, forceInvalidate);
 

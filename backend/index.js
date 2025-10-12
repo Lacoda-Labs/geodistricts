@@ -424,15 +424,92 @@ app.get('/api/hello', (req, res) => {
 
 // Census Proxy Routes
 /**
- * Get census tract data
+ * Get county FIPS codes for a state
+ */
+app.get('/api/census/counties', async (req, res) => {
+  try {
+    const { state } = req.query;
+    
+    if (!state) {
+      return res.status(400).json({ error: 'State parameter is required' });
+    }
+    
+    const cacheKey = generateCacheKey('counties', { state });
+    
+    // Check cache first
+    const cachedData = await getFromCache(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+    
+    // Build query parameters for Census API
+    const queryParams = new URLSearchParams();
+    
+    try {
+      const apiKey = await getCensusApiKey();
+      queryParams.set('key', apiKey);
+    } catch (error) {
+      console.error('Failed to get Census API key:', error);
+      return res.status(500).json({ 
+        error: 'Census API key not available',
+        message: 'Unable to retrieve Census API key from Secret Manager'
+      });
+    }
+    
+    // Get county data
+    queryParams.set('get', 'NAME,COUNTY');
+    queryParams.set('for', 'county:*');
+    queryParams.set('in', `state:${state}`);
+    
+    const apiUrl = `${CENSUS_API_BASE}/${ACS_YEAR}/${ACS_DATASET}?${queryParams.toString()}`;
+    console.log(`Fetching counties from Census API: ${apiUrl}`);
+    
+    const response = await axios.get(apiUrl);
+    
+    if (!response.data || !Array.isArray(response.data) || response.data.length < 2) {
+      return res.status(500).json({ error: 'Invalid response from Census API' });
+    }
+    
+    const headers = response.data[0];
+    const dataRows = response.data.slice(1);
+    
+    const counties = dataRows.map(row => ({
+      name: row[0], // NAME
+      fips: row[1], // COUNTY
+      state: state
+    }));
+    
+    // Cache the result
+    await setCache(cacheKey, counties);
+    
+    res.json(counties);
+  } catch (error) {
+    console.error('Error fetching counties:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch county data',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * Get census tract data by state and county
  */
 app.get('/api/census/tract-data', async (req, res) => {
   try {
     const { state, county, tract, variables, year, dataset } = req.query;
     
+    // Require both state and county for county-based caching
+    if (!state || !county) {
+      return res.status(400).json({ 
+        error: 'Both state and county parameters are required',
+        message: 'Use /api/census/counties to get county FIPS codes for a state'
+      });
+    }
+    
     const params = {
-      state: state || undefined,
-      county: county || undefined,
+      state: state,
+      county: county,
       tract: tract || undefined,
       variables: variables ? variables.split(',') : undefined,
       year: year || ACS_YEAR,
@@ -444,6 +521,7 @@ app.get('/api/census/tract-data', async (req, res) => {
     // Check cache first
     const cachedData = await getFromCache(cacheKey);
     if (cachedData) {
+      console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${cacheKey}`);
       return res.json(cachedData);
     }
     
@@ -468,18 +546,13 @@ app.get('/api/census/tract-data', async (req, res) => {
       queryParams.set('get', 'NAME,B01003_001E,B19013_001E,B01002_001E');
     }
     
-    // Add geography
+    // Add geography - now always requires state and county
     if (params.tract) {
       queryParams.set('for', `tract:${params.tract}`);
       queryParams.set('in', `state:${params.state} county:${params.county}`);
-    } else if (params.county) {
-      queryParams.set('for', 'tract:*');
-      queryParams.set('in', `state:${params.state} county:${params.county}`);
-    } else if (params.state) {
-      queryParams.set('for', 'tract:*');
-      queryParams.set('in', `state:${params.state}`);
     } else {
       queryParams.set('for', 'tract:*');
+      queryParams.set('in', `state:${params.state} county:${params.county}`);
     }
     
     const apiUrl = `${CENSUS_API_BASE}/${params.year}/${params.dataset}?${queryParams.toString()}`;
@@ -494,6 +567,7 @@ app.get('/api/census/tract-data', async (req, res) => {
     
     // Cache the result
     await setCache(cacheKey, transformedData);
+    console.log(`💾 FIRESTORE CACHE: Stored ${transformedData.length} tracts for state ${state}, county ${county}`);
     
     res.json(transformedData);
   } catch (error) {
@@ -589,21 +663,8 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
     res.write(']}');
     res.end();
     
-    // Cache a simple marker for large datasets to avoid memory issues
-    const cacheMarker = {
-      type: 'streamed_large_dataset',
-      totalCount: totalFeaturesStreamed,
-      timestamp: new Date().toISOString(),
-      state: state,
-      note: 'Large dataset - will be streamed from source on each request'
-    };
-    
-    // Only add county if it's defined (not undefined)
-    if (county) {
-      cacheMarker.county = county;
-    }
-    
-    await setCache(cacheKey, cacheMarker);
+    // Don't cache large datasets - let them be fetched fresh each time
+    // This avoids memory issues and ensures data freshness
     
     console.log(`Streamed ${totalFeaturesStreamed} tract boundaries for state ${state} and cached marker`);
   } catch (error) {
