@@ -968,29 +968,37 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       className: 'minimal-tiles'
     }).addTo(map);
 
-    // Create a single contiguous polygon from all tracts
+    // Add individual tract geometries (keeping combineTractGeometries function but not using it)
     if (group.censusTracts && group.censusTracts.length > 0) {
-      // Combine all tract geometries into a single feature
-      const combinedGeometry = this.combineTractGeometries(group.censusTracts);
-      
-      if (combinedGeometry) {
-        // Create a single polygon with solid color
-        L.geoJSON(combinedGeometry, {
-          style: {
-            color: color,
-            weight: 2,
-            opacity: 1.0,
-            fillOpacity: 1.0,
-            fillColor: color
-          }
-        }).addTo(map);
-
-        // Fit map to the combined bounds
-        const geoJson = L.geoJSON(combinedGeometry);
-        const bounds = geoJson.getBounds();
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [10, 10] });
+      // Add each tract as a separate feature
+      group.censusTracts.forEach(tract => {
+        if (tract.geometry) {
+          L.geoJSON(tract.geometry, {
+            style: {
+              color: color,
+              weight: 1,
+              opacity: 0.8,
+              fillOpacity: 0.6,
+              fillColor: color
+            }
+          }).addTo(map);
         }
+      });
+
+      // Fit map to all tract bounds
+      const allBounds = L.latLngBounds([]);
+      group.censusTracts.forEach(tract => {
+        if (tract.geometry) {
+          const geoJson = L.geoJSON(tract.geometry);
+          const bounds = geoJson.getBounds();
+          if (bounds.isValid()) {
+            allBounds.extend(bounds);
+          }
+        }
+      });
+      
+      if (allBounds.isValid()) {
+        map.fitBounds(allBounds, { padding: [10, 10] });
       }
     }
 
@@ -1093,35 +1101,37 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
 
     this.currentStep.districtGroups.forEach((group, index) => {
       const color = this.getGroupColor(index);
-      const combinedGeometry = this.combineTractGeometries(group.censusTracts);
       
-      if (combinedGeometry) {
-        const geoJson = L.geoJSON(combinedGeometry, {
-          style: {
-            color: color,
-            weight: 2,
-            opacity: 1.0,
-            fillOpacity: 1.0,
-            fillColor: color
+      // Add individual tract geometries instead of combined geometry
+      group.censusTracts.forEach(tract => {
+        if (tract.geometry) {
+          const geoJson = L.geoJSON(tract.geometry, {
+            style: {
+              color: color,
+              weight: 1,
+              opacity: 0.8,
+              fillOpacity: 0.6,
+              fillColor: color
+            }
+          }).bindPopup(`
+            <strong>Group ${index + 1}</strong><br>
+            Districts: ${group.startDistrictNumber}-${group.endDistrictNumber}<br>
+            Population: ${group.totalPopulation.toLocaleString()}<br>
+            Tracts: ${group.censusTracts.length}
+          `);
+          
+          if (this.stepOverviewMap) {
+            geoJson.addTo(this.stepOverviewMap);
           }
-        }).bindPopup(`
-          <strong>Group ${index + 1}</strong><br>
-          Districts: ${group.startDistrictNumber}-${group.endDistrictNumber}<br>
-          Population: ${group.totalPopulation.toLocaleString()}<br>
-          Tracts: ${group.censusTracts.length}
-        `);
-        
-        if (this.stepOverviewMap) {
-          geoJson.addTo(this.stepOverviewMap);
-        }
 
-        // Extend bounds
-        const groupBounds = geoJson.getBounds();
-        if (groupBounds.isValid()) {
-          bounds.extend(groupBounds);
-          hasBounds = true;
+          // Extend bounds
+          const tractBounds = geoJson.getBounds();
+          if (tractBounds.isValid()) {
+            bounds.extend(tractBounds);
+            hasBounds = true;
+          }
         }
-      }
+      });
     });
 
     // Fit map to show all groups
