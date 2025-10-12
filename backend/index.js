@@ -123,9 +123,12 @@ function isCacheExpired(timestamp, ttl) {
  */
 async function getFromCache(key) {
   try {
+    console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
+    
     const doc = await firestore.collection('census_cache').doc(key).get();
     
     if (!doc.exists) {
+      console.log(`❌ FIRESTORE CACHE: No document found for key: ${key}`);
       return null;
     }
     
@@ -133,12 +136,14 @@ async function getFromCache(key) {
     
     // Check if expired
     if (isCacheExpired(data.timestamp, data.ttl)) {
+      console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
       await firestore.collection('census_cache').doc(key).delete();
       return null;
     }
     
     // Check version
     if (data.version !== CACHE_VERSION) {
+      console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
       await firestore.collection('census_cache').doc(key).delete();
       return null;
     }
@@ -146,7 +151,9 @@ async function getFromCache(key) {
     console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
     return data.data;
   } catch (error) {
-    console.error('Error getting from cache:', error);
+    console.error('❌ FIRESTORE CACHE ERROR: Failed to get from cache for key:', key);
+    console.error('❌ FIRESTORE CACHE ERROR:', error.message);
+    console.error('❌ FIRESTORE CACHE ERROR:', error);
     return null;
   }
 }
@@ -156,6 +163,8 @@ async function getFromCache(key) {
  */
 async function setCache(key, data, ttl = CACHE_TTL) {
   try {
+    console.log(`🔄 FIRESTORE CACHE: Attempting to cache data for key: ${key}`);
+    
     const cacheEntry = {
       data: data,
       timestamp: Date.now(),
@@ -165,10 +174,15 @@ async function setCache(key, data, ttl = CACHE_TTL) {
       attribution: 'Data provided by the U.S. Census Bureau (public domain)'
     };
     
-    await firestore.collection('census_cache').doc(key).set(cacheEntry);
-    console.log(`✅ FIRESTORE CACHE: Cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
+    const docRef = firestore.collection('census_cache').doc(key);
+    await docRef.set(cacheEntry);
+    
+    console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
+    console.log(`📊 FIRESTORE CACHE: Document path: census_cache/${key}`);
   } catch (error) {
-    console.error('Error setting cache:', error);
+    console.error('❌ FIRESTORE CACHE ERROR: Failed to cache data for key:', key);
+    console.error('❌ FIRESTORE CACHE ERROR:', error.message);
+    console.error('❌ FIRESTORE CACHE ERROR:', error);
   }
 }
 
@@ -330,6 +344,58 @@ app.get('/health', (req, res) => {
     service: 'geodistricts-api',
     version: CACHE_VERSION
   });
+});
+
+/**
+ * Test Firestore connectivity
+ */
+app.get('/api/test/firestore', async (req, res) => {
+  try {
+    console.log('🧪 Testing Firestore connectivity...');
+    
+    // Test write
+    const testKey = 'test_' + Date.now();
+    const testData = { message: 'Hello Firestore!', timestamp: new Date().toISOString() };
+    
+    await firestore.collection('census_cache').doc(testKey).set({
+      data: testData,
+      timestamp: Date.now(),
+      ttl: 300000, // 5 minutes
+      version: CACHE_VERSION,
+      source: 'Test',
+      attribution: 'Test data'
+    });
+    
+    console.log('✅ Firestore write test successful');
+    
+    // Test read
+    const doc = await firestore.collection('census_cache').doc(testKey).get();
+    
+    if (doc.exists) {
+      console.log('✅ Firestore read test successful');
+      
+      // Clean up test document
+      await firestore.collection('census_cache').doc(testKey).delete();
+      console.log('✅ Firestore delete test successful');
+      
+      res.json({
+        status: 'success',
+        message: 'Firestore connectivity test passed',
+        tests: ['write', 'read', 'delete'],
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      throw new Error('Document not found after write');
+    }
+  } catch (error) {
+    console.error('❌ Firestore test failed:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Firestore connectivity test failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 app.get('/api/hello', (req, res) => {
