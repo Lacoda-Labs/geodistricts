@@ -382,12 +382,12 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   // Statistics calculation methods
-  calculatePopulationVariance(district: any): number {
+  calculatePopulationVariance(population: number): number {
     if (!this.algorithmResult?.averagePopulation) return 0;
     const targetPopulation = this.algorithmResult.averagePopulation;
     if (targetPopulation === 0) return 0;
     
-    const difference = district.totalPopulation - targetPopulation;
+    const difference = population - targetPopulation;
     const percentageVariance = (difference / targetPopulation) * 100;
     return Math.abs(percentageVariance);
   }
@@ -401,7 +401,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   getAveragePopulationVariance(): number {
     if (!this.algorithmResult?.finalDistricts) return 0;
     const totalVariance = this.algorithmResult.finalDistricts.reduce((total, district) => 
-      total + this.calculatePopulationVariance(district), 0);
+      total + this.calculatePopulationVariance(district.totalPopulation), 0);
     return totalVariance / this.algorithmResult.finalDistricts.length;
   }
 
