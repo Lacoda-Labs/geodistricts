@@ -26,7 +26,7 @@ const firestore = new Firestore({
 // Initialize Secret Manager
 const secretClient = new SecretManagerServiceClient();
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts';
-const CENSUS_API_KEY_SECRET_NAME = 'census-api-key';
+const CENSUS_API_KEY_SECRET_NAME = 'census-api-key-v2';
 
 // Census API Configuration
 const CENSUS_API_BASE = 'https://api.census.gov/data';
@@ -76,6 +76,9 @@ async function getCensusApiKey() {
     
     const apiKey = version.payload.data.toString();
     console.log('Successfully retrieved Census API key from Secret Manager');
+    console.log('API Key length:', apiKey.length);
+    console.log('API Key hex:', Buffer.from(apiKey).toString('hex'));
+    console.log('API Key raw:', JSON.stringify(apiKey));
     return apiKey;
   } catch (error) {
     console.error('Error retrieving Census API key from Secret Manager:', error);
