@@ -395,64 +395,68 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Sort tracts to ensure contiguity - each tract should be adjacent to the next
+   * Sort tracts using the Fresh Approach zig-zag pattern
    * @param tracts Array of tract features
    * @param direction Sort direction preference
-   * @returns Sorted array of tracts ensuring contiguity
+   * @returns Sorted array of tracts following zig-zag pattern
    */
   private sortTractsForContiguity(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
     if (tracts.length <= 1) return tracts;
 
-    // First, get initial geographic sort as starting point
-    const geographicallySorted = this.sortTractsGeographically([...tracts], direction);
+    console.log(`🔄 Starting Fresh Approach sorting for ${tracts.length} tracts (${direction} direction)`);
     
     // Build adjacency map for all tracts
     const adjacencyMap = this.buildAdjacencyMap(tracts);
     
-    // Start with the first tract from geographic sort
-    const sortedTracts: GeoJsonFeature[] = [geographicallySorted[0]];
-    const remainingTracts = new Set(geographicallySorted.slice(1));
+    // Find the top-northwest tract as starting point
+    const topNorthwestTract = this.findTopNorthwestTract(tracts);
+    if (!topNorthwestTract) {
+      console.warn('Could not find top-northwest tract, falling back to geographic sort');
+      return this.sortTractsGeographically(tracts, direction);
+    }
     
-    // Greedily add the most adjacent tract at each step
+    console.log(`📍 Starting from top-northwest tract: ${this.getTractId(topNorthwestTract)}`);
+    
+    // Start the zig-zag pattern
+    const sortedTracts: GeoJsonFeature[] = [topNorthwestTract];
+    const remainingTracts = new Set(tracts.filter(t => t !== topNorthwestTract));
+    
+    let currentTract = topNorthwestTract;
+    let currentDirection: 'east' | 'west' = 'east'; // Start moving east
+    
     while (remainingTracts.size > 0) {
-      const lastTract = sortedTracts[sortedTracts.length - 1];
-      const lastTractId = this.getTractId(lastTract);
+      let nextTract: GeoJsonFeature | null = null;
       
-      // Find the most adjacent tract to the last added tract
-      let bestNextTract: GeoJsonFeature | null = null;
-      let bestAdjacencyScore = -1;
-      
-      for (const tract of remainingTracts) {
-        const tractId = this.getTractId(tract);
-        const adjacencyScore = this.calculateAdjacencyScore(lastTract, tract, adjacencyMap);
-        
-        if (adjacencyScore > bestAdjacencyScore) {
-          bestAdjacencyScore = adjacencyScore;
-          bestNextTract = tract;
-        }
+      if (direction === 'latitude') {
+        // For latitude division: prefer east-west movement, then southward progression
+        nextTract = this.findNextTractInLatitudePattern(currentTract, currentDirection, remainingTracts, adjacencyMap);
+      } else {
+        // For longitude division: prefer north-south movement, then eastward progression  
+        nextTract = this.findNextTractInLongitudePattern(currentTract, currentDirection, remainingTracts, adjacencyMap);
       }
       
-      // If we found an adjacent tract, add it
-      if (bestNextTract && bestAdjacencyScore > 0) {
-        sortedTracts.push(bestNextTract);
-        remainingTracts.delete(bestNextTract);
+      if (nextTract) {
+        sortedTracts.push(nextTract);
+        remainingTracts.delete(nextTract);
+        currentTract = nextTract;
+        
+        // Toggle direction for zig-zag pattern
+        currentDirection = currentDirection === 'east' ? 'west' : 'east';
       } else {
-        // If no adjacent tract found, add the geographically closest one
-        const closestTract = this.findGeographicallyClosestTract(lastTract, Array.from(remainingTracts));
-        if (closestTract) {
-          sortedTracts.push(closestTract);
-          remainingTracts.delete(closestTract);
-        } else {
-          // Fallback: add any remaining tract
-          const anyTract = remainingTracts.values().next().value;
-          if (anyTract) {
-            sortedTracts.push(anyTract);
-            remainingTracts.delete(anyTract);
-          }
+        // No adjacent tract found, handle isolated tracts
+        console.log(`⚠️  No adjacent tract found, handling isolated tracts...`);
+        const isolatedTracts = this.handleIsolatedTracts(sortedTracts, remainingTracts, direction, adjacencyMap);
+        sortedTracts.push(...isolatedTracts);
+        isolatedTracts.forEach(tract => remainingTracts.delete(tract));
+        
+        if (remainingTracts.size > 0) {
+          // Continue from the last added tract
+          currentTract = sortedTracts[sortedTracts.length - 1];
         }
       }
     }
     
+    console.log(`✅ Fresh Approach sorting complete: ${sortedTracts.length} tracts sorted`);
     return sortedTracts;
   }
 
@@ -635,6 +639,297 @@ export class GeodistrictAlgorithmService {
     }
     
     return closestTract;
+  }
+
+  /**
+   * Find the top-northwest tract (highest latitude, westernmost longitude)
+   * @param tracts Array of tract features
+   * @returns Top-northwest tract or null
+   */
+  private findTopNorthwestTract(tracts: GeoJsonFeature[]): GeoJsonFeature | null {
+    if (tracts.length === 0) return null;
+    
+    let topNorthwestTract = tracts[0];
+    let topNorthwestCentroid = this.calculateTractCentroid(topNorthwestTract);
+    
+    for (const tract of tracts) {
+      const centroid = this.calculateTractCentroid(tract);
+      
+      // Higher latitude (more north) takes priority
+      if (centroid.lat > topNorthwestCentroid.lat) {
+        topNorthwestTract = tract;
+        topNorthwestCentroid = centroid;
+      } else if (Math.abs(centroid.lat - topNorthwestCentroid.lat) < 0.001) {
+        // If latitudes are similar, prefer westernmost (lower longitude)
+        if (centroid.lng < topNorthwestCentroid.lng) {
+          topNorthwestTract = tract;
+          topNorthwestCentroid = centroid;
+        }
+      }
+    }
+    
+    return topNorthwestTract;
+  }
+
+  /**
+   * Find next tract in latitude division pattern (east-west movement, then southward)
+   * @param currentTract Current tract
+   * @param direction Current direction (east or west)
+   * @param remainingTracts Set of remaining tracts
+   * @param adjacencyMap Adjacency map
+   * @returns Next tract or null
+   */
+  private findNextTractInLatitudePattern(
+    currentTract: GeoJsonFeature, 
+    direction: 'east' | 'west', 
+    remainingTracts: Set<GeoJsonFeature>, 
+    adjacencyMap: Map<string, Set<string>>
+  ): GeoJsonFeature | null {
+    const currentCentroid = this.calculateTractCentroid(currentTract);
+    const currentTractId = this.getTractId(currentTract);
+    
+    // Get adjacent tracts
+    const adjacentTractIds = adjacencyMap.get(currentTractId) || new Set();
+    const adjacentTracts = Array.from(remainingTracts).filter(tract => 
+      adjacentTractIds.has(this.getTractId(tract))
+    );
+    
+    if (adjacentTracts.length === 0) return null;
+    
+    // For latitude division: prefer east-west movement
+    let bestTract: GeoJsonFeature | null = null;
+    let bestScore = -Infinity;
+    
+    for (const tract of adjacentTracts) {
+      const centroid = this.calculateTractCentroid(tract);
+      let score = 0;
+      
+      // Prefer tracts in the current direction (east or west)
+      if (direction === 'east' && centroid.lng > currentCentroid.lng) {
+        score += 100; // Strong preference for eastward movement
+      } else if (direction === 'west' && centroid.lng < currentCentroid.lng) {
+        score += 100; // Strong preference for westward movement
+      }
+      
+      // Slight preference for southward movement (but less than east-west)
+      if (centroid.lat < currentCentroid.lat) {
+        score += 10;
+      }
+      
+      // Prefer tracts that are closer
+      const distance = this.calculateDistance(currentCentroid, centroid);
+      score += Math.max(0, 50 - distance * 1000);
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestTract = tract;
+      }
+    }
+    
+    return bestTract;
+  }
+
+  /**
+   * Find next tract in longitude division pattern (north-south movement, then eastward)
+   * @param currentTract Current tract
+   * @param direction Current direction (east or west)
+   * @param remainingTracts Set of remaining tracts
+   * @param adjacencyMap Adjacency map
+   * @returns Next tract or null
+   */
+  private findNextTractInLongitudePattern(
+    currentTract: GeoJsonFeature, 
+    direction: 'east' | 'west', 
+    remainingTracts: Set<GeoJsonFeature>, 
+    adjacencyMap: Map<string, Set<string>>
+  ): GeoJsonFeature | null {
+    const currentCentroid = this.calculateTractCentroid(currentTract);
+    const currentTractId = this.getTractId(currentTract);
+    
+    // Get adjacent tracts
+    const adjacentTractIds = adjacencyMap.get(currentTractId) || new Set();
+    const adjacentTracts = Array.from(remainingTracts).filter(tract => 
+      adjacentTractIds.has(this.getTractId(tract))
+    );
+    
+    if (adjacentTracts.length === 0) return null;
+    
+    // For longitude division: prefer north-south movement
+    let bestTract: GeoJsonFeature | null = null;
+    let bestScore = -Infinity;
+    
+    for (const tract of adjacentTracts) {
+      const centroid = this.calculateTractCentroid(tract);
+      let score = 0;
+      
+      // Prefer tracts in the current direction (east or west)
+      if (direction === 'east' && centroid.lng > currentCentroid.lng) {
+        score += 10; // Slight preference for eastward movement
+      } else if (direction === 'west' && centroid.lng < currentCentroid.lng) {
+        score += 10; // Slight preference for westward movement
+      }
+      
+      // Strong preference for north-south movement
+      if (centroid.lat > currentCentroid.lat) {
+        score += 50; // Northward movement
+      } else if (centroid.lat < currentCentroid.lat) {
+        score += 50; // Southward movement
+      }
+      
+      // Prefer tracts that are closer
+      const distance = this.calculateDistance(currentCentroid, centroid);
+      score += Math.max(0, 50 - distance * 1000);
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestTract = tract;
+      }
+    }
+    
+    return bestTract;
+  }
+
+  /**
+   * Handle isolated tracts that couldn't be connected in the zig-zag pattern
+   * @param sortedTracts Already sorted tracts
+   * @param remainingTracts Remaining isolated tracts
+   * @param direction Sort direction
+   * @param adjacencyMap Adjacency map
+   * @returns Array of isolated tracts to insert
+   */
+  private handleIsolatedTracts(
+    sortedTracts: GeoJsonFeature[], 
+    remainingTracts: Set<GeoJsonFeature>, 
+    direction: 'latitude' | 'longitude', 
+    adjacencyMap: Map<string, Set<string>>
+  ): GeoJsonFeature[] {
+    const isolatedTracts = Array.from(remainingTracts);
+    const result: GeoJsonFeature[] = [];
+    
+    // Group isolated tracts by adjacency
+    const isolatedGroups = this.groupIsolatedTracts(isolatedTracts, adjacencyMap);
+    
+    for (const group of isolatedGroups) {
+      if (group.length === 1) {
+        // Single isolated tract - find closest insertion point
+        const isolatedTract = group[0];
+        const insertionPoint = this.findClosestInsertionPoint(isolatedTract, sortedTracts, direction);
+        
+        if (insertionPoint >= 0) {
+          result.push(isolatedTract);
+        }
+      } else {
+        // Group of isolated tracts - sort them separately then insert as group
+        const sortedGroup = this.sortTractsGeographically(group, direction);
+        const insertionPoint = this.findClosestGroupInsertionPoint(sortedGroup, sortedTracts, direction);
+        
+        if (insertionPoint >= 0) {
+          result.push(...sortedGroup);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Group isolated tracts by their adjacency relationships
+   * @param isolatedTracts Array of isolated tracts
+   * @param adjacencyMap Adjacency map
+   * @returns Array of groups of adjacent isolated tracts
+   */
+  private groupIsolatedTracts(isolatedTracts: GeoJsonFeature[], adjacencyMap: Map<string, Set<string>>): GeoJsonFeature[][] {
+    const groups: GeoJsonFeature[][] = [];
+    const visited = new Set<string>();
+    
+    for (const tract of isolatedTracts) {
+      const tractId = this.getTractId(tract);
+      if (visited.has(tractId)) continue;
+      
+      // Start a new group with this tract
+      const group: GeoJsonFeature[] = [tract];
+      visited.add(tractId);
+      
+      // Find all adjacent isolated tracts
+      const queue = [tract];
+      while (queue.length > 0) {
+        const currentTract = queue.shift()!;
+        const currentTractId = this.getTractId(currentTract);
+        const neighbors = adjacencyMap.get(currentTractId) || new Set();
+        
+        for (const neighborId of neighbors) {
+          const neighborTract = isolatedTracts.find(t => this.getTractId(t) === neighborId);
+          if (neighborTract && !visited.has(neighborId)) {
+            group.push(neighborTract);
+            visited.add(neighborId);
+            queue.push(neighborTract);
+          }
+        }
+      }
+      
+      groups.push(group);
+    }
+    
+    return groups;
+  }
+
+  /**
+   * Find the closest insertion point for an isolated tract
+   * @param isolatedTract Isolated tract to insert
+   * @param sortedTracts Already sorted tracts
+   * @param direction Sort direction
+   * @returns Index to insert at, or -1 if not found
+   */
+  private findClosestInsertionPoint(
+    isolatedTract: GeoJsonFeature, 
+    sortedTracts: GeoJsonFeature[], 
+    direction: 'latitude' | 'longitude'
+  ): number {
+    const isolatedCentroid = this.calculateTractCentroid(isolatedTract);
+    let bestIndex = -1;
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < sortedTracts.length; i++) {
+      const tractCentroid = this.calculateTractCentroid(sortedTracts[i]);
+      const distance = this.calculateDistance(isolatedCentroid, tractCentroid);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        bestIndex = i + 1; // Insert after this tract
+      }
+    }
+    
+    return bestIndex;
+  }
+
+  /**
+   * Find the closest insertion point for a group of isolated tracts
+   * @param isolatedGroup Group of isolated tracts
+   * @param sortedTracts Already sorted tracts
+   * @param direction Sort direction
+   * @returns Index to insert at, or -1 if not found
+   */
+  private findClosestGroupInsertionPoint(
+    isolatedGroup: GeoJsonFeature[], 
+    sortedTracts: GeoJsonFeature[], 
+    direction: 'latitude' | 'longitude'
+  ): number {
+    // Use the centroid of the group to find insertion point
+    const groupCentroid = this.calculateCentroid(isolatedGroup);
+    let bestIndex = -1;
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < sortedTracts.length; i++) {
+      const tractCentroid = this.calculateTractCentroid(sortedTracts[i]);
+      const distance = this.calculateDistance(groupCentroid, tractCentroid);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        bestIndex = i + 1; // Insert after this tract
+      }
+    }
+    
+    return bestIndex;
   }
 
   /**
