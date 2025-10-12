@@ -1,6 +1,6 @@
 # GeoDistricts API Service
 
-A Cloud Run service that provides the main API for GeoDistricts, including Census API proxy functionality with Firestore caching to solve localStorage quota limitations and improve performance.
+A Cloud Run service that provides the main API for GeoDistricts, including Census API proxy functionality with Firestore caching.
 
 ## Features
 

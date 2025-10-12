@@ -9,6 +9,10 @@ A modern web application built with Angular and Node.js, deployed on Google Clou
 git clone https://github.com/Lacoda-Labs/geodistricts.git
 cd geodistricts
 
+# Set up API keys (optional - for direct Census API access)
+chmod +x scripts/setup-api-keys.sh
+./scripts/setup-api-keys.sh
+
 # Run quick setup (installs dependencies and starts dev servers)
 chmod +x scripts/quick-start.sh
 ./scripts/quick-start.sh
@@ -103,6 +107,24 @@ To set up GitHub Actions:
 1. Add the following secrets to your GitHub repository:
    - `GCP_PROJECT_ID`: Your Google Cloud project ID
    - `GCP_SA_KEY`: Your Google Cloud service account key
+
+## 🧮 Geodistrict Algorithm
+
+This project includes an implementation of the "Fresh Approach" geodistricting algorithm that creates congressional districts using an objective, geographically-based method. The algorithm:
+
+- Divides census tracts into district groups recursively
+- Alternates between latitude and longitude divisions
+- Maintains geographic contiguity
+- Balances population across districts
+- Provides step-by-step visualization
+
+### Accessing the Algorithm
+
+Navigate to `/geodistrict` in the application or click "Geodistrict Algorithm" in the navigation menu.
+
+### API Key Setup
+
+For direct Census API access (recommended), see [CENSUS_API_KEY_SETUP.md](CENSUS_API_KEY_SETUP.md) for detailed setup instructions.
 
 ## Contributing
 

@@ -4,9 +4,6 @@
 
 Successfully moved the Census API key from frontend environment files to Google Cloud Secret Manager, implementing secure secret management for the GeoDistricts API service.
 
-## ⚠️ Security Notice
-
-The previous Census API key (`50b6b6cb3983813724eb6e4f9c0c4020d47d270d`) was exposed in the GitHub repository and should be considered **compromised**. A new API key must be requested immediately.
 
 ## What Was Done
 
@@ -75,7 +72,7 @@ async function getCensusApiKey() {
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:8080/api',
-  censusApiKey: '50b6b6cb3983813724eb6e4f9c0c4020d47d270d', // ❌ EXPOSED
+  censusApiKey: 'EXPOSED_API_KEY_REMOVED', // ❌ EXPOSED - Key removed for security
   censusProxyUrl: 'http://localhost:8080'
 };
 ```
