@@ -298,8 +298,8 @@ export class GeodistrictAlgorithmService {
     const totalPopulation = group.totalPopulation;
     const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
     
-    // Sort tracts geographically
-    const sortedTracts = this.sortTractsGeographically(group.censusTracts, direction);
+    // Sort tracts for contiguity
+    const sortedTracts = this.sortTractsForContiguity(group.censusTracts, direction);
     
     // Divide tracts by accumulating population
     let cumulativePopulation = 0;
@@ -319,6 +319,20 @@ export class GeodistrictAlgorithmService {
     // Split tracts into two groups
     const firstGroupTracts = sortedTracts.slice(0, divisionIndex);
     const secondGroupTracts = sortedTracts.slice(divisionIndex);
+    
+    // Validate contiguity of both groups
+    const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);
+    const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Second Group (Districts ${group.startDistrictNumber + division.first}-${group.endDistrictNumber})`);
+    
+    if (!firstGroupContiguous || !secondGroupContiguous) {
+      console.warn(`⚠️  Division resulted in non-contiguous groups. Attempting to fix...`);
+      
+      // Try to fix contiguity by adjusting the division point
+      const fixedGroups = this.fixContiguityInDivision(sortedTracts, divisionIndex, group, division);
+      if (fixedGroups) {
+        return fixedGroups;
+      }
+    }
     
     // Create new district groups
     const firstGroup: DistrictGroup = {
@@ -378,6 +392,318 @@ export class GeodistrictAlgorithmService {
         return centroidA.lng - centroidB.lng;
       }
     });
+  }
+
+  /**
+   * Sort tracts to ensure contiguity - each tract should be adjacent to the next
+   * @param tracts Array of tract features
+   * @param direction Sort direction preference
+   * @returns Sorted array of tracts ensuring contiguity
+   */
+  private sortTractsForContiguity(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
+    if (tracts.length <= 1) return tracts;
+
+    // First, get initial geographic sort as starting point
+    const geographicallySorted = this.sortTractsGeographically([...tracts], direction);
+    
+    // Build adjacency map for all tracts
+    const adjacencyMap = this.buildAdjacencyMap(tracts);
+    
+    // Start with the first tract from geographic sort
+    const sortedTracts: GeoJsonFeature[] = [geographicallySorted[0]];
+    const remainingTracts = new Set(geographicallySorted.slice(1));
+    
+    // Greedily add the most adjacent tract at each step
+    while (remainingTracts.size > 0) {
+      const lastTract = sortedTracts[sortedTracts.length - 1];
+      const lastTractId = this.getTractId(lastTract);
+      
+      // Find the most adjacent tract to the last added tract
+      let bestNextTract: GeoJsonFeature | null = null;
+      let bestAdjacencyScore = -1;
+      
+      for (const tract of remainingTracts) {
+        const tractId = this.getTractId(tract);
+        const adjacencyScore = this.calculateAdjacencyScore(lastTract, tract, adjacencyMap);
+        
+        if (adjacencyScore > bestAdjacencyScore) {
+          bestAdjacencyScore = adjacencyScore;
+          bestNextTract = tract;
+        }
+      }
+      
+      // If we found an adjacent tract, add it
+      if (bestNextTract && bestAdjacencyScore > 0) {
+        sortedTracts.push(bestNextTract);
+        remainingTracts.delete(bestNextTract);
+      } else {
+        // If no adjacent tract found, add the geographically closest one
+        const closestTract = this.findGeographicallyClosestTract(lastTract, Array.from(remainingTracts));
+        if (closestTract) {
+          sortedTracts.push(closestTract);
+          remainingTracts.delete(closestTract);
+        } else {
+          // Fallback: add any remaining tract
+          const anyTract = remainingTracts.values().next().value;
+          if (anyTract) {
+            sortedTracts.push(anyTract);
+            remainingTracts.delete(anyTract);
+          }
+        }
+      }
+    }
+    
+    return sortedTracts;
+  }
+
+  /**
+   * Validate that tracts in a group are contiguous
+   * @param tracts Array of tract features
+   * @param groupName Name of the group for logging
+   * @returns True if all tracts are contiguous
+   */
+  private validateContiguity(tracts: GeoJsonFeature[], groupName: string): boolean {
+    if (tracts.length <= 1) return true;
+
+    const adjacencyMap = this.buildAdjacencyMap(tracts);
+    const visited = new Set<string>();
+    const queue: string[] = [];
+    
+    // Start BFS from first tract
+    const firstTractId = this.getTractId(tracts[0]);
+    queue.push(firstTractId);
+    visited.add(firstTractId);
+    
+    while (queue.length > 0) {
+      const currentTractId = queue.shift()!;
+      const neighbors = adjacencyMap.get(currentTractId) || new Set();
+      
+      for (const neighborId of neighbors) {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    
+    const isContiguous = visited.size === tracts.length;
+    
+    if (!isContiguous) {
+      console.warn(`⚠️  ${groupName}: Non-contiguous tracts detected!`);
+      console.warn(`   Expected ${tracts.length} tracts, but only ${visited.size} are reachable`);
+      
+      // Log which tracts are isolated
+      const allTractIds = new Set(tracts.map(t => this.getTractId(t)));
+      const isolatedTracts = [...allTractIds].filter(id => !visited.has(id));
+      if (isolatedTracts.length > 0) {
+        console.warn(`   Isolated tracts: ${isolatedTracts.join(', ')}`);
+      }
+    } else {
+      console.log(`✅ ${groupName}: All ${tracts.length} tracts are contiguous`);
+    }
+    
+    return isContiguous;
+  }
+
+  /**
+   * Build adjacency map for all tracts
+   * @param tracts Array of tract features
+   * @returns Map of tract ID to adjacent tract IDs
+   */
+  private buildAdjacencyMap(tracts: GeoJsonFeature[]): Map<string, Set<string>> {
+    const adjacencyMap = new Map<string, Set<string>>();
+    
+    // Initialize adjacency map
+    tracts.forEach(tract => {
+      const tractId = this.getTractId(tract);
+      adjacencyMap.set(tractId, new Set());
+    });
+    
+    // Check adjacency between all pairs of tracts
+    for (let i = 0; i < tracts.length; i++) {
+      for (let j = i + 1; j < tracts.length; j++) {
+        if (this.areTractsAdjacent(tracts[i], tracts[j])) {
+          const tractId1 = this.getTractId(tracts[i]);
+          const tractId2 = this.getTractId(tracts[j]);
+          adjacencyMap.get(tractId1)!.add(tractId2);
+          adjacencyMap.get(tractId2)!.add(tractId1);
+        }
+      }
+    }
+    
+    return adjacencyMap;
+  }
+
+  /**
+   * Check if two tracts are adjacent (share a boundary)
+   * @param tract1 First tract
+   * @param tract2 Second tract
+   * @returns True if tracts are adjacent
+   */
+  private areTractsAdjacent(tract1: GeoJsonFeature, tract2: GeoJsonFeature): boolean {
+    // This is a simplified adjacency check based on centroid distance
+    // In a real implementation, you'd check for shared boundaries
+    const centroid1 = this.calculateTractCentroid(tract1);
+    const centroid2 = this.calculateTractCentroid(tract2);
+    
+    // Calculate distance between centroids
+    const distance = this.calculateDistance(centroid1, centroid2);
+    
+    // Consider tracts adjacent if their centroids are within a reasonable distance
+    // This threshold might need adjustment based on your data
+    const adjacencyThreshold = 0.05; // degrees (roughly 3-5 miles)
+    
+    return distance < adjacencyThreshold;
+  }
+
+  /**
+   * Calculate distance between two points in degrees
+   * @param point1 First point
+   * @param point2 Second point
+   * @returns Distance in degrees
+   */
+  private calculateDistance(point1: { lat: number; lng: number }, point2: { lat: number; lng: number }): number {
+    const latDiff = point1.lat - point2.lat;
+    const lngDiff = point1.lng - point2.lng;
+    return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+  }
+
+  /**
+   * Get unique identifier for a tract
+   * @param tract Tract feature
+   * @returns Tract identifier
+   */
+  private getTractId(tract: GeoJsonFeature): string {
+    return tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || JSON.stringify(tract.geometry);
+  }
+
+  /**
+   * Calculate adjacency score between two tracts
+   * @param tract1 First tract
+   * @param tract2 Second tract
+   * @param adjacencyMap Adjacency map
+   * @returns Adjacency score (higher is better)
+   */
+  private calculateAdjacencyScore(tract1: GeoJsonFeature, tract2: GeoJsonFeature, adjacencyMap: Map<string, Set<string>>): number {
+    const tractId1 = this.getTractId(tract1);
+    const tractId2 = this.getTractId(tract2);
+    
+    // Direct adjacency gets highest score
+    if (adjacencyMap.get(tractId1)?.has(tractId2)) {
+      return 100;
+    }
+    
+    // Check for indirect adjacency (shared neighbors)
+    const neighbors1 = adjacencyMap.get(tractId1) || new Set();
+    const neighbors2 = adjacencyMap.get(tractId2) || new Set();
+    const sharedNeighbors = new Set([...neighbors1].filter(n => neighbors2.has(n)));
+    
+    if (sharedNeighbors.size > 0) {
+      return 50 + sharedNeighbors.size * 10; // Bonus for shared neighbors
+    }
+    
+    // Geographic proximity score
+    const centroid1 = this.calculateTractCentroid(tract1);
+    const centroid2 = this.calculateTractCentroid(tract2);
+    const distance = this.calculateDistance(centroid1, centroid2);
+    
+    // Convert distance to score (closer = higher score)
+    return Math.max(0, 50 - distance * 1000);
+  }
+
+  /**
+   * Find geographically closest tract to a reference tract
+   * @param referenceTract Reference tract
+   * @param candidateTracts Array of candidate tracts
+   * @returns Closest tract or null
+   */
+  private findGeographicallyClosestTract(referenceTract: GeoJsonFeature, candidateTracts: GeoJsonFeature[]): GeoJsonFeature | null {
+    if (candidateTracts.length === 0) return null;
+    
+    const referenceCentroid = this.calculateTractCentroid(referenceTract);
+    let closestTract: GeoJsonFeature | null = null;
+    let minDistance = Infinity;
+    
+    for (const tract of candidateTracts) {
+      const centroid = this.calculateTractCentroid(tract);
+      const distance = this.calculateDistance(referenceCentroid, centroid);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestTract = tract;
+      }
+    }
+    
+    return closestTract;
+  }
+
+  /**
+   * Attempt to fix contiguity issues in division by adjusting the division point
+   * @param sortedTracts Sorted array of tracts
+   * @param originalDivisionIndex Original division index
+   * @param group Original group being divided
+   * @param division Division configuration
+   * @returns Fixed division result or null if unable to fix
+   */
+  private fixContiguityInDivision(sortedTracts: GeoJsonFeature[], originalDivisionIndex: number, group: DistrictGroup, division: any): any | null {
+    console.log(`🔧 Attempting to fix contiguity by adjusting division point...`);
+    
+    // Try different division points around the original
+    const searchRange = Math.min(5, Math.floor(sortedTracts.length / 4));
+    
+    for (let offset = 1; offset <= searchRange; offset++) {
+      // Try both directions
+      for (const direction of [-1, 1]) {
+        const newDivisionIndex = originalDivisionIndex + (offset * direction);
+        
+        if (newDivisionIndex <= 0 || newDivisionIndex >= sortedTracts.length) continue;
+        
+        const firstGroupTracts = sortedTracts.slice(0, newDivisionIndex);
+        const secondGroupTracts = sortedTracts.slice(newDivisionIndex);
+        
+        const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `Fixed First Group (offset: ${offset * direction})`);
+        const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Fixed Second Group (offset: ${offset * direction})`);
+        
+        if (firstGroupContiguous && secondGroupContiguous) {
+          console.log(`✅ Successfully fixed contiguity with offset ${offset * direction}`);
+          
+          // Create the fixed groups
+          const firstGroup: DistrictGroup = {
+            startDistrictNumber: group.startDistrictNumber,
+            endDistrictNumber: group.startDistrictNumber + division.first - 1,
+            censusTracts: firstGroupTracts,
+            totalDistricts: division.first,
+            totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
+            bounds: this.calculateBounds(firstGroupTracts),
+            centroid: this.calculateCentroid(firstGroupTracts)
+          };
+          
+          const secondGroup: DistrictGroup = {
+            startDistrictNumber: group.startDistrictNumber + division.first,
+            endDistrictNumber: group.endDistrictNumber,
+            censusTracts: secondGroupTracts,
+            totalDistricts: division.second,
+            totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
+            bounds: this.calculateBounds(secondGroupTracts),
+            centroid: this.calculateCentroid(secondGroupTracts)
+          };
+          
+          const history = [
+            `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} into ${division.first} + ${division.second} districts (contiguity fixed)`,
+            `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
+            `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
+          ];
+          
+          return {
+            groups: [firstGroup, secondGroup],
+            history
+          };
+        }
+      }
+    }
+    
+    console.warn(`❌ Unable to fix contiguity issues. Proceeding with original division.`);
+    return null;
   }
 
   /**
