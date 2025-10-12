@@ -3,6 +3,7 @@ import { Observable, throwError, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
+import { environment } from '../../environments/environment';
 
 // Interface for DistrictGroup as defined in the algorithm
 export interface DistrictGroup {
@@ -68,7 +69,11 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   runGeodistrictAlgorithm(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = true, forceInvalidate = false, maxIterations = 100 } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100 } = options;
+    
+    // In production, always use backend proxy (which handles Secret Manager)
+    // In development, respect the useDirectAPI flag
+    const shouldUseDirectAPI = useDirectAPI && !environment.production;
 
     console.log(`Starting geodistrict algorithm for state: ${state}`);
 
@@ -82,8 +87,8 @@ export class GeodistrictAlgorithmService {
         console.log(`Total districts for ${state}: ${totalDistricts}`);
 
         // Get census data and boundaries with fallback
-        console.log(`Using ${useDirectAPI ? 'direct API' : 'backend proxy'} for state: ${state}`);
-        const dataSource$ = useDirectAPI 
+        console.log(`Using ${shouldUseDirectAPI ? 'direct API' : 'backend proxy'} for state: ${state}`);
+        const dataSource$ = shouldUseDirectAPI 
           ? this.censusService.getTractDataWithBoundariesDirect(stateFips, undefined, forceInvalidate)
           : this.censusService.getTractDataWithBoundaries(stateFips, undefined, forceInvalidate);
 

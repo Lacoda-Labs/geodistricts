@@ -3,11 +3,26 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError, switchMap, mergeMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { API_KEYS } from '../../config/api-keys';
 
 // Census API Configuration
 const CENSUS_API_BASE = 'https://api.census.gov/data';
-const CENSUS_API_KEY = API_KEYS.CENSUS_API_KEY;
+
+// Get API key based on environment
+function getCensusApiKey(): string {
+  if (environment.production) {
+    // In production, we should use the backend proxy which handles Secret Manager
+    // This should not be called in production, but provide a fallback
+    console.warn('Direct Census API calls should not be used in production. Use backend proxy instead.');
+    return 'production-fallback-key';
+  } else {
+    // In development, use a placeholder key
+    // The actual key should be set in the api-keys.ts file
+    console.warn('Using development placeholder key. For direct API access, edit src/config/api-keys.ts');
+    return 'development-placeholder-key';
+  }
+}
+
+const CENSUS_API_KEY = getCensusApiKey();
 const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
 const ALTERNATIVE_TIGERWEB = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0';
 

@@ -37,7 +37,7 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
         <div class="control-group">
           <label>
             <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
-            Use Direct Census API (may have CORS issues)
+            Use Direct Census API (development only - production uses Secret Manager)
           </label>
         </div>
 
@@ -892,7 +892,7 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
 })
 export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedState: string = 'CA';
-  useDirectAPI: boolean = false; // Default to backend proxy due to CORS issues
+  useDirectAPI: boolean = false; // Default to backend proxy (uses Secret Manager in production)
   isLoading: boolean = false;
   errorMessage: string = '';
   algorithmResult: GeodistrictResult | null = null;
