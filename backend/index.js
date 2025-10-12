@@ -74,11 +74,12 @@ async function getCensusApiKey() {
       name: `projects/${PROJECT_ID}/secrets/${CENSUS_API_KEY_SECRET_NAME}/versions/latest`,
     });
     
-    const apiKey = version.payload.data.toString();
+    let apiKey = version.payload.data.toString();
+    // Strip any whitespace characters (including newlines)
+    apiKey = apiKey.trim();
     console.log('Successfully retrieved Census API key from Secret Manager');
-    console.log('API Key length:', apiKey.length);
-    console.log('API Key hex:', Buffer.from(apiKey).toString('hex'));
-    console.log('API Key raw:', JSON.stringify(apiKey));
+    console.log('API Key length after trim:', apiKey.length);
+    console.log('API Key (first 10 chars):', apiKey.substring(0, 10));
     return apiKey;
   } catch (error) {
     console.error('Error retrieving Census API key from Secret Manager:', error);
