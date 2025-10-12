@@ -521,7 +521,6 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
   const totalBatches = Math.ceil(totalCount / batchSize);
   let isFirstBatch = true;
   let totalFeaturesStreamed = 0;
-  let allFeatures = []; // Collect for caching
   
   try {
     for (let i = 0; i < totalBatches; i++) {
@@ -554,8 +553,6 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
         res.flush();
       }
       
-      // Collect features for caching (but don't keep in memory long)
-      allFeatures.push(...batchFeatures);
       totalFeaturesStreamed += batchFeatures.length;
       
       // Force garbage collection every few batches
@@ -568,28 +565,18 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
     res.write(']}');
     res.end();
     
-    // Cache the complete result for future requests (this will be served from cache)
-    const completeResponse = {
-      type: 'FeatureCollection',
-      features: allFeatures
+    // Cache a simple marker for large datasets to avoid memory issues
+    const cacheMarker = {
+      type: 'streamed_large_dataset',
+      totalCount: totalFeaturesStreamed,
+      timestamp: new Date().toISOString(),
+      state: state,
+      county: county,
+      note: 'Large dataset - will be streamed from source on each request'
     };
+    await setCache(cacheKey, cacheMarker);
     
-    // Use ultra-compression for large datasets
-    let cacheData = completeResponse;
-    if (allFeatures.length > 1000) {
-      console.log(`Ultra-compressing ${allFeatures.length} features for caching`);
-      cacheData = ultraCompressGeoJson(completeResponse);
-    }
-    
-    await setCache(cacheKey, cacheData);
-    
-    console.log(`Streamed ${totalFeaturesStreamed} tract boundaries for state ${state} and cached to Firestore`);
-    
-    // Clear memory immediately after caching
-    allFeatures = null;
-    if (global.gc) {
-      global.gc();
-    }
+    console.log(`Streamed ${totalFeaturesStreamed} tract boundaries for state ${state} and cached marker`);
   } catch (error) {
     console.error('Error in streaming response:', error);
     res.status(500).json({ error: 'Failed to stream tract boundaries' });
