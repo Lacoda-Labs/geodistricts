@@ -8,16 +8,10 @@
     <div class="control-group">
       <label for="stateSelect">State:</label>
       <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
-        <option value="CA">California (52 districts)</option>
-        <option value="TX">Texas (38 districts)</option>
-        <option value="FL">Florida (28 districts)</option>
-        <option value="NY">New York (26 districts)</option>
-        <option value="PA">Pennsylvania (17 districts)</option>
-        <option value="IL">Illinois (17 districts)</option>
-        <option value="OH">Ohio (15 districts)</option>
-        <option value="GA">Georgia (14 districts)</option>
-        <option value="NC">North Carolina (14 districts)</option>
-        <option value="MI">Michigan (13 districts)</option>
+        <option value="">Select State</option>
+        <option *ngFor="let state of states" [value]="state.code">
+          {{ state.name }} ({{ state.districts }} districts)
+        </option>
       </select>
     </div>
 
