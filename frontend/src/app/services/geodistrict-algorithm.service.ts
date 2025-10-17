@@ -1975,7 +1975,7 @@ export class GeodistrictAlgorithmService {
     let currentTract = startTract;
     let rowCount = 0;
     let totalIterations = 0;
-    const maxIterations = Math.min(tracts.length * 0.5, 1000); // Safety limit, max 1000
+    const maxIterations = Math.min(tracts.length * 2, 5000); // Safety limit, allow more iterations for large states
 
     // Helper function to add tract and its contained tracts
     const addTractWithContained = (tractId: string) => {
@@ -2006,6 +2006,11 @@ export class GeodistrictAlgorithmService {
       rowCount++;
       if (rowCount <= 5) {
         console.log(`🏁 Starting row ${rowCount} in ${currentDirection} direction from ${this.getTractId(currentTract)}`);
+      }
+      
+      // Log progress every 50 rows or when approaching limit
+      if (rowCount % 50 === 0 || totalIterations > maxIterations * 0.8) {
+        console.log(`📊 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), ${totalIterations}/${maxIterations} iterations, row ${rowCount}`);
       }
 
       // Traverse the current row in the current direction
@@ -2189,7 +2194,8 @@ export class GeodistrictAlgorithmService {
     // Check for completion
     const unvisitedTracts = tracts.filter(tract => !visited.has(this.getTractId(tract)));
     if (unvisitedTracts.length > 0) {
-      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${rowCount} rows and ${totalIterations} iterations. Graph coverage: ${validGraphTracts}/${tracts.length}`);
+      const progressPercent = ((visited.size / tracts.length) * 100).toFixed(1);
+      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${rowCount} rows and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
     }
 
     console.log(`✅ Geo-Graph zig-zag traversal complete: ${sortedTracts.length} tracts processed in ${rowCount} rows (${totalIterations} iterations)`);
