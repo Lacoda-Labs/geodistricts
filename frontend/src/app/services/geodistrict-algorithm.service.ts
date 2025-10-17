@@ -1939,7 +1939,7 @@ export class GeodistrictAlgorithmService {
    * @returns Sorted tracts
    */
   private performGeoGraphTraversal(tracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>, startTract: GeoJsonFeature, direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    console.log(`🚀 Starting Geo-Graph zig-zag traversal from ${this.getTractId(startTract)}`);
+    console.log(`🚀 Starting Geo-Graph northwest-first expansion from ${this.getTractId(startTract)}`);
 
     const tractMap = new Map<string, GeoJsonFeature>();
     let validGraphTracts = 0;
@@ -1966,17 +1966,6 @@ export class GeodistrictAlgorithmService {
     const visited = new Set<string>();
     const sortedTracts: GeoJsonFeature[] = [];
 
-    // Start with northwest most tract
-    const startTractId = this.getTractId(startTract);
-    visited.add(startTractId);
-    sortedTracts.push(startTract);
-
-    let currentDirection: 'east' | 'west' = 'east'; // Start moving east
-    let currentTract = startTract;
-    let rowCount = 0;
-    let totalIterations = 0;
-    const maxIterations = Math.min(tracts.length * 2, 5000); // Safety limit, allow more iterations for large states
-
     // Helper function to add tract and its contained tracts
     const addTractWithContained = (tractId: string) => {
       if (visited.has(tractId)) return;
@@ -1999,195 +1988,105 @@ export class GeodistrictAlgorithmService {
       }
     };
 
-    // Add start tract with contained
-    addTractWithContained(startTractId);
-
-    while (visited.size < tracts.length && totalIterations < maxIterations) {
-      rowCount++;
-      if (rowCount <= 5) {
-        console.log(`🏁 Starting row ${rowCount} in ${currentDirection} direction from ${this.getTractId(currentTract)}`);
+    // Helper function to find northwest-most unvisited tract
+    const findNorthwestMostUnvisited = (): GeoJsonFeature | null => {
+      let bestTract: GeoJsonFeature | null = null;
+      let bestScore = -Infinity;
+      
+      for (const tract of tracts) {
+        const tractId = this.getTractId(tract);
+        if (!visited.has(tractId)) {
+          const northwest = this.getNorthwestCoordinate(tract);
+          // Score: Prioritize north (max lat) first, then west (min lng, more negative)
+          const score = northwest.lat * 100 - northwest.lng;
+          if (score > bestScore) {
+            bestScore = score;
+            bestTract = tract;
+          }
+        }
       }
       
-      // Log progress every 50 rows or when approaching limit
-      if (rowCount % 50 === 0 || totalIterations > maxIterations * 0.8) {
-        console.log(`📊 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), ${totalIterations}/${maxIterations} iterations, row ${rowCount}`);
-      }
+      return bestTract;
+    };
 
-      // Traverse the current row in the current direction
-      let foundInRow = false;
-      let rowIterations = 0;
-      const maxRowIterations = 20; // Limit per row
-
-      while (rowIterations < maxRowIterations) {
-        totalIterations++;
-        rowIterations++;
-
-        const currentTractId = this.getTractId(currentTract);
-        const currentExtreme = this.getExtremeCoordinate(currentTract, direction, currentDirection === 'east' ? 'east' : 'west');
-
-        // Find adjacent unvisited tracts
-        let adjacentIds = adjacencyGraph.get(currentTractId) || [];
-        if (adjacentIds.length === 0 && validGraphTracts < tracts.length * 0.9 && tracts.length <= 500) {
-          // Fallback only if graph coverage is poor (<90%) AND dataset is small
-          adjacentIds = this.findNearbyTractsByCoordinates(currentTract, tracts, visited, 0.005, 5); // Smaller distance, max 5
-        }
-
-        // Filter by direction and not visited
-        const candidates: { tract: GeoJsonFeature; extreme: { lat: number; lng: number } }[] = [];
-        for (const adjId of adjacentIds) {
-          if (!visited.has(adjId)) {
-            const adjTract = tractMap.get(adjId);
-            if (adjTract) {
-              const adjExtreme = this.getExtremeCoordinate(adjTract, direction, currentDirection === 'east' ? 'east' : 'west');
-              const lngDiff = adjExtreme.lng - currentExtreme.lng;
-              if ((currentDirection === 'east' && lngDiff > 0.001) || (currentDirection === 'west' && lngDiff < -0.001)) {
-                candidates.push({ tract: adjTract, extreme: adjExtreme });
-              }
-            }
-          }
-        }
-
-        if (candidates.length === 0) {
-          // No more tracts in this direction, end of row
-          if (rowCount <= 5) {
-            console.log(`🔚 End of row ${rowCount} (${currentDirection}), ${candidates.length} candidates found`);
-          }
-          break;
-        }
-
-        foundInRow = true;
-
-        // For east direction: prioritize easternmost first, then northernmost
-        // For west direction: prioritize westernmost first, then northernmost
-        candidates.sort((a, b) => {
-          // Primary: longitude (east/west direction)
-          const lngDiff = currentDirection === 'east' ?
-            (a.extreme.lng - b.extreme.lng) : // More east first
-            (b.extreme.lng - a.extreme.lng); // More west first
-
-          if (Math.abs(lngDiff) > 0.0001) return lngDiff;
-
-          // Secondary: latitude (north first)
-          return b.extreme.lat - a.extreme.lat;
+    // Helper function to add all adjacent tracts in Brown S4 order
+    const addAllAdjacentTracts = (tractId: string): number => {
+      const adjacentIds = adjacencyGraph.get(tractId) || [];
+      let addedCount = 0;
+      
+      // Sort adjacent tracts by Brown S4 order (clockwise from north)
+      const adjacentTracts = adjacentIds
+        .map(id => tractMap.get(id))
+        .filter(tract => tract && !visited.has(this.getTractId(tract)))
+        .sort((a, b) => {
+          if (!a || !b) return 0;
+          const aId = this.getTractId(a);
+          const bId = this.getTractId(b);
+          
+          // Get relative positions for clockwise sorting
+          const aCoord = this.getNorthwestCoordinate(a);
+          const bCoord = this.getNorthwestCoordinate(b);
+          const centerCoord = this.getNorthwestCoordinate(tractMap.get(tractId)!);
+          
+          // Calculate angles from center to each adjacent tract
+          const aAngle = Math.atan2(aCoord.lat - centerCoord.lat, aCoord.lng - centerCoord.lng);
+          const bAngle = Math.atan2(bCoord.lat - centerCoord.lat, bCoord.lng - centerCoord.lng);
+          
+          // Sort clockwise (north = 0, east = π/2, south = π, west = -π/2)
+          return aAngle - bAngle;
         });
-
-        // Take the best candidate (most directional, then northernmost)
-        const nextTract = candidates[0].tract;
-        const nextTractId = this.getTractId(nextTract);
-
-        addTractWithContained(nextTractId);
-        currentTract = nextTract;
-
-        if (rowCount <= 5 && rowIterations <= 3) {
-          console.log(`➡️ Row ${rowCount}: ${nextTractId}`);
+      
+      // Add all adjacent tracts
+      for (const tract of adjacentTracts) {
+        if (tract) {
+          addTractWithContained(this.getTractId(tract));
+          addedCount++;
         }
       }
+      
+      return addedCount;
+    };
 
-      if (!foundInRow) {
-        // No tracts found in row - allow jump to next best unvisited tract
-        console.log(`⚠️ No adjacent tracts found in ${currentDirection} direction from ${this.getTractId(currentTract)} (row ${rowCount}), jumping to next best tract`);
-        
-        // Find the next best unvisited tract (prioritize northernmost, then westernmost)
-        let bestJumpTract: GeoJsonFeature | null = null;
-        let bestScore = -Infinity;
-        
-        for (const tract of tracts) {
-          const tractId = this.getTractId(tract);
-          if (!visited.has(tractId)) {
-            const northwest = this.getNorthwestCoordinate(tract);
-            // Score: Prioritize north (max lat) first, then west (min lng, more negative)
-            const score = northwest.lat * 100 - northwest.lng;
-            if (score > bestScore) {
-              bestScore = score;
-              bestJumpTract = tract;
-            }
-          }
-        }
-        
-        if (bestJumpTract) {
-          currentTract = bestJumpTract;
-          // Add the jumped tract to the sorted list
-          addTractWithContained(this.getTractId(currentTract));
-          // Switch direction after jump
-          currentDirection = currentDirection === 'east' ? 'west' : 'east';
-          if (rowCount <= 5) {
-            console.log(`🦘 Jumping to ${this.getTractId(currentTract)} (score: ${bestScore.toFixed(2)}) and switching to ${currentDirection} direction`);
-          }
-        } else {
-          // No unvisited tracts left - this should not happen due to the while loop condition
-          throw new Error(`Geo-graph algorithm failed: No unvisited tracts found but algorithm not complete (row ${rowCount})`);
-        }
+    let expansionCount = 0;
+    let totalIterations = 0;
+    const maxIterations = Math.min(tracts.length * 2, 5000);
+
+    // Start with northwest most tract
+    const startTractId = this.getTractId(startTract);
+    addTractWithContained(startTractId);
+    console.log(`📍 Starting expansion from northwest tract: ${startTractId}`);
+
+    while (visited.size < tracts.length && totalIterations < maxIterations) {
+      expansionCount++;
+      totalIterations++;
+      
+      // Log progress every 10 expansions or when approaching limit
+      if (expansionCount % 10 === 0 || totalIterations > maxIterations * 0.8) {
+        console.log(`📊 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), ${totalIterations}/${maxIterations} iterations, expansion ${expansionCount}`);
       }
 
-      // Find next row start: southernmost adjacent to current row
-      const rowTracts = sortedTracts.slice(-1); // Last added is current
-      let nextRowStart: GeoJsonFeature | null = null;
-      let minLat = Infinity;
-
-      for (const rowTract of rowTracts) {
-        const rowTractId = this.getTractId(rowTract);
-        const rowExtreme = this.getExtremeCoordinate(rowTract, direction, 'south');
-
-        let adjIds = adjacencyGraph.get(rowTractId) || [];
-        if (adjIds.length === 0 && validGraphTracts < tracts.length * 0.9 && tracts.length <= 500) {
-          adjIds = this.findNearbyTractsByCoordinates(rowTract, tracts, visited, 0.005, 3);
-        }
-
-        for (const adjId of adjIds) {
-          if (!visited.has(adjId)) {
-            const adjTract = tractMap.get(adjId);
-            if (adjTract) {
-              const adjExtreme = this.getExtremeCoordinate(adjTract, direction, 'south');
-              const latDiff = adjExtreme.lat - rowExtreme.lat;
-              if (latDiff < -0.001 && adjExtreme.lat < minLat) { // South of current
-                minLat = adjExtreme.lat;
-                nextRowStart = adjTract;
-              }
-            }
-          }
-        }
+      // Find northwest-most unvisited tract
+      const nextNorthwestTract = findNorthwestMostUnvisited();
+      
+      if (!nextNorthwestTract) {
+        // No unvisited tracts left - should not happen due to while loop condition
+        break;
       }
 
-      if (nextRowStart) {
-        currentTract = nextRowStart;
-        // Switch direction
-        currentDirection = currentDirection === 'east' ? 'west' : 'east';
-        if (rowCount <= 5) {
-          console.log(`🔄 Row ${rowCount} complete, switching to ${currentDirection} from ${this.getTractId(currentTract)}`);
-        }
-      } else {
-        // No southern adjacent tract found - allow jump to next best unvisited tract
-        console.log(`⚠️ No southern adjacent tract found for row ${rowCount}, jumping to next best unvisited tract`);
-        
-        // Find the next best unvisited tract (prioritize northernmost, then westernmost)
-        let bestJumpTract: GeoJsonFeature | null = null;
-        let bestScore = -Infinity;
-        
-        for (const tract of tracts) {
-          const tractId = this.getTractId(tract);
-          if (!visited.has(tractId)) {
-            const northwest = this.getNorthwestCoordinate(tract);
-            // Score: Prioritize north (max lat) first, then west (min lng, more negative)
-            const score = northwest.lat * 100 - northwest.lng;
-            if (score > bestScore) {
-              bestScore = score;
-              bestJumpTract = tract;
-            }
-          }
-        }
-        
-        if (bestJumpTract) {
-          currentTract = bestJumpTract;
-          // Add the jumped tract to the sorted list
-          addTractWithContained(this.getTractId(currentTract));
-          // Continue in the same direction for the jump
-          if (rowCount <= 5) {
-            console.log(`🦘 Jumping to ${this.getTractId(currentTract)} (score: ${bestScore.toFixed(2)}) in ${currentDirection} direction`);
-          }
-        } else {
-          // No unvisited tracts left - this should not happen due to the while loop condition
-          throw new Error(`Geo-graph algorithm failed: No unvisited tracts found but algorithm not complete (row ${rowCount})`);
-        }
+      const nextTractId = this.getTractId(nextNorthwestTract);
+      
+      if (expansionCount <= 5) {
+        console.log(`🏔️ Expansion ${expansionCount}: Adding northwest tract ${nextTractId}`);
+      }
+
+      // Add the northwest tract
+      addTractWithContained(nextTractId);
+
+      // Add all its adjacent tracts in Brown S4 order
+      const adjacentAdded = addAllAdjacentTracts(nextTractId);
+      
+      if (expansionCount <= 5) {
+        console.log(`🔗 Added ${adjacentAdded} adjacent tracts to ${nextTractId}`);
       }
     }
 
@@ -2195,10 +2094,10 @@ export class GeodistrictAlgorithmService {
     const unvisitedTracts = tracts.filter(tract => !visited.has(this.getTractId(tract)));
     if (unvisitedTracts.length > 0) {
       const progressPercent = ((visited.size / tracts.length) * 100).toFixed(1);
-      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${rowCount} rows and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
+      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${expansionCount} expansions and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
     }
 
-    console.log(`✅ Geo-Graph zig-zag traversal complete: ${sortedTracts.length} tracts processed in ${rowCount} rows (${totalIterations} iterations)`);
+    console.log(`✅ Geo-Graph northwest-first expansion complete: ${sortedTracts.length} tracts processed in ${expansionCount} expansions (${totalIterations} iterations)`);
     return sortedTracts;
   }
 
