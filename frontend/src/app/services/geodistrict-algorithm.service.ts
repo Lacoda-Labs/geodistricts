@@ -3190,19 +3190,92 @@ export class GeodistrictAlgorithmService {
         sortedTracts: sortedTracts
       };
     } else {
-      // Phase 2: Divide into 2 groups and alternate northwest/southwest
-      // For now, return a placeholder for Phase 2
+      // Phase 2: Divide into 2 groups and alternate latitude/longitude sorting
+      return this.executePhase2Step(tracts, step);
+    }
+  }
+
+  /**
+   * Execute Phase 2: Divide into 2 groups with alternating latitude/longitude sorting
+   * @param tracts Array of sorted tracts from Phase 1
+   * @param step Current step number (1-based for Phase 2)
+   * @returns Phase 2 step result
+   */
+  private executePhase2Step(tracts: GeoJsonFeature[], step: number): GeoGraphStepResult {
+    console.log(`📍 PHASE 2 Step ${step}: Alternating latitude/longitude division`);
+
+    // Calculate how many steps we need (roughly log2 of number of districts)
+    const targetDistricts = 2; // For now, divide into 2 groups
+    const maxSteps = Math.ceil(Math.log2(tracts.length / 100)); // Estimate based on tract count
+    const totalSteps = Math.max(5, maxSteps); // Minimum 5 steps for demonstration
+
+    if (step > totalSteps) {
       return {
         phase: 'phase2',
         step: step,
-        totalSteps: 10, // Placeholder
-        isComplete: false,
-        message: `Phase 2 Step ${step}: Alternating northwest/southwest expansion (not yet implemented)`,
+        totalSteps: totalSteps,
+        isComplete: true,
+        message: `Phase 2 Complete: All ${totalSteps} division steps finished`,
         sortedTracts: tracts,
-        nextAction: step % 2 === 1 ? 'northwest' : 'southwest',
-        groupIndex: Math.floor(step / 2) % 2
+        currentDistricts: [tracts] // Single group for now
       };
     }
+
+    // Alternate between latitude and longitude sorting
+    const isLatitudeStep = step % 2 === 1; // Odd steps = latitude, Even steps = longitude
+    const sortDirection = isLatitudeStep ? 'latitude' : 'longitude';
+    const fillDirection = isLatitudeStep ? 'east/west' : 'north/south';
+
+    console.log(`🔄 Step ${step}: ${sortDirection} sorting (fills ${fillDirection})`);
+
+    // For demonstration, we'll create a simple division
+    // In a real implementation, this would use the actual district division logic
+    const midPoint = Math.floor(tracts.length / 2);
+    
+    let group1: GeoJsonFeature[];
+    let group2: GeoJsonFeature[];
+
+    if (isLatitudeStep) {
+      // Latitude sorting: divide by latitude (north/south split)
+      const sortedByLatitude = [...tracts].sort((a, b) => {
+        const aLat = this.getNorthwestCoordinate(a).lat;
+        const bLat = this.getNorthwestCoordinate(b).lat;
+        return bLat - aLat; // North to south
+      });
+      
+      group1 = sortedByLatitude.slice(0, midPoint);
+      group2 = sortedByLatitude.slice(midPoint);
+      
+      console.log(`📊 Latitude division: ${group1.length} northern tracts, ${group2.length} southern tracts`);
+    } else {
+      // Longitude sorting: divide by longitude (east/west split)
+      const sortedByLongitude = [...tracts].sort((a, b) => {
+        const aLng = this.getNorthwestCoordinate(a).lng;
+        const bLng = this.getNorthwestCoordinate(b).lng;
+        return aLng - bLng; // West to east
+      });
+      
+      group1 = sortedByLongitude.slice(0, midPoint);
+      group2 = sortedByLongitude.slice(midPoint);
+      
+      console.log(`📊 Longitude division: ${group1.length} western tracts, ${group2.length} eastern tracts`);
+    }
+
+    const currentDistricts = [group1, group2];
+    const nextSortDirection = (step + 1) % 2 === 1 ? 'latitude' : 'longitude';
+    const nextFillDirection = nextSortDirection === 'latitude' ? 'east/west' : 'north/south';
+
+    return {
+      phase: 'phase2',
+      step: step,
+      totalSteps: totalSteps,
+      isComplete: false,
+      message: `Step ${step}: ${sortDirection} sorting complete (${fillDirection} fill). Next: ${nextSortDirection} sorting (${nextFillDirection} fill)`,
+      sortedTracts: tracts, // Keep original sorted order
+      currentDistricts: currentDistricts,
+      nextAction: nextSortDirection === 'latitude' ? 'northwest' : 'southwest', // For UI display
+      groupIndex: step % 2 // Alternating between groups
+    };
   }
 
   /**

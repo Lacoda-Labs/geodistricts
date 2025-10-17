@@ -62,6 +62,12 @@ declare var L: any;
               Step {{ stepResult.step }}/{{ stepResult.totalSteps }}
               <br>
               <small>{{ stepResult.message }}</small>
+              <div *ngIf="stepResult.currentDistricts && stepResult.currentDistricts.length > 0" class="district-info">
+                <strong>Current Districts:</strong>
+                <div *ngFor="let district of stepResult.currentDistricts; let i = index" class="district-group">
+                  District {{ i + 1 }}: {{ district.length }} tracts
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -277,6 +283,20 @@ declare var L: any;
 
     .step-info strong {
       color: #1976D2;
+    }
+
+    .district-info {
+      margin-top: 8px;
+      padding: 8px;
+      background: #e8f5e8;
+      border-radius: 4px;
+      border-left: 3px solid #4CAF50;
+    }
+
+    .district-group {
+      font-size: 12px;
+      margin: 2px 0;
+      color: #2e7d32;
     }
 
     .control-group button {
@@ -719,6 +739,13 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       // Update sorted tracts if we have results
       if (this.stepResult.sortedTracts) {
         this.sortedTracts = this.stepResult.sortedTracts;
+        
+        // If we have current districts from Phase 2, use those for display
+        if (this.stepResult.currentDistricts && this.stepResult.currentDistricts.length > 0) {
+          // Flatten all districts for display
+          this.sortedTracts = this.stepResult.currentDistricts.flat();
+        }
+        
         this.updateMapLayers();
       }
 
