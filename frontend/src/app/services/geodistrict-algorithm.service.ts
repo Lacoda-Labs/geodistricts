@@ -223,11 +223,7 @@ export class GeodistrictAlgorithmService {
     console.log(`Total state population: ${totalStatePopulation.toLocaleString()}`);
     console.log(`Target population per district: ${targetDistrictPopulation.toLocaleString()}`);
 
-    // Handle async algorithms - not supported in first step mode
-    if (algorithm === 'brown-s4' || algorithm === 'geo-graph') {
-      console.warn(`⚠️  ${algorithm} algorithm not supported in first step mode, falling back to greedy traversal`);
-      algorithm = 'greedy-traversal';
-    }
+    // Note: geo-graph and brown-s4 algorithms are now supported in first step mode
 
     // Sort tracts initially by latitude (north to south)
     console.log(`🔄 Sorting tracts initially by latitude (north to south) using ${algorithm} algorithm`);
@@ -235,7 +231,11 @@ export class GeodistrictAlgorithmService {
       ? this.sortTractsForLatLongAlgorithm(tracts, 'latitude')
       : algorithm === 'greedy-traversal'
         ? this.sortTractsByGreedyTraversal(tracts, 'latitude')
-        : this.sortTractsByCentroid(tracts, 'latitude');
+        : algorithm === 'brown-s4'
+          ? await this.sortTractsByBrownS4(tracts, 'latitude')
+          : algorithm === 'geo-graph'
+            ? await this.sortTractsByGeoGraph(tracts, 'latitude')
+            : this.sortTractsByCentroid(tracts, 'latitude');
 
     // Initialize with all tracts as a single district group
     const initialGroup: DistrictGroup = {
