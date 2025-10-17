@@ -1939,7 +1939,7 @@ export class GeodistrictAlgorithmService {
    * @returns Sorted tracts
    */
   private performGeoGraphTraversal(tracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>, startTract: GeoJsonFeature, direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    console.log(`🚀 Starting Geo-Graph northwest-first expansion from ${this.getTractId(startTract)}`);
+    console.log(`🚀 Starting Geo-Graph alternating northwest/southwest expansion from ${this.getTractId(startTract)}`);
 
     const tractMap = new Map<string, GeoJsonFeature>();
     let validGraphTracts = 0;
@@ -2009,6 +2009,27 @@ export class GeodistrictAlgorithmService {
       return bestTract;
     };
 
+    // Helper function to find southwest-most unvisited tract
+    const findSouthwestMostUnvisited = (): GeoJsonFeature | null => {
+      let bestTract: GeoJsonFeature | null = null;
+      let bestScore = -Infinity;
+      
+      for (const tract of tracts) {
+        const tractId = this.getTractId(tract);
+        if (!visited.has(tractId)) {
+          const southwest = this.getSouthwestCoordinate(tract);
+          // Score: Prioritize south (min lat) first, then west (min lng, more negative)
+          const score = -southwest.lat * 100 - southwest.lng;
+          if (score > bestScore) {
+            bestScore = score;
+            bestTract = tract;
+          }
+        }
+      }
+      
+      return bestTract;
+    };
+
     // Helper function to add all adjacent tracts in Brown S4 order
     const addAllAdjacentTracts = (tractId: string): number => {
       const adjacentIds = adjacencyGraph.get(tractId) || [];
@@ -2050,6 +2071,7 @@ export class GeodistrictAlgorithmService {
     let expansionCount = 0;
     let totalIterations = 0;
     const maxIterations = Math.min(tracts.length * 2, 5000);
+    let useNorthwest = true; // Start with northwest, then alternate
 
     // Start with northwest most tract
     const startTractId = this.getTractId(startTract);
@@ -2065,21 +2087,22 @@ export class GeodistrictAlgorithmService {
         console.log(`📊 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), ${totalIterations}/${maxIterations} iterations, expansion ${expansionCount}`);
       }
 
-      // Find northwest-most unvisited tract
-      const nextNorthwestTract = findNorthwestMostUnvisited();
+      // Alternate between northwest and southwest selection
+      const nextTract = useNorthwest ? findNorthwestMostUnvisited() : findSouthwestMostUnvisited();
+      const direction = useNorthwest ? 'northwest' : 'southwest';
       
-      if (!nextNorthwestTract) {
+      if (!nextTract) {
         // No unvisited tracts left - should not happen due to while loop condition
         break;
       }
 
-      const nextTractId = this.getTractId(nextNorthwestTract);
+      const nextTractId = this.getTractId(nextTract);
       
       if (expansionCount <= 5) {
-        console.log(`🏔️ Expansion ${expansionCount}: Adding northwest tract ${nextTractId}`);
+        console.log(`🏔️ Expansion ${expansionCount}: Adding ${direction} tract ${nextTractId}`);
       }
 
-      // Add the northwest tract
+      // Add the selected tract
       addTractWithContained(nextTractId);
 
       // Add all its adjacent tracts in Brown S4 order
@@ -2088,6 +2111,9 @@ export class GeodistrictAlgorithmService {
       if (expansionCount <= 5) {
         console.log(`🔗 Added ${adjacentAdded} adjacent tracts to ${nextTractId}`);
       }
+
+      // Alternate direction for next iteration
+      useNorthwest = !useNorthwest;
     }
 
     // Check for completion
@@ -2097,7 +2123,7 @@ export class GeodistrictAlgorithmService {
       throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${expansionCount} expansions and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
     }
 
-    console.log(`✅ Geo-Graph northwest-first expansion complete: ${sortedTracts.length} tracts processed in ${expansionCount} expansions (${totalIterations} iterations)`);
+    console.log(`✅ Geo-Graph alternating northwest/southwest expansion complete: ${sortedTracts.length} tracts processed in ${expansionCount} expansions (${totalIterations} iterations)`);
     return sortedTracts;
   }
 
