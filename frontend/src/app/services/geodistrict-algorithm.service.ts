@@ -2049,10 +2049,21 @@ export class GeodistrictAlgorithmService {
 
         foundInRow = true;
 
-        // Sort candidates by latitude (north to south within direction)
-        candidates.sort((a, b) => b.extreme.lat - a.extreme.lat);
+        // For east direction: prioritize easternmost first, then northernmost
+        // For west direction: prioritize westernmost first, then northernmost
+        candidates.sort((a, b) => {
+          // Primary: longitude (east/west direction)
+          const lngDiff = currentDirection === 'east' ?
+            (a.extreme.lng - b.extreme.lng) : // More east first
+            (b.extreme.lng - a.extreme.lng); // More west first
 
-        // Take the northernmost (first in sorted)
+          if (Math.abs(lngDiff) > 0.0001) return lngDiff;
+
+          // Secondary: latitude (north first)
+          return b.extreme.lat - a.extreme.lat;
+        });
+
+        // Take the best candidate (most directional, then northernmost)
         const nextTract = candidates[0].tract;
         const nextTractId = this.getTractId(nextTract);
 
