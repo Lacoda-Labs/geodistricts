@@ -1171,7 +1171,7 @@ export class GeodistrictAlgorithmService {
 
   private getTractId(tract: GeoJsonFeature): string {
     // Debug: Log available properties for first few tracts
-    if (Math.random() < 0.001) { // Log ~0.1% of tracts to avoid spam
+    if (Math.random() < 0.001) {
       console.log('🔍 Available tract properties:', Object.keys(tract.properties || {}));
       console.log('🔍 Sample tract properties:', tract.properties);
     }
