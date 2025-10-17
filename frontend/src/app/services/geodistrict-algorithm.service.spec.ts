@@ -155,4 +155,123 @@ describe('GeodistrictAlgorithmService', () => {
       console.log('✅ Test passed: Selected northwesternmost tract', northwestTract.properties.TRACT_FIPS);
     }
   });
+
+  it('should sort AZ tracts correctly with geo-graph algorithm: 950101 -> 950103 -> 950102 (contained)', () => {
+    // Arrange: Mock AZ tracts with containment: 950102 contained in 950103
+    const mockAZTracts: GeoJsonFeature[] = [
+      // Tract 950101 - Northwest starting point
+      {
+        type: 'Feature' as const,
+        properties: {
+          STATE_FIPS: '04',
+          COUNTY_FIPS: '015',
+          TRACT_FIPS: '950101',
+          POPULATION: 2427,
+          STATE: '04'
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-113.945244, 37.000201], // NW point
+            [-113.945244, 36.999000],
+            [-113.944000, 36.999000],
+            [-113.944000, 37.000201],
+            [-113.945244, 37.000201]
+          ]]
+        }
+      },
+      // Tract 950103 - East of 950101 (next in east direction)
+      {
+        type: 'Feature' as const,
+        properties: {
+          STATE_FIPS: '04',
+          COUNTY_FIPS: '015',
+          TRACT_FIPS: '950103',
+          POPULATION: 3000,
+          STATE: '04'
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-112.900000, 37.000500], // Larger area east of 950101
+            [-112.900000, 36.999000],
+            [-112.500000, 36.999000], // Spans east
+            [-112.500000, 37.000500],
+            [-112.900000, 37.000500]
+          ]]
+        }
+      },
+      // Tract 950102 - Contained within 950103
+      {
+        type: 'Feature' as const,
+        properties: {
+          STATE_FIPS: '04',
+          COUNTY_FIPS: '015',
+          TRACT_FIPS: '950102',
+          POPULATION: 1234,
+          STATE: '04'
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-112.700000, 37.000200], // Completely inside 950103's bounds
+            [-112.700000, 37.000100],
+            [-112.600000, 37.000100],
+            [-112.600000, 37.000200],
+            [-112.700000, 37.000200]
+          ]]
+        }
+      },
+      // Additional tract to ensure sorting works
+      {
+        type: 'Feature' as const,
+        properties: {
+          STATE_FIPS: '04',
+          COUNTY_FIPS: '015',
+          TRACT_FIPS: '950104',
+          POPULATION: 1500,
+          STATE: '04'
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[
+            [-112.300000, 36.800000], // South of others
+            [-112.300000, 36.799000],
+            [-112.299000, 36.799000],
+            [-112.299000, 36.800000],
+            [-112.300000, 36.800000]
+          ]]
+        }
+      }
+    ];
+
+    // Mock adjacency graph: 950101 adjacent to 950103, 950102 adjacent to 950103 (container)
+    const mockAdjacencyGraph = new Map<string, string[]>([
+      ['04015950101', ['04015950103']], // 950101 -> 950103
+      ['04015950103', ['04015950101', '04015950102']], // 950103 -> 950101, 950102
+      ['04015950102', ['04015950103']], // 950102 -> 950103
+      ['04015950104', []] // 950104 isolated for fallback testing
+    ]);
+
+    // Act: Run the geo-graph traversal
+    const sortedTracts = service['performGeoGraphTraversal'](mockAZTracts, mockAdjacencyGraph, mockAZTracts[0], 'latitude');
+
+    // Assert: Verify sorting order
+    expect(sortedTracts).toBeDefined();
+    expect(sortedTracts.length).toBe(4);
+
+    // First tract should be 950101 (northwest start)
+    expect(sortedTracts[0].properties.TRACT_FIPS).toBe('950101');
+
+    // Second tract should be 950103 (east direction)
+    expect(sortedTracts[1].properties.TRACT_FIPS).toBe('950103');
+
+    // Third tract should be 950102 (contained in 950103)
+    expect(sortedTracts[2].properties.TRACT_FIPS).toBe('950102');
+
+    // Fourth tract should be 950104 (fallback)
+    expect(sortedTracts[3].properties.TRACT_FIPS).toBe('950104');
+
+    console.log('✅ Geo-graph sorting test passed: Order =', sortedTracts.map(t => t.properties.TRACT_FIPS).join(' -> '));
+  });
 });
