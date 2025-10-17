@@ -1972,7 +1972,7 @@ export class GeodistrictAlgorithmService {
     let currentTract = startTract;
     let rowCount = 0;
     let totalIterations = 0;
-    const maxIterations = Math.min(tracts.length * 2, 5000); // Safety limit, max 5000
+    const maxIterations = Math.min(tracts.length * 0.5, 1000); // Safety limit, max 1000
 
     // Helper function to add tract and its contained tracts
     const addTractWithContained = (tractId: string) => {
@@ -2000,6 +2000,10 @@ export class GeodistrictAlgorithmService {
     addTractWithContained(startTractId);
 
     while (visited.size < tracts.length && totalIterations < maxIterations) {
+      if (totalIterations >= maxIterations - 100) {
+        console.log(`⚠️ Approaching iteration limit (${totalIterations}/${maxIterations}), will fall back to centroid sorting`);
+        break;
+      }
       rowCount++;
       if (rowCount <= 5) {
         console.log(`🏁 Starting row ${rowCount} in ${currentDirection} direction from ${this.getTractId(currentTract)}`);
@@ -2019,8 +2023,8 @@ export class GeodistrictAlgorithmService {
 
         // Find adjacent unvisited tracts
         let adjacentIds = adjacencyGraph.get(currentTractId) || [];
-        if (adjacentIds.length === 0 && validGraphTracts < tracts.length * 0.9) {
-          // Fallback only if graph coverage is poor (<90%)
+        if (adjacentIds.length === 0 && validGraphTracts < tracts.length * 0.9 && tracts.length <= 500) {
+          // Fallback only if graph coverage is poor (<90%) AND dataset is small
           adjacentIds = this.findNearbyTractsByCoordinates(currentTract, tracts, visited, 0.005, 5); // Smaller distance, max 5
         }
 
@@ -2092,7 +2096,7 @@ export class GeodistrictAlgorithmService {
         const rowExtreme = this.getExtremeCoordinate(rowTract, direction, 'south');
 
         let adjIds = adjacencyGraph.get(rowTractId) || [];
-        if (adjIds.length === 0 && validGraphTracts < tracts.length * 0.9) {
+        if (adjIds.length === 0 && validGraphTracts < tracts.length * 0.9 && tracts.length <= 500) {
           adjIds = this.findNearbyTractsByCoordinates(rowTract, tracts, visited, 0.005, 3);
         }
 
@@ -2149,7 +2153,7 @@ export class GeodistrictAlgorithmService {
       sortedTracts.push(...sortedUnvisited);
     }
 
-    console.log(`✅ Geo-Graph zig-zag traversal complete: ${sortedTracts.length} tracts processed in ${rowCount} rows`);
+    console.log(`✅ Geo-Graph zig-zag traversal complete: ${sortedTracts.length} tracts processed in ${rowCount} rows (${totalIterations} iterations)`);
     return sortedTracts;
   }
 
