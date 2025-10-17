@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from '../services/census.service';
-import { GeodistrictAlgorithmService } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeoGraphStepResult } from '../services/geodistrict-algorithm.service';
 import { VERSION_INFO } from '../../version';
 
 declare var L: any;
@@ -46,6 +46,24 @@ declare var L: any;
             <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
             Use Direct Census API (development only)
           </label>
+        </div>
+
+        <div class="control-group" *ngIf="selectedAlgorithm === 'geo-graph'">
+          <label>Geo-Graph Execution Mode:</label>
+          <div class="step-controls">
+            <button (click)="executeStep()" [disabled]="isExecuting">
+              {{ currentStep === 0 ? 'Execute Phase 1' : 'Next Step' }}
+            </button>
+            <button (click)="resetSteps()" [disabled]="isExecuting">
+              Reset
+            </button>
+            <div class="step-info" *ngIf="stepResult">
+              <strong>{{ stepResult.phase === 'phase1' ? 'Phase 1' : 'Phase 2' }}</strong>
+              Step {{ stepResult.step }}/{{ stepResult.totalSteps }}
+              <br>
+              <small>{{ stepResult.message }}</small>
+            </div>
+          </div>
         </div>
 
         <div class="control-group">
@@ -219,6 +237,46 @@ declare var L: any;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
+    }
+
+    .step-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .step-controls button {
+      padding: 10px 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background-color 0.3s;
+    }
+
+    .step-controls button:hover:not(:disabled) {
+      background: #45a049;
+    }
+
+    .step-controls button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+
+    .step-info {
+      background: #f0f8ff;
+      padding: 10px;
+      border-radius: 5px;
+      border-left: 4px solid #2196F3;
+      font-size: 13px;
+    }
+
+    .step-info strong {
+      color: #1976D2;
     }
 
     .control-group button {
@@ -511,6 +569,11 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   isLoading: boolean = false;
   errorMessage: string = '';
 
+  // Geo-Graph steppable execution properties
+  currentStep: number = 0;
+  isExecuting: boolean = false;
+  stepResult: GeoGraphStepResult | null = null;
+
   states = [
     { code: 'AL', name: 'Alabama', districts: 7 },
     { code: 'AK', name: 'Alaska', districts: 1 },
@@ -629,6 +692,64 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
 
   onSettingsChange() {
     console.log('Settings changed - useDirectAPI:', this.useDirectAPI);
+  }
+
+  async executeStep() {
+    if (!this.stateData || this.selectedAlgorithm !== 'geo-graph') {
+      return;
+    }
+
+    this.isExecuting = true;
+    try {
+      console.log(`🔄 Executing Geo-Graph step ${this.currentStep}`);
+      
+      // Get combined tract data
+      const combinedTracts = this.geodistrictAlgorithmService.combineTractData(
+        this.stateData.features,
+        [] // No demographic data for now
+      );
+
+      // Execute the step
+      this.stepResult = await this.geodistrictAlgorithmService.executeGeoGraphStep(
+        combinedTracts,
+        'latitude',
+        this.currentStep
+      );
+
+      // Update sorted tracts if we have results
+      if (this.stepResult.sortedTracts) {
+        this.sortedTracts = this.stepResult.sortedTracts;
+        this.updateMapLayers();
+      }
+
+      // Move to next step
+      this.currentStep++;
+
+      console.log(`✅ Step ${this.currentStep - 1} complete:`, this.stepResult.message);
+    } catch (error) {
+      console.error('❌ Step execution failed:', error);
+      this.errorMessage = `Step execution failed: ${error}`;
+    } finally {
+      this.isExecuting = false;
+    }
+  }
+
+  resetSteps() {
+    this.currentStep = 0;
+    this.stepResult = null;
+    this.isExecuting = false;
+    console.log('🔄 Reset Geo-Graph steps');
+  }
+
+  updateMapLayers() {
+    // Clear existing layers
+    if (this.tractLayers) {
+      this.tractLayers.forEach(layer => this.map.removeLayer(layer));
+      this.tractLayers = [];
+    }
+    
+    // Add new layers
+    this.addTractLayers();
   }
 
   loadStateData() {

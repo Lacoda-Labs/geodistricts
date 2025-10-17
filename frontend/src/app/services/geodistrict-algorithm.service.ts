@@ -56,6 +56,19 @@ export interface GeodistrictOptions {
   algorithm?: 'geographic' | 'latlong' | 'greedy-traversal' | 'brown-s4' | 'geo-graph';
 }
 
+// Interface for steppable geo-graph algorithm results
+export interface GeoGraphStepResult {
+  phase: 'phase1' | 'phase2';
+  step: number;
+  totalSteps: number;
+  isComplete: boolean;
+  message: string;
+  sortedTracts: GeoJsonFeature[];
+  currentDistricts?: GeoJsonFeature[][];
+  nextAction?: 'northwest' | 'southwest';
+  groupIndex?: number;
+}
+
 // Algorithm types
 export type AlgorithmType = 'geographic' | 'latlong' | 'greedy-traversal' | 'brown-s4' | 'geo-graph';
 
@@ -1931,7 +1944,9 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Perform geo-graph traversal with zig-zag pattern
+   * Perform geo-graph traversal using two-phase approach:
+   * Phase 1: Complete northwest expansion (sort all tracts)
+   * Phase 2: Divide into 2 groups, alternate northwest/southwest between groups
    * @param tracts Array of tracts
    * @param adjacencyGraph S4 adjacency graph
    * @param startTract Starting tract (northwest most)
@@ -1939,7 +1954,7 @@ export class GeodistrictAlgorithmService {
    * @returns Sorted tracts
    */
   private performGeoGraphTraversal(tracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>, startTract: GeoJsonFeature, direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    console.log(`🚀 Starting Geo-Graph alternating northwest/southwest expansion from ${this.getTractId(startTract)}`);
+    console.log(`🚀 Starting Geo-Graph two-phase algorithm from ${this.getTractId(startTract)}`);
 
     const tractMap = new Map<string, GeoJsonFeature>();
     let validGraphTracts = 0;
@@ -2068,28 +2083,29 @@ export class GeodistrictAlgorithmService {
       return addedCount;
     };
 
+    // PHASE 1: Complete northwest expansion until all tracts are sorted
+    console.log(`📍 PHASE 1: Starting northwest expansion from ${this.getTractId(startTract)}`);
+    
     let expansionCount = 0;
     let totalIterations = 0;
     const maxIterations = Math.min(tracts.length * 2, 5000);
-    let useNorthwest = true; // Start with northwest, then alternate
 
     // Start with northwest most tract
     const startTractId = this.getTractId(startTract);
     addTractWithContained(startTractId);
-    console.log(`📍 Starting expansion from northwest tract: ${startTractId}`);
 
+    // Phase 1: Pure northwest expansion
     while (visited.size < tracts.length && totalIterations < maxIterations) {
       expansionCount++;
       totalIterations++;
       
       // Log progress every 10 expansions or when approaching limit
       if (expansionCount % 10 === 0 || totalIterations > maxIterations * 0.8) {
-        console.log(`📊 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), ${totalIterations}/${maxIterations} iterations, expansion ${expansionCount}`);
+        console.log(`📊 Phase 1 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), expansion ${expansionCount}`);
       }
 
-      // Alternate between northwest and southwest selection
-      const nextTract = useNorthwest ? findNorthwestMostUnvisited() : findSouthwestMostUnvisited();
-      const direction = useNorthwest ? 'northwest' : 'southwest';
+      // Find northwest-most unvisited tract
+      const nextTract = findNorthwestMostUnvisited();
       
       if (!nextTract) {
         // No unvisited tracts left - should not happen due to while loop condition
@@ -2099,10 +2115,10 @@ export class GeodistrictAlgorithmService {
       const nextTractId = this.getTractId(nextTract);
       
       if (expansionCount <= 5) {
-        console.log(`🏔️ Expansion ${expansionCount}: Adding ${direction} tract ${nextTractId}`);
+        console.log(`🏔️ Phase 1 Expansion ${expansionCount}: Adding northwest tract ${nextTractId}`);
       }
 
-      // Add the selected tract
+      // Add the northwest tract
       addTractWithContained(nextTractId);
 
       // Add all its adjacent tracts in Brown S4 order
@@ -2111,19 +2127,23 @@ export class GeodistrictAlgorithmService {
       if (expansionCount <= 5) {
         console.log(`🔗 Added ${adjacentAdded} adjacent tracts to ${nextTractId}`);
       }
-
-      // Alternate direction for next iteration
-      useNorthwest = !useNorthwest;
     }
 
-    // Check for completion
+    // Check Phase 1 completion
     const unvisitedTracts = tracts.filter(tract => !visited.has(this.getTractId(tract)));
     if (unvisitedTracts.length > 0) {
       const progressPercent = ((visited.size / tracts.length) * 100).toFixed(1);
-      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${expansionCount} expansions and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
+      throw new Error(`Geo-graph Phase 1 failed: ${unvisitedTracts.length} tracts remain unvisited after ${expansionCount} expansions and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
     }
 
-    console.log(`✅ Geo-Graph alternating northwest/southwest expansion complete: ${sortedTracts.length} tracts processed in ${expansionCount} expansions (${totalIterations} iterations)`);
+    console.log(`✅ Phase 1 Complete: ${sortedTracts.length} tracts sorted in ${expansionCount} northwest expansions`);
+
+    // PHASE 2: Divide into 2 groups and alternate northwest/southwest
+    console.log(`📍 PHASE 2: Dividing into 2 groups and alternating northwest/southwest`);
+    
+    // For now, return the Phase 1 result (Phase 2 will be implemented with steppable UI)
+    // TODO: Implement Phase 2 with district division and alternating expansion
+    
     return sortedTracts;
   }
 
@@ -3119,6 +3139,70 @@ export class GeodistrictAlgorithmService {
 
     // Perform geo-graph traversal with zig-zag pattern
     return this.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
+  }
+
+  /**
+   * Execute geo-graph algorithm with step-by-step control
+   * @param tracts Array of tracts
+   * @param direction Sorting direction
+   * @param step Current step number
+   * @returns Step result with current state
+   */
+  public async executeGeoGraphStep(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude', step: number = 0): Promise<GeoGraphStepResult> {
+    if (tracts.length <= 1) {
+      return {
+        phase: 'phase1',
+        step: 0,
+        totalSteps: 1,
+        isComplete: true,
+        message: 'Only one tract, no sorting needed',
+        sortedTracts: tracts
+      };
+    }
+
+    console.log(`🔄 Executing Geo-Graph step ${step} for ${tracts.length} tracts`);
+
+    // Get state from first tract
+    const state = tracts[0].properties?.STATE || '';
+    if (!state) {
+      throw new Error('Geo-graph algorithm failed: No state found in tract properties');
+    }
+
+    // Load S4 adjacency data
+    const adjacencyGraph = await this.loadS4AdjacencyData(state);
+
+    // Find northwest most census tract as starting point
+    const startTract = this.findNorthwestMostTract(tracts);
+    if (!startTract) {
+      throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
+    }
+
+    if (step === 0) {
+      // Phase 1: Complete northwest expansion
+      const sortedTracts = await this.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
+      
+      return {
+        phase: 'phase1',
+        step: 0,
+        totalSteps: 1,
+        isComplete: true,
+        message: `Phase 1 Complete: ${sortedTracts.length} tracts sorted using northwest expansion`,
+        sortedTracts: sortedTracts
+      };
+    } else {
+      // Phase 2: Divide into 2 groups and alternate northwest/southwest
+      // For now, return a placeholder for Phase 2
+      return {
+        phase: 'phase2',
+        step: step,
+        totalSteps: 10, // Placeholder
+        isComplete: false,
+        message: `Phase 2 Step ${step}: Alternating northwest/southwest expansion (not yet implemented)`,
+        sortedTracts: tracts,
+        nextAction: step % 2 === 1 ? 'northwest' : 'southwest',
+        groupIndex: Math.floor(step / 2) % 2
+      };
+    }
   }
 
   /**
