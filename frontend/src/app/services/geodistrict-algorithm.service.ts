@@ -1949,7 +1949,7 @@ export class GeodistrictAlgorithmService {
     }
     console.log(`🔍 Graph coverage: ${validGraphTracts}/${tracts.length} tracts have adjacencies (${((validGraphTracts / tracts.length) * 100).toFixed(1)}%)`);
 
-    // Pre-compute containment relationships
+    // Pre-compute containment relationships (limit for performance)
     const containedTracts = this.findContainedTracts(tracts);
     const containerToContained = new Map<string, string[]>();
     for (const pair of containedTracts) {
@@ -1972,7 +1972,7 @@ export class GeodistrictAlgorithmService {
     let currentTract = startTract;
     let rowCount = 0;
     let totalIterations = 0;
-    const maxIterations = tracts.length * 2; // Safety limit
+    const maxIterations = Math.min(tracts.length * 2, 5000); // Safety limit, max 5000
 
     // Helper function to add tract and its contained tracts
     const addTractWithContained = (tractId: string) => {
@@ -2008,7 +2008,7 @@ export class GeodistrictAlgorithmService {
       // Traverse the current row in the current direction
       let foundInRow = false;
       let rowIterations = 0;
-      const maxRowIterations = 100; // Limit per row
+      const maxRowIterations = 20; // Limit per row
 
       while (rowIterations < maxRowIterations) {
         totalIterations++;
@@ -2032,7 +2032,7 @@ export class GeodistrictAlgorithmService {
             if (adjTract) {
               const adjExtreme = this.getExtremeCoordinate(adjTract, direction, currentDirection === 'east' ? 'east' : 'west');
               const lngDiff = adjExtreme.lng - currentExtreme.lng;
-              if ((currentDirection === 'east' && lngDiff > 0.001) || (currentDirection === 'west' && lngDiff < -0.001)) {
+              if ((currentDirection === 'east' && lngDiff > 0.01) || (currentDirection === 'west' && lngDiff < -0.01)) {
                 candidates.push({ tract: adjTract, extreme: adjExtreme });
               }
             }
@@ -2259,6 +2259,12 @@ export class GeodistrictAlgorithmService {
    * Find contained tracts in the dataset
    */
   public findContainedTracts(tracts: GeoJsonFeature[]): { container: string; contained: string }[] {
+    // For performance, skip containment checks for large datasets
+    if (tracts.length > 100) {
+      console.log(`📦 Skipping containment check for large dataset (${tracts.length} tracts) - too slow`);
+      return [];
+    }
+
     const containedPairs: { container: string; contained: string }[] = [];
     const tractMap = new Map<string, GeoJsonFeature>();
 
