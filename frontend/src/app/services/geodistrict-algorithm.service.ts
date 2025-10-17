@@ -2000,10 +2000,6 @@ export class GeodistrictAlgorithmService {
     addTractWithContained(startTractId);
 
     while (visited.size < tracts.length && totalIterations < maxIterations) {
-      if (totalIterations >= maxIterations - 100) {
-        console.log(`⚠️ Approaching iteration limit (${totalIterations}/${maxIterations}), will fall back to centroid sorting`);
-        break;
-      }
       rowCount++;
       if (rowCount <= 5) {
         console.log(`🏁 Starting row ${rowCount} in ${currentDirection} direction from ${this.getTractId(currentTract)}`);
@@ -2080,10 +2076,8 @@ export class GeodistrictAlgorithmService {
       }
 
       if (!foundInRow) {
-        // No tracts found in row, might be stuck
-        if (rowCount <= 5) {
-          console.log(`⚠️ No tracts found in row ${rowCount}, checking for unvisited`);
-        }
+        // No tracts found in row, stuck - this is an error condition
+        throw new Error(`Geo-graph algorithm failed: No adjacent tracts found in ${currentDirection} direction from ${this.getTractId(currentTract)} (row ${rowCount}). Graph coverage: ${validGraphTracts}/${tracts.length}`);
       }
 
       // Find next row start: southernmost adjacent to current row
@@ -2123,34 +2117,15 @@ export class GeodistrictAlgorithmService {
           console.log(`🔄 Row ${rowCount} complete, switching to ${currentDirection} from ${this.getTractId(currentTract)}`);
         }
       } else {
-        // No next row, find any unvisited northwest
-        if (rowCount <= 5) {
-          console.log(`🔍 Row ${rowCount}: No south neighbor, restarting from next NW`);
-        }
-        const unvisitedTracts = tracts.filter(t => !visited.has(this.getTractId(t)));
-        if (unvisitedTracts.length > 0) {
-          const nextStart = this.findNorthwestMostTract(unvisitedTracts);
-          if (nextStart) {
-            currentTract = nextStart;
-            currentDirection = 'east'; // Reset to east
-            if (rowCount <= 5) {
-              console.log(`🔄 Restarting row from NW: ${this.getTractId(currentTract)}`);
-            }
-          } else {
-            break;
-          }
-        } else {
-          break;
-        }
+        // No next row found - this is an error
+        throw new Error(`Geo-graph algorithm failed: Cannot find next row start south of current row (row ${rowCount}). Algorithm cannot continue.`);
       }
     }
 
-    // Handle any remaining disconnected tracts
+    // Check for completion
     const unvisitedTracts = tracts.filter(tract => !visited.has(this.getTractId(tract)));
     if (unvisitedTracts.length > 0) {
-      console.log(`⚠️ ${unvisitedTracts.length} disconnected tracts remaining, falling back to centroid sorting`);
-      const sortedUnvisited = this.sortTractsByCentroid(unvisitedTracts, direction);
-      sortedTracts.push(...sortedUnvisited);
+      throw new Error(`Geo-graph algorithm failed: ${unvisitedTracts.length} tracts remain unvisited after ${rowCount} rows and ${totalIterations} iterations. Graph coverage: ${validGraphTracts}/${tracts.length}`);
     }
 
     console.log(`✅ Geo-Graph zig-zag traversal complete: ${sortedTracts.length} tracts processed in ${rowCount} rows (${totalIterations} iterations)`);
@@ -3130,35 +3105,28 @@ export class GeodistrictAlgorithmService {
 
     console.log(`🔄 Starting Geo-Graph algorithm for ${tracts.length} tracts (${direction} direction)`);
 
-    try {
-      // Get state from first tract
-      const state = tracts[0].properties?.STATE || '';
-      if (!state) {
-        console.warn('⚠️  No state found in tract properties, falling back to greedy traversal');
-        return this.sortTractsByGreedyTraversal(tracts, direction);
-      }
-
-      // Load S4 adjacency data
-      const adjacencyGraph = await this.loadS4AdjacencyData(state);
-      
-      // Find northwest most census tract as starting point
-      const startTract = this.findNorthwestMostTract(tracts);
-      if (!startTract) {
-        console.warn('Could not find northwest most tract, falling back to greedy traversal');
-        return this.sortTractsByGreedyTraversal(tracts, direction);
-      }
-
-      console.log(`📍 Starting tract (NW-most): ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
-
-      // Perform geo-graph traversal with zig-zag pattern
-      const sortedTracts = this.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
-
-      console.log(`✅ Geo-Graph traversal complete: ${sortedTracts.length} tracts sorted`);
-      return sortedTracts;
-    } catch (error) {
-      console.error('❌ Error in Geo-Graph traversal, falling back to greedy traversal:', error);
-      return this.sortTractsByGreedyTraversal(tracts, direction);
+    // Get state from first tract
+    const state = tracts[0].properties?.STATE || '';
+    if (!state) {
+      throw new Error('Geo-graph algorithm failed: No state found in tract properties');
     }
+
+    // Load S4 adjacency data
+    const adjacencyGraph = await this.loadS4AdjacencyData(state);
+
+    // Find northwest most census tract as starting point
+    const startTract = this.findNorthwestMostTract(tracts);
+    if (!startTract) {
+      throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
+    }
+
+    console.log(`📍 Starting tract (NW-most): ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
+
+    // Perform geo-graph traversal with zig-zag pattern
+    const sortedTracts = this.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
+
+    console.log(`✅ Geo-Graph traversal complete: ${sortedTracts.length} tracts sorted`);
+    return sortedTracts;
   }
 
   /**
