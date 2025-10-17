@@ -5,86 +5,67 @@ United States Constitution gives States authority to manage how they elect repre
 See https://grok.com/share/bGVnYWN5_7b9f1ac1-7d40-47cd-b711-a5bcf62a8feb
 
 ## Problem  
-States gerrymandering district boundries based on registered voters in order to manipulate election outcomes. 
+States gerrymandering district boundaries based on registered voters in order to manipulate election outcomes.
 
 ## Constraints
-US constitution and statues e.g. voting rights act (VRA)
+US Constitution and statutes (e.g., Voting Rights Act)
 
 ## Solution
-define an algorithm that objectively generates district boundries 
+Define an algorithm that objectively generates district boundaries based on census data and geographic principles.
 
 ## Assumptions
-- VRA having sections been found unconstitional, may no longer need be considered or are inheritly met by tbe design of an algorithm that objectively defines congressional districts based on census tracts and geographically based apportionment of census tracts.
+- VRA sections found unconstitutional may no longer need consideration or are inherently met by the design of an algorithm that objectively defines congressional districts based on census tracts and geographically based apportionment.
 - Census tracts are trusted to be objectively defined.
-- Congressional representative apportionments are trusted to objectively calculated based on statute that limits total to be 435 based on census results.
+- Congressional representative apportionments are trusted to be objectively calculated based on statute that limits total to 435 based on census results.
 
-## Benefit
-democracy is preserved as no centralized state authority can be compromised into gerrymandering.
+## Benefits
+Democracy is preserved as no centralized state authority can be compromised into gerrymandering.
 
-## Algorithm
+## Algorithm Overview
+
 ### Given
-- census track population data for all US States (from https://api.census.gov/data)
-- geospacial boundries of census tracts from TIGER/Line shapefiles (from https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb)  
-- number of congressional districts 
+- Census tract population data for all US States (from https://api.census.gov/data)
+- Geospatial boundaries of census tracts from TIGER/Line shapefiles (from https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb)  
+- Number of congressional districts per state
 
-### Approach 
-- starting with a states number of allocation congressional representatives (see congressional-districts.service.ts), divide total population (of each census tract) to determine target population for each resulting district ("geodistrict").  
+### Core Principles
+1. **Population Equality First**: Districts must be as close to equal population as possible (target: <1% variance).
+2. **Contiguity Preferred**: Districts should be contiguous when possible, but discontiguity is acceptable for geographic barriers (e.g., islands, water bodies).
+3. **Objective & Automated**: No human intervention; algorithm runs deterministically based on census data.
+4. **Hierarchical Division**: Use administrative boundaries (counties) as natural grouping units before fine-tuning with census tracts.
 
-- divide the total state census tracts geopgraphically by latitude and logitude, beginning with latitude, and a given ration (e.g. 50%/50%) to distribute census tracts into either north and south (latitude) or east and west (longitude) according to the ratio. resulting division is two groups of districts, geographically distributed according to population ratio.
+### Approach
+- Starting with a state's number of allocated congressional representatives (see `congressional-districts.service.ts`), divide total population (of each census tract) to determine target population for each resulting district ("geodistrict").
 
-- division of district groups is repeated on each distict group has only one district.
-- each iteration alternates dividing district group geographically by latitude and longitude.
-- when a district group contains an odd number of districts, subtract 1 from number of disticts in group and divide by 2, assign new divided group that even halved number of districts, and the other the same halved number + 1. e.g. a district group with 13 districts is divided into two new district groups with 6 in one and 7 in the other and a population ratio of [6/13,7/13].
-    - population ratios for odd numbered are calculated with denominator being total number of districts an odd and even number numerator where one is rounded up and the other rounded down.
-- only divide district groups that have more that one district, i.e. skip dividing districts groups with only one district. 
-- geographical distribution is determined by boundary-based adjacency sorting to ensure true contiguity:
-  - Build adjacency map by checking which census tracts share actual boundaries (not just proximity)
-  - Start at top-north-west tract and follow a contiguous path through adjacent tracts
-  - For latitude division (north/south): Prefer east-west movement, then southward progression
-  - For longitude division (east/west): Prefer north-south movement, then eastward progression
-  - Handle geographic barriers (water bodies, mountains) by detecting true boundary adjacency
-  - Divide the contiguous sorted list by accumulating population until the target population ratio is achieved
+- **Two-Phase Division Strategy**:
+  1. **County-Level Division**: Sort counties geographically and divide into balanced groups by population to create natural administrative boundaries.
+  2. **Tract-Level Refinement**: Within each county group, sort tracts geographically and divide to achieve precise population targets.
 
+- Division of district groups is repeated until each district group has only one district.
+- Each iteration alternates dividing district groups geographically by latitude and longitude.
+- When a district group contains an odd number of districts, subtract 1 from the number of districts in the group and divide by 2, assign the new divided group that even halved number of districts, and the other the same halved number + 1. For example, a district group with 13 districts is divided into two new district groups with 6 in one and 7 in the other and a population ratio of [6/13, 7/13].
+    - Population ratios for odd numbers are calculated with the denominator being the total number of districts and even/odd number numerators where one is rounded up and the other rounded down.
+- Only divide district groups that have more than one district (i.e., skip dividing district groups with only one district).
 
-### Fresh Approach  
-Goal is to distribute adjactent census tracts into districts of near equal populations.  
+### Data Sources
+- **Population Data**: Census API (https://api.census.gov/data)
+- **Boundary Data**: TIGER/Line shapefiles (https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb)
+- **District Counts**: Congressional districts service
 
-#### Initialization  
-- let totalDistricts = number of disticts for the given US State. //use congressional-districts.service.ts  
-- fetch all census tracts for given state. (only get FIPS data needed for algorithm)
-- let totalStatePopulation = sum of population from all state census tracts.
-- let targetDistrictPopulation = totalStatePopulation / totalDistricts
-- fetch all census tract geographical boundaries. this data will be used to visualize tracts on a map component AND sort census tracts based on geo-coordinates.
-- define an interface to track districtGroups, e.g.
-```typescript
-interface DistrictGroup {
-  startDistrictNumber:number,
-  endDistrictNumber:number,
-  censusTracts:<any>[]
-}
-```
+### Key Features
+- **Step-by-Step Visualization**: Track each division iteration for transparency and debugging.
+- **Population Variance Tracking**: Monitor and report deviations from target population.
+- **Contiguity Scoring**: Calculate and report contiguity percentages for each district.
+- **Geographic Sorting**: Alternating latitude/longitude sorting ensures balanced geographic distribution.
+- **Performance Optimized**: County-level division reduces complexity for large states.
 
-#### Algorithm  
-- repeat dividing census tracts into two `DistrictGroups` 
-  - e.g. California with 52 districts after first division of census tracts has the following:
-  ```typescript
-  let districtGroups:DistrictGroups[] = [
-    {startDistrictNumber:1,endDistrictNumber:26,censusTracts:[...]},
-    {startDistrictNumber:27,endDistrictNumber:52,censusTracts:[...]}
-  ]
-  ```
-  - continue to divide each DistrictGroup until each group has only one district in the districtGroup, i.e. `startDistrictNumber===endDistrictNumber`
-  - feel free to modify `DistrictGroups` interface as needed, e.g. `totalDisticts:number, totalPopulation:number`,
+### Implementation Status
+- ✅ Basic algorithm framework implemented
+- ✅ Census data integration (county and tract level)
+- ✅ Step-by-step execution and visualization
+- ✅ Population variance calculation
+- 🔄 County-level division (in progress)
+- ⏳ Contiguity scoring and validation
 
-- dividing census tracts is done as follows:
-  - sort census tracts geographically, alternating between latitude or longitude sorting.
-    - geographical distribution is determined by boundary-based adjacency sorting to ensure true contiguity:
-      - Build adjacency map by checking which census tracts share actual boundaries (not just proximity)
-      - Start at top-north-west tract and follow a contiguous path through adjacent tracts
-      - For latitude division (north/south): Prefer east-west movement, then southward progression
-      - For longitude division (east/west): Prefer north-south movement, then eastward progression
-      - Handle geographic barriers (water bodies, mountains) by detecting true boundary adjacency
-  - Divide the contiguous sorted list by accumulating population until the target population ratio is achieved, e.g. pop tracts off sorted `districtGroup.censusTracts` (like a stack) and add to first districtGroup until total census tracts in first group is >= `districtGroup.totalPopulation/2`, then add remaining `districtGroup.censusTracts` to second districtGroup.
-
-  - keep a collection of districtGroups by iteration. This would allow a component to visualize a map for each division step.
+For detailed implementation specifications, see `GeodistrictingAlgorithmSpecification.md`.
 

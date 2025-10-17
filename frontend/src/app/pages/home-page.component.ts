@@ -32,6 +32,9 @@ import * as L from 'leaflet';
           <a routerLink="/geodistrict" routerLinkActive="active">
             Geodistrict Algorithm
           </a>
+          <a routerLink="/tract-debug" routerLinkActive="active">
+            Tract Debug
+          </a>
         </div>
       </nav>
 

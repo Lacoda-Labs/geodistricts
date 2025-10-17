@@ -1,0 +1,22 @@
+# Adjacency Data from Brown University S4 project.
+
+
+## Source
+https://s4.ad.brown.edu/projects/diversity/Researcher/Pooling.htm
+
+
+## Approach
+
+### Geo-graph division of census tracks
+For census tracts division, create two district groups based on a
+simplified geo-graph that divides adjacent tracts using a given population ratio.
+The geo-graph division sorts tracts alternating between latitude and longitude, preserving contiguity allowing for dividing according to the population ratio.
+
+### District Groups Division Ratio
+A recursive process to dynamically generate a ratio for dividing census tracts into district group begins with the entire state and number of congression districts (i.e. one district group with total number of target districts). Division ratio to be used to geo-graphically divide by population is based on the number of districts in the group.
+Dividing an even number of districts in a district group will always be a (50/50) ratio (i.e. divide evenly). Dividing a district group with odd number of districts will use a ratio of ( ((t/2)+1)/t , (t/2)/t ) where t is total number of districts in the districtGroup. Repeat until all district groups have only one district.
+
+### Steps
+1. fetch state census tract data: tract id, geodata, adjacency data (brown-s4), etc.
+1. find northwest most census tract.
+1. find all adjacent tracts (using brown-s4) 

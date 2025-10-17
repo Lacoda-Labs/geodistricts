@@ -112,6 +112,16 @@ export class CongressionalDistrictsService {
   }
 
   /**
+   * Get the total number of congressional districts for a specific state (synchronous)
+   * @param state State abbreviation (e.g., 'CA', 'TX') or FIPS code
+   * @returns Number of congressional districts or null if state not found
+   */
+  getDistrictsForState(state: string): number | null {
+    const stateData = this.getStateData(state);
+    return stateData ? stateData.districts : null;
+  }
+
+  /**
    * Get congressional districts summary for a specific state
    * @param state State abbreviation (e.g., 'CA', 'TX') or FIPS code
    * @returns Observable with state congressional districts summary

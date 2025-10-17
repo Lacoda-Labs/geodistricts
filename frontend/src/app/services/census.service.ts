@@ -383,12 +383,14 @@ export class CensusService {
    * Get census tract boundaries from TIGERweb via Cloud Run proxy
    */
   getTractBoundaries(state: string, county?: string, forceInvalidate: boolean = false): Observable<GeoJsonResponse> {
+    // Convert state abbreviation to FIPS code if needed
+    const stateFips = this.getStateFipsCode(state);
     const params = new URLSearchParams();
-    params.set('state', state);
+    params.set('state', stateFips);
     if (county) params.set('county', county);
     if (forceInvalidate) params.set('forceInvalidate', 'true');
 
-    console.log('Getting tract boundaries via Cloud Run proxy for state:', state);
+    console.log('Getting tract boundaries via Cloud Run proxy for state:', state, 'FIPS:', stateFips);
 
     return this.http.get<any>(`${CENSUS_PROXY_BASE}/api/census/tract-boundaries?${params.toString()}`, {
       // Increase timeout for large datasets
@@ -422,7 +424,9 @@ export class CensusService {
         STATE_FIPS: feature.p.s,
         COUNTY_FIPS: feature.p.c,
         TRACT_FIPS: feature.p.t,
-        POPULATION: feature.p.pop
+        POPULATION: feature.p.pop,
+        INTPTLAT: feature.p.intptlat,
+        INTPTLON: feature.p.intptlon
       },
       geometry: {
         type: feature.g.t,
@@ -477,7 +481,9 @@ export class CensusService {
    * Get counties for a state
    */
   getCountiesForState(state: string): Observable<CountyData[]> {
-    const url = `${CENSUS_PROXY_BASE}/api/census/counties?state=${state}`;
+    // Convert state abbreviation to FIPS code if needed
+    const stateFips = this.getStateFipsCode(state);
+    const url = `${CENSUS_PROXY_BASE}/api/census/counties?state=${stateFips}`;
     return this.http.get<CountyData[]>(url).pipe(
       catchError(error => {
         console.error('Error fetching counties:', error);
@@ -490,7 +496,9 @@ export class CensusService {
    * Get tract data for a specific state and county
    */
   getTractDataByCounty(state: string, county: string, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
-    const url = `${CENSUS_PROXY_BASE}/api/census/tract-data?state=${state}&county=${county}${forceInvalidate ? '&forceInvalidate=true' : ''}`;
+    // Convert state abbreviation to FIPS code if needed
+    const stateFips = this.getStateFipsCode(state);
+    const url = `${CENSUS_PROXY_BASE}/api/census/tract-data?state=${stateFips}&county=${county}${forceInvalidate ? '&forceInvalidate=true' : ''}`;
     return this.http.get<CensusTractData[]>(url).pipe(
       catchError(error => {
         console.error('Error fetching tract data by county:', error);
@@ -885,7 +893,7 @@ export class CensusService {
    * @param tract2 Second tract
    * @returns True if tracts share a boundary
    */
-  private areTractsAdjacent(tract1: GeoJsonFeature, tract2: GeoJsonFeature): boolean {
+  public areTractsAdjacent(tract1: GeoJsonFeature, tract2: GeoJsonFeature): boolean {
     try {
       // Extract coordinates from both tracts
       const coords1 = this.extractAllCoordinates(tract1.geometry);
@@ -1400,7 +1408,7 @@ export class CensusService {
    * @param tract GeoJSON feature representing a census tract
    * @returns Object with lat and lng coordinates
    */
-  private calculateTractCentroid(tract: GeoJsonFeature): { lat: number; lng: number } {
+  public calculateTractCentroid(tract: GeoJsonFeature): { lat: number; lng: number } {
     const coordinates = this.extractAllCoordinates(tract.geometry);
 
     if (coordinates.length === 0) {
@@ -1427,7 +1435,7 @@ export class CensusService {
    * @param geometry GeoJSON geometry object
    * @returns Array of coordinate pairs [lng, lat]
    */
-  private extractAllCoordinates(geometry: any): number[][] {
+  public extractAllCoordinates(geometry: any): number[][] {
     const coordinates: number[][] = [];
 
     if (!geometry || !geometry.coordinates) {
@@ -2588,6 +2596,36 @@ export class CensusService {
       ttl: entry.ttl,
       isExpired: (now - entry.timestamp) >= entry.ttl
     }));
+  }
+
+  /**
+   * Get FIPS code for a state abbreviation
+   * @param state State abbreviation or FIPS code
+   * @returns FIPS code
+   */
+  private getStateFipsCode(state: string): string {
+    // If it's already a FIPS code (2 digits), return as is
+    if (/^\d{2}$/.test(state)) {
+      return state;
+    }
+
+    // Convert state abbreviation to FIPS code
+    const stateFipsMap: { [key: string]: string } = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09', 'DE': '10',
+      'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19', 'KS': '20',
+      'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
+      'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34', 'NM': '35', 'NY': '36',
+      'NC': '37', 'ND': '38', 'OH': '39', 'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54',
+      'WI': '55', 'WY': '56'
+    };
+
+    const fipsCode = stateFipsMap[state.toUpperCase()];
+    if (!fipsCode) {
+      throw new Error(`Invalid state abbreviation: ${state}`);
+    }
+
+    return fipsCode;
   }
 }
 

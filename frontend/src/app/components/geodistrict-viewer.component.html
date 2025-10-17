@@ -16,6 +16,18 @@
     </div>
 
     <div class="control-group">
+      <label for="algorithmSelect">Algorithm:</label>
+      <select id="algorithmSelect" [(ngModel)]="selectedAlgorithm" (change)="onAlgorithmChange()">
+        <option *ngFor="let option of algorithmOptions" [value]="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+      <div class="algorithm-description">
+        {{ getSelectedAlgorithmDescription() }}
+      </div>
+    </div>
+
+    <div class="control-group">
       <label>
         <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
         Use Direct Census API (development only - production uses Secret Manager)
@@ -24,7 +36,10 @@
 
     <div class="control-group">
       <button (click)="runAlgorithm()" [disabled]="isLoading">
-        {{ isLoading ? 'Running Algorithm...' : 'Run Geodistrict Algorithm' }}
+        {{ isLoading ? 'Running Algorithm...' : 'Run First Step' }}
+      </button>
+      <button (click)="runNextStep()" [disabled]="!canRunNextStep || isLoading" *ngIf="algorithmResult">
+        {{ isLoading ? 'Running Next Step...' : 'Run Next Step' }}
       </button>
     </div>
   </div>
@@ -44,6 +59,18 @@
         <div class="stat">
           <span class="label">Population Variance:</span>
           <span class="value">{{ algorithmResult.populationVariance.toLocaleString() }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Population Variance %:</span>
+          <span class="value" [class.high-variance]="getPopulationVariancePercentage() > 5">
+            {{ getPopulationVariancePercentage().toFixed(1) }}%
+          </span>
+        </div>
+        <div class="stat">
+          <span class="label">Max District Variance:</span>
+          <span class="value" [class.high-variance]="getMaxPopulationVariance() > 10">
+            {{ getMaxPopulationVariance().toFixed(1) }}%
+          </span>
         </div>
         <div class="stat">
           <span class="label">Total Districts:</span>
@@ -102,12 +129,54 @@
             
             <div class="group-content">
               <div class="group-header">
-                <h5>Group {{ i + 1 }}</h5>
+                <div>Group {{ i + 1 }}</div>
                 <span class="district-range">
                   Districts {{ group.startDistrictNumber }}-{{ group.endDistrictNumber }}
                 </span>
               </div>
-              
+
+              <div class="tract-debug-controls" *ngIf="group.censusTracts.length > 0">
+                <h6>Debug Sorting Algorithm</h6>
+                <div class="census-tracts-list-container">
+                  <div class="tract-visualization">
+                    <div *ngFor="let tract of group.censusTracts; let j = index" class="tract-dot"
+                      [class.selected]="j === getCurrentTractIndex(i)"
+                      [title]="'Tract ' + (j + 1) + ': ' + getTractId(tract) + ' (Pop: ' + getTractPopulation(tract).toLocaleString() + ')'"
+                      (click)="selectTract(i, j.toString())">
+                    </div>
+                  </div>
+                </div>
+                <div class="tract-navigation">
+                  <button (click)="previousTract(i)" [disabled]="getCurrentTractIndex(i) <= 0">
+                    ← Previous Tract
+                  </button>
+                  <span class="tract-info">
+                    Tract {{ getCurrentTractIndex(i) + 1 }} of {{ group.censusTracts.length }}
+                  </span>
+                  <button (click)="nextTract(i)" [disabled]="getCurrentTractIndex(i) >= group.censusTracts.length - 1">
+                    Next Tract →
+                  </button>
+                </div>
+                <div class="current-tract-info" *ngIf="getCurrentTract(i)">
+                  <div class="tract-details">
+                    <div class="tract-detail">
+                      <span class="label">Tract ID:</span> {{ getTractId(getCurrentTract(i)) }}
+                    </div>
+                    <div class="tract-detail">
+                      <span class="label">Population:</span> {{ getTractPopulation(getCurrentTract(i)).toLocaleString() }}
+                    </div>
+                    <div class="tract-detail">
+                      <span class="label">Centroid:</span>
+                      ({{ getTractCentroid(getCurrentTract(i)).lat.toFixed(4) }}, {{
+                      getTractCentroid(getCurrentTract(i)).lng.toFixed(4) }})
+                    </div>
+                    <div class="tract-detail">
+                      <span class="label">Name:</span> {{ getTractName(getCurrentTract(i)) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="group-stats">
               <div class="stat">
                 <span class="label">Tracts:</span>
@@ -125,21 +194,18 @@
             <div class="group-bounds">
               <div class="bound">
                 <span class="label">North:</span> {{ group.bounds.north.toFixed(4) }}
-              </div>
-              <div class="bound">
-                <span class="label">South:</span> {{ group.bounds.south.toFixed(4) }}
-              </div>
-              <div class="bound">
-                <span class="label">East:</span> {{ group.bounds.east.toFixed(4) }}
-              </div>
-              <div class="bound">
-                <span class="label">West:</span> {{ group.bounds.west.toFixed(4) }}
+                <span class="label">  South:</span> {{ group.bounds.south.toFixed(4) }}
+                <span class="label">  East:</span> {{ group.bounds.east.toFixed(4) }}
+                <span class="label">  West:</span> {{ group.bounds.west.toFixed(4) }}
               </div>
             </div>
             <div class="group-centroid">
               <span class="label">Centroid:</span> 
               ({{ group.centroid.lat.toFixed(4) }}, {{ group.centroid.lng.toFixed(4) }})
             </div>
+            
+            <!-- Tract Debugging Controls -->
+            
             </div>
           </div>
         </div>

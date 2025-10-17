@@ -66,9 +66,19 @@ app.use((req, res, next) => {
 
 // Census Proxy Utility Functions
 /**
- * Get Census API key from Secret Manager
+ * Get Census API key - prioritize environment variable for local development
  */
 async function getCensusApiKey() {
+  // For local development, prioritize environment variable
+  const envApiKey = process.env.CENSUS_API_KEY;
+  if (envApiKey) {
+    console.log('Using Census API key from environment variable (local development)');
+    console.log('API Key length:', envApiKey.length);
+    console.log('API Key (first 10 chars):', envApiKey.substring(0, 10));
+    return envApiKey.trim();
+  }
+  
+  // For production, use Secret Manager
   try {
     const [version] = await secretClient.accessSecretVersion({
       name: `projects/${PROJECT_ID}/secrets/${CENSUS_API_KEY_SECRET_NAME}/versions/latest`,
@@ -77,18 +87,12 @@ async function getCensusApiKey() {
     let apiKey = version.payload.data.toString();
     // Strip any whitespace characters (including newlines)
     apiKey = apiKey.trim();
-    console.log('Successfully retrieved Census API key from Secret Manager');
+    console.log('Successfully retrieved Census API key from Secret Manager (production)');
     console.log('API Key length after trim:', apiKey.length);
     console.log('API Key (first 10 chars):', apiKey.substring(0, 10));
     return apiKey;
   } catch (error) {
     console.error('Error retrieving Census API key from Secret Manager:', error);
-    // Fallback to environment variable for local development
-    const fallbackKey = process.env.CENSUS_API_KEY;
-    if (fallbackKey) {
-      console.log('Using fallback Census API key from environment variable');
-      return fallbackKey;
-    }
     throw new Error('Census API key not found in Secret Manager or environment variables');
   }
 }
@@ -240,7 +244,9 @@ function ultraCompressGeoJson(geojson) {
         s: feature.properties.STATE_FIPS,
         c: feature.properties.COUNTY_FIPS,
         t: feature.properties.TRACT_FIPS,
-        pop: feature.properties.POPULATION || 0
+        pop: feature.properties.POPULATION || 0,
+        intptlat: feature.properties.INTPTLAT || null,
+        intptlon: feature.properties.INTPTLON || null
       },
       g: {
         t: feature.geometry.type,
