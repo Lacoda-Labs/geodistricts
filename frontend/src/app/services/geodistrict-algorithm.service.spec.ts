@@ -63,7 +63,7 @@ describe('GeodistrictAlgorithmService', () => {
           ]]
         }
       },
-      // Tract 950102 - Adjacent, slightly south
+      // Tract 950102 - Competitor, slightly north but much east
       {
         type: 'Feature' as const,
         properties: {
@@ -76,7 +76,7 @@ describe('GeodistrictAlgorithmService', () => {
         geometry: {
           type: 'Polygon' as const,
           coordinates: [[
-            [-112.956001, 37.000230], // Slightly east and south
+            [-112.956001, 37.000230], // Slightly north but much east
             [-112.956001, 36.998000],
             [-112.954000, 36.998000],
             [-112.954000, 37.000230],
@@ -142,15 +142,17 @@ describe('GeodistrictAlgorithmService', () => {
 
     // Assert
     expect(northwestTract).toBeDefined();
-    expect(northwestTract.properties.TRACT_FIPS).toBe('950101');
-    expect(northwestTract.properties.STATE_FIPS).toBe('04');
-    expect(northwestTract.properties.COUNTY_FIPS).toBe('015');
+    if (northwestTract) {
+      expect(northwestTract.properties.TRACT_FIPS).toBe('950101');
+      expect(northwestTract.properties.STATE_FIPS).toBe('04');
+      expect(northwestTract.properties.COUNTY_FIPS).toBe('015');
 
-    // Verify the selected tract's extreme coordinates
-    const extremeCoord = service['getNortheastCoordinate'](northwestTract);
-    expect(extremeCoord.lat).toBeGreaterThan(36.99); // Should be the northernmost
-    expect(extremeCoord.lng).toBeLessThan(-113.95); // Should be the westernmost in the set
+      // Verify the selected tract's extreme coordinates
+      const extremeCoord = service['getNorthwestCoordinate'](northwestTract);
+      expect(extremeCoord.lat).toBeGreaterThan(36.99); // Should be the northernmost
+      expect(extremeCoord.lng).toBeLessThan(-113.95); // Should be the westernmost in the set
 
-    console.log('✅ Test passed: Selected northwesternmost tract', northwestTract.properties.TRACT_FIPS);
+      console.log('✅ Test passed: Selected northwesternmost tract', northwestTract.properties.TRACT_FIPS);
+    }
   });
 });

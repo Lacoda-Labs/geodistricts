@@ -1896,9 +1896,9 @@ export class GeodistrictAlgorithmService {
       const northwest = this.getNorthwestCoordinate(tract);
       if (northwest.lat === 0 || northwest.lng === Infinity) continue; // Invalid coordinates
 
-      // Score: Prioritize west (min lng, more negative) then north (max lat)
-      // Higher score = more northwest: -lng * 100 (west first) + lat (north second)
-      const score = -northwest.lng * 100 + northwest.lat;
+      // Score: Prioritize north (max lat) first, then west (min lng, more negative)
+      // Higher score = more northwest: lat * 100 (north first) - lng (west second)
+      const score = northwest.lat * 100 - northwest.lng;
 
       topCandidates.push({ tract, coord: northwest, score });
 
@@ -1910,7 +1910,7 @@ export class GeodistrictAlgorithmService {
 
     // Log top 5 candidates
     topCandidates.sort((a, b) => b.score - a.score);
-    console.log(`🔍 Top 5 northwest candidates (using northwest extreme coordinates):`);
+    console.log(`🔍 Top 5 northwest candidates (prioritizing north first, then west):`);
     topCandidates.slice(0, 5).forEach((candidate, index) => {
       const tractId = this.getTractId(candidate.tract);
       console.log(`  ${index + 1}. ${tractId}: (${candidate.coord.lat.toFixed(6)}, ${candidate.coord.lng.toFixed(6)}) score: ${candidate.score.toFixed(6)}`);
