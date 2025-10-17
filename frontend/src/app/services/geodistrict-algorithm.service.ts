@@ -1090,7 +1090,7 @@ export class GeodistrictAlgorithmService {
       console.warn(`⚠️  Invalid bounds calculated for tract ${this.getTractId(tract)}: processed ${processedCoords} coords but bounds unchanged`);
     } else {
       if (processedCoords > 0) {
-        console.log(`📐 Tract ${this.getTractId(tract)} bounds: (${minLat.toFixed(6)}, ${minLng.toFixed(6)}) to (${maxLat.toFixed(6)}, ${maxLng.toFixed(6)}) from ${processedCoords} coords`);
+        // Bounds calculated but not logged
       }
     }
 
@@ -1284,7 +1284,6 @@ export class GeodistrictAlgorithmService {
       }
     }
 
-    console.log(`✅ Valid ${type} geometry: ${totalRings} rings, ${totalCoords} coordinates`);
     return true;
   }
 
