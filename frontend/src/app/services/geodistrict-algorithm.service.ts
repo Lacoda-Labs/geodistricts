@@ -1944,6 +1944,52 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Find the southwest-most tract from a collection of tracts
+   * @param tracts Array of tracts to search
+   * @returns Southwest-most tract or null if none found
+   */
+  private findSouthwestMostTract(tracts: GeoJsonFeature[]): GeoJsonFeature | null {
+    console.log(`🔍 Finding southwest most tract from ${tracts.length} tracts using extreme coordinates`);
+    let bestTract: GeoJsonFeature | null = null;
+    let bestScore = -Infinity;
+    const topCandidates: Array<{ tract: GeoJsonFeature; coord: { lat: number; lng: number }; score: number }> = [];
+
+    for (const tract of tracts) {
+      const southwest = this.getSouthwestCoordinate(tract);
+      if (southwest.lat === 0 || southwest.lng === Infinity) continue; // Invalid coordinates
+
+      // Score: Prioritize south (min lat) first, then west (min lng, more negative)
+      // Higher score = more southwest: -lat * 100 (south first) - lng (west second)
+      const score = -southwest.lat * 100 - southwest.lng;
+
+      topCandidates.push({ tract, coord: southwest, score });
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTract = tract;
+      }
+    }
+
+    // Log top 5 candidates
+    topCandidates.sort((a, b) => b.score - a.score);
+    console.log(`🔍 Top 5 southwest candidates (prioritizing south first, then west):`);
+    topCandidates.slice(0, 5).forEach((candidate, index) => {
+      const tractId = this.getTractId(candidate.tract);
+      console.log(`  ${index + 1}. ${tractId}: (${candidate.coord.lat.toFixed(6)}, ${candidate.coord.lng.toFixed(6)}) score: ${candidate.score.toFixed(6)}`);
+    });
+
+    if (bestTract) {
+      const bestId = this.getTractId(bestTract);
+      const bestCoord = this.getSouthwestCoordinate(bestTract);
+      console.log(`📍 Selected southwest most tract: ${bestId} at (${bestCoord.lat.toFixed(6)}, ${bestCoord.lng.toFixed(6)}) with score ${bestScore.toFixed(6)}`);
+    } else {
+      console.warn(`⚠️ No valid southwest tract found`);
+    }
+
+    return bestTract;
+  }
+
+  /**
    * Perform geo-graph traversal using two-phase approach:
    * Phase 1: Complete northwest expansion (sort all tracts)
    * Phase 2: Divide into 2 groups, alternate northwest/southwest between groups
@@ -2083,18 +2129,19 @@ export class GeodistrictAlgorithmService {
       return addedCount;
     };
 
-    // PHASE 1: Complete northwest expansion until all tracts are sorted
-    console.log(`📍 PHASE 1: Starting northwest expansion from ${this.getTractId(startTract)}`);
+    // PHASE 1: Complete expansion based on direction
+    const directionLabel = direction === 'latitude' ? 'northwest' : 'southwest';
+    console.log(`📍 PHASE 1: Starting ${directionLabel} expansion from ${this.getTractId(startTract)}`);
     
     let expansionCount = 0;
     let totalIterations = 0;
     const maxIterations = Math.min(tracts.length * 2, 5000);
 
-    // Start with northwest most tract
+    // Start with the appropriate starting tract
     const startTractId = this.getTractId(startTract);
     addTractWithContained(startTractId);
 
-    // Phase 1: Pure northwest expansion
+    // Phase 1: Direction-based expansion
     while (visited.size < tracts.length && totalIterations < maxIterations) {
       expansionCount++;
       totalIterations++;
@@ -2104,8 +2151,15 @@ export class GeodistrictAlgorithmService {
         console.log(`📊 Phase 1 Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), expansion ${expansionCount}`);
       }
 
-      // Find northwest-most unvisited tract
-      const nextTract = findNorthwestMostUnvisited();
+      // Find next tract based on direction
+      let nextTract: GeoJsonFeature | null;
+      if (direction === 'latitude') {
+        // For latitude: find northwest-most unvisited tract
+        nextTract = findNorthwestMostUnvisited();
+      } else {
+        // For longitude: find southwest-most unvisited tract
+        nextTract = findSouthwestMostUnvisited();
+      }
       
       if (!nextTract) {
         // No unvisited tracts left - should not happen due to while loop condition
@@ -2115,10 +2169,10 @@ export class GeodistrictAlgorithmService {
       const nextTractId = this.getTractId(nextTract);
       
       if (expansionCount <= 5) {
-        console.log(`🏔️ Phase 1 Expansion ${expansionCount}: Adding northwest tract ${nextTractId}`);
+        console.log(`🏔️ Phase 1 Expansion ${expansionCount}: Adding ${directionLabel} tract ${nextTractId}`);
       }
 
-      // Add the northwest tract
+      // Add the next tract
       addTractWithContained(nextTractId);
 
       // Add all its adjacent tracts in Brown S4 order
@@ -2136,7 +2190,7 @@ export class GeodistrictAlgorithmService {
       throw new Error(`Geo-graph Phase 1 failed: ${unvisitedTracts.length} tracts remain unvisited after ${expansionCount} expansions and ${totalIterations} iterations. Progress: ${visited.size}/${tracts.length} (${progressPercent}%). Graph coverage: ${validGraphTracts}/${tracts.length}. This indicates the algorithm needs more iterations or has a logic error.`);
     }
 
-    console.log(`✅ Phase 1 Complete: ${sortedTracts.length} tracts sorted in ${expansionCount} northwest expansions`);
+    console.log(`✅ Phase 1 Complete: ${sortedTracts.length} tracts sorted in ${expansionCount} ${directionLabel} expansions`);
 
     // PHASE 2: Divide into 2 groups and alternate northwest/southwest
     console.log(`📍 PHASE 2: Dividing into 2 groups and alternating northwest/southwest`);
@@ -3129,13 +3183,23 @@ export class GeodistrictAlgorithmService {
     // Load S4 adjacency data
     const adjacencyGraph = await this.loadS4AdjacencyData(state);
 
-    // Find northwest most census tract as starting point
-    const startTract = this.findNorthwestMostTract(tracts);
-    if (!startTract) {
-      throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
+    // Find starting tract based on direction
+    let startTract: GeoJsonFeature | null;
+    if (direction === 'latitude') {
+      // For latitude division: start from northwest-most tract
+      startTract = this.findNorthwestMostTract(tracts);
+      if (!startTract) {
+        throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
+      }
+      console.log(`📍 Starting tract (NW-most): ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
+    } else {
+      // For longitude division: start from southwest-most tract
+      startTract = this.findSouthwestMostTract(tracts);
+      if (!startTract) {
+        throw new Error('Geo-graph algorithm failed: Could not find southwest most tract');
+      }
+      console.log(`📍 Starting tract (SW-most): ${this.getTractId(startTract)} at (${this.getSouthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getSouthwestCoordinate(startTract).lng.toFixed(6)})`);
     }
-
-    console.log(`📍 Starting tract (NW-most): ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
 
     // Perform geo-graph traversal with zig-zag pattern
     return this.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);

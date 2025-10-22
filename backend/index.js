@@ -6,6 +6,7 @@ const axios = require('axios');
 const { Firestore } = require('@google-cloud/firestore');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const compression = require('compression');
+const localCache = require('./local-cache');
 require('dotenv').config();
 
 const app = express();
@@ -18,7 +19,7 @@ if (global.gc) {
   console.log('Garbage collection is not available - consider running with --expose-gc');
 }
 
-// Initialize Firestore
+// Initialize Firestore (for production)
 const firestore = new Firestore({
   projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
 });
@@ -27,6 +28,10 @@ const firestore = new Firestore({
 const secretClient = new SecretManagerServiceClient();
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts';
 const CENSUS_API_KEY_SECRET_NAME = 'census-api-key-v2';
+
+// Determine cache mode based on environment
+const USE_LOCAL_CACHE = process.env.NODE_ENV !== 'production' || process.env.USE_LOCAL_CACHE === 'true';
+console.log(`🗂️ Cache mode: ${USE_LOCAL_CACHE ? 'LOCAL FILES' : 'FIRESTORE'}`);
 
 // Census API Configuration
 const CENSUS_API_BASE = 'https://api.census.gov/data';
@@ -131,70 +136,78 @@ function isCacheExpired(timestamp, ttl) {
 }
 
 /**
- * Get data from Firestore cache
+ * Get data from cache (local files or Firestore)
  */
 async function getFromCache(key) {
-  try {
-    console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
-    
-    const doc = await firestore.collection('census_cache').doc(key).get();
-    
-    if (!doc.exists) {
-      console.log(`❌ FIRESTORE CACHE: No document found for key: ${key}`);
+  if (USE_LOCAL_CACHE) {
+    return await localCache.getFromCache(key);
+  } else {
+    try {
+      console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
+      
+      const doc = await firestore.collection('census_cache').doc(key).get();
+      
+      if (!doc.exists) {
+        console.log(`❌ FIRESTORE CACHE: No document found for key: ${key}`);
+        return null;
+      }
+      
+      const data = doc.data();
+      
+      // Check if expired
+      if (isCacheExpired(data.timestamp, data.ttl)) {
+        console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
+        await firestore.collection('census_cache').doc(key).delete();
+        return null;
+      }
+      
+      // Check version
+      if (data.version !== CACHE_VERSION) {
+        console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
+        await firestore.collection('census_cache').doc(key).delete();
+        return null;
+      }
+      
+      console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
+      return data.data;
+    } catch (error) {
+      console.error('❌ FIRESTORE CACHE ERROR: Failed to get from cache for key:', key);
+      console.error('❌ FIRESTORE CACHE ERROR:', error.message);
+      console.error('❌ FIRESTORE CACHE ERROR:', error);
       return null;
     }
-    
-    const data = doc.data();
-    
-    // Check if expired
-    if (isCacheExpired(data.timestamp, data.ttl)) {
-      console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
-      await firestore.collection('census_cache').doc(key).delete();
-      return null;
-    }
-    
-    // Check version
-    if (data.version !== CACHE_VERSION) {
-      console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
-      await firestore.collection('census_cache').doc(key).delete();
-      return null;
-    }
-    
-    console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
-    return data.data;
-  } catch (error) {
-    console.error('❌ FIRESTORE CACHE ERROR: Failed to get from cache for key:', key);
-    console.error('❌ FIRESTORE CACHE ERROR:', error.message);
-    console.error('❌ FIRESTORE CACHE ERROR:', error);
-    return null;
   }
 }
 
 /**
- * Store data in Firestore cache
+ * Store data in cache (local files or Firestore)
  */
 async function setCache(key, data, ttl = CACHE_TTL) {
-  try {
-    console.log(`🔄 FIRESTORE CACHE: Attempting to cache data for key: ${key}`);
-    
-    const cacheEntry = {
-      data: data,
-      timestamp: Date.now(),
-      ttl: ttl,
-      version: CACHE_VERSION,
-      source: 'U.S. Census Bureau',
-      attribution: 'Data provided by the U.S. Census Bureau (public domain)'
-    };
-    
-    const docRef = firestore.collection('census_cache').doc(key);
-    await docRef.set(cacheEntry);
-    
-    console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
-    console.log(`📊 FIRESTORE CACHE: Document path: census_cache/${key}`);
-  } catch (error) {
-    console.error('❌ FIRESTORE CACHE ERROR: Failed to cache data for key:', key);
-    console.error('❌ FIRESTORE CACHE ERROR:', error.message);
-    console.error('❌ FIRESTORE CACHE ERROR:', error);
+  if (USE_LOCAL_CACHE) {
+    return await localCache.setCache(key, data, ttl);
+  } else {
+    try {
+      console.log(`🔄 FIRESTORE CACHE: Attempting to cache data for key: ${key}`);
+      
+      const cacheEntry = {
+        data: data,
+        timestamp: Date.now(),
+        ttl: ttl,
+        version: CACHE_VERSION,
+        source: 'U.S. Census Bureau',
+        attribution: 'Data provided by the U.S. Census Bureau (public domain)'
+      };
+      
+      const docRef = firestore.collection('census_cache').doc(key);
+      await docRef.set(cacheEntry);
+      
+      console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
+      console.log(`📊 FIRESTORE CACHE: Document path: census_cache/${key}`);
+    } catch (error) {
+      console.error('❌ FIRESTORE CACHE ERROR: Failed to cache data for key:', key);
+      console.error('❌ FIRESTORE CACHE ERROR:', error.message);
+      console.error('❌ FIRESTORE CACHE ERROR:', error);
+    }
   }
 }
 
@@ -368,56 +381,91 @@ app.get('/health', (req, res) => {
     status: 'healthy', 
     timestamp: new Date().toISOString(),
     service: 'geodistricts-api',
-    version: CACHE_VERSION
+    version: CACHE_VERSION,
+    cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE'
   });
 });
 
 /**
- * Test Firestore connectivity
+ * Test cache connectivity (local files or Firestore)
  */
-app.get('/api/test/firestore', async (req, res) => {
+app.get('/api/test/cache', async (req, res) => {
   try {
-    console.log('🧪 Testing Firestore connectivity...');
-    
-    // Test write
-    const testKey = 'test_' + Date.now();
-    const testData = { message: 'Hello Firestore!', timestamp: new Date().toISOString() };
-    
-    await firestore.collection('census_cache').doc(testKey).set({
-      data: testData,
-      timestamp: Date.now(),
-      ttl: 300000, // 5 minutes
-      version: CACHE_VERSION,
-      source: 'Test',
-      attribution: 'Test data'
-    });
-    
-    console.log('✅ Firestore write test successful');
-    
-    // Test read
-    const doc = await firestore.collection('census_cache').doc(testKey).get();
-    
-    if (doc.exists) {
-      console.log('✅ Firestore read test successful');
+    if (USE_LOCAL_CACHE) {
+      console.log('🧪 Testing local file cache...');
       
-      // Clean up test document
-      await firestore.collection('census_cache').doc(testKey).delete();
-      console.log('✅ Firestore delete test successful');
+      // Test write
+      const testKey = 'test_' + Date.now();
+      const testData = { message: 'Hello Local Cache!', timestamp: new Date().toISOString() };
       
-      res.json({
-        status: 'success',
-        message: 'Firestore connectivity test passed',
-        tests: ['write', 'read', 'delete'],
-        timestamp: new Date().toISOString()
-      });
+      await localCache.setCache(testKey, testData, 300000); // 5 minutes
+      console.log('✅ Local cache write test successful');
+      
+      // Test read
+      const retrievedData = await localCache.getFromCache(testKey);
+      
+      if (retrievedData) {
+        console.log('✅ Local cache read test successful');
+        
+        // Clean up test file
+        await localCache.deleteCacheEntry(testKey);
+        console.log('✅ Local cache delete test successful');
+        
+        res.json({
+          status: 'success',
+          message: 'Local file cache connectivity test passed',
+          cacheMode: 'LOCAL_FILES',
+          tests: ['write', 'read', 'delete'],
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        throw new Error('Data not found after write');
+      }
     } else {
-      throw new Error('Document not found after write');
+      console.log('🧪 Testing Firestore connectivity...');
+      
+      // Test write
+      const testKey = 'test_' + Date.now();
+      const testData = { message: 'Hello Firestore!', timestamp: new Date().toISOString() };
+      
+      await firestore.collection('census_cache').doc(testKey).set({
+        data: testData,
+        timestamp: Date.now(),
+        ttl: 300000, // 5 minutes
+        version: CACHE_VERSION,
+        source: 'Test',
+        attribution: 'Test data'
+      });
+      
+      console.log('✅ Firestore write test successful');
+      
+      // Test read
+      const doc = await firestore.collection('census_cache').doc(testKey).get();
+      
+      if (doc.exists) {
+        console.log('✅ Firestore read test successful');
+        
+        // Clean up test document
+        await firestore.collection('census_cache').doc(testKey).delete();
+        console.log('✅ Firestore delete test successful');
+        
+        res.json({
+          status: 'success',
+          message: 'Firestore connectivity test passed',
+          cacheMode: 'FIRESTORE',
+          tests: ['write', 'read', 'delete'],
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        throw new Error('Document not found after write');
+      }
     }
   } catch (error) {
-    console.error('❌ Firestore test failed:', error);
+    console.error('❌ Cache test failed:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Firestore connectivity test failed',
+      message: 'Cache connectivity test failed',
+      cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE',
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -748,26 +796,53 @@ app.delete('/api/census/cache', async (req, res) => {
   try {
     const { key } = req.query;
     
-    if (key) {
-      // Clear specific cache entry
-      await firestore.collection('census_cache').doc(key).delete();
-      res.json({ message: `Cache entry ${key} cleared` });
+    if (USE_LOCAL_CACHE) {
+      if (key) {
+        // Clear specific cache entry
+        await localCache.deleteCacheEntry(key);
+        res.json({ 
+          message: `Cache entry ${key} cleared`,
+          cacheMode: 'LOCAL_FILES'
+        });
+      } else {
+        // Clear all cache entries
+        const deletedCount = await localCache.clearAllCache();
+        res.json({ 
+          message: `All cache entries cleared (${deletedCount} files)`,
+          cacheMode: 'LOCAL_FILES',
+          deletedCount
+        });
+      }
     } else {
-      // Clear all cache entries
-      const snapshot = await firestore.collection('census_cache').get();
-      const batch = firestore.batch();
-      
-      snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      
-      await batch.commit();
-      res.json({ message: 'All cache entries cleared' });
+      if (key) {
+        // Clear specific cache entry
+        await firestore.collection('census_cache').doc(key).delete();
+        res.json({ 
+          message: `Cache entry ${key} cleared`,
+          cacheMode: 'FIRESTORE'
+        });
+      } else {
+        // Clear all cache entries
+        const snapshot = await firestore.collection('census_cache').get();
+        const batch = firestore.batch();
+        
+        snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        await batch.commit();
+        res.json({ 
+          message: `All cache entries cleared (${snapshot.docs.length} documents)`,
+          cacheMode: 'FIRESTORE',
+          deletedCount: snapshot.docs.length
+        });
+      }
     }
   } catch (error) {
     console.error('Error clearing cache:', error);
     res.status(500).json({ 
       error: 'Failed to clear cache',
+      cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE',
       message: error.message 
     });
   }
@@ -778,26 +853,77 @@ app.delete('/api/census/cache', async (req, res) => {
  */
 app.get('/api/census/cache-info', async (req, res) => {
   try {
-    const snapshot = await firestore.collection('census_cache').get();
-    const cacheInfo = [];
-    
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      cacheInfo.push({
-        key: doc.id,
-        timestamp: data.timestamp,
-        ttl: data.ttl,
-        version: data.version,
-        size: JSON.stringify(data.data).length,
-        isExpired: isCacheExpired(data.timestamp, data.ttl)
+    if (USE_LOCAL_CACHE) {
+      const cacheInfo = await localCache.getCacheInfo();
+      const cacheSize = await localCache.getCacheSize();
+      
+      res.json({
+        cacheMode: 'LOCAL_FILES',
+        entries: cacheInfo,
+        cacheSize: cacheSize,
+        totalEntries: cacheInfo.length
       });
-    });
-    
-    res.json(cacheInfo.sort((a, b) => b.timestamp - a.timestamp));
+    } else {
+      const snapshot = await firestore.collection('census_cache').get();
+      const cacheInfo = [];
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        cacheInfo.push({
+          key: doc.id,
+          timestamp: data.timestamp,
+          ttl: data.ttl,
+          version: data.version,
+          size: JSON.stringify(data.data).length,
+          isExpired: isCacheExpired(data.timestamp, data.ttl)
+        });
+      });
+      
+      res.json({
+        cacheMode: 'FIRESTORE',
+        entries: cacheInfo.sort((a, b) => b.timestamp - a.timestamp),
+        totalEntries: cacheInfo.length
+      });
+    }
   } catch (error) {
     console.error('Error getting cache info:', error);
     // Return empty array instead of 500 error to prevent service crashes
-    res.json([]);
+    res.json({
+      cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE',
+      entries: [],
+      totalEntries: 0,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Cleanup expired cache entries endpoint
+ */
+app.post('/api/census/cache/cleanup', async (req, res) => {
+  try {
+    if (USE_LOCAL_CACHE) {
+      const cleanedCount = await localCache.cleanupExpiredCache();
+      res.json({
+        message: `Cleaned up ${cleanedCount} expired cache entries`,
+        cacheMode: 'LOCAL_FILES',
+        cleanedCount
+      });
+    } else {
+      // For Firestore, expired entries are automatically cleaned up on access
+      res.json({
+        message: 'Firestore cache cleanup not needed (automatic cleanup on access)',
+        cacheMode: 'FIRESTORE',
+        cleanedCount: 0
+      });
+    }
+  } catch (error) {
+    console.error('Error cleaning up cache:', error);
+    res.status(500).json({
+      error: 'Failed to cleanup cache',
+      cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE',
+      message: error.message
+    });
   }
 });
 

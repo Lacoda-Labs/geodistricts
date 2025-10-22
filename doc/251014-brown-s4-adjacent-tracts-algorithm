@@ -1,0 +1,40 @@
+# Adjacency Data from Brown University S4 project.
+
+
+## Source
+https://s4.ad.brown.edu/projects/diversity/Researcher/Pooling.htm
+
+
+## Approach
+
+### Geo-graph division of census tracks
+For census tracts division, create two district groups based on a
+simplified geo-graph that divides adjacent tracts using a given population ratio.
+The geo-graph division sorts tracts alternating between latitude and longitude, preserving contiguity allowing for dividing according to the population ratio.
+
+### District Groups Division Ratio
+A recursive process to dynamically generate a ratio for dividing census tracts into district group begins with the entire state and number of congression districts (i.e. one district group with total number of target districts). Division ratio to be used to geo-graphically divide by population is based on the number of districts in the group.
+Dividing an even number of districts in a district group will always be a (50/50) ratio (i.e. divide evenly). Dividing a district group with odd number of districts will use a ratio of ( ((t/2)+1)/t , (t/2)/t ) where t is total number of districts in the districtGroup. Repeat until all district groups have only one district.
+
+### Steps
+#### Dividing of district groups by latitude.
+1. fetch state census tract data: tract id, geodata, adjacency data (brown-s4), etc.
+2. find northwest most census tract.
+3. find all adjacent tracts (using brown-s4) and add to list in clockwise order.
+4. moving east, find most northeastern adjacent tract (from step 3) and repeat steps 3 and 4 until eastern border of state is reach (i.e no more eastern tracts).
+5. find northeastern tract not yet in list as starting point to move west.
+6. moving west, repeat steps 3 and 4 (moving west instead of east).
+7. repeating zig-zag west/east movement (steps 3-6), southward until all tracts have been added to the list.
+8. using this geo-graph sorted list, use ration to divde list into two new district groups.
+9. proceed to dividing all divisible district groups by logitude.
+
+#### Division of district groups by longitude.
+(zig-zag adjacent tracts starting in SW, moving north/south)
+10. find southwest most census tract within a given district 
+11. find all adjacent tracts (using brown-s4) and add to list in clockwise order.
+12. moving north, find most northwestern adjacent tract (from step 11) and repeat steps 11 and 12 until northern border of state is reach (i.e no more northern tracts).
+13. find northwestern tract not yet in list as starting point to move south.
+14. moving south, repeat steps 11 and 12 (moving south instead of north).
+15. repeating zig-zag north/sotuh movement (steps 3-6), eastward until all tracts have been added to the list.
+16. using this geo-graph sorted list, use ration to divde list into two new district groups.
+17. proceed to dividing all divisible district groups by logitude.

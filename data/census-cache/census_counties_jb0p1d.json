@@ -1,0 +1,292 @@
+[
+  {
+    "name": "Alameda County, California",
+    "fips": "001",
+    "state": "06"
+  },
+  {
+    "name": "Alpine County, California",
+    "fips": "003",
+    "state": "06"
+  },
+  {
+    "name": "Amador County, California",
+    "fips": "005",
+    "state": "06"
+  },
+  {
+    "name": "Butte County, California",
+    "fips": "007",
+    "state": "06"
+  },
+  {
+    "name": "Calaveras County, California",
+    "fips": "009",
+    "state": "06"
+  },
+  {
+    "name": "Colusa County, California",
+    "fips": "011",
+    "state": "06"
+  },
+  {
+    "name": "Contra Costa County, California",
+    "fips": "013",
+    "state": "06"
+  },
+  {
+    "name": "Del Norte County, California",
+    "fips": "015",
+    "state": "06"
+  },
+  {
+    "name": "El Dorado County, California",
+    "fips": "017",
+    "state": "06"
+  },
+  {
+    "name": "Fresno County, California",
+    "fips": "019",
+    "state": "06"
+  },
+  {
+    "name": "Glenn County, California",
+    "fips": "021",
+    "state": "06"
+  },
+  {
+    "name": "Humboldt County, California",
+    "fips": "023",
+    "state": "06"
+  },
+  {
+    "name": "Imperial County, California",
+    "fips": "025",
+    "state": "06"
+  },
+  {
+    "name": "Inyo County, California",
+    "fips": "027",
+    "state": "06"
+  },
+  {
+    "name": "Kern County, California",
+    "fips": "029",
+    "state": "06"
+  },
+  {
+    "name": "Kings County, California",
+    "fips": "031",
+    "state": "06"
+  },
+  {
+    "name": "Lake County, California",
+    "fips": "033",
+    "state": "06"
+  },
+  {
+    "name": "Lassen County, California",
+    "fips": "035",
+    "state": "06"
+  },
+  {
+    "name": "Los Angeles County, California",
+    "fips": "037",
+    "state": "06"
+  },
+  {
+    "name": "Madera County, California",
+    "fips": "039",
+    "state": "06"
+  },
+  {
+    "name": "Marin County, California",
+    "fips": "041",
+    "state": "06"
+  },
+  {
+    "name": "Mariposa County, California",
+    "fips": "043",
+    "state": "06"
+  },
+  {
+    "name": "Mendocino County, California",
+    "fips": "045",
+    "state": "06"
+  },
+  {
+    "name": "Merced County, California",
+    "fips": "047",
+    "state": "06"
+  },
+  {
+    "name": "Modoc County, California",
+    "fips": "049",
+    "state": "06"
+  },
+  {
+    "name": "Mono County, California",
+    "fips": "051",
+    "state": "06"
+  },
+  {
+    "name": "Monterey County, California",
+    "fips": "053",
+    "state": "06"
+  },
+  {
+    "name": "Napa County, California",
+    "fips": "055",
+    "state": "06"
+  },
+  {
+    "name": "Nevada County, California",
+    "fips": "057",
+    "state": "06"
+  },
+  {
+    "name": "Orange County, California",
+    "fips": "059",
+    "state": "06"
+  },
+  {
+    "name": "Placer County, California",
+    "fips": "061",
+    "state": "06"
+  },
+  {
+    "name": "Plumas County, California",
+    "fips": "063",
+    "state": "06"
+  },
+  {
+    "name": "Riverside County, California",
+    "fips": "065",
+    "state": "06"
+  },
+  {
+    "name": "Sacramento County, California",
+    "fips": "067",
+    "state": "06"
+  },
+  {
+    "name": "San Benito County, California",
+    "fips": "069",
+    "state": "06"
+  },
+  {
+    "name": "San Bernardino County, California",
+    "fips": "071",
+    "state": "06"
+  },
+  {
+    "name": "San Diego County, California",
+    "fips": "073",
+    "state": "06"
+  },
+  {
+    "name": "San Francisco County, California",
+    "fips": "075",
+    "state": "06"
+  },
+  {
+    "name": "San Joaquin County, California",
+    "fips": "077",
+    "state": "06"
+  },
+  {
+    "name": "San Luis Obispo County, California",
+    "fips": "079",
+    "state": "06"
+  },
+  {
+    "name": "San Mateo County, California",
+    "fips": "081",
+    "state": "06"
+  },
+  {
+    "name": "Santa Barbara County, California",
+    "fips": "083",
+    "state": "06"
+  },
+  {
+    "name": "Santa Clara County, California",
+    "fips": "085",
+    "state": "06"
+  },
+  {
+    "name": "Santa Cruz County, California",
+    "fips": "087",
+    "state": "06"
+  },
+  {
+    "name": "Shasta County, California",
+    "fips": "089",
+    "state": "06"
+  },
+  {
+    "name": "Sierra County, California",
+    "fips": "091",
+    "state": "06"
+  },
+  {
+    "name": "Siskiyou County, California",
+    "fips": "093",
+    "state": "06"
+  },
+  {
+    "name": "Solano County, California",
+    "fips": "095",
+    "state": "06"
+  },
+  {
+    "name": "Sonoma County, California",
+    "fips": "097",
+    "state": "06"
+  },
+  {
+    "name": "Stanislaus County, California",
+    "fips": "099",
+    "state": "06"
+  },
+  {
+    "name": "Sutter County, California",
+    "fips": "101",
+    "state": "06"
+  },
+  {
+    "name": "Tehama County, California",
+    "fips": "103",
+    "state": "06"
+  },
+  {
+    "name": "Trinity County, California",
+    "fips": "105",
+    "state": "06"
+  },
+  {
+    "name": "Tulare County, California",
+    "fips": "107",
+    "state": "06"
+  },
+  {
+    "name": "Tuolumne County, California",
+    "fips": "109",
+    "state": "06"
+  },
+  {
+    "name": "Ventura County, California",
+    "fips": "111",
+    "state": "06"
+  },
+  {
+    "name": "Yolo County, California",
+    "fips": "113",
+    "state": "06"
+  },
+  {
+    "name": "Yuba County, California",
+    "fips": "115",
+    "state": "06"
+  }
+]
