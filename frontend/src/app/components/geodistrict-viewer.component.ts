@@ -16,6 +16,7 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
 export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedState: string = '';
   useDirectAPI: boolean = false; // Use backend proxy
+  forceInvalidate: boolean = false; // Force refresh census cache
   selectedAlgorithm: AlgorithmType = 'brown-s4'; // Default to Brown S4 algorithm
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -393,7 +394,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     const options: GeodistrictOptions = {
       state: this.selectedState,
       useDirectAPI: this.useDirectAPI,
-      forceInvalidate: false,
+      forceInvalidate: this.forceInvalidate,
       maxIterations: 100,
       algorithm: this.selectedAlgorithm
     };

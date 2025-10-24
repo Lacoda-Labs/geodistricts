@@ -1,0 +1,92 @@
+[
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Amador County; California",
+    "population": 4294,
+    "medianHouseholdIncome": 82522,
+    "medianAge": 57.4
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Amador County; California",
+    "population": 2160,
+    "medianHouseholdIncome": 55833,
+    "medianAge": 50.8
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Amador County; California",
+    "population": 2791,
+    "medianHouseholdIncome": 76193,
+    "medianAge": 52.3
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Amador County; California",
+    "population": 1868,
+    "medianHouseholdIncome": 59160,
+    "medianAge": 57.1
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Amador County; California",
+    "population": 4934,
+    "medianHouseholdIncome": 86346,
+    "medianAge": 42.8
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000303",
+    "name": "Census Tract 3.03; Amador County; California",
+    "population": 6471,
+    "medianHouseholdIncome": 64174,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000304",
+    "name": "Census Tract 3.04; Amador County; California",
+    "population": 5259,
+    "medianHouseholdIncome": 99615,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Amador County; California",
+    "population": 4570,
+    "medianHouseholdIncome": 69702,
+    "medianAge": 53.7
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Amador County; California",
+    "population": 4826,
+    "medianHouseholdIncome": 60625,
+    "medianAge": 55.9
+  },
+  {
+    "state": "06",
+    "county": "005",
+    "tract": "000500",
+    "name": "Census Tract 5; Amador County; California",
+    "population": 3404,
+    "medianHouseholdIncome": 74956,
+    "medianAge": 49
+  }
+]

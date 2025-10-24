@@ -1,0 +1,1010 @@
+[
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Stanislaus County; California",
+    "population": 5791,
+    "medianHouseholdIncome": 92500,
+    "medianAge": 47
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Stanislaus County; California",
+    "population": 3403,
+    "medianHouseholdIncome": 101667,
+    "medianAge": 46.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Stanislaus County; California",
+    "population": 6513,
+    "medianHouseholdIncome": 96649,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Stanislaus County; California",
+    "population": 7378,
+    "medianHouseholdIncome": 82315,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000204",
+    "name": "Census Tract 2.04; Stanislaus County; California",
+    "population": 5283,
+    "medianHouseholdIncome": 75495,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000205",
+    "name": "Census Tract 2.05; Stanislaus County; California",
+    "population": 4340,
+    "medianHouseholdIncome": 72014,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Stanislaus County; California",
+    "population": 1918,
+    "medianHouseholdIncome": 52885,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Stanislaus County; California",
+    "population": 2466,
+    "medianHouseholdIncome": 67344,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000303",
+    "name": "Census Tract 3.03; Stanislaus County; California",
+    "population": 5880,
+    "medianHouseholdIncome": 80087,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000304",
+    "name": "Census Tract 3.04; Stanislaus County; California",
+    "population": 5676,
+    "medianHouseholdIncome": 76658,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000403",
+    "name": "Census Tract 4.03; Stanislaus County; California",
+    "population": 4898,
+    "medianHouseholdIncome": 108375,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000404",
+    "name": "Census Tract 4.04; Stanislaus County; California",
+    "population": 6132,
+    "medianHouseholdIncome": 64861,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000405",
+    "name": "Census Tract 4.05; Stanislaus County; California",
+    "population": 2634,
+    "medianHouseholdIncome": 58478,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000406",
+    "name": "Census Tract 4.06; Stanislaus County; California",
+    "population": 5614,
+    "medianHouseholdIncome": 144302,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000407",
+    "name": "Census Tract 4.07; Stanislaus County; California",
+    "population": 3794,
+    "medianHouseholdIncome": 136603,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Stanislaus County; California",
+    "population": 7240,
+    "medianHouseholdIncome": 104146,
+    "medianAge": 43.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000503",
+    "name": "Census Tract 5.03; Stanislaus County; California",
+    "population": 4586,
+    "medianHouseholdIncome": 75898,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000505",
+    "name": "Census Tract 5.05; Stanislaus County; California",
+    "population": 5576,
+    "medianHouseholdIncome": 81106,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000506",
+    "name": "Census Tract 5.06; Stanislaus County; California",
+    "population": 4492,
+    "medianHouseholdIncome": 65923,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000511",
+    "name": "Census Tract 5.11; Stanislaus County; California",
+    "population": 5849,
+    "medianHouseholdIncome": 122928,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000512",
+    "name": "Census Tract 5.12; Stanislaus County; California",
+    "population": 3407,
+    "medianHouseholdIncome": 131786,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000513",
+    "name": "Census Tract 5.13; Stanislaus County; California",
+    "population": 4150,
+    "medianHouseholdIncome": 97419,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000514",
+    "name": "Census Tract 5.14; Stanislaus County; California",
+    "population": 5169,
+    "medianHouseholdIncome": 73729,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Stanislaus County; California",
+    "population": 4522,
+    "medianHouseholdIncome": 90991,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Stanislaus County; California",
+    "population": 3090,
+    "medianHouseholdIncome": 101250,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000801",
+    "name": "Census Tract 8.01; Stanislaus County; California",
+    "population": 6726,
+    "medianHouseholdIncome": 67168,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000803",
+    "name": "Census Tract 8.03; Stanislaus County; California",
+    "population": 5113,
+    "medianHouseholdIncome": 59375,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000805",
+    "name": "Census Tract 8.05; Stanislaus County; California",
+    "population": 6270,
+    "medianHouseholdIncome": 64401,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000806",
+    "name": "Census Tract 8.06; Stanislaus County; California",
+    "population": 4406,
+    "medianHouseholdIncome": 70563,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000807",
+    "name": "Census Tract 8.07; Stanislaus County; California",
+    "population": 3745,
+    "medianHouseholdIncome": 62917,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000905",
+    "name": "Census Tract 9.05; Stanislaus County; California",
+    "population": 6823,
+    "medianHouseholdIncome": 86981,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000906",
+    "name": "Census Tract 9.06; Stanislaus County; California",
+    "population": 6756,
+    "medianHouseholdIncome": 66500,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000907",
+    "name": "Census Tract 9.07; Stanislaus County; California",
+    "population": 3838,
+    "medianHouseholdIncome": 74943,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000908",
+    "name": "Census Tract 9.08; Stanislaus County; California",
+    "population": 5539,
+    "medianHouseholdIncome": 74750,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000909",
+    "name": "Census Tract 9.09; Stanislaus County; California",
+    "population": 4618,
+    "medianHouseholdIncome": 79173,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000910",
+    "name": "Census Tract 9.10; Stanislaus County; California",
+    "population": 7380,
+    "medianHouseholdIncome": 56202,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000911",
+    "name": "Census Tract 9.11; Stanislaus County; California",
+    "population": 5101,
+    "medianHouseholdIncome": 90469,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000913",
+    "name": "Census Tract 9.13; Stanislaus County; California",
+    "population": 6648,
+    "medianHouseholdIncome": 115894,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000914",
+    "name": "Census Tract 9.14; Stanislaus County; California",
+    "population": 5305,
+    "medianHouseholdIncome": 120208,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "000915",
+    "name": "Census Tract 9.15; Stanislaus County; California",
+    "population": 4112,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001001",
+    "name": "Census Tract 10.01; Stanislaus County; California",
+    "population": 6219,
+    "medianHouseholdIncome": 65942,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001002",
+    "name": "Census Tract 10.02; Stanislaus County; California",
+    "population": 3305,
+    "medianHouseholdIncome": 55179,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001100",
+    "name": "Census Tract 11; Stanislaus County; California",
+    "population": 4728,
+    "medianHouseholdIncome": 53953,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001200",
+    "name": "Census Tract 12; Stanislaus County; California",
+    "population": 3837,
+    "medianHouseholdIncome": 72897,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001300",
+    "name": "Census Tract 13; Stanislaus County; California",
+    "population": 6094,
+    "medianHouseholdIncome": 77731,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001400",
+    "name": "Census Tract 14; Stanislaus County; California",
+    "population": 7653,
+    "medianHouseholdIncome": 57448,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001500",
+    "name": "Census Tract 15; Stanislaus County; California",
+    "population": 7079,
+    "medianHouseholdIncome": 53333,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001601",
+    "name": "Census Tract 16.01; Stanislaus County; California",
+    "population": 4678,
+    "medianHouseholdIncome": 51931,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001603",
+    "name": "Census Tract 16.03; Stanislaus County; California",
+    "population": 6157,
+    "medianHouseholdIncome": 64594,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001604",
+    "name": "Census Tract 16.04; Stanislaus County; California",
+    "population": 3656,
+    "medianHouseholdIncome": 37813,
+    "medianAge": 26.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001700",
+    "name": "Census Tract 17; Stanislaus County; California",
+    "population": 2868,
+    "medianHouseholdIncome": 41356,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001800",
+    "name": "Census Tract 18; Stanislaus County; California",
+    "population": 2308,
+    "medianHouseholdIncome": 26859,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "001900",
+    "name": "Census Tract 19; Stanislaus County; California",
+    "population": 4804,
+    "medianHouseholdIncome": 83667,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002002",
+    "name": "Census Tract 20.02; Stanislaus County; California",
+    "population": 4385,
+    "medianHouseholdIncome": 51579,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002004",
+    "name": "Census Tract 20.04; Stanislaus County; California",
+    "population": 6781,
+    "medianHouseholdIncome": 58577,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002005",
+    "name": "Census Tract 20.05; Stanislaus County; California",
+    "population": 3916,
+    "medianHouseholdIncome": 91250,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002006",
+    "name": "Census Tract 20.06; Stanislaus County; California",
+    "population": 5724,
+    "medianHouseholdIncome": 106425,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002100",
+    "name": "Census Tract 21; Stanislaus County; California",
+    "population": 3427,
+    "medianHouseholdIncome": 29955,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002200",
+    "name": "Census Tract 22; Stanislaus County; California",
+    "population": 5403,
+    "medianHouseholdIncome": 38866,
+    "medianAge": 29.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002302",
+    "name": "Census Tract 23.02; Stanislaus County; California",
+    "population": 3941,
+    "medianHouseholdIncome": 34569,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002303",
+    "name": "Census Tract 23.03; Stanislaus County; California",
+    "population": 5792,
+    "medianHouseholdIncome": 68420,
+    "medianAge": 26.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002304",
+    "name": "Census Tract 23.04; Stanislaus County; California",
+    "population": 3217,
+    "medianHouseholdIncome": 35441,
+    "medianAge": 27
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002401",
+    "name": "Census Tract 24.01; Stanislaus County; California",
+    "population": 4106,
+    "medianHouseholdIncome": 68423,
+    "medianAge": 25.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002402",
+    "name": "Census Tract 24.02; Stanislaus County; California",
+    "population": 5318,
+    "medianHouseholdIncome": 39343,
+    "medianAge": 24.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002503",
+    "name": "Census Tract 25.03; Stanislaus County; California",
+    "population": 4158,
+    "medianHouseholdIncome": 52529,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002504",
+    "name": "Census Tract 25.04; Stanislaus County; California",
+    "population": 4785,
+    "medianHouseholdIncome": 81119,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002505",
+    "name": "Census Tract 25.05; Stanislaus County; California",
+    "population": 4956,
+    "medianHouseholdIncome": 83702,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002506",
+    "name": "Census Tract 25.06; Stanislaus County; California",
+    "population": 2138,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002602",
+    "name": "Census Tract 26.02; Stanislaus County; California",
+    "population": 4869,
+    "medianHouseholdIncome": 63071,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002603",
+    "name": "Census Tract 26.03; Stanislaus County; California",
+    "population": 3705,
+    "medianHouseholdIncome": 82581,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002604",
+    "name": "Census Tract 26.04; Stanislaus County; California",
+    "population": 5237,
+    "medianHouseholdIncome": 64088,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002605",
+    "name": "Census Tract 26.05; Stanislaus County; California",
+    "population": 4520,
+    "medianHouseholdIncome": 56353,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002701",
+    "name": "Census Tract 27.01; Stanislaus County; California",
+    "population": 4187,
+    "medianHouseholdIncome": 80439,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002702",
+    "name": "Census Tract 27.02; Stanislaus County; California",
+    "population": 6483,
+    "medianHouseholdIncome": 64179,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002801",
+    "name": "Census Tract 28.01; Stanislaus County; California",
+    "population": 5851,
+    "medianHouseholdIncome": 77857,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002802",
+    "name": "Census Tract 28.02; Stanislaus County; California",
+    "population": 7421,
+    "medianHouseholdIncome": 64328,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002803",
+    "name": "Census Tract 28.03; Stanislaus County; California",
+    "population": 3001,
+    "medianHouseholdIncome": 74028,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002901",
+    "name": "Census Tract 29.01; Stanislaus County; California",
+    "population": 5103,
+    "medianHouseholdIncome": 84737,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002903",
+    "name": "Census Tract 29.03; Stanislaus County; California",
+    "population": 6601,
+    "medianHouseholdIncome": 98801,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "002904",
+    "name": "Census Tract 29.04; Stanislaus County; California",
+    "population": 2396,
+    "medianHouseholdIncome": 97434,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003002",
+    "name": "Census Tract 30.02; Stanislaus County; California",
+    "population": 7586,
+    "medianHouseholdIncome": 60934,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003003",
+    "name": "Census Tract 30.03; Stanislaus County; California",
+    "population": 7436,
+    "medianHouseholdIncome": 79716,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003004",
+    "name": "Census Tract 30.04; Stanislaus County; California",
+    "population": 3550,
+    "medianHouseholdIncome": 96471,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003100",
+    "name": "Census Tract 31; Stanislaus County; California",
+    "population": 3753,
+    "medianHouseholdIncome": 52166,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003201",
+    "name": "Census Tract 32.01; Stanislaus County; California",
+    "population": 5502,
+    "medianHouseholdIncome": 69684,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003203",
+    "name": "Census Tract 32.03; Stanislaus County; California",
+    "population": 4869,
+    "medianHouseholdIncome": 112805,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003204",
+    "name": "Census Tract 32.04; Stanislaus County; California",
+    "population": 2273,
+    "medianHouseholdIncome": 81806,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003205",
+    "name": "Census Tract 32.05; Stanislaus County; California",
+    "population": 5870,
+    "medianHouseholdIncome": 97948,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003206",
+    "name": "Census Tract 32.06; Stanislaus County; California",
+    "population": 5741,
+    "medianHouseholdIncome": 101494,
+    "medianAge": 26.7
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003300",
+    "name": "Census Tract 33; Stanislaus County; California",
+    "population": 6762,
+    "medianHouseholdIncome": 77813,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003400",
+    "name": "Census Tract 34; Stanislaus County; California",
+    "population": 1408,
+    "medianHouseholdIncome": 58125,
+    "medianAge": 43.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003501",
+    "name": "Census Tract 35.01; Stanislaus County; California",
+    "population": 7058,
+    "medianHouseholdIncome": 93600,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003502",
+    "name": "Census Tract 35.02; Stanislaus County; California",
+    "population": 5593,
+    "medianHouseholdIncome": 69075,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003603",
+    "name": "Census Tract 36.03; Stanislaus County; California",
+    "population": 3978,
+    "medianHouseholdIncome": 56455,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003607",
+    "name": "Census Tract 36.07; Stanislaus County; California",
+    "population": 2709,
+    "medianHouseholdIncome": 110248,
+    "medianAge": 46.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003608",
+    "name": "Census Tract 36.08; Stanislaus County; California",
+    "population": 6194,
+    "medianHouseholdIncome": 106912,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003609",
+    "name": "Census Tract 36.09; Stanislaus County; California",
+    "population": 3255,
+    "medianHouseholdIncome": 77262,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003610",
+    "name": "Census Tract 36.10; Stanislaus County; California",
+    "population": 5291,
+    "medianHouseholdIncome": 64375,
+    "medianAge": 29
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003611",
+    "name": "Census Tract 36.11; Stanislaus County; California",
+    "population": 4371,
+    "medianHouseholdIncome": 101326,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003612",
+    "name": "Census Tract 36.12; Stanislaus County; California",
+    "population": 7887,
+    "medianHouseholdIncome": 116309,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003700",
+    "name": "Census Tract 37; Stanislaus County; California",
+    "population": 5063,
+    "medianHouseholdIncome": 72829,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003802",
+    "name": "Census Tract 38.02; Stanislaus County; California",
+    "population": 5284,
+    "medianHouseholdIncome": 45778,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003803",
+    "name": "Census Tract 38.03; Stanislaus County; California",
+    "population": 3142,
+    "medianHouseholdIncome": 71705,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003804",
+    "name": "Census Tract 38.04; Stanislaus County; California",
+    "population": 7046,
+    "medianHouseholdIncome": 66194,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003805",
+    "name": "Census Tract 38.05; Stanislaus County; California",
+    "population": 3472,
+    "medianHouseholdIncome": 92273,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003904",
+    "name": "Census Tract 39.04; Stanislaus County; California",
+    "population": 4375,
+    "medianHouseholdIncome": 63077,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003905",
+    "name": "Census Tract 39.05; Stanislaus County; California",
+    "population": 4293,
+    "medianHouseholdIncome": 104107,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003906",
+    "name": "Census Tract 39.06; Stanislaus County; California",
+    "population": 5313,
+    "medianHouseholdIncome": 43947,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003907",
+    "name": "Census Tract 39.07; Stanislaus County; California",
+    "population": 7343,
+    "medianHouseholdIncome": 87647,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003908",
+    "name": "Census Tract 39.08; Stanislaus County; California",
+    "population": 2889,
+    "medianHouseholdIncome": 33656,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "003909",
+    "name": "Census Tract 39.09; Stanislaus County; California",
+    "population": 5586,
+    "medianHouseholdIncome": 69120,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "099",
+    "tract": "004000",
+    "name": "Census Tract 40; Stanislaus County; California",
+    "population": 4183,
+    "medianHouseholdIncome": 93017,
+    "medianAge": 35.4
+  }
+]

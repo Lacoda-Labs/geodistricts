@@ -1,0 +1,632 @@
+[
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010016",
+    "name": "Census Tract 100.16; San Luis Obispo County; California",
+    "population": 5206,
+    "medianHouseholdIncome": 78179,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010017",
+    "name": "Census Tract 100.17; San Luis Obispo County; California",
+    "population": 4483,
+    "medianHouseholdIncome": 79400,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010101",
+    "name": "Census Tract 101.01; San Luis Obispo County; California",
+    "population": 1707,
+    "medianHouseholdIncome": 119375,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010103",
+    "name": "Census Tract 101.03; San Luis Obispo County; California",
+    "population": 3088,
+    "medianHouseholdIncome": 60383,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010104",
+    "name": "Census Tract 101.04; San Luis Obispo County; California",
+    "population": 3100,
+    "medianHouseholdIncome": 51585,
+    "medianAge": 26.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010202",
+    "name": "Census Tract 102.02; San Luis Obispo County; California",
+    "population": 6017,
+    "medianHouseholdIncome": 82885,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010204",
+    "name": "Census Tract 102.04; San Luis Obispo County; California",
+    "population": 5989,
+    "medianHouseholdIncome": 87885,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010205",
+    "name": "Census Tract 102.05; San Luis Obispo County; California",
+    "population": 5570,
+    "medianHouseholdIncome": 91467,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010206",
+    "name": "Census Tract 102.06; San Luis Obispo County; California",
+    "population": 3252,
+    "medianHouseholdIncome": 116923,
+    "medianAge": 47.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010207",
+    "name": "Census Tract 102.07; San Luis Obispo County; California",
+    "population": 4132,
+    "medianHouseholdIncome": 94551,
+    "medianAge": 47.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010301",
+    "name": "Census Tract 103.01; San Luis Obispo County; California",
+    "population": 4054,
+    "medianHouseholdIncome": 85417,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010302",
+    "name": "Census Tract 103.02; San Luis Obispo County; California",
+    "population": 3454,
+    "medianHouseholdIncome": 163125,
+    "medianAge": 49.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010303",
+    "name": "Census Tract 103.03; San Luis Obispo County; California",
+    "population": 2804,
+    "medianHouseholdIncome": 97969,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010403",
+    "name": "Census Tract 104.03; San Luis Obispo County; California",
+    "population": 3893,
+    "medianHouseholdIncome": 96385,
+    "medianAge": 58.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010404",
+    "name": "Census Tract 104.04; San Luis Obispo County; California",
+    "population": 1932,
+    "medianHouseholdIncome": 87000,
+    "medianAge": 61.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010504",
+    "name": "Census Tract 105.04; San Luis Obispo County; California",
+    "population": 2361,
+    "medianHouseholdIncome": 81366,
+    "medianAge": 60.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010505",
+    "name": "Census Tract 105.05; San Luis Obispo County; California",
+    "population": 3477,
+    "medianHouseholdIncome": 90649,
+    "medianAge": 48.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010506",
+    "name": "Census Tract 105.06; San Luis Obispo County; California",
+    "population": 2283,
+    "medianHouseholdIncome": 107773,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010602",
+    "name": "Census Tract 106.02; San Luis Obispo County; California",
+    "population": 3919,
+    "medianHouseholdIncome": 85345,
+    "medianAge": 54.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010603",
+    "name": "Census Tract 106.03; San Luis Obispo County; California",
+    "population": 1359,
+    "medianHouseholdIncome": 71136,
+    "medianAge": 52.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010701",
+    "name": "Census Tract 107.01; San Luis Obispo County; California",
+    "population": 5068,
+    "medianHouseholdIncome": 88932,
+    "medianAge": 46.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010703",
+    "name": "Census Tract 107.03; San Luis Obispo County; California",
+    "population": 3793,
+    "medianHouseholdIncome": 83393,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010707",
+    "name": "Census Tract 107.07; San Luis Obispo County; California",
+    "population": 6295,
+    "medianHouseholdIncome": 102203,
+    "medianAge": 49.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010902",
+    "name": "Census Tract 109.02; San Luis Obispo County; California",
+    "population": 4708,
+    "medianHouseholdIncome": 28411,
+    "medianAge": 21.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010903",
+    "name": "Census Tract 109.03; San Luis Obispo County; California",
+    "population": 7151,
+    "medianHouseholdIncome": 9893,
+    "medianAge": 19.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "010904",
+    "name": "Census Tract 109.04; San Luis Obispo County; California",
+    "population": 2705,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 19.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011001",
+    "name": "Census Tract 110.01; San Luis Obispo County; California",
+    "population": 4504,
+    "medianHouseholdIncome": 100396,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011002",
+    "name": "Census Tract 110.02; San Luis Obispo County; California",
+    "population": 3414,
+    "medianHouseholdIncome": 73590,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011101",
+    "name": "Census Tract 111.01; San Luis Obispo County; California",
+    "population": 3683,
+    "medianHouseholdIncome": 58279,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011103",
+    "name": "Census Tract 111.03; San Luis Obispo County; California",
+    "population": 3422,
+    "medianHouseholdIncome": 70795,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011104",
+    "name": "Census Tract 111.04; San Luis Obispo County; California",
+    "population": 1853,
+    "medianHouseholdIncome": 81391,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011105",
+    "name": "Census Tract 111.05; San Luis Obispo County; California",
+    "population": 3805,
+    "medianHouseholdIncome": 93370,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011201",
+    "name": "Census Tract 112.01; San Luis Obispo County; California",
+    "population": 4628,
+    "medianHouseholdIncome": 47961,
+    "medianAge": 22.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011202",
+    "name": "Census Tract 112.02; San Luis Obispo County; California",
+    "population": 4255,
+    "medianHouseholdIncome": 58412,
+    "medianAge": 24.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011300",
+    "name": "Census Tract 113; San Luis Obispo County; California",
+    "population": 6429,
+    "medianHouseholdIncome": 87167,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011400",
+    "name": "Census Tract 114; San Luis Obispo County; California",
+    "population": 2591,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011501",
+    "name": "Census Tract 115.01; San Luis Obispo County; California",
+    "population": 1836,
+    "medianHouseholdIncome": 69310,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011505",
+    "name": "Census Tract 115.05; San Luis Obispo County; California",
+    "population": 4703,
+    "medianHouseholdIncome": 122554,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011600",
+    "name": "Census Tract 116; San Luis Obispo County; California",
+    "population": 4294,
+    "medianHouseholdIncome": 136020,
+    "medianAge": 56.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011704",
+    "name": "Census Tract 117.04; San Luis Obispo County; California",
+    "population": 3301,
+    "medianHouseholdIncome": 110435,
+    "medianAge": 50.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011705",
+    "name": "Census Tract 117.05; San Luis Obispo County; California",
+    "population": 1670,
+    "medianHouseholdIncome": 107765,
+    "medianAge": 54.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011706",
+    "name": "Census Tract 117.06; San Luis Obispo County; California",
+    "population": 3079,
+    "medianHouseholdIncome": 119407,
+    "medianAge": 57.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011800",
+    "name": "Census Tract 118; San Luis Obispo County; California",
+    "population": 7625,
+    "medianHouseholdIncome": 116607,
+    "medianAge": 49
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011901",
+    "name": "Census Tract 119.01; San Luis Obispo County; California",
+    "population": 3235,
+    "medianHouseholdIncome": 88295,
+    "medianAge": 52.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011903",
+    "name": "Census Tract 119.03; San Luis Obispo County; California",
+    "population": 1950,
+    "medianHouseholdIncome": 78795,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "011904",
+    "name": "Census Tract 119.04; San Luis Obispo County; California",
+    "population": 7017,
+    "medianHouseholdIncome": 95445,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012001",
+    "name": "Census Tract 120.01; San Luis Obispo County; California",
+    "population": 2523,
+    "medianHouseholdIncome": 73750,
+    "medianAge": 50.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012002",
+    "name": "Census Tract 120.02; San Luis Obispo County; California",
+    "population": 4699,
+    "medianHouseholdIncome": 83472,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012102",
+    "name": "Census Tract 121.02; San Luis Obispo County; California",
+    "population": 5533,
+    "medianHouseholdIncome": 83750,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012201",
+    "name": "Census Tract 122.01; San Luis Obispo County; California",
+    "population": 3323,
+    "medianHouseholdIncome": 74129,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012202",
+    "name": "Census Tract 122.02; San Luis Obispo County; California",
+    "population": 3520,
+    "medianHouseholdIncome": 58009,
+    "medianAge": 50.9
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012302",
+    "name": "Census Tract 123.02; San Luis Obispo County; California",
+    "population": 6276,
+    "medianHouseholdIncome": 117256,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012305",
+    "name": "Census Tract 123.05; San Luis Obispo County; California",
+    "population": 5952,
+    "medianHouseholdIncome": 103992,
+    "medianAge": 54.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012306",
+    "name": "Census Tract 123.06; San Luis Obispo County; California",
+    "population": 5099,
+    "medianHouseholdIncome": 153551,
+    "medianAge": 59.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012403",
+    "name": "Census Tract 124.03; San Luis Obispo County; California",
+    "population": 4075,
+    "medianHouseholdIncome": 99155,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012404",
+    "name": "Census Tract 124.04; San Luis Obispo County; California",
+    "population": 5953,
+    "medianHouseholdIncome": 95202,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012405",
+    "name": "Census Tract 124.05; San Luis Obispo County; California",
+    "population": 3124,
+    "medianHouseholdIncome": 99554,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012406",
+    "name": "Census Tract 124.06; San Luis Obispo County; California",
+    "population": 4342,
+    "medianHouseholdIncome": 89940,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012502",
+    "name": "Census Tract 125.02; San Luis Obispo County; California",
+    "population": 5840,
+    "medianHouseholdIncome": 76389,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012503",
+    "name": "Census Tract 125.03; San Luis Obispo County; California",
+    "population": 6401,
+    "medianHouseholdIncome": 76042,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012505",
+    "name": "Census Tract 125.05; San Luis Obispo County; California",
+    "population": 4459,
+    "medianHouseholdIncome": 84333,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012601",
+    "name": "Census Tract 126.01; San Luis Obispo County; California",
+    "population": 6324,
+    "medianHouseholdIncome": 120698,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012602",
+    "name": "Census Tract 126.02; San Luis Obispo County; California",
+    "population": 1553,
+    "medianHouseholdIncome": 124688,
+    "medianAge": 46
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012705",
+    "name": "Census Tract 127.05; San Luis Obispo County; California",
+    "population": 5692,
+    "medianHouseholdIncome": 93704,
+    "medianAge": 54.5
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012706",
+    "name": "Census Tract 127.06; San Luis Obispo County; California",
+    "population": 4115,
+    "medianHouseholdIncome": 120833,
+    "medianAge": 60.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012707",
+    "name": "Census Tract 127.07; San Luis Obispo County; California",
+    "population": 4639,
+    "medianHouseholdIncome": 121635,
+    "medianAge": 54.2
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "012708",
+    "name": "Census Tract 127.08; San Luis Obispo County; California",
+    "population": 978,
+    "medianHouseholdIncome": 150593,
+    "medianAge": 62.1
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "013000",
+    "name": "Census Tract 130; San Luis Obispo County; California",
+    "population": 2725,
+    "medianHouseholdIncome": 83526,
+    "medianAge": 53.4
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "013100",
+    "name": "Census Tract 131; San Luis Obispo County; California",
+    "population": 5473,
+    "medianHouseholdIncome": 111142,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "079",
+    "tract": "990000",
+    "name": "Census Tract 9900; San Luis Obispo County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

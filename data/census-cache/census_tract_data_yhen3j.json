@@ -1,0 +1,110 @@
+[
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020101",
+    "name": "Census Tract 201.01; La Paz County; Arizona",
+    "population": 1059,
+    "medianHouseholdIncome": 35988,
+    "medianAge": 72.2
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020102",
+    "name": "Census Tract 201.02; La Paz County; Arizona",
+    "population": 661,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 74.4
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020201",
+    "name": "Census Tract 202.01; La Paz County; Arizona",
+    "population": 1463,
+    "medianHouseholdIncome": 47315,
+    "medianAge": 60.1
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020202",
+    "name": "Census Tract 202.02; La Paz County; Arizona",
+    "population": 841,
+    "medianHouseholdIncome": 45288,
+    "medianAge": 72.9
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020501",
+    "name": "Census Tract 205.01; La Paz County; Arizona",
+    "population": 1852,
+    "medianHouseholdIncome": 49300,
+    "medianAge": 75.2
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020503",
+    "name": "Census Tract 205.03; La Paz County; Arizona",
+    "population": 916,
+    "medianHouseholdIncome": 19170,
+    "medianAge": 63.2
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020504",
+    "name": "Census Tract 205.04; La Paz County; Arizona",
+    "population": 790,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 71.3
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020505",
+    "name": "Census Tract 205.05; La Paz County; Arizona",
+    "population": 908,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 60.9
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "020602",
+    "name": "Census Tract 206.02; La Paz County; Arizona",
+    "population": 1183,
+    "medianHouseholdIncome": 35107,
+    "medianAge": 43.5
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "940200",
+    "name": "Census Tract 9402; La Paz County; Arizona",
+    "population": 3357,
+    "medianHouseholdIncome": 67566,
+    "medianAge": 38.1
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "940300",
+    "name": "Census Tract 9403; La Paz County; Arizona",
+    "population": 3651,
+    "medianHouseholdIncome": 44844,
+    "medianAge": 36.3
+  },
+  {
+    "state": "04",
+    "county": "012",
+    "tract": "980000",
+    "name": "Census Tract 9800; La Paz County; Arizona",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

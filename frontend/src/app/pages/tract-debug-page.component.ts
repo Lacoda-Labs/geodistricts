@@ -594,6 +594,9 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   isExecuting: boolean = false;
   stepResult: GeoGraphStepResult | null = null;
 
+  // S4 adjacency data for accurate adjacency checking
+  private s4AdjacencyData: Map<string, string[]> | null = null;
+
   states = [
     { code: 'AL', name: 'Alabama', districts: 7 },
     { code: 'AK', name: 'Alaska', districts: 1 },
@@ -793,24 +796,42 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
 
     console.log(`Loading data for state: ${this.selectedState}`);
 
-    this.censusService.getTractDataWithBoundaries(this.selectedState, undefined, false).subscribe({
-      next: (data) => {
-        console.log(`Loaded ${data.boundaries.features.length} tracts for ${this.selectedState}`);
-        this.stateData = data.boundaries;
-        this.sortTracts().then(() => {
-          // Use setTimeout to ensure DOM is ready
-          setTimeout(() => {
-            this.initializeMap();
-          }, 100);
-        });
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading state data:', error);
-        this.errorMessage = `Failed to load data for ${this.selectedState}: ${error.message}`;
-        this.isLoading = false;
-      }
+    // Load both tract data and S4 adjacency data
+    Promise.all([
+      this.censusService.getTractDataWithBoundaries(this.selectedState, undefined, false).toPromise(),
+      this.loadS4AdjacencyData()
+    ]).then(([data, s4Data]) => {
+      console.log(`Loaded ${data!.boundaries.features.length} tracts for ${this.selectedState}`);
+      this.stateData = data!.boundaries;
+      this.s4AdjacencyData = s4Data;
+      console.log(`Loaded S4 adjacency data for ${this.selectedState}: ${s4Data ? s4Data.size : 0} tracts`);
+      
+      this.sortTracts().then(() => {
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+          this.initializeMap();
+        }, 100);
+      });
+      this.isLoading = false;
+    }).catch((error) => {
+      console.error('Error loading state data:', error);
+      this.errorMessage = `Failed to load data for ${this.selectedState}: ${error.message}`;
+      this.isLoading = false;
     });
+  }
+
+  /**
+   * Load S4 adjacency data for the selected state
+   * @returns Promise with S4 adjacency data
+   */
+  private async loadS4AdjacencyData(): Promise<Map<string, string[]> | null> {
+    try {
+      console.log(`📥 Loading S4 adjacency data for ${this.selectedState}...`);
+      return await this.geodistrictAlgorithmService.loadS4AdjacencyData(this.selectedState);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load S4 adjacency data for ${this.selectedState}:`, error);
+      return null;
+    }
   }
 
   async sortTracts() {
@@ -1079,13 +1100,40 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       return this.adjacencyCache.get(cacheKey)!;
     }
     
-    // Calculate adjacency
-    const isAdjacent = this.censusService.areTractsAdjacent(currentTract, otherTract);
+    let isAdjacent = false;
+    
+    // Use S4 adjacency data if available, otherwise fall back to geometric boundary intersection
+    if (this.s4AdjacencyData) {
+      // Convert tract IDs to S4 format (full FIPS code)
+      const currentS4Id = this.convertToS4TractId(currentId);
+      const otherS4Id = this.convertToS4TractId(otherId);
+      
+      // Check if the current tract has the other tract as a neighbor in S4 data
+      const neighbors = this.s4AdjacencyData.get(currentS4Id);
+      isAdjacent = neighbors ? neighbors.includes(otherS4Id) : false;
+      
+      console.log(`🔍 S4 Adjacency Check: ${currentS4Id} -> ${otherS4Id}: ${isAdjacent ? 'YES' : 'NO'}`);
+    } else {
+      // Fallback to geometric boundary intersection
+      console.log(`⚠️ S4 adjacency data not available, using geometric boundary intersection`);
+      isAdjacent = this.censusService.areTractsAdjacent(currentTract, otherTract);
+    }
     
     // Cache the result
     this.adjacencyCache.set(cacheKey, isAdjacent);
     
     return isAdjacent;
+  }
+
+  /**
+   * Convert tract ID from GeoJSON format to S4 format
+   * GeoJSON format: "04013950101" (state + county + tract)
+   * S4 format: "04013950101" (same format, but ensure it's the full FIPS code)
+   */
+  private convertToS4TractId(tractId: string): string {
+    // The tract ID should already be in the correct format (state + county + tract)
+    // But let's ensure it's properly formatted
+    return tractId.padStart(11, '0');
   }
 
   getAdjacentTracts(): GeoJsonFeature[] {

@@ -1,0 +1,164 @@
+[
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "942600",
+    "name": "Census Tract 9426; Apache County; Arizona",
+    "population": 1549,
+    "medianHouseholdIncome": 24313,
+    "medianAge": 35
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "942700",
+    "name": "Census Tract 9427; Apache County; Arizona",
+    "population": 5308,
+    "medianHouseholdIncome": 36297,
+    "medianAge": 34.6
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944000",
+    "name": "Census Tract 9440; Apache County; Arizona",
+    "population": 5814,
+    "medianHouseholdIncome": 45149,
+    "medianAge": 34.5
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944100",
+    "name": "Census Tract 9441; Apache County; Arizona",
+    "population": 6100,
+    "medianHouseholdIncome": 24375,
+    "medianAge": 25.7
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944201",
+    "name": "Census Tract 9442.01; Apache County; Arizona",
+    "population": 4187,
+    "medianHouseholdIncome": 33898,
+    "medianAge": 30.7
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944202",
+    "name": "Census Tract 9442.02; Apache County; Arizona",
+    "population": 3302,
+    "medianHouseholdIncome": 26917,
+    "medianAge": 36.8
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944301",
+    "name": "Census Tract 9443.01; Apache County; Arizona",
+    "population": 2870,
+    "medianHouseholdIncome": 24365,
+    "medianAge": 36.6
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944302",
+    "name": "Census Tract 9443.02; Apache County; Arizona",
+    "population": 2552,
+    "medianHouseholdIncome": 25977,
+    "medianAge": 31.6
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944901",
+    "name": "Census Tract 9449.01; Apache County; Arizona",
+    "population": 3645,
+    "medianHouseholdIncome": 24872,
+    "medianAge": 30.4
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "944902",
+    "name": "Census Tract 9449.02; Apache County; Arizona",
+    "population": 4657,
+    "medianHouseholdIncome": 23925,
+    "medianAge": 35.8
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "945001",
+    "name": "Census Tract 9450.01; Apache County; Arizona",
+    "population": 3419,
+    "medianHouseholdIncome": 39000,
+    "medianAge": 34.8
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "945002",
+    "name": "Census Tract 9450.02; Apache County; Arizona",
+    "population": 3514,
+    "medianHouseholdIncome": 24479,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "945100",
+    "name": "Census Tract 9451; Apache County; Arizona",
+    "population": 2774,
+    "medianHouseholdIncome": 31000,
+    "medianAge": 30.1
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "970201",
+    "name": "Census Tract 9702.01; Apache County; Arizona",
+    "population": 2361,
+    "medianHouseholdIncome": 59063,
+    "medianAge": 46.1
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "970202",
+    "name": "Census Tract 9702.02; Apache County; Arizona",
+    "population": 1505,
+    "medianHouseholdIncome": 29344,
+    "medianAge": 62.1
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "970300",
+    "name": "Census Tract 9703; Apache County; Arizona",
+    "population": 3326,
+    "medianHouseholdIncome": 57824,
+    "medianAge": 33.8
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "970501",
+    "name": "Census Tract 9705.01; Apache County; Arizona",
+    "population": 4475,
+    "medianHouseholdIncome": 67896,
+    "medianAge": 40.2
+  },
+  {
+    "state": "04",
+    "county": "001",
+    "tract": "970502",
+    "name": "Census Tract 9705.02; Apache County; Arizona",
+    "population": 4696,
+    "medianHouseholdIncome": 68909,
+    "medianAge": 47.8
+  }
+]

@@ -1,0 +1,344 @@
+[
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Cochise County; Arizona",
+    "population": 1241,
+    "medianHouseholdIncome": 44427,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Cochise County; Arizona",
+    "population": 651,
+    "medianHouseholdIncome": 31536,
+    "medianAge": 58
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Cochise County; Arizona",
+    "population": 3524,
+    "medianHouseholdIncome": 70063,
+    "medianAge": 38.3
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Cochise County; Arizona",
+    "population": 3393,
+    "medianHouseholdIncome": 37200,
+    "medianAge": 31.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000203",
+    "name": "Census Tract 2.03; Cochise County; Arizona",
+    "population": 2683,
+    "medianHouseholdIncome": 54575,
+    "medianAge": 57.3
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Cochise County; Arizona",
+    "population": 4126,
+    "medianHouseholdIncome": 42150,
+    "medianAge": 50.4
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000303",
+    "name": "Census Tract 3.03; Cochise County; Arizona",
+    "population": 3219,
+    "medianHouseholdIncome": 50583,
+    "medianAge": 58.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000304",
+    "name": "Census Tract 3.04; Cochise County; Arizona",
+    "population": 2258,
+    "medianHouseholdIncome": 63074,
+    "medianAge": 43.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000305",
+    "name": "Census Tract 3.05; Cochise County; Arizona",
+    "population": 2304,
+    "medianHouseholdIncome": 64917,
+    "medianAge": 53.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000400",
+    "name": "Census Tract 4; Cochise County; Arizona",
+    "population": 1888,
+    "medianHouseholdIncome": 54083,
+    "medianAge": 60.7
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Cochise County; Arizona",
+    "population": 1729,
+    "medianHouseholdIncome": 43664,
+    "medianAge": 50
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Cochise County; Arizona",
+    "population": 866,
+    "medianHouseholdIncome": 45625,
+    "medianAge": 61.3
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000503",
+    "name": "Census Tract 5.03; Cochise County; Arizona",
+    "population": 3136,
+    "medianHouseholdIncome": 61250,
+    "medianAge": 37
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000600",
+    "name": "Census Tract 6; Cochise County; Arizona",
+    "population": 2942,
+    "medianHouseholdIncome": 40927,
+    "medianAge": 37
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000700",
+    "name": "Census Tract 7; Cochise County; Arizona",
+    "population": 4841,
+    "medianHouseholdIncome": 47778,
+    "medianAge": 29.4
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000800",
+    "name": "Census Tract 8; Cochise County; Arizona",
+    "population": 4742,
+    "medianHouseholdIncome": 43370,
+    "medianAge": 33.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Cochise County; Arizona",
+    "population": 2552,
+    "medianHouseholdIncome": 37202,
+    "medianAge": 33.1
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Cochise County; Arizona",
+    "population": 2503,
+    "medianHouseholdIncome": 33778,
+    "medianAge": 30.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001000",
+    "name": "Census Tract 10; Cochise County; Arizona",
+    "population": 1781,
+    "medianHouseholdIncome": 58919,
+    "medianAge": 61.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001100",
+    "name": "Census Tract 11; Cochise County; Arizona",
+    "population": 3109,
+    "medianHouseholdIncome": 34591,
+    "medianAge": 51.4
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001200",
+    "name": "Census Tract 12; Cochise County; Arizona",
+    "population": 3102,
+    "medianHouseholdIncome": 38224,
+    "medianAge": 52.2
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Cochise County; Arizona",
+    "population": 2204,
+    "medianHouseholdIncome": 53125,
+    "medianAge": 39.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Cochise County; Arizona",
+    "population": 2672,
+    "medianHouseholdIncome": 44035,
+    "medianAge": 47.5
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001401",
+    "name": "Census Tract 14.01; Cochise County; Arizona",
+    "population": 3434,
+    "medianHouseholdIncome": 65625,
+    "medianAge": 22
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001402",
+    "name": "Census Tract 14.02; Cochise County; Arizona",
+    "population": 1350,
+    "medianHouseholdIncome": 96857,
+    "medianAge": 27.9
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001501",
+    "name": "Census Tract 15.01; Cochise County; Arizona",
+    "population": 4080,
+    "medianHouseholdIncome": 34906,
+    "medianAge": 34.7
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001502",
+    "name": "Census Tract 15.02; Cochise County; Arizona",
+    "population": 3737,
+    "medianHouseholdIncome": 43633,
+    "medianAge": 41.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001601",
+    "name": "Census Tract 16.01; Cochise County; Arizona",
+    "population": 4973,
+    "medianHouseholdIncome": 69056,
+    "medianAge": 38.3
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001602",
+    "name": "Census Tract 16.02; Cochise County; Arizona",
+    "population": 3490,
+    "medianHouseholdIncome": 46543,
+    "medianAge": 34.9
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001701",
+    "name": "Census Tract 17.01; Cochise County; Arizona",
+    "population": 4467,
+    "medianHouseholdIncome": 73495,
+    "medianAge": 34.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001702",
+    "name": "Census Tract 17.02; Cochise County; Arizona",
+    "population": 3300,
+    "medianHouseholdIncome": 53472,
+    "medianAge": 45.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001703",
+    "name": "Census Tract 17.03; Cochise County; Arizona",
+    "population": 4935,
+    "medianHouseholdIncome": 80048,
+    "medianAge": 39.3
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001801",
+    "name": "Census Tract 18.01; Cochise County; Arizona",
+    "population": 4785,
+    "medianHouseholdIncome": 87386,
+    "medianAge": 61.4
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001802",
+    "name": "Census Tract 18.02; Cochise County; Arizona",
+    "population": 3712,
+    "medianHouseholdIncome": 85844,
+    "medianAge": 47.7
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "001900",
+    "name": "Census Tract 19; Cochise County; Arizona",
+    "population": 7136,
+    "medianHouseholdIncome": 110372,
+    "medianAge": 45.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "002001",
+    "name": "Census Tract 20.01; Cochise County; Arizona",
+    "population": 5567,
+    "medianHouseholdIncome": 60991,
+    "medianAge": 37.8
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "002002",
+    "name": "Census Tract 20.02; Cochise County; Arizona",
+    "population": 4153,
+    "medianHouseholdIncome": 56579,
+    "medianAge": 55.6
+  },
+  {
+    "state": "04",
+    "county": "003",
+    "tract": "002100",
+    "name": "Census Tract 21; Cochise County; Arizona",
+    "population": 4919,
+    "medianHouseholdIncome": 86583,
+    "medianAge": 52.2
+  }
+]

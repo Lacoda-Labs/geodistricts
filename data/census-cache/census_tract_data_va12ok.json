@@ -1,0 +1,2198 @@
+[
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010101",
+    "name": "Census Tract 101.01; San Francisco County; California",
+    "population": 2121,
+    "medianHouseholdIncome": 83816,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010102",
+    "name": "Census Tract 101.02; San Francisco County; California",
+    "population": 1908,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010201",
+    "name": "Census Tract 102.01; San Francisco County; California",
+    "population": 2473,
+    "medianHouseholdIncome": 147427,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010202",
+    "name": "Census Tract 102.02; San Francisco County; California",
+    "population": 1859,
+    "medianHouseholdIncome": 208750,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010300",
+    "name": "Census Tract 103; San Francisco County; California",
+    "population": 3925,
+    "medianHouseholdIncome": 149766,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010401",
+    "name": "Census Tract 104.01; San Francisco County; California",
+    "population": 2437,
+    "medianHouseholdIncome": 173750,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010402",
+    "name": "Census Tract 104.02; San Francisco County; California",
+    "population": 2077,
+    "medianHouseholdIncome": 202050,
+    "medianAge": 46.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010500",
+    "name": "Census Tract 105; San Francisco County; California",
+    "population": 3108,
+    "medianHouseholdIncome": 187763,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010600",
+    "name": "Census Tract 106; San Francisco County; California",
+    "population": 3197,
+    "medianHouseholdIncome": 58060,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010701",
+    "name": "Census Tract 107.01; San Francisco County; California",
+    "population": 3424,
+    "medianHouseholdIncome": 24085,
+    "medianAge": 61.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010702",
+    "name": "Census Tract 107.02; San Francisco County; California",
+    "population": 1458,
+    "medianHouseholdIncome": 77524,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010800",
+    "name": "Census Tract 108; San Francisco County; California",
+    "population": 4613,
+    "medianHouseholdIncome": 145402,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010901",
+    "name": "Census Tract 109.01; San Francisco County; California",
+    "population": 2007,
+    "medianHouseholdIncome": 183194,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "010902",
+    "name": "Census Tract 109.02; San Francisco County; California",
+    "population": 2502,
+    "medianHouseholdIncome": 137141,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011001",
+    "name": "Census Tract 110.01; San Francisco County; California",
+    "population": 2618,
+    "medianHouseholdIncome": 114137,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011002",
+    "name": "Census Tract 110.02; San Francisco County; California",
+    "population": 1907,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011101",
+    "name": "Census Tract 111.01; San Francisco County; California",
+    "population": 2502,
+    "medianHouseholdIncome": 116897,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011102",
+    "name": "Census Tract 111.02; San Francisco County; California",
+    "population": 2218,
+    "medianHouseholdIncome": 92000,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011200",
+    "name": "Census Tract 112; San Francisco County; California",
+    "population": 2865,
+    "medianHouseholdIncome": 158750,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011300",
+    "name": "Census Tract 113; San Francisco County; California",
+    "population": 2862,
+    "medianHouseholdIncome": 31801,
+    "medianAge": 48.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011700",
+    "name": "Census Tract 117; San Francisco County; California",
+    "population": 2056,
+    "medianHouseholdIncome": 93500,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011800",
+    "name": "Census Tract 118; San Francisco County; California",
+    "population": 1695,
+    "medianHouseholdIncome": 41471,
+    "medianAge": 48.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011901",
+    "name": "Census Tract 119.01; San Francisco County; California",
+    "population": 2387,
+    "medianHouseholdIncome": 119464,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "011902",
+    "name": "Census Tract 119.02; San Francisco County; California",
+    "population": 2650,
+    "medianHouseholdIncome": 81995,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012001",
+    "name": "Census Tract 120.01; San Francisco County; California",
+    "population": 1912,
+    "medianHouseholdIncome": 87796,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012002",
+    "name": "Census Tract 120.02; San Francisco County; California",
+    "population": 2102,
+    "medianHouseholdIncome": 53125,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012100",
+    "name": "Census Tract 121; San Francisco County; California",
+    "population": 3513,
+    "medianHouseholdIncome": 83906,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012202",
+    "name": "Census Tract 122.02; San Francisco County; California",
+    "population": 2978,
+    "medianHouseholdIncome": 50583,
+    "medianAge": 48
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012203",
+    "name": "Census Tract 122.03; San Francisco County; California",
+    "population": 1763,
+    "medianHouseholdIncome": 33750,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012204",
+    "name": "Census Tract 122.04; San Francisco County; California",
+    "population": 2720,
+    "medianHouseholdIncome": 62704,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012301",
+    "name": "Census Tract 123.01; San Francisco County; California",
+    "population": 1901,
+    "medianHouseholdIncome": 25625,
+    "medianAge": 48.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012302",
+    "name": "Census Tract 123.02; San Francisco County; California",
+    "population": 2614,
+    "medianHouseholdIncome": 43879,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012403",
+    "name": "Census Tract 124.03; San Francisco County; California",
+    "population": 2431,
+    "medianHouseholdIncome": 34732,
+    "medianAge": 46
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012404",
+    "name": "Census Tract 124.04; San Francisco County; California",
+    "population": 2586,
+    "medianHouseholdIncome": 27852,
+    "medianAge": 50.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012405",
+    "name": "Census Tract 124.05; San Francisco County; California",
+    "population": 3921,
+    "medianHouseholdIncome": 102358,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012406",
+    "name": "Census Tract 124.06; San Francisco County; California",
+    "population": 1533,
+    "medianHouseholdIncome": 32589,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012502",
+    "name": "Census Tract 125.02; San Francisco County; California",
+    "population": 4629,
+    "medianHouseholdIncome": 21653,
+    "medianAge": 46.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012503",
+    "name": "Census Tract 125.03; San Francisco County; California",
+    "population": 4368,
+    "medianHouseholdIncome": 39133,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012504",
+    "name": "Census Tract 125.04; San Francisco County; California",
+    "population": 612,
+    "medianHouseholdIncome": 25667,
+    "medianAge": 61.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012601",
+    "name": "Census Tract 126.01; San Francisco County; California",
+    "population": 2164,
+    "medianHouseholdIncome": 180123,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012602",
+    "name": "Census Tract 126.02; San Francisco County; California",
+    "population": 2768,
+    "medianHouseholdIncome": 189500,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012700",
+    "name": "Census Tract 127; San Francisco County; California",
+    "population": 4021,
+    "medianHouseholdIncome": 236158,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012801",
+    "name": "Census Tract 128.01; San Francisco County; California",
+    "population": 2591,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012802",
+    "name": "Census Tract 128.02; San Francisco County; California",
+    "population": 2027,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012901",
+    "name": "Census Tract 129.01; San Francisco County; California",
+    "population": 2816,
+    "medianHouseholdIncome": 220096,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "012902",
+    "name": "Census Tract 129.02; San Francisco County; California",
+    "population": 3322,
+    "medianHouseholdIncome": 205463,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013001",
+    "name": "Census Tract 130.01; San Francisco County; California",
+    "population": 1592,
+    "medianHouseholdIncome": 191541,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013002",
+    "name": "Census Tract 130.02; San Francisco County; California",
+    "population": 2609,
+    "medianHouseholdIncome": 210637,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013101",
+    "name": "Census Tract 131.01; San Francisco County; California",
+    "population": 4269,
+    "medianHouseholdIncome": 219107,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013102",
+    "name": "Census Tract 131.02; San Francisco County; California",
+    "population": 2731,
+    "medianHouseholdIncome": 242969,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013200",
+    "name": "Census Tract 132; San Francisco County; California",
+    "population": 3931,
+    "medianHouseholdIncome": 201464,
+    "medianAge": 51.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013300",
+    "name": "Census Tract 133; San Francisco County; California",
+    "population": 4284,
+    "medianHouseholdIncome": 173851,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013401",
+    "name": "Census Tract 134.01; San Francisco County; California",
+    "population": 1370,
+    "medianHouseholdIncome": 197581,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013402",
+    "name": "Census Tract 134.02; San Francisco County; California",
+    "population": 2107,
+    "medianHouseholdIncome": 213607,
+    "medianAge": 45.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "013500",
+    "name": "Census Tract 135; San Francisco County; California",
+    "population": 2471,
+    "medianHouseholdIncome": 175118,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015100",
+    "name": "Census Tract 151; San Francisco County; California",
+    "population": 2799,
+    "medianHouseholdIncome": 170583,
+    "medianAge": 42.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015201",
+    "name": "Census Tract 152.01; San Francisco County; California",
+    "population": 1612,
+    "medianHouseholdIncome": 92254,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015202",
+    "name": "Census Tract 152.02; San Francisco County; California",
+    "population": 2212,
+    "medianHouseholdIncome": 146250,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015300",
+    "name": "Census Tract 153; San Francisco County; California",
+    "population": 2293,
+    "medianHouseholdIncome": 176090,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015401",
+    "name": "Census Tract 154.01; San Francisco County; California",
+    "population": 3338,
+    "medianHouseholdIncome": 133925,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015402",
+    "name": "Census Tract 154.02; San Francisco County; California",
+    "population": 2848,
+    "medianHouseholdIncome": 231313,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015500",
+    "name": "Census Tract 155; San Francisco County; California",
+    "population": 3708,
+    "medianHouseholdIncome": 92829,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015600",
+    "name": "Census Tract 156; San Francisco County; California",
+    "population": 2988,
+    "medianHouseholdIncome": 99028,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015701",
+    "name": "Census Tract 157.01; San Francisco County; California",
+    "population": 4926,
+    "medianHouseholdIncome": 148542,
+    "medianAge": 24.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015702",
+    "name": "Census Tract 157.02; San Francisco County; California",
+    "population": 3273,
+    "medianHouseholdIncome": 209803,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015801",
+    "name": "Census Tract 158.01; San Francisco County; California",
+    "population": 3394,
+    "medianHouseholdIncome": 121058,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015802",
+    "name": "Census Tract 158.02; San Francisco County; California",
+    "population": 3340,
+    "medianHouseholdIncome": 158523,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "015900",
+    "name": "Census Tract 159; San Francisco County; California",
+    "population": 5245,
+    "medianHouseholdIncome": 114323,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016000",
+    "name": "Census Tract 160; San Francisco County; California",
+    "population": 2460,
+    "medianHouseholdIncome": 135246,
+    "medianAge": 48.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016101",
+    "name": "Census Tract 161.01; San Francisco County; California",
+    "population": 2355,
+    "medianHouseholdIncome": 28522,
+    "medianAge": 58.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016102",
+    "name": "Census Tract 161.02; San Francisco County; California",
+    "population": 2618,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016200",
+    "name": "Census Tract 162; San Francisco County; California",
+    "population": 3230,
+    "medianHouseholdIncome": 181425,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016300",
+    "name": "Census Tract 163; San Francisco County; California",
+    "population": 3942,
+    "medianHouseholdIncome": 129962,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016400",
+    "name": "Census Tract 164; San Francisco County; California",
+    "population": 4162,
+    "medianHouseholdIncome": 212667,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016500",
+    "name": "Census Tract 165; San Francisco County; California",
+    "population": 5317,
+    "medianHouseholdIncome": 177159,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016601",
+    "name": "Census Tract 166.01; San Francisco County; California",
+    "population": 3202,
+    "medianHouseholdIncome": 158854,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016602",
+    "name": "Census Tract 166.02; San Francisco County; California",
+    "population": 2098,
+    "medianHouseholdIncome": 207640,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016700",
+    "name": "Census Tract 167; San Francisco County; California",
+    "population": 5277,
+    "medianHouseholdIncome": 232895,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016801",
+    "name": "Census Tract 168.01; San Francisco County; California",
+    "population": 3898,
+    "medianHouseholdIncome": 182344,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016802",
+    "name": "Census Tract 168.02; San Francisco County; California",
+    "population": 3807,
+    "medianHouseholdIncome": 141518,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "016900",
+    "name": "Census Tract 169; San Francisco County; California",
+    "population": 3061,
+    "medianHouseholdIncome": 150139,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017000",
+    "name": "Census Tract 170; San Francisco County; California",
+    "population": 4262,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017101",
+    "name": "Census Tract 171.01; San Francisco County; California",
+    "population": 4250,
+    "medianHouseholdIncome": 199676,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017102",
+    "name": "Census Tract 171.02; San Francisco County; California",
+    "population": 3646,
+    "medianHouseholdIncome": 171205,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017602",
+    "name": "Census Tract 176.02; San Francisco County; California",
+    "population": 3199,
+    "medianHouseholdIncome": 69671,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017603",
+    "name": "Census Tract 176.03; San Francisco County; California",
+    "population": 4815,
+    "medianHouseholdIncome": 90590,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017604",
+    "name": "Census Tract 176.04; San Francisco County; California",
+    "population": 3146,
+    "medianHouseholdIncome": 100036,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017700",
+    "name": "Census Tract 177; San Francisco County; California",
+    "population": 2080,
+    "medianHouseholdIncome": 156806,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017801",
+    "name": "Census Tract 178.01; San Francisco County; California",
+    "population": 3582,
+    "medianHouseholdIncome": 25625,
+    "medianAge": 68.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017803",
+    "name": "Census Tract 178.03; San Francisco County; California",
+    "population": 2523,
+    "medianHouseholdIncome": 87132,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017804",
+    "name": "Census Tract 178.04; San Francisco County; California",
+    "population": 3482,
+    "medianHouseholdIncome": 124674,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "017903",
+    "name": "Census Tract 179.03; San Francisco County; California",
+    "population": 3136,
+    "medianHouseholdIncome": 96000,
+    "medianAge": 27.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "018000",
+    "name": "Census Tract 180; San Francisco County; California",
+    "population": 3774,
+    "medianHouseholdIncome": 183507,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020101",
+    "name": "Census Tract 201.01; San Francisco County; California",
+    "population": 3924,
+    "medianHouseholdIncome": 135223,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020102",
+    "name": "Census Tract 201.02; San Francisco County; California",
+    "population": 3310,
+    "medianHouseholdIncome": 116076,
+    "medianAge": 47.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020201",
+    "name": "Census Tract 202.01; San Francisco County; California",
+    "population": 1920,
+    "medianHouseholdIncome": 116103,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020202",
+    "name": "Census Tract 202.02; San Francisco County; California",
+    "population": 4113,
+    "medianHouseholdIncome": 164327,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020300",
+    "name": "Census Tract 203; San Francisco County; California",
+    "population": 3474,
+    "medianHouseholdIncome": 172151,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020401",
+    "name": "Census Tract 204.01; San Francisco County; California",
+    "population": 3248,
+    "medianHouseholdIncome": 157237,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020402",
+    "name": "Census Tract 204.02; San Francisco County; California",
+    "population": 4169,
+    "medianHouseholdIncome": 152138,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020500",
+    "name": "Census Tract 205; San Francisco County; California",
+    "population": 2970,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020601",
+    "name": "Census Tract 206.01; San Francisco County; California",
+    "population": 3044,
+    "medianHouseholdIncome": 149781,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020602",
+    "name": "Census Tract 206.02; San Francisco County; California",
+    "population": 2564,
+    "medianHouseholdIncome": 196417,
+    "medianAge": 54.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020701",
+    "name": "Census Tract 207.01; San Francisco County; California",
+    "population": 3139,
+    "medianHouseholdIncome": 246500,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020702",
+    "name": "Census Tract 207.02; San Francisco County; California",
+    "population": 2248,
+    "medianHouseholdIncome": 144048,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020801",
+    "name": "Census Tract 208.01; San Francisco County; California",
+    "population": 3743,
+    "medianHouseholdIncome": 101696,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020802",
+    "name": "Census Tract 208.02; San Francisco County; California",
+    "population": 2523,
+    "medianHouseholdIncome": 119030,
+    "medianAge": 44.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "020900",
+    "name": "Census Tract 209; San Francisco County; California",
+    "population": 4098,
+    "medianHouseholdIncome": 117813,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021000",
+    "name": "Census Tract 210; San Francisco County; California",
+    "population": 3820,
+    "medianHouseholdIncome": 151118,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021100",
+    "name": "Census Tract 211; San Francisco County; California",
+    "population": 3959,
+    "medianHouseholdIncome": 228125,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021200",
+    "name": "Census Tract 212; San Francisco County; California",
+    "population": 2984,
+    "medianHouseholdIncome": 191156,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021300",
+    "name": "Census Tract 213; San Francisco County; California",
+    "population": 2663,
+    "medianHouseholdIncome": 183417,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021400",
+    "name": "Census Tract 214; San Francisco County; California",
+    "population": 3500,
+    "medianHouseholdIncome": 217353,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021500",
+    "name": "Census Tract 215; San Francisco County; California",
+    "population": 5559,
+    "medianHouseholdIncome": 200938,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021600",
+    "name": "Census Tract 216; San Francisco County; California",
+    "population": 4414,
+    "medianHouseholdIncome": 218988,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021700",
+    "name": "Census Tract 217; San Francisco County; California",
+    "population": 4602,
+    "medianHouseholdIncome": 141250,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "021800",
+    "name": "Census Tract 218; San Francisco County; California",
+    "population": 4121,
+    "medianHouseholdIncome": 232500,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022600",
+    "name": "Census Tract 226; San Francisco County; California",
+    "population": 3849,
+    "medianHouseholdIncome": 239625,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022702",
+    "name": "Census Tract 227.02; San Francisco County; California",
+    "population": 2152,
+    "medianHouseholdIncome": 240922,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022704",
+    "name": "Census Tract 227.04; San Francisco County; California",
+    "population": 3716,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022801",
+    "name": "Census Tract 228.01; San Francisco County; California",
+    "population": 4950,
+    "medianHouseholdIncome": 164539,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022802",
+    "name": "Census Tract 228.02; San Francisco County; California",
+    "population": 2369,
+    "medianHouseholdIncome": 131042,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022803",
+    "name": "Census Tract 228.03; San Francisco County; California",
+    "population": 4430,
+    "medianHouseholdIncome": 153750,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022901",
+    "name": "Census Tract 229.01; San Francisco County; California",
+    "population": 4386,
+    "medianHouseholdIncome": 96964,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022902",
+    "name": "Census Tract 229.02; San Francisco County; California",
+    "population": 2096,
+    "medianHouseholdIncome": 190875,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "022903",
+    "name": "Census Tract 229.03; San Francisco County; California",
+    "population": 2850,
+    "medianHouseholdIncome": 209659,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023001",
+    "name": "Census Tract 230.01; San Francisco County; California",
+    "population": 5719,
+    "medianHouseholdIncome": 95052,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023003",
+    "name": "Census Tract 230.03; San Francisco County; California",
+    "population": 4157,
+    "medianHouseholdIncome": 103472,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023102",
+    "name": "Census Tract 231.02; San Francisco County; California",
+    "population": 3569,
+    "medianHouseholdIncome": 46786,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023103",
+    "name": "Census Tract 231.03; San Francisco County; California",
+    "population": 4456,
+    "medianHouseholdIncome": 29799,
+    "medianAge": 26.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023200",
+    "name": "Census Tract 232; San Francisco County; California",
+    "population": 4222,
+    "medianHouseholdIncome": 122803,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023300",
+    "name": "Census Tract 233; San Francisco County; California",
+    "population": 3950,
+    "medianHouseholdIncome": 74844,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "023400",
+    "name": "Census Tract 234; San Francisco County; California",
+    "population": 4039,
+    "medianHouseholdIncome": 78664,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025100",
+    "name": "Census Tract 251; San Francisco County; California",
+    "population": 3408,
+    "medianHouseholdIncome": 131801,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025200",
+    "name": "Census Tract 252; San Francisco County; California",
+    "population": 5457,
+    "medianHouseholdIncome": 147868,
+    "medianAge": 46.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025300",
+    "name": "Census Tract 253; San Francisco County; California",
+    "population": 4545,
+    "medianHouseholdIncome": 168720,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025401",
+    "name": "Census Tract 254.01; San Francisco County; California",
+    "population": 3819,
+    "medianHouseholdIncome": 165278,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025402",
+    "name": "Census Tract 254.02; San Francisco County; California",
+    "population": 3294,
+    "medianHouseholdIncome": 166094,
+    "medianAge": 46.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025403",
+    "name": "Census Tract 254.03; San Francisco County; California",
+    "population": 4244,
+    "medianHouseholdIncome": 166935,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025501",
+    "name": "Census Tract 255.01; San Francisco County; California",
+    "population": 4397,
+    "medianHouseholdIncome": 150438,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025502",
+    "name": "Census Tract 255.02; San Francisco County; California",
+    "population": 3846,
+    "medianHouseholdIncome": 161400,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025600",
+    "name": "Census Tract 256; San Francisco County; California",
+    "population": 5027,
+    "medianHouseholdIncome": 115739,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025701",
+    "name": "Census Tract 257.01; San Francisco County; California",
+    "population": 5331,
+    "medianHouseholdIncome": 118443,
+    "medianAge": 44
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025702",
+    "name": "Census Tract 257.02; San Francisco County; California",
+    "population": 4153,
+    "medianHouseholdIncome": 91513,
+    "medianAge": 51.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025800",
+    "name": "Census Tract 258; San Francisco County; California",
+    "population": 2129,
+    "medianHouseholdIncome": 87614,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "025900",
+    "name": "Census Tract 259; San Francisco County; California",
+    "population": 4128,
+    "medianHouseholdIncome": 147944,
+    "medianAge": 45.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026001",
+    "name": "Census Tract 260.01; San Francisco County; California",
+    "population": 6416,
+    "medianHouseholdIncome": 114563,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026002",
+    "name": "Census Tract 260.02; San Francisco County; California",
+    "population": 3683,
+    "medianHouseholdIncome": 136324,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026003",
+    "name": "Census Tract 260.03; San Francisco County; California",
+    "population": 4920,
+    "medianHouseholdIncome": 98177,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026004",
+    "name": "Census Tract 260.04; San Francisco County; California",
+    "population": 3839,
+    "medianHouseholdIncome": 111089,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026100",
+    "name": "Census Tract 261; San Francisco County; California",
+    "population": 6879,
+    "medianHouseholdIncome": 116444,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026201",
+    "name": "Census Tract 262.01; San Francisco County; California",
+    "population": 3651,
+    "medianHouseholdIncome": 124250,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026202",
+    "name": "Census Tract 262.02; San Francisco County; California",
+    "population": 3863,
+    "medianHouseholdIncome": 138545,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026301",
+    "name": "Census Tract 263.01; San Francisco County; California",
+    "population": 5345,
+    "medianHouseholdIncome": 95458,
+    "medianAge": 50.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026302",
+    "name": "Census Tract 263.02; San Francisco County; California",
+    "population": 5004,
+    "medianHouseholdIncome": 93370,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026303",
+    "name": "Census Tract 263.03; San Francisco County; California",
+    "population": 4612,
+    "medianHouseholdIncome": 110074,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026401",
+    "name": "Census Tract 264.01; San Francisco County; California",
+    "population": 3842,
+    "medianHouseholdIncome": 94093,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026402",
+    "name": "Census Tract 264.02; San Francisco County; California",
+    "population": 4755,
+    "medianHouseholdIncome": 118182,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026403",
+    "name": "Census Tract 264.03; San Francisco County; California",
+    "population": 3581,
+    "medianHouseholdIncome": 92788,
+    "medianAge": 54.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "026404",
+    "name": "Census Tract 264.04; San Francisco County; California",
+    "population": 2507,
+    "medianHouseholdIncome": 91463,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030101",
+    "name": "Census Tract 301.01; San Francisco County; California",
+    "population": 4792,
+    "medianHouseholdIncome": 144753,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030102",
+    "name": "Census Tract 301.02; San Francisco County; California",
+    "population": 4726,
+    "medianHouseholdIncome": 209167,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030201",
+    "name": "Census Tract 302.01; San Francisco County; California",
+    "population": 4131,
+    "medianHouseholdIncome": 127009,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030202",
+    "name": "Census Tract 302.02; San Francisco County; California",
+    "population": 4209,
+    "medianHouseholdIncome": 153412,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030301",
+    "name": "Census Tract 303.01; San Francisco County; California",
+    "population": 6129,
+    "medianHouseholdIncome": 179107,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030302",
+    "name": "Census Tract 303.02; San Francisco County; California",
+    "population": 3742,
+    "medianHouseholdIncome": 194625,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030400",
+    "name": "Census Tract 304; San Francisco County; California",
+    "population": 5262,
+    "medianHouseholdIncome": 137418,
+    "medianAge": 55.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030500",
+    "name": "Census Tract 305; San Francisco County; California",
+    "population": 3787,
+    "medianHouseholdIncome": 174797,
+    "medianAge": 52.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030600",
+    "name": "Census Tract 306; San Francisco County; California",
+    "population": 2348,
+    "medianHouseholdIncome": 229297,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030700",
+    "name": "Census Tract 307; San Francisco County; California",
+    "population": 6910,
+    "medianHouseholdIncome": 183388,
+    "medianAge": 46.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030800",
+    "name": "Census Tract 308; San Francisco County; California",
+    "population": 5907,
+    "medianHouseholdIncome": 208750,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "030900",
+    "name": "Census Tract 309; San Francisco County; California",
+    "population": 6627,
+    "medianHouseholdIncome": 178516,
+    "medianAge": 47.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031000",
+    "name": "Census Tract 310; San Francisco County; California",
+    "population": 4140,
+    "medianHouseholdIncome": 190000,
+    "medianAge": 46.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031100",
+    "name": "Census Tract 311; San Francisco County; California",
+    "population": 6286,
+    "medianHouseholdIncome": 188591,
+    "medianAge": 44.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031201",
+    "name": "Census Tract 312.01; San Francisco County; California",
+    "population": 6341,
+    "medianHouseholdIncome": 101800,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031202",
+    "name": "Census Tract 312.02; San Francisco County; California",
+    "population": 2804,
+    "medianHouseholdIncome": 120667,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031301",
+    "name": "Census Tract 313.01; San Francisco County; California",
+    "population": 3868,
+    "medianHouseholdIncome": 128571,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031302",
+    "name": "Census Tract 313.02; San Francisco County; California",
+    "population": 4536,
+    "medianHouseholdIncome": 117014,
+    "medianAge": 45.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031401",
+    "name": "Census Tract 314.01; San Francisco County; California",
+    "population": 2533,
+    "medianHouseholdIncome": 97143,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "031402",
+    "name": "Census Tract 314.02; San Francisco County; California",
+    "population": 4545,
+    "medianHouseholdIncome": 139643,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032601",
+    "name": "Census Tract 326.01; San Francisco County; California",
+    "population": 4915,
+    "medianHouseholdIncome": 145903,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032602",
+    "name": "Census Tract 326.02; San Francisco County; California",
+    "population": 4344,
+    "medianHouseholdIncome": 154609,
+    "medianAge": 42.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032700",
+    "name": "Census Tract 327; San Francisco County; California",
+    "population": 6721,
+    "medianHouseholdIncome": 145147,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032801",
+    "name": "Census Tract 328.01; San Francisco County; California",
+    "population": 3831,
+    "medianHouseholdIncome": 136250,
+    "medianAge": 50.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032802",
+    "name": "Census Tract 328.02; San Francisco County; California",
+    "population": 4454,
+    "medianHouseholdIncome": 110926,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032901",
+    "name": "Census Tract 329.01; San Francisco County; California",
+    "population": 5064,
+    "medianHouseholdIncome": 154291,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "032902",
+    "name": "Census Tract 329.02; San Francisco County; California",
+    "population": 3907,
+    "medianHouseholdIncome": 107582,
+    "medianAge": 53.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033001",
+    "name": "Census Tract 330.01; San Francisco County; California",
+    "population": 4075,
+    "medianHouseholdIncome": 148239,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033002",
+    "name": "Census Tract 330.02; San Francisco County; California",
+    "population": 4288,
+    "medianHouseholdIncome": 173281,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033100",
+    "name": "Census Tract 331; San Francisco County; California",
+    "population": 3980,
+    "medianHouseholdIncome": 165592,
+    "medianAge": 46.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033201",
+    "name": "Census Tract 332.01; San Francisco County; California",
+    "population": 3730,
+    "medianHouseholdIncome": 53906,
+    "medianAge": 19.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033203",
+    "name": "Census Tract 332.03; San Francisco County; California",
+    "population": 3313,
+    "medianHouseholdIncome": 62813,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "033204",
+    "name": "Census Tract 332.04; San Francisco County; California",
+    "population": 3620,
+    "medianHouseholdIncome": 69769,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035101",
+    "name": "Census Tract 351.01; San Francisco County; California",
+    "population": 4018,
+    "medianHouseholdIncome": 98580,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035102",
+    "name": "Census Tract 351.02; San Francisco County; California",
+    "population": 4458,
+    "medianHouseholdIncome": 162721,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035201",
+    "name": "Census Tract 352.01; San Francisco County; California",
+    "population": 5305,
+    "medianHouseholdIncome": 132277,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035202",
+    "name": "Census Tract 352.02; San Francisco County; California",
+    "population": 4878,
+    "medianHouseholdIncome": 100701,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035300",
+    "name": "Census Tract 353; San Francisco County; California",
+    "population": 7157,
+    "medianHouseholdIncome": 146620,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "035400",
+    "name": "Census Tract 354; San Francisco County; California",
+    "population": 7431,
+    "medianHouseholdIncome": 139477,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "040100",
+    "name": "Census Tract 401; San Francisco County; California",
+    "population": 4228,
+    "medianHouseholdIncome": 136429,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "040200",
+    "name": "Census Tract 402; San Francisco County; California",
+    "population": 5464,
+    "medianHouseholdIncome": 184617,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "042601",
+    "name": "Census Tract 426.01; San Francisco County; California",
+    "population": 4126,
+    "medianHouseholdIncome": 124324,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "042602",
+    "name": "Census Tract 426.02; San Francisco County; California",
+    "population": 2842,
+    "medianHouseholdIncome": 155750,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "042700",
+    "name": "Census Tract 427; San Francisco County; California",
+    "population": 5229,
+    "medianHouseholdIncome": 104414,
+    "medianAge": 47
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "042800",
+    "name": "Census Tract 428; San Francisco County; California",
+    "population": 2348,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 47.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "045100",
+    "name": "Census Tract 451; San Francisco County; California",
+    "population": 4838,
+    "medianHouseholdIncome": 190389,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "045201",
+    "name": "Census Tract 452.01; San Francisco County; California",
+    "population": 3104,
+    "medianHouseholdIncome": 139659,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "045202",
+    "name": "Census Tract 452.02; San Francisco County; California",
+    "population": 3358,
+    "medianHouseholdIncome": 154375,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047600",
+    "name": "Census Tract 476; San Francisco County; California",
+    "population": 5121,
+    "medianHouseholdIncome": 169563,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047701",
+    "name": "Census Tract 477.01; San Francisco County; California",
+    "population": 4848,
+    "medianHouseholdIncome": 125658,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047702",
+    "name": "Census Tract 477.02; San Francisco County; California",
+    "population": 3654,
+    "medianHouseholdIncome": 114892,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047801",
+    "name": "Census Tract 478.01; San Francisco County; California",
+    "population": 4613,
+    "medianHouseholdIncome": 163178,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047802",
+    "name": "Census Tract 478.02; San Francisco County; California",
+    "population": 3664,
+    "medianHouseholdIncome": 125682,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047902",
+    "name": "Census Tract 479.02; San Francisco County; California",
+    "population": 3350,
+    "medianHouseholdIncome": 126944,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047903",
+    "name": "Census Tract 479.03; San Francisco County; California",
+    "population": 3981,
+    "medianHouseholdIncome": 147768,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "047904",
+    "name": "Census Tract 479.04; San Francisco County; California",
+    "population": 3145,
+    "medianHouseholdIncome": 84880,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060100",
+    "name": "Census Tract 601; San Francisco County; California",
+    "population": 3952,
+    "medianHouseholdIncome": 236445,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060400",
+    "name": "Census Tract 604; San Francisco County; California",
+    "population": 1866,
+    "medianHouseholdIncome": 99556,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060502",
+    "name": "Census Tract 605.02; San Francisco County; California",
+    "population": 3361,
+    "medianHouseholdIncome": 37891,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060701",
+    "name": "Census Tract 607.01; San Francisco County; California",
+    "population": 7879,
+    "medianHouseholdIncome": 222692,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060702",
+    "name": "Census Tract 607.02; San Francisco County; California",
+    "population": 1945,
+    "medianHouseholdIncome": 141333,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "060703",
+    "name": "Census Tract 607.03; San Francisco County; California",
+    "population": 6256,
+    "medianHouseholdIncome": 235371,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061000",
+    "name": "Census Tract 610; San Francisco County; California",
+    "population": 4890,
+    "medianHouseholdIncome": 107882,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061101",
+    "name": "Census Tract 611.01; San Francisco County; California",
+    "population": 1861,
+    "medianHouseholdIncome": 19531,
+    "medianAge": 51.2
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061102",
+    "name": "Census Tract 611.02; San Francisco County; California",
+    "population": 2393,
+    "medianHouseholdIncome": 27450,
+    "medianAge": 47.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061200",
+    "name": "Census Tract 612; San Francisco County; California",
+    "population": 4006,
+    "medianHouseholdIncome": 107652,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061401",
+    "name": "Census Tract 614.01; San Francisco County; California",
+    "population": 2989,
+    "medianHouseholdIncome": 139038,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061402",
+    "name": "Census Tract 614.02; San Francisco County; California",
+    "population": 2331,
+    "medianHouseholdIncome": 174675,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061501",
+    "name": "Census Tract 615.01; San Francisco County; California",
+    "population": 1656,
+    "medianHouseholdIncome": 239147,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061502",
+    "name": "Census Tract 615.02; San Francisco County; California",
+    "population": 1901,
+    "medianHouseholdIncome": 93403,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061503",
+    "name": "Census Tract 615.03; San Francisco County; California",
+    "population": 3205,
+    "medianHouseholdIncome": 221781,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061504",
+    "name": "Census Tract 615.04; San Francisco County; California",
+    "population": 1567,
+    "medianHouseholdIncome": 247063,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061505",
+    "name": "Census Tract 615.05; San Francisco County; California",
+    "population": 1061,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061506",
+    "name": "Census Tract 615.06; San Francisco County; California",
+    "population": 4541,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061507",
+    "name": "Census Tract 615.07; San Francisco County; California",
+    "population": 1772,
+    "medianHouseholdIncome": 118370,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "061508",
+    "name": "Census Tract 615.08; San Francisco County; California",
+    "population": 2222,
+    "medianHouseholdIncome": 171915,
+    "medianAge": 52.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980200",
+    "name": "Census Tract 9802; San Francisco County; California",
+    "population": 186,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 76.9
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980300",
+    "name": "Census Tract 9803; San Francisco County; California",
+    "population": 38,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980401",
+    "name": "Census Tract 9804.01; San Francisco County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980501",
+    "name": "Census Tract 9805.01; San Francisco County; California",
+    "population": 129,
+    "medianHouseholdIncome": 12169,
+    "medianAge": 82.3
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980600",
+    "name": "Census Tract 9806; San Francisco County; California",
+    "population": 1172,
+    "medianHouseholdIncome": 136250,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "980900",
+    "name": "Census Tract 9809; San Francisco County; California",
+    "population": 315,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "990100",
+    "name": "Census Tract 9901; San Francisco County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "06",
+    "county": "075",
+    "tract": "990200",
+    "name": "Census Tract 9902; San Francisco County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

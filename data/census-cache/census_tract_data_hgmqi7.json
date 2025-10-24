@@ -1,0 +1,326 @@
+[
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000100",
+    "name": "Census Tract 1; Humboldt County; California",
+    "population": 4680,
+    "medianHouseholdIncome": 35529,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000200",
+    "name": "Census Tract 2; Humboldt County; California",
+    "population": 5705,
+    "medianHouseholdIncome": 48125,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000300",
+    "name": "Census Tract 3; Humboldt County; California",
+    "population": 4852,
+    "medianHouseholdIncome": 55216,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000400",
+    "name": "Census Tract 4; Humboldt County; California",
+    "population": 4107,
+    "medianHouseholdIncome": 44925,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000500",
+    "name": "Census Tract 5; Humboldt County; California",
+    "population": 3473,
+    "medianHouseholdIncome": 41886,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000600",
+    "name": "Census Tract 6; Humboldt County; California",
+    "population": 5989,
+    "medianHouseholdIncome": 78625,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000700",
+    "name": "Census Tract 7; Humboldt County; California",
+    "population": 5703,
+    "medianHouseholdIncome": 83438,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000800",
+    "name": "Census Tract 8; Humboldt County; California",
+    "population": 4684,
+    "medianHouseholdIncome": 54647,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "000900",
+    "name": "Census Tract 9; Humboldt County; California",
+    "population": 5544,
+    "medianHouseholdIncome": 70313,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001001",
+    "name": "Census Tract 10.01; Humboldt County; California",
+    "population": 2989,
+    "medianHouseholdIncome": 48220,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001002",
+    "name": "Census Tract 10.02; Humboldt County; California",
+    "population": 3382,
+    "medianHouseholdIncome": 26719,
+    "medianAge": 21.8
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001102",
+    "name": "Census Tract 11.02; Humboldt County; California",
+    "population": 4586,
+    "medianHouseholdIncome": 42585,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001103",
+    "name": "Census Tract 11.03; Humboldt County; California",
+    "population": 2128,
+    "medianHouseholdIncome": 72043,
+    "medianAge": 30.7
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001200",
+    "name": "Census Tract 12; Humboldt County; California",
+    "population": 4959,
+    "medianHouseholdIncome": 43159,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "001300",
+    "name": "Census Tract 13; Humboldt County; California",
+    "population": 1630,
+    "medianHouseholdIncome": 63250,
+    "medianAge": 45
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010102",
+    "name": "Census Tract 101.02; Humboldt County; California",
+    "population": 2294,
+    "medianHouseholdIncome": 52500,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010200",
+    "name": "Census Tract 102; Humboldt County; California",
+    "population": 2886,
+    "medianHouseholdIncome": 63438,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010300",
+    "name": "Census Tract 103; Humboldt County; California",
+    "population": 3008,
+    "medianHouseholdIncome": 74632,
+    "medianAge": 51.3
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010400",
+    "name": "Census Tract 104; Humboldt County; California",
+    "population": 3890,
+    "medianHouseholdIncome": 72652,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010502",
+    "name": "Census Tract 105.02; Humboldt County; California",
+    "population": 5467,
+    "medianHouseholdIncome": 70134,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010503",
+    "name": "Census Tract 105.03; Humboldt County; California",
+    "population": 4258,
+    "medianHouseholdIncome": 56094,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010504",
+    "name": "Census Tract 105.04; Humboldt County; California",
+    "population": 3644,
+    "medianHouseholdIncome": 63525,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010600",
+    "name": "Census Tract 106; Humboldt County; California",
+    "population": 2043,
+    "medianHouseholdIncome": 89444,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010701",
+    "name": "Census Tract 107.01; Humboldt County; California",
+    "population": 4568,
+    "medianHouseholdIncome": 80918,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010702",
+    "name": "Census Tract 107.02; Humboldt County; California",
+    "population": 3057,
+    "medianHouseholdIncome": 61250,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010800",
+    "name": "Census Tract 108; Humboldt County; California",
+    "population": 4809,
+    "medianHouseholdIncome": 57596,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010901",
+    "name": "Census Tract 109.01; Humboldt County; California",
+    "population": 4588,
+    "medianHouseholdIncome": 58032,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "010902",
+    "name": "Census Tract 109.02; Humboldt County; California",
+    "population": 4145,
+    "medianHouseholdIncome": 78145,
+    "medianAge": 51
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011000",
+    "name": "Census Tract 110; Humboldt County; California",
+    "population": 5156,
+    "medianHouseholdIncome": 59891,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011100",
+    "name": "Census Tract 111; Humboldt County; California",
+    "population": 4563,
+    "medianHouseholdIncome": 44813,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011200",
+    "name": "Census Tract 112; Humboldt County; California",
+    "population": 3842,
+    "medianHouseholdIncome": 67662,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011501",
+    "name": "Census Tract 115.01; Humboldt County; California",
+    "population": 2206,
+    "medianHouseholdIncome": 66327,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011502",
+    "name": "Census Tract 115.02; Humboldt County; California",
+    "population": 889,
+    "medianHouseholdIncome": 41536,
+    "medianAge": 57.9
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "011600",
+    "name": "Census Tract 116; Humboldt County; California",
+    "population": 3905,
+    "medianHouseholdIncome": 36792,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "940000",
+    "name": "Census Tract 9400; Humboldt County; California",
+    "population": 2503,
+    "medianHouseholdIncome": 55583,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "023",
+    "tract": "990100",
+    "name": "Census Tract 9901; Humboldt County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

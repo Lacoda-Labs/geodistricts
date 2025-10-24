@@ -1,0 +1,38 @@
+[
+  {
+    "state": "06",
+    "county": "049",
+    "tract": "000100",
+    "name": "Census Tract 1; Modoc County; California",
+    "population": 3117,
+    "medianHouseholdIncome": 50369,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "049",
+    "tract": "000200",
+    "name": "Census Tract 2; Modoc County; California",
+    "population": 1692,
+    "medianHouseholdIncome": 58884,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "049",
+    "tract": "000300",
+    "name": "Census Tract 3; Modoc County; California",
+    "population": 2549,
+    "medianHouseholdIncome": 59781,
+    "medianAge": 61.3
+  },
+  {
+    "state": "06",
+    "county": "049",
+    "tract": "000400",
+    "name": "Census Tract 4; Modoc County; California",
+    "population": 1293,
+    "medianHouseholdIncome": 48594,
+    "medianAge": 51
+  }
+]

@@ -1188,10 +1188,10 @@ export class GeodistrictAlgorithmService {
 
   private getTractId(tract: GeoJsonFeature): string {
     // Debug: Log available properties for first few tracts
-    if (Math.random() < 0.001) {
-      console.log('🔍 Available tract properties:', Object.keys(tract.properties || {}));
-      console.log('🔍 Sample tract properties:', tract.properties);
-    }
+    // if (Math.random() < 0.001) {
+    //   console.log('🔍 Available tract properties:', Object.keys(tract.properties || {}));
+    //   console.log('🔍 Sample tract properties:', tract.properties);
+    // }
 
     // Try GEOID first
     if (tract.properties?.['GEOID']) {
@@ -1414,6 +1414,28 @@ export class GeodistrictAlgorithmService {
     }
 
     return { north, south, east, west };
+  }
+
+  /**
+   * Calculate bounds for a single tract
+   */
+  private calculateSingleTractBounds(tract: GeoJsonFeature): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+    const coords = this.getAllCoordinates(tract);
+    if (coords.length === 0) {
+      return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+    }
+
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    
+    for (const coord of coords) {
+      const [lng, lat] = coord;
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+    }
+
+    return { minLat, maxLat, minLng, maxLng };
   }
 
   /**
@@ -1794,8 +1816,164 @@ export class GeodistrictAlgorithmService {
 
     console.log(`📊 Divided ${tracts.length} tracts by entire geometry: ${firstGroupTracts.length} + ${secondGroupTracts.length} by ${direction} line at ${lineCoordinate.toFixed(6)}`);
 
-    return { firstGroupTracts, secondGroupTracts };
+    // Fix isolated tracts after division
+    const fixedResult = this.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts);
+    
+    return { 
+      firstGroupTracts: fixedResult.firstGroupTracts, 
+      secondGroupTracts: fixedResult.secondGroupTracts 
+    };
   }
+
+  /**
+   * Fix isolated tracts after division by moving them to the group containing their container
+   * @param firstGroupTracts First group of tracts
+   * @param secondGroupTracts Second group of tracts
+   * @param allTracts All tracts in the original dataset
+   * @returns Fixed tract groups
+   */
+  private fixIsolatedTractsAfterDivision(
+    firstGroupTracts: GeoJsonFeature[],
+    secondGroupTracts: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[]
+  ): {
+    firstGroupTracts: GeoJsonFeature[];
+    secondGroupTracts: GeoJsonFeature[];
+  } {
+    console.log(`🔧 FIX ISOLATED TRACTS: Starting isolated tract detection for ${allTracts.length} total tracts`);
+    const movedTracts: { tractId: string; fromGroup: string; toGroup: string }[] = [];
+    
+    // Detect enclosed tracts (allow large datasets for isolated tract fixing)
+    const enclosedMap = this.findContainedTracts(allTracts, true);
+    
+    if (enclosedMap.length === 0) {
+      console.log(`🔧 FIX ISOLATED TRACTS: No enclosed tracts found, returning original groups`);
+      return { firstGroupTracts, secondGroupTracts };
+    }
+    
+    // Debug: Log the enclosed relationships found
+    console.log(`🔍 Found ${enclosedMap.length} enclosed tract relationships:`);
+    for (const rel of enclosedMap) {
+      console.log(`   ${rel.contained} is enclosed by ${rel.container}`);
+    }
+    
+        // Debug: Log some sample tract IDs to see what we're working with
+        if (allTracts.length > 0) {
+          console.log(`🔍 Sample tract IDs in dataset:`);
+          for (let i = 0; i < Math.min(5, allTracts.length); i++) {
+            const tractId = this.getTractId(allTracts[i]);
+            console.log(`   ${i}: ${tractId}`);
+          }
+          
+          // Check specifically for tract 001700
+          const tract001700 = allTracts.find(tract => this.getTractId(tract).includes('001700'));
+          if (tract001700) {
+            console.log(`🎯 FOUND TRACT 001700: ${this.getTractId(tract001700)} in dataset!`);
+          } else {
+            console.log(`❌ TRACT 001700 NOT FOUND in dataset`);
+          }
+      
+      // Analyze which counties are in the dataset
+      const counties = new Set<string>();
+      allTracts.forEach(tract => {
+        const tractId = this.getTractId(tract);
+        if (tractId && tractId.length >= 5) {
+          const county = tractId.substring(2, 5); // Extract county code
+          counties.add(county);
+        }
+      });
+      
+      const sortedCounties = Array.from(counties).sort();
+      console.log(`🏛️ Counties in dataset: ${sortedCounties.join(', ')}`);
+      
+      // Check for missing key counties
+      const keyCounties = ['001', '003', '005', '007', '009', '011', '012', '013', '015', '017', '019', '021', '023', '025', '027'];
+      const missingCounties = keyCounties.filter(county => !counties.has(county));
+      if (missingCounties.length > 0) {
+        console.log(`⚠️ Missing counties from dataset: ${missingCounties.join(', ')}`);
+        if (missingCounties.includes('005')) {
+          console.log(`🚨 County 005 (Coconino) is missing - tract 001700 may not be available`);
+        }
+      }
+      
+      // Check if our target tracts are in the dataset
+      const targetTracts = ['04001001700', '04001001901', '04005001700'];
+      for (const targetTract of targetTracts) {
+        const found = allTracts.find(tract => this.getTractId(tract) === targetTract);
+        console.log(`🎯 Target tract ${targetTract}: ${found ? 'FOUND' : 'NOT FOUND'}`);
+      }
+    }
+    
+    let updatedFirstGroup = [...firstGroupTracts];
+    let updatedSecondGroup = [...secondGroupTracts];
+    
+    // Check each enclosed tract for isolation
+    for (const relationship of enclosedMap) {
+      const enclosedId = relationship.contained;
+      const containerId = relationship.container;
+      
+      // Debug: Check if these are the specific tracts we're looking for
+      if (enclosedId.includes('001700') || enclosedId.includes('001901') || 
+          containerId.includes('001700') || containerId.includes('001901') ||
+          enclosedId === '04001001700' || enclosedId === '04001001901' ||
+          containerId === '04001001700' || containerId === '04001001901') {
+        console.log(`🎯 Found target tract in relationship: ${enclosedId} enclosed by ${containerId}`);
+      }
+      
+      // Find the enclosed tract and its container in the groups
+      const enclosedTract = allTracts.find(tract => this.getTractId(tract) === enclosedId);
+      const containerTract = allTracts.find(tract => this.getTractId(tract) === containerId);
+      
+      if (!enclosedTract || !containerTract) continue;
+      
+      // Check which group each tract is in
+      const enclosedInFirst = updatedFirstGroup.some(tract => this.getTractId(tract) === enclosedId);
+      const enclosedInSecond = updatedSecondGroup.some(tract => this.getTractId(tract) === enclosedId);
+      const containerInFirst = updatedFirstGroup.some(tract => this.getTractId(tract) === containerId);
+      const containerInSecond = updatedSecondGroup.some(tract => this.getTractId(tract) === containerId);
+      
+      // Debug: Show group assignments for target tracts
+      if (enclosedId.includes('001700') || enclosedId.includes('001901') || 
+          containerId.includes('001700') || containerId.includes('001901') ||
+          enclosedId === '04001001700' || enclosedId === '04001001901' ||
+          containerId === '04001001700' || containerId === '04001001901') {
+        console.log(`🎯 Group assignments: enclosed=${enclosedId} (first:${enclosedInFirst}, second:${enclosedInSecond}), container=${containerId} (first:${containerInFirst}, second:${containerInSecond})`);
+      }
+      
+      // If enclosed tract is in a different group than its container, move it
+      if (enclosedInFirst && containerInSecond) {
+        // Move enclosed tract from first group to second group
+        updatedFirstGroup = updatedFirstGroup.filter(tract => this.getTractId(tract) !== enclosedId);
+        updatedSecondGroup.push(enclosedTract);
+        movedTracts.push({
+          tractId: enclosedId,
+          fromGroup: 'first',
+          toGroup: 'second'
+        });
+        console.log(`📦 Fixed isolated tract: ${enclosedId} moved to be with container ${containerId}`);
+      } else if (enclosedInSecond && containerInFirst) {
+        // Move enclosed tract from second group to first group
+        updatedSecondGroup = updatedSecondGroup.filter(tract => this.getTractId(tract) !== enclosedId);
+        updatedFirstGroup.push(enclosedTract);
+        movedTracts.push({
+          tractId: enclosedId,
+          fromGroup: 'second',
+          toGroup: 'first'
+        });
+        console.log(`📦 Fixed isolated tract: ${enclosedId} moved to be with container ${containerId}`);
+      }
+    }
+    
+    if (movedTracts.length > 0) {
+      console.log(`✅ Fixed ${movedTracts.length} isolated tracts`);
+    }
+    
+    return {
+      firstGroupTracts: updatedFirstGroup,
+      secondGroupTracts: updatedSecondGroup
+    };
+  }
+
 
   /**
    * Build adjacency graph using northwest coordinates and bounding box overlap
@@ -2235,6 +2413,9 @@ export class GeodistrictAlgorithmService {
   private isTractContainedIn(tractA: GeoJsonFeature, tractB: GeoJsonFeature): boolean {
     if (!tractA.geometry || !tractB.geometry) return false;
 
+    const tractAId = this.getTractId(tractA);
+    const tractBId = this.getTractId(tractB);
+
     // Get coordinates of tract A (assuming Polygon or MultiPolygon)
     const coordsA = this.getAllCoordinates(tractA);
     if (coordsA.length === 0) return false;
@@ -2243,14 +2424,31 @@ export class GeodistrictAlgorithmService {
     const coordsB = this.getAllCoordinates(tractB);
     if (coordsB.length === 0) return false;
 
+    // Debug: Check specifically for tract 001700
+    if (tractAId.includes('001700') || tractBId.includes('001700')) {
+      console.log(`🔍 isTractContainedIn: ${tractAId} vs ${tractBId}`);
+      console.log(`   CoordsA: ${coordsA.length}, CoordsB: ${coordsB.length}`);
+    }
+
     // Check if all points of A are inside B
+    let pointsInside = 0;
+    let pointsOutside = 0;
+    
     for (const point of coordsA) {
-      if (!this.isPointInPolygon(point, coordsB)) {
-        return false;
+      if (this.isPointInPolygon(point, coordsB)) {
+        pointsInside++;
+      } else {
+        pointsOutside++;
       }
     }
 
-    return true;
+    // Debug: Show containment results for tract 001700
+    if (tractAId.includes('001700') || tractBId.includes('001700')) {
+      console.log(`   Points inside: ${pointsInside}, outside: ${pointsOutside}`);
+      console.log(`   Containment: ${pointsOutside === 0 ? 'YES' : 'NO'}`);
+    }
+
+    return pointsOutside === 0;
   }
 
   /**
@@ -2305,12 +2503,36 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Find contained tracts in the dataset
+   * @param tracts Array of tract features
+   * @param allowLargeDatasets Whether to allow checking large datasets (for isolated tract fixing)
+   * @returns Array of containment relationships
    */
-  public findContainedTracts(tracts: GeoJsonFeature[]): { container: string; contained: string }[] {
-    // For performance, skip containment checks for large datasets
-    if (tracts.length > 100) {
+  public findContainedTracts(tracts: GeoJsonFeature[], allowLargeDatasets: boolean = false): { container: string; contained: string }[] {
+    // For performance, skip containment checks for large datasets unless explicitly allowed
+    if (tracts.length > 100 && !allowLargeDatasets) {
       console.log(`📦 Skipping containment check for large dataset (${tracts.length} tracts) - too slow`);
       return [];
+    }
+    
+    if (tracts.length > 200 && allowLargeDatasets) {
+      console.log(`🔍 Checking for enclosed tracts in ${tracts.length} tracts...`);
+    }
+    
+    // Debug: Log some sample tract IDs to see what we're working with
+    if (tracts.length > 0) {
+      console.log(`🔍 Sample tract IDs for containment check:`);
+      for (let i = 0; i < Math.min(3, tracts.length); i++) {
+        const tractId = this.getTractId(tracts[i]);
+        console.log(`   ${i}: ${tractId}`);
+      }
+      
+      // Check specifically for tract 001700
+      const tract001700 = tracts.find(tract => this.getTractId(tract).includes('001700'));
+      if (tract001700) {
+        console.log(`🎯 FOUND TRACT 001700: ${this.getTractId(tract001700)} in containment check dataset!`);
+      } else {
+        console.log(`❌ TRACT 001700 NOT FOUND in containment check dataset`);
+      }
     }
 
     const containedPairs: { container: string; contained: string }[] = [];
@@ -2326,7 +2548,43 @@ export class GeodistrictAlgorithmService {
 
     // For efficiency, only check pairs that are adjacent and where one is much smaller
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(tracts);
+    
+    // Check for isolated tracts (no neighbors) - these are likely enclosed
+    const isolatedTracts: string[] = [];
+    
+    for (const [tractId, neighbors] of adjacencyGraph.entries()) {
+      if (neighbors.length === 0) {
+        isolatedTracts.push(tractId);
+      }
+    }
+    
+    if (isolatedTracts.length > 0) {
+      console.log(`🔍 Found ${isolatedTracts.length} isolated tracts: ${isolatedTracts.join(', ')}`);
+    }
+    
+    // Check each isolated tract against ALL other tracts for containment
+    for (const isolatedTractId of isolatedTracts) {
+      const isolatedTract = tractMap.get(isolatedTractId);
+      if (!isolatedTract) continue;
+      
+      const coordsIsolated = this.getAllCoordinates(isolatedTract);
+      
+      for (const [tractBId, tractB] of tractMap.entries()) {
+        if (tractBId === isolatedTractId) continue;
+        
+        const coordsB = this.getAllCoordinates(tractB);
+        
+        // Only check if isolated tract is much smaller than the other tract
+        if (coordsIsolated.length * 3 < coordsB.length && coordsIsolated.length > 0) {
+          if (this.isTractContainedIn(isolatedTract, tractB)) {
+            containedPairs.push({ container: tractBId, contained: isolatedTractId });
+            console.log(`🔍 Found containment: ${isolatedTractId} is contained in ${tractBId}`);
+          }
+        }
+      }
+    }
 
+    // Check adjacent tracts for containment (original logic)
     for (const [tractAId, neighbors] of adjacencyGraph.entries()) {
       const tractA = tractMap.get(tractAId);
       if (!tractA) continue;
@@ -2341,15 +2599,21 @@ export class GeodistrictAlgorithmService {
 
         // Only check if A is much smaller than B (potential containment)
         if (coordsA.length * 3 < coordsB.length && coordsA.length > 0) {
+          // Debug: Check specifically for tract 001700
+          if (tractAId.includes('001700') || tractBId.includes('001700')) {
+            console.log(`🎯 Checking containment for tract 001700: ${tractAId} vs ${tractBId}`);
+            console.log(`   CoordsA length: ${coordsA.length}, CoordsB length: ${coordsB.length}`);
+            console.log(`   Size check: ${coordsA.length * 3} < ${coordsB.length} = ${coordsA.length * 3 < coordsB.length}`);
+          }
+          
           if (this.isTractContainedIn(tractA, tractB)) {
             containedPairs.push({ container: tractBId, contained: tractAId });
-            console.log(`📦 Found contained tract: ${tractAId} is inside ${tractBId}`);
+            console.log(`🔍 Found containment: ${tractAId} is contained in ${tractBId}`);
           }
         }
       }
     }
 
-    console.log(`✅ Containment check complete: found ${containedPairs.length} contained tract pairs`);
     return containedPairs;
   }
 
@@ -2364,7 +2628,9 @@ export class GeodistrictAlgorithmService {
       graph.set(id, []);
     }
 
-    // Simple adjacency: tracts within small distance are adjacent
+    console.log(`🔍 Building adjacency graph for ${tracts.length} tracts using geometric intersection...`);
+
+    // Use proper geometric boundary intersection for adjacency
     for (let i = 0; i < tracts.length; i++) {
       for (let j = i + 1; j < tracts.length; j++) {
         const tractA = tracts[i];
@@ -2372,13 +2638,23 @@ export class GeodistrictAlgorithmService {
         const idA = this.getTractId(tractA);
         const idB = this.getTractId(tractB);
 
-        const dist = this.getTractDistance(tractA, tractB);
-        if (dist < 0.01) { // Within 0.01 degrees (~1km)
+        // Calculate bounding boxes for adjacency check
+        const boundsA = this.calculateSingleTractBounds(tractA);
+        const boundsB = this.calculateSingleTractBounds(tractB);
+        
+        if (this.areTractsAdjacent(tractA, tractB, boundsA, boundsB)) {
           graph.get(idA)!.push(idB);
           graph.get(idB)!.push(idA);
         }
       }
     }
+
+    // Debug: Count total adjacency relationships
+    let totalAdjacencies = 0;
+    for (const [tractId, neighbors] of graph.entries()) {
+      totalAdjacencies += neighbors.length;
+    }
+    console.log(`🔍 Built adjacency graph: ${totalAdjacencies} total relationships (${(totalAdjacencies / 2).toFixed(0)} unique pairs)`);
 
     return graph;
   }
@@ -3078,7 +3354,7 @@ export class GeodistrictAlgorithmService {
    * @param state State abbreviation
    * @returns Promise with adjacency graph
    */
-  private async loadS4AdjacencyData(state: string): Promise<Map<string, string[]>> {
+  public async loadS4AdjacencyData(state: string): Promise<Map<string, string[]>> {
     const cacheKey = state.toLowerCase();
     
     if (this.s4AdjacencyCache.has(cacheKey)) {
@@ -3718,3 +3994,4 @@ export class GeodistrictAlgorithmService {
     return throwError(() => new Error(errorMessage));
   }
 }
+

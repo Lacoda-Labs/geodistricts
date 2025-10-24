@@ -1,0 +1,56 @@
+[
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000100",
+    "name": "Census Tract 1; Colusa County; California",
+    "population": 5350,
+    "medianHouseholdIncome": 73188,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000200",
+    "name": "Census Tract 2; Colusa County; California",
+    "population": 5206,
+    "medianHouseholdIncome": 61705,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Colusa County; California",
+    "population": 4113,
+    "medianHouseholdIncome": 78106,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Colusa County; California",
+    "population": 2405,
+    "medianHouseholdIncome": 91338,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000400",
+    "name": "Census Tract 4; Colusa County; California",
+    "population": 2160,
+    "medianHouseholdIncome": 52321,
+    "medianAge": 42.4
+  },
+  {
+    "state": "06",
+    "county": "011",
+    "tract": "000500",
+    "name": "Census Tract 5; Colusa County; California",
+    "population": 2577,
+    "medianHouseholdIncome": 65625,
+    "medianAge": 39.2
+  }
+]

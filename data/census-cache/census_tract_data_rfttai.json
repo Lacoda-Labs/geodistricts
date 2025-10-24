@@ -1,0 +1,335 @@
+[
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940008",
+    "name": "Census Tract 9400.08; Navajo County; Arizona",
+    "population": 1021,
+    "medianHouseholdIncome": 24853,
+    "medianAge": 42.8
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940010",
+    "name": "Census Tract 9400.10; Navajo County; Arizona",
+    "population": 2642,
+    "medianHouseholdIncome": 21447,
+    "medianAge": 31.4
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940011",
+    "name": "Census Tract 9400.11; Navajo County; Arizona",
+    "population": 2060,
+    "medianHouseholdIncome": 31458,
+    "medianAge": 38.1
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940012",
+    "name": "Census Tract 9400.12; Navajo County; Arizona",
+    "population": 2777,
+    "medianHouseholdIncome": 33167,
+    "medianAge": 35.5
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940013",
+    "name": "Census Tract 9400.13; Navajo County; Arizona",
+    "population": 4540,
+    "medianHouseholdIncome": 52636,
+    "medianAge": 36.2
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940014",
+    "name": "Census Tract 9400.14; Navajo County; Arizona",
+    "population": 2189,
+    "medianHouseholdIncome": 23667,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940015",
+    "name": "Census Tract 9400.15; Navajo County; Arizona",
+    "population": 4447,
+    "medianHouseholdIncome": 36579,
+    "medianAge": 34.9
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940100",
+    "name": "Census Tract 9401; Navajo County; Arizona",
+    "population": 4298,
+    "medianHouseholdIncome": 56964,
+    "medianAge": 32.8
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940301",
+    "name": "Census Tract 9403.01; Navajo County; Arizona",
+    "population": 4336,
+    "medianHouseholdIncome": 33800,
+    "medianAge": 31
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "940302",
+    "name": "Census Tract 9403.02; Navajo County; Arizona",
+    "population": 2960,
+    "medianHouseholdIncome": 48393,
+    "medianAge": 27.3
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "942300",
+    "name": "Census Tract 9423; Navajo County; Arizona",
+    "population": 1997,
+    "medianHouseholdIncome": 24327,
+    "medianAge": 46
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "942400",
+    "name": "Census Tract 9424; Navajo County; Arizona",
+    "population": 2526,
+    "medianHouseholdIncome": 22224,
+    "medianAge": 37
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "942500",
+    "name": "Census Tract 9425; Navajo County; Arizona",
+    "population": 5472,
+    "medianHouseholdIncome": 53806,
+    "medianAge": 27.6
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "960100",
+    "name": "Census Tract 9601; Navajo County; Arizona",
+    "population": 1839,
+    "medianHouseholdIncome": 62266,
+    "medianAge": 34.4
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "960200",
+    "name": "Census Tract 9602; Navajo County; Arizona",
+    "population": 3291,
+    "medianHouseholdIncome": 56760,
+    "medianAge": 40.3
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "960400",
+    "name": "Census Tract 9604; Navajo County; Arizona",
+    "population": 3344,
+    "medianHouseholdIncome": 47315,
+    "medianAge": 33.1
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "960500",
+    "name": "Census Tract 9605; Navajo County; Arizona",
+    "population": 4710,
+    "medianHouseholdIncome": 60804,
+    "medianAge": 32.8
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "960600",
+    "name": "Census Tract 9606; Navajo County; Arizona",
+    "population": 4294,
+    "medianHouseholdIncome": 53328,
+    "medianAge": 33.9
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "961300",
+    "name": "Census Tract 9613; Navajo County; Arizona",
+    "population": 3310,
+    "medianHouseholdIncome": 51698,
+    "medianAge": 52.5
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "961701",
+    "name": "Census Tract 9617.01; Navajo County; Arizona",
+    "population": 2858,
+    "medianHouseholdIncome": 63808,
+    "medianAge": 49.2
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "961702",
+    "name": "Census Tract 9617.02; Navajo County; Arizona",
+    "population": 3715,
+    "medianHouseholdIncome": 48125,
+    "medianAge": 55.4
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "962501",
+    "name": "Census Tract 9625.01; Navajo County; Arizona",
+    "population": 1447,
+    "medianHouseholdIncome": 55352,
+    "medianAge": 57.9
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "962502",
+    "name": "Census Tract 9625.02; Navajo County; Arizona",
+    "population": 1326,
+    "medianHouseholdIncome": 78438,
+    "medianAge": 61.6
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "963300",
+    "name": "Census Tract 9633; Navajo County; Arizona",
+    "population": 4869,
+    "medianHouseholdIncome": 59479,
+    "medianAge": 27.5
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "963400",
+    "name": "Census Tract 9634; Navajo County; Arizona",
+    "population": 3992,
+    "medianHouseholdIncome": 64290,
+    "medianAge": 42.8
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "963700",
+    "name": "Census Tract 9637; Navajo County; Arizona",
+    "population": 1436,
+    "medianHouseholdIncome": 39707,
+    "medianAge": 63.1
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "963800",
+    "name": "Census Tract 9638; Navajo County; Arizona",
+    "population": 4436,
+    "medianHouseholdIncome": 70000,
+    "medianAge": 39.4
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964201",
+    "name": "Census Tract 9642.01; Navajo County; Arizona",
+    "population": 1653,
+    "medianHouseholdIncome": 42602,
+    "medianAge": 65.6
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964202",
+    "name": "Census Tract 9642.02; Navajo County; Arizona",
+    "population": 1475,
+    "medianHouseholdIncome": 52378,
+    "medianAge": 45.2
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964801",
+    "name": "Census Tract 9648.01; Navajo County; Arizona",
+    "population": 2607,
+    "medianHouseholdIncome": 85556,
+    "medianAge": 58.8
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964802",
+    "name": "Census Tract 9648.02; Navajo County; Arizona",
+    "population": 2356,
+    "medianHouseholdIncome": 44861,
+    "medianAge": 63.9
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964901",
+    "name": "Census Tract 9649.01; Navajo County; Arizona",
+    "population": 1291,
+    "medianHouseholdIncome": 73125,
+    "medianAge": 59
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "964902",
+    "name": "Census Tract 9649.02; Navajo County; Arizona",
+    "population": 958,
+    "medianHouseholdIncome": 86583,
+    "medianAge": 66.6
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "965201",
+    "name": "Census Tract 9652.01; Navajo County; Arizona",
+    "population": 2576,
+    "medianHouseholdIncome": 70234,
+    "medianAge": 42.1
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "965202",
+    "name": "Census Tract 9652.02; Navajo County; Arizona",
+    "population": 2625,
+    "medianHouseholdIncome": 60326,
+    "medianAge": 36.3
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "965301",
+    "name": "Census Tract 9653.01; Navajo County; Arizona",
+    "population": 1891,
+    "medianHouseholdIncome": 59805,
+    "medianAge": 43.6
+  },
+  {
+    "state": "04",
+    "county": "017",
+    "tract": "965302",
+    "name": "Census Tract 9653.02; Navajo County; Arizona",
+    "population": 3546,
+    "medianHouseholdIncome": 44688,
+    "medianAge": 39.4
+  }
+]

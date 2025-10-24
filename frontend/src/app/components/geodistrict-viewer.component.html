@@ -35,6 +35,13 @@
     </div>
 
     <div class="control-group">
+      <label>
+        <input type="checkbox" [(ngModel)]="forceInvalidate" (change)="onSettingsChange()">
+        Force Refresh Census Data (bypasses cache - slower but gets latest data)
+      </label>
+    </div>
+
+    <div class="control-group">
       <button (click)="runAlgorithm()" [disabled]="isLoading">
         {{ isLoading ? 'Running Algorithm...' : 'Run First Step' }}
       </button>

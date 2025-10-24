@@ -1,0 +1,65 @@
+[
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000100",
+    "name": "Census Tract 1; Plumas County; California",
+    "population": 5525,
+    "medianHouseholdIncome": 74444,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Plumas County; California",
+    "population": 1404,
+    "medianHouseholdIncome": 67083,
+    "medianAge": 61.4
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Plumas County; California",
+    "population": 1175,
+    "medianHouseholdIncome": 60591,
+    "medianAge": 63.5
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000300",
+    "name": "Census Tract 3; Plumas County; California",
+    "population": 5241,
+    "medianHouseholdIncome": 54396,
+    "medianAge": 49.7
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000400",
+    "name": "Census Tract 4; Plumas County; California",
+    "population": 2158,
+    "medianHouseholdIncome": 66549,
+    "medianAge": 53.5
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Plumas County; California",
+    "population": 2271,
+    "medianHouseholdIncome": 78657,
+    "medianAge": 54.7
+  },
+  {
+    "state": "06",
+    "county": "063",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Plumas County; California",
+    "population": 1876,
+    "medianHouseholdIncome": 92054,
+    "medianAge": 62.7
+  }
+]

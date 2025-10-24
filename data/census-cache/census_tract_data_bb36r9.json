@@ -1,0 +1,353 @@
+[
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000100",
+    "name": "Census Tract 1; Coconino County; Arizona",
+    "population": 3693,
+    "medianHouseholdIncome": 114551,
+    "medianAge": 42.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000200",
+    "name": "Census Tract 2; Coconino County; Arizona",
+    "population": 4009,
+    "medianHouseholdIncome": 98177,
+    "medianAge": 39.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Coconino County; Arizona",
+    "population": 3542,
+    "medianHouseholdIncome": 66269,
+    "medianAge": 34.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Coconino County; Arizona",
+    "population": 2963,
+    "medianHouseholdIncome": 41494,
+    "medianAge": 30.5
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000400",
+    "name": "Census Tract 4; Coconino County; Arizona",
+    "population": 4979,
+    "medianHouseholdIncome": 98309,
+    "medianAge": 38.7
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000500",
+    "name": "Census Tract 5; Coconino County; Arizona",
+    "population": 4434,
+    "medianHouseholdIncome": 60000,
+    "medianAge": 34.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Coconino County; Arizona",
+    "population": 2384,
+    "medianHouseholdIncome": 95296,
+    "medianAge": 41.4
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Coconino County; Arizona",
+    "population": 2650,
+    "medianHouseholdIncome": 58134,
+    "medianAge": 38.7
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000700",
+    "name": "Census Tract 7; Coconino County; Arizona",
+    "population": 4667,
+    "medianHouseholdIncome": 79424,
+    "medianAge": 28.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000800",
+    "name": "Census Tract 8; Coconino County; Arizona",
+    "population": 6658,
+    "medianHouseholdIncome": 40064,
+    "medianAge": 23.2
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Coconino County; Arizona",
+    "population": 4738,
+    "medianHouseholdIncome": 100077,
+    "medianAge": 30.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Coconino County; Arizona",
+    "population": 3291,
+    "medianHouseholdIncome": 42260,
+    "medianAge": 25.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001000",
+    "name": "Census Tract 10; Coconino County; Arizona",
+    "population": 11709,
+    "medianHouseholdIncome": 15147,
+    "medianAge": 19.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Coconino County; Arizona",
+    "population": 5222,
+    "medianHouseholdIncome": 68164,
+    "medianAge": 28.4
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001103",
+    "name": "Census Tract 11.03; Coconino County; Arizona",
+    "population": 4921,
+    "medianHouseholdIncome": 65740,
+    "medianAge": 29.1
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001104",
+    "name": "Census Tract 11.04; Coconino County; Arizona",
+    "population": 4342,
+    "medianHouseholdIncome": 60486,
+    "medianAge": 24.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001201",
+    "name": "Census Tract 12.01; Coconino County; Arizona",
+    "population": 2813,
+    "medianHouseholdIncome": 61774,
+    "medianAge": 38.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Coconino County; Arizona",
+    "population": 5064,
+    "medianHouseholdIncome": 105256,
+    "medianAge": 42.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Coconino County; Arizona",
+    "population": 5047,
+    "medianHouseholdIncome": 92475,
+    "medianAge": 43.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001500",
+    "name": "Census Tract 15; Coconino County; Arizona",
+    "population": 3690,
+    "medianHouseholdIncome": 80908,
+    "medianAge": 59.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001601",
+    "name": "Census Tract 16.01; Coconino County; Arizona",
+    "population": 1835,
+    "medianHouseholdIncome": 79348,
+    "medianAge": 61
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001602",
+    "name": "Census Tract 16.02; Coconino County; Arizona",
+    "population": 1008,
+    "medianHouseholdIncome": 64087,
+    "medianAge": 64.4
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "001700",
+    "name": "Census Tract 17; Coconino County; Arizona",
+    "population": 3421,
+    "medianHouseholdIncome": 64276,
+    "medianAge": 36.5
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002000",
+    "name": "Census Tract 20; Coconino County; Arizona",
+    "population": 1626,
+    "medianHouseholdIncome": 60706,
+    "medianAge": 41.9
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002101",
+    "name": "Census Tract 21.01; Coconino County; Arizona",
+    "population": 3574,
+    "medianHouseholdIncome": 56685,
+    "medianAge": 40.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002102",
+    "name": "Census Tract 21.02; Coconino County; Arizona",
+    "population": 3870,
+    "medianHouseholdIncome": 100885,
+    "medianAge": 25.9
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002201",
+    "name": "Census Tract 22.01; Coconino County; Arizona",
+    "population": 4150,
+    "medianHouseholdIncome": 111528,
+    "medianAge": 37.7
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002202",
+    "name": "Census Tract 22.02; Coconino County; Arizona",
+    "population": 3330,
+    "medianHouseholdIncome": 78649,
+    "medianAge": 42.1
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002301",
+    "name": "Census Tract 23.01; Coconino County; Arizona",
+    "population": 4288,
+    "medianHouseholdIncome": 49380,
+    "medianAge": 39.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "002302",
+    "name": "Census Tract 23.02; Coconino County; Arizona",
+    "population": 3006,
+    "medianHouseholdIncome": 82604,
+    "medianAge": 47.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "942201",
+    "name": "Census Tract 9422.01; Coconino County; Arizona",
+    "population": 3431,
+    "medianHouseholdIncome": 49632,
+    "medianAge": 32.3
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "942202",
+    "name": "Census Tract 9422.02; Coconino County; Arizona",
+    "population": 3451,
+    "medianHouseholdIncome": 37955,
+    "medianAge": 31
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "944900",
+    "name": "Census Tract 9449; Coconino County; Arizona",
+    "population": 5031,
+    "medianHouseholdIncome": 76719,
+    "medianAge": 33.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "945000",
+    "name": "Census Tract 9450; Coconino County; Arizona",
+    "population": 4005,
+    "medianHouseholdIncome": 31719,
+    "medianAge": 32.8
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "945100",
+    "name": "Census Tract 9451; Coconino County; Arizona",
+    "population": 3674,
+    "medianHouseholdIncome": 40833,
+    "medianAge": 37
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "945200",
+    "name": "Census Tract 9452; Coconino County; Arizona",
+    "population": 3886,
+    "medianHouseholdIncome": 57892,
+    "medianAge": 36.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "980000",
+    "name": "Census Tract 9800; Coconino County; Arizona",
+    "population": 296,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 41.6
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "980100",
+    "name": "Census Tract 9801; Coconino County; Arizona",
+    "population": 7,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 20.5
+  },
+  {
+    "state": "04",
+    "county": "005",
+    "tract": "980200",
+    "name": "Census Tract 9802; Coconino County; Arizona",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

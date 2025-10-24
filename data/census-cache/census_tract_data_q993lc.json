@@ -1,0 +1,236 @@
+[
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Nevada County; California",
+    "population": 7117,
+    "medianHouseholdIncome": 93036,
+    "medianAge": 54.1
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000104",
+    "name": "Census Tract 1.04; Nevada County; California",
+    "population": 3360,
+    "medianHouseholdIncome": 62500,
+    "medianAge": 55.8
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000105",
+    "name": "Census Tract 1.05; Nevada County; California",
+    "population": 3067,
+    "medianHouseholdIncome": 98906,
+    "medianAge": 54.4
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000106",
+    "name": "Census Tract 1.06; Nevada County; California",
+    "population": 1991,
+    "medianHouseholdIncome": 121607,
+    "medianAge": 59.2
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000107",
+    "name": "Census Tract 1.07; Nevada County; California",
+    "population": 6480,
+    "medianHouseholdIncome": 99500,
+    "medianAge": 45.9
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000200",
+    "name": "Census Tract 2; Nevada County; California",
+    "population": 2799,
+    "medianHouseholdIncome": 107727,
+    "medianAge": 57.9
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000300",
+    "name": "Census Tract 3; Nevada County; California",
+    "population": 2705,
+    "medianHouseholdIncome": 96250,
+    "medianAge": 51.9
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Nevada County; California",
+    "population": 5445,
+    "medianHouseholdIncome": 76905,
+    "medianAge": 57.8
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000403",
+    "name": "Census Tract 4.03; Nevada County; California",
+    "population": 2270,
+    "medianHouseholdIncome": 97578,
+    "medianAge": 44.5
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000404",
+    "name": "Census Tract 4.04; Nevada County; California",
+    "population": 3746,
+    "medianHouseholdIncome": 72143,
+    "medianAge": 60.2
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Nevada County; California",
+    "population": 4927,
+    "medianHouseholdIncome": 62218,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000503",
+    "name": "Census Tract 5.03; Nevada County; California",
+    "population": 1635,
+    "medianHouseholdIncome": 61324,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000504",
+    "name": "Census Tract 5.04; Nevada County; California",
+    "population": 5054,
+    "medianHouseholdIncome": 59386,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Nevada County; California",
+    "population": 2566,
+    "medianHouseholdIncome": 38472,
+    "medianAge": 55.1
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Nevada County; California",
+    "population": 4583,
+    "medianHouseholdIncome": 50884,
+    "medianAge": 47.9
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Nevada County; California",
+    "population": 7377,
+    "medianHouseholdIncome": 89447,
+    "medianAge": 55.6
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Nevada County; California",
+    "population": 4135,
+    "medianHouseholdIncome": 74239,
+    "medianAge": 57
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000801",
+    "name": "Census Tract 8.01; Nevada County; California",
+    "population": 5450,
+    "medianHouseholdIncome": 61531,
+    "medianAge": 50
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000802",
+    "name": "Census Tract 8.02; Nevada County; California",
+    "population": 6889,
+    "medianHouseholdIncome": 74173,
+    "medianAge": 55.9
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "000900",
+    "name": "Census Tract 9; Nevada County; California",
+    "population": 3765,
+    "medianHouseholdIncome": 76667,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001205",
+    "name": "Census Tract 12.05; Nevada County; California",
+    "population": 5085,
+    "medianHouseholdIncome": 129773,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001207",
+    "name": "Census Tract 12.07; Nevada County; California",
+    "population": 5882,
+    "medianHouseholdIncome": 85692,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001208",
+    "name": "Census Tract 12.08; Nevada County; California",
+    "population": 1690,
+    "medianHouseholdIncome": 168309,
+    "medianAge": 55.7
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001209",
+    "name": "Census Tract 12.09; Nevada County; California",
+    "population": 1489,
+    "medianHouseholdIncome": 100262,
+    "medianAge": 55.5
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001210",
+    "name": "Census Tract 12.10; Nevada County; California",
+    "population": 1682,
+    "medianHouseholdIncome": 177692,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "057",
+    "tract": "001211",
+    "name": "Census Tract 12.11; Nevada County; California",
+    "population": 1133,
+    "medianHouseholdIncome": 94183,
+    "medianAge": 52.1
+  }
+]

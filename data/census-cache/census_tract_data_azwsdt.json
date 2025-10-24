@@ -1,0 +1,569 @@
+[
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Merced County; California",
+    "population": 3359,
+    "medianHouseholdIncome": 101250,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Merced County; California",
+    "population": 2142,
+    "medianHouseholdIncome": 74375,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000204",
+    "name": "Census Tract 2.04; Merced County; California",
+    "population": 4585,
+    "medianHouseholdIncome": 75570,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000205",
+    "name": "Census Tract 2.05; Merced County; California",
+    "population": 5092,
+    "medianHouseholdIncome": 61654,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Merced County; California",
+    "population": 5321,
+    "medianHouseholdIncome": 68646,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000303",
+    "name": "Census Tract 3.03; Merced County; California",
+    "population": 2556,
+    "medianHouseholdIncome": 82841,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000305",
+    "name": "Census Tract 3.05; Merced County; California",
+    "population": 6437,
+    "medianHouseholdIncome": 76318,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000306",
+    "name": "Census Tract 3.06; Merced County; California",
+    "population": 3769,
+    "medianHouseholdIncome": 54471,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Merced County; California",
+    "population": 1513,
+    "medianHouseholdIncome": 60038,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000403",
+    "name": "Census Tract 4.03; Merced County; California",
+    "population": 4362,
+    "medianHouseholdIncome": 70200,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000404",
+    "name": "Census Tract 4.04; Merced County; California",
+    "population": 5261,
+    "medianHouseholdIncome": 76319,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000503",
+    "name": "Census Tract 5.03; Merced County; California",
+    "population": 2802,
+    "medianHouseholdIncome": 77422,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000504",
+    "name": "Census Tract 5.04; Merced County; California",
+    "population": 6606,
+    "medianHouseholdIncome": 52728,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000505",
+    "name": "Census Tract 5.05; Merced County; California",
+    "population": 7283,
+    "medianHouseholdIncome": 64779,
+    "medianAge": 28.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Merced County; California",
+    "population": 5316,
+    "medianHouseholdIncome": 50234,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Merced County; California",
+    "population": 4545,
+    "medianHouseholdIncome": 64463,
+    "medianAge": 29.8
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000603",
+    "name": "Census Tract 6.03; Merced County; California",
+    "population": 5996,
+    "medianHouseholdIncome": 63901,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Merced County; California",
+    "population": 3573,
+    "medianHouseholdIncome": 54375,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Merced County; California",
+    "population": 5429,
+    "medianHouseholdIncome": 120775,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000801",
+    "name": "Census Tract 8.01; Merced County; California",
+    "population": 6123,
+    "medianHouseholdIncome": 62545,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000802",
+    "name": "Census Tract 8.02; Merced County; California",
+    "population": 4448,
+    "medianHouseholdIncome": 76397,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Merced County; California",
+    "population": 3410,
+    "medianHouseholdIncome": 62542,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000903",
+    "name": "Census Tract 9.03; Merced County; California",
+    "population": 4903,
+    "medianHouseholdIncome": 53298,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "000904",
+    "name": "Census Tract 9.04; Merced County; California",
+    "population": 5414,
+    "medianHouseholdIncome": 86471,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001003",
+    "name": "Census Tract 10.03; Merced County; California",
+    "population": 4541,
+    "medianHouseholdIncome": 50114,
+    "medianAge": 28.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001004",
+    "name": "Census Tract 10.04; Merced County; California",
+    "population": 4001,
+    "medianHouseholdIncome": 52031,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001005",
+    "name": "Census Tract 10.05; Merced County; California",
+    "population": 2459,
+    "medianHouseholdIncome": 48506,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001006",
+    "name": "Census Tract 10.06; Merced County; California",
+    "population": 4436,
+    "medianHouseholdIncome": 70759,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001007",
+    "name": "Census Tract 10.07; Merced County; California",
+    "population": 4933,
+    "medianHouseholdIncome": 86007,
+    "medianAge": 24.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001008",
+    "name": "Census Tract 10.08; Merced County; California",
+    "population": 6974,
+    "medianHouseholdIncome": 133208,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Merced County; California",
+    "population": 6279,
+    "medianHouseholdIncome": 88092,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001200",
+    "name": "Census Tract 12; Merced County; California",
+    "population": 5408,
+    "medianHouseholdIncome": 70957,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Merced County; California",
+    "population": 2984,
+    "medianHouseholdIncome": 43750,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Merced County; California",
+    "population": 2911,
+    "medianHouseholdIncome": 36550,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001401",
+    "name": "Census Tract 14.01; Merced County; California",
+    "population": 3336,
+    "medianHouseholdIncome": 38589,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001402",
+    "name": "Census Tract 14.02; Merced County; California",
+    "population": 4529,
+    "medianHouseholdIncome": 51400,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001501",
+    "name": "Census Tract 15.01; Merced County; California",
+    "population": 2587,
+    "medianHouseholdIncome": 68571,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001502",
+    "name": "Census Tract 15.02; Merced County; California",
+    "population": 2351,
+    "medianHouseholdIncome": 41216,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001503",
+    "name": "Census Tract 15.03; Merced County; California",
+    "population": 5314,
+    "medianHouseholdIncome": 31498,
+    "medianAge": 22.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001601",
+    "name": "Census Tract 16.01; Merced County; California",
+    "population": 5124,
+    "medianHouseholdIncome": 46510,
+    "medianAge": 25
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001603",
+    "name": "Census Tract 16.03; Merced County; California",
+    "population": 3965,
+    "medianHouseholdIncome": 54129,
+    "medianAge": 24.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001604",
+    "name": "Census Tract 16.04; Merced County; California",
+    "population": 3763,
+    "medianHouseholdIncome": 63824,
+    "medianAge": 29.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001700",
+    "name": "Census Tract 17; Merced County; California",
+    "population": 7308,
+    "medianHouseholdIncome": 49536,
+    "medianAge": 26.5
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001801",
+    "name": "Census Tract 18.01; Merced County; California",
+    "population": 5472,
+    "medianHouseholdIncome": 102695,
+    "medianAge": 20.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001901",
+    "name": "Census Tract 19.01; Merced County; California",
+    "population": 5089,
+    "medianHouseholdIncome": 48438,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "001902",
+    "name": "Census Tract 19.02; Merced County; California",
+    "population": 2317,
+    "medianHouseholdIncome": 57031,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002001",
+    "name": "Census Tract 20.01; Merced County; California",
+    "population": 1056,
+    "medianHouseholdIncome": 59779,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002002",
+    "name": "Census Tract 20.02; Merced County; California",
+    "population": 6828,
+    "medianHouseholdIncome": 51697,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002100",
+    "name": "Census Tract 21; Merced County; California",
+    "population": 4021,
+    "medianHouseholdIncome": 68654,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002201",
+    "name": "Census Tract 22.01; Merced County; California",
+    "population": 7059,
+    "medianHouseholdIncome": 53906,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002203",
+    "name": "Census Tract 22.03; Merced County; California",
+    "population": 5309,
+    "medianHouseholdIncome": 84295,
+    "medianAge": 28.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002204",
+    "name": "Census Tract 22.04; Merced County; California",
+    "population": 6847,
+    "medianHouseholdIncome": 85698,
+    "medianAge": 27.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002301",
+    "name": "Census Tract 23.01; Merced County; California",
+    "population": 9371,
+    "medianHouseholdIncome": 92969,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002303",
+    "name": "Census Tract 23.03; Merced County; California",
+    "population": 6768,
+    "medianHouseholdIncome": 39107,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002304",
+    "name": "Census Tract 23.04; Merced County; California",
+    "population": 2415,
+    "medianHouseholdIncome": 59205,
+    "medianAge": 26.9
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002305",
+    "name": "Census Tract 23.05; Merced County; California",
+    "population": 5029,
+    "medianHouseholdIncome": 88000,
+    "medianAge": 29.5
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002306",
+    "name": "Census Tract 23.06; Merced County; California",
+    "population": 2891,
+    "medianHouseholdIncome": 92618,
+    "medianAge": 27.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002401",
+    "name": "Census Tract 24.01; Merced County; California",
+    "population": 1428,
+    "medianHouseholdIncome": 43495,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002403",
+    "name": "Census Tract 24.03; Merced County; California",
+    "population": 2949,
+    "medianHouseholdIncome": 40000,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002404",
+    "name": "Census Tract 24.04; Merced County; California",
+    "population": 4835,
+    "medianHouseholdIncome": 52335,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002500",
+    "name": "Census Tract 25; Merced County; California",
+    "population": 2303,
+    "medianHouseholdIncome": 87109,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002601",
+    "name": "Census Tract 26.01; Merced County; California",
+    "population": 2592,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "047",
+    "tract": "002602",
+    "name": "Census Tract 26.02; Merced County; California",
+    "population": 4263,
+    "medianHouseholdIncome": 115139,
+    "medianAge": 32
+  }
+]

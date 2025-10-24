@@ -1,0 +1,929 @@
+[
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Tulare County; California",
+    "population": 2680,
+    "medianHouseholdIncome": 79538,
+    "medianAge": 50.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Tulare County; California",
+    "population": 2357,
+    "medianHouseholdIncome": 61542,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Tulare County; California",
+    "population": 2506,
+    "medianHouseholdIncome": 33571,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000203",
+    "name": "Census Tract 2.03; Tulare County; California",
+    "population": 4782,
+    "medianHouseholdIncome": 58819,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000204",
+    "name": "Census Tract 2.04; Tulare County; California",
+    "population": 4822,
+    "medianHouseholdIncome": 49926,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Tulare County; California",
+    "population": 2839,
+    "medianHouseholdIncome": 53846,
+    "medianAge": 28.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000303",
+    "name": "Census Tract 3.03; Tulare County; California",
+    "population": 3740,
+    "medianHouseholdIncome": 70759,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000304",
+    "name": "Census Tract 3.04; Tulare County; California",
+    "population": 3457,
+    "medianHouseholdIncome": 51000,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Tulare County; California",
+    "population": 6768,
+    "medianHouseholdIncome": 79444,
+    "medianAge": 28.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Tulare County; California",
+    "population": 7897,
+    "medianHouseholdIncome": 64219,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Tulare County; California",
+    "population": 6887,
+    "medianHouseholdIncome": 36379,
+    "medianAge": 26.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Tulare County; California",
+    "population": 4285,
+    "medianHouseholdIncome": 62083,
+    "medianAge": 25.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000600",
+    "name": "Census Tract 6; Tulare County; California",
+    "population": 6325,
+    "medianHouseholdIncome": 57500,
+    "medianAge": 29.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Tulare County; California",
+    "population": 2900,
+    "medianHouseholdIncome": 36144,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Tulare County; California",
+    "population": 5720,
+    "medianHouseholdIncome": 47893,
+    "medianAge": 29.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000801",
+    "name": "Census Tract 8.01; Tulare County; California",
+    "population": 4329,
+    "medianHouseholdIncome": 49012,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000802",
+    "name": "Census Tract 8.02; Tulare County; California",
+    "population": 2883,
+    "medianHouseholdIncome": 78934,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Tulare County; California",
+    "population": 6189,
+    "medianHouseholdIncome": 62294,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Tulare County; California",
+    "population": 3824,
+    "medianHouseholdIncome": 88529,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001005",
+    "name": "Census Tract 10.05; Tulare County; California",
+    "population": 2906,
+    "medianHouseholdIncome": 116667,
+    "medianAge": 42.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001006",
+    "name": "Census Tract 10.06; Tulare County; California",
+    "population": 5237,
+    "medianHouseholdIncome": 79853,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001007",
+    "name": "Census Tract 10.07; Tulare County; California",
+    "population": 5443,
+    "medianHouseholdIncome": 88135,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001008",
+    "name": "Census Tract 10.08; Tulare County; California",
+    "population": 4383,
+    "medianHouseholdIncome": 157869,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001009",
+    "name": "Census Tract 10.09; Tulare County; California",
+    "population": 4295,
+    "medianHouseholdIncome": 51616,
+    "medianAge": 27.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001010",
+    "name": "Census Tract 10.10; Tulare County; California",
+    "population": 4159,
+    "medianHouseholdIncome": 62292,
+    "medianAge": 27.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001011",
+    "name": "Census Tract 10.11; Tulare County; California",
+    "population": 7148,
+    "medianHouseholdIncome": 83900,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001012",
+    "name": "Census Tract 10.12; Tulare County; California",
+    "population": 10105,
+    "medianHouseholdIncome": 87166,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Tulare County; California",
+    "population": 2539,
+    "medianHouseholdIncome": 37550,
+    "medianAge": 24.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001102",
+    "name": "Census Tract 11.02; Tulare County; California",
+    "population": 4310,
+    "medianHouseholdIncome": 34043,
+    "medianAge": 25.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001200",
+    "name": "Census Tract 12; Tulare County; California",
+    "population": 1179,
+    "medianHouseholdIncome": 31616,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001303",
+    "name": "Census Tract 13.03; Tulare County; California",
+    "population": 4879,
+    "medianHouseholdIncome": 72700,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001304",
+    "name": "Census Tract 13.04; Tulare County; California",
+    "population": 4572,
+    "medianHouseholdIncome": 98418,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001305",
+    "name": "Census Tract 13.05; Tulare County; California",
+    "population": 2931,
+    "medianHouseholdIncome": 59167,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001306",
+    "name": "Census Tract 13.06; Tulare County; California",
+    "population": 6074,
+    "medianHouseholdIncome": 74746,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001400",
+    "name": "Census Tract 14; Tulare County; California",
+    "population": 4759,
+    "medianHouseholdIncome": 95479,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001501",
+    "name": "Census Tract 15.01; Tulare County; California",
+    "population": 5086,
+    "medianHouseholdIncome": 80755,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001502",
+    "name": "Census Tract 15.02; Tulare County; California",
+    "population": 6026,
+    "medianHouseholdIncome": 57861,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001601",
+    "name": "Census Tract 16.01; Tulare County; California",
+    "population": 5556,
+    "medianHouseholdIncome": 46743,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001602",
+    "name": "Census Tract 16.02; Tulare County; California",
+    "population": 5521,
+    "medianHouseholdIncome": 55135,
+    "medianAge": 29.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001701",
+    "name": "Census Tract 17.01; Tulare County; California",
+    "population": 5706,
+    "medianHouseholdIncome": 44709,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001703",
+    "name": "Census Tract 17.03; Tulare County; California",
+    "population": 8534,
+    "medianHouseholdIncome": 94935,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001705",
+    "name": "Census Tract 17.05; Tulare County; California",
+    "population": 3577,
+    "medianHouseholdIncome": 66146,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001706",
+    "name": "Census Tract 17.06; Tulare County; California",
+    "population": 5065,
+    "medianHouseholdIncome": 83438,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001800",
+    "name": "Census Tract 18; Tulare County; California",
+    "population": 4871,
+    "medianHouseholdIncome": 52074,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001901",
+    "name": "Census Tract 19.01; Tulare County; California",
+    "population": 3456,
+    "medianHouseholdIncome": 73750,
+    "medianAge": 44.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "001902",
+    "name": "Census Tract 19.02; Tulare County; California",
+    "population": 4752,
+    "medianHouseholdIncome": 80033,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002002",
+    "name": "Census Tract 20.02; Tulare County; California",
+    "population": 4690,
+    "medianHouseholdIncome": 71435,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002003",
+    "name": "Census Tract 20.03; Tulare County; California",
+    "population": 6271,
+    "medianHouseholdIncome": 77288,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002004",
+    "name": "Census Tract 20.04; Tulare County; California",
+    "population": 5516,
+    "medianHouseholdIncome": 76146,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002006",
+    "name": "Census Tract 20.06; Tulare County; California",
+    "population": 4642,
+    "medianHouseholdIncome": 105559,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002008",
+    "name": "Census Tract 20.08; Tulare County; California",
+    "population": 2980,
+    "medianHouseholdIncome": 44849,
+    "medianAge": 28.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002009",
+    "name": "Census Tract 20.09; Tulare County; California",
+    "population": 4774,
+    "medianHouseholdIncome": 83750,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002010",
+    "name": "Census Tract 20.10; Tulare County; California",
+    "population": 6013,
+    "medianHouseholdIncome": 93906,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002011",
+    "name": "Census Tract 20.11; Tulare County; California",
+    "population": 3023,
+    "medianHouseholdIncome": 100481,
+    "medianAge": 32.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002100",
+    "name": "Census Tract 21; Tulare County; California",
+    "population": 2563,
+    "medianHouseholdIncome": 74375,
+    "medianAge": 28.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002202",
+    "name": "Census Tract 22.02; Tulare County; California",
+    "population": 5382,
+    "medianHouseholdIncome": 39673,
+    "medianAge": 25.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002203",
+    "name": "Census Tract 22.03; Tulare County; California",
+    "population": 4692,
+    "medianHouseholdIncome": 63214,
+    "medianAge": 26.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002204",
+    "name": "Census Tract 22.04; Tulare County; California",
+    "population": 7271,
+    "medianHouseholdIncome": 60792,
+    "medianAge": 21.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002302",
+    "name": "Census Tract 23.02; Tulare County; California",
+    "population": 5343,
+    "medianHouseholdIncome": 64533,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002303",
+    "name": "Census Tract 23.03; Tulare County; California",
+    "population": 6078,
+    "medianHouseholdIncome": 70903,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002304",
+    "name": "Census Tract 23.04; Tulare County; California",
+    "population": 1830,
+    "medianHouseholdIncome": 62772,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002401",
+    "name": "Census Tract 24.01; Tulare County; California",
+    "population": 5243,
+    "medianHouseholdIncome": 100904,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002402",
+    "name": "Census Tract 24.02; Tulare County; California",
+    "population": 4649,
+    "medianHouseholdIncome": 89778,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002403",
+    "name": "Census Tract 24.03; Tulare County; California",
+    "population": 7099,
+    "medianHouseholdIncome": 102619,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002500",
+    "name": "Census Tract 25; Tulare County; California",
+    "population": 3736,
+    "medianHouseholdIncome": 59148,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002601",
+    "name": "Census Tract 26.01; Tulare County; California",
+    "population": 4956,
+    "medianHouseholdIncome": 50170,
+    "medianAge": 29.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002602",
+    "name": "Census Tract 26.02; Tulare County; California",
+    "population": 5371,
+    "medianHouseholdIncome": 48919,
+    "medianAge": 27.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002701",
+    "name": "Census Tract 27.01; Tulare County; California",
+    "population": 1396,
+    "medianHouseholdIncome": 52351,
+    "medianAge": 60.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002702",
+    "name": "Census Tract 27.02; Tulare County; California",
+    "population": 3928,
+    "medianHouseholdIncome": 73902,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002800",
+    "name": "Census Tract 28; Tulare County; California",
+    "population": 3209,
+    "medianHouseholdIncome": 31773,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002901",
+    "name": "Census Tract 29.01; Tulare County; California",
+    "population": 3773,
+    "medianHouseholdIncome": 58000,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002903",
+    "name": "Census Tract 29.03; Tulare County; California",
+    "population": 5608,
+    "medianHouseholdIncome": 69348,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "002904",
+    "name": "Census Tract 29.04; Tulare County; California",
+    "population": 6028,
+    "medianHouseholdIncome": 57200,
+    "medianAge": 27.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003001",
+    "name": "Census Tract 30.01; Tulare County; California",
+    "population": 4060,
+    "medianHouseholdIncome": 41955,
+    "medianAge": 25.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003002",
+    "name": "Census Tract 30.02; Tulare County; California",
+    "population": 4394,
+    "medianHouseholdIncome": 48060,
+    "medianAge": 24
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003100",
+    "name": "Census Tract 31; Tulare County; California",
+    "population": 3240,
+    "medianHouseholdIncome": 66385,
+    "medianAge": 24.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003201",
+    "name": "Census Tract 32.01; Tulare County; California",
+    "population": 4682,
+    "medianHouseholdIncome": 50769,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003202",
+    "name": "Census Tract 32.02; Tulare County; California",
+    "population": 2389,
+    "medianHouseholdIncome": 38269,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003301",
+    "name": "Census Tract 33.01; Tulare County; California",
+    "population": 4192,
+    "medianHouseholdIncome": 40656,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003302",
+    "name": "Census Tract 33.02; Tulare County; California",
+    "population": 2508,
+    "medianHouseholdIncome": 81083,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003401",
+    "name": "Census Tract 34.01; Tulare County; California",
+    "population": 4148,
+    "medianHouseholdIncome": 48941,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003402",
+    "name": "Census Tract 34.02; Tulare County; California",
+    "population": 2347,
+    "medianHouseholdIncome": 56155,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003501",
+    "name": "Census Tract 35.01; Tulare County; California",
+    "population": 2825,
+    "medianHouseholdIncome": 55208,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003503",
+    "name": "Census Tract 35.03; Tulare County; California",
+    "population": 5720,
+    "medianHouseholdIncome": 95762,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003504",
+    "name": "Census Tract 35.04; Tulare County; California",
+    "population": 6752,
+    "medianHouseholdIncome": 64739,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003601",
+    "name": "Census Tract 36.01; Tulare County; California",
+    "population": 7686,
+    "medianHouseholdIncome": 56775,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003602",
+    "name": "Census Tract 36.02; Tulare County; California",
+    "population": 8241,
+    "medianHouseholdIncome": 67679,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003700",
+    "name": "Census Tract 37; Tulare County; California",
+    "population": 6031,
+    "medianHouseholdIncome": 49523,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003801",
+    "name": "Census Tract 38.01; Tulare County; California",
+    "population": 4281,
+    "medianHouseholdIncome": 55664,
+    "medianAge": 28.4
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003802",
+    "name": "Census Tract 38.02; Tulare County; California",
+    "population": 4396,
+    "medianHouseholdIncome": 31485,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003902",
+    "name": "Census Tract 39.02; Tulare County; California",
+    "population": 5925,
+    "medianHouseholdIncome": 35278,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003903",
+    "name": "Census Tract 39.03; Tulare County; California",
+    "population": 3349,
+    "medianHouseholdIncome": 53102,
+    "medianAge": 26.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "003904",
+    "name": "Census Tract 39.04; Tulare County; California",
+    "population": 3313,
+    "medianHouseholdIncome": 51351,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004000",
+    "name": "Census Tract 40; Tulare County; California",
+    "population": 561,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 69.8
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004102",
+    "name": "Census Tract 41.02; Tulare County; California",
+    "population": 2180,
+    "medianHouseholdIncome": 46176,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004103",
+    "name": "Census Tract 41.03; Tulare County; California",
+    "population": 4674,
+    "medianHouseholdIncome": 50070,
+    "medianAge": 26.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004104",
+    "name": "Census Tract 41.04; Tulare County; California",
+    "population": 5157,
+    "medianHouseholdIncome": 48519,
+    "medianAge": 30.7
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004200",
+    "name": "Census Tract 42; Tulare County; California",
+    "population": 6533,
+    "medianHouseholdIncome": 52388,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004301",
+    "name": "Census Tract 43.01; Tulare County; California",
+    "population": 2695,
+    "medianHouseholdIncome": 37292,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004302",
+    "name": "Census Tract 43.02; Tulare County; California",
+    "population": 2621,
+    "medianHouseholdIncome": 50265,
+    "medianAge": 25.9
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004401",
+    "name": "Census Tract 44.01; Tulare County; California",
+    "population": 4219,
+    "medianHouseholdIncome": 50964,
+    "medianAge": 26
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004402",
+    "name": "Census Tract 44.02; Tulare County; California",
+    "population": 3577,
+    "medianHouseholdIncome": 41695,
+    "medianAge": 25.6
+  },
+  {
+    "state": "06",
+    "county": "107",
+    "tract": "004500",
+    "name": "Census Tract 45; Tulare County; California",
+    "population": 6427,
+    "medianHouseholdIncome": 60940,
+    "medianAge": 33.7
+  }
+]

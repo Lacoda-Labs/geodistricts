@@ -572,11 +572,15 @@ app.get('/api/census/tract-data', async (req, res) => {
     
     const cacheKey = generateCacheKey('tract_data', params);
     
-    // Check cache first
-    const cachedData = await getFromCache(cacheKey);
-    if (cachedData) {
-      console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${cacheKey}`);
-      return res.json(cachedData);
+    // Check cache first (unless force invalidate)
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract data - state: ${state}, county: ${county}`);
+    } else {
+      const cachedData = await getFromCache(cacheKey);
+      if (cachedData) {
+        console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${cacheKey}`);
+        return res.json(cachedData);
+      }
     }
     
     // Build query parameters for Census API
@@ -622,6 +626,11 @@ app.get('/api/census/tract-data', async (req, res) => {
     // Cache the result
     await setCache(cacheKey, transformedData);
     console.log(`💾 FIRESTORE CACHE: Stored ${transformedData.length} tracts for state ${state}, county ${county}`);
+    
+    // Log if this was a fresh fetch due to force invalidate
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FRESH DATA FETCHED: Retrieved ${transformedData.length} tracts from Census API (cache bypassed)`);
+    }
     
     res.json(transformedData);
   } catch (error) {
@@ -741,10 +750,15 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     const cacheParams = { state, county: county || undefined };
     const cacheKey = generateCacheKey('tract_boundaries', cacheParams);
     
-    // Check cache first
-    const cachedData = await getFromCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
+    // Check cache first (unless force invalidate)
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract boundaries - state: ${state}, county: ${county || 'all'}`);
+    } else {
+      const cachedData = await getFromCache(cacheKey);
+      if (cachedData) {
+        console.log(`✅ FIRESTORE CACHE HIT: Retrieved boundaries for key: ${cacheKey}`);
+        return res.json(cachedData);
+      }
     }
 
     // For large datasets, use streaming response
@@ -779,6 +793,12 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     await setCache(cacheKey, geojsonResponse);
     
     console.log(`Retrieved ${geojsonResponse.features.length} tract boundaries for state ${state}`);
+    
+    // Log if this was a fresh fetch due to force invalidate
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FRESH BOUNDARIES FETCHED: Retrieved ${geojsonResponse.features.length} boundaries from TIGERweb (cache bypassed)`);
+    }
+    
     res.json(geojsonResponse);
   } catch (error) {
     console.error('Error fetching tract boundaries:', error);

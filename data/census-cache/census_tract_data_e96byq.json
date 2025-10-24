@@ -1,0 +1,1568 @@
+[
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000101",
+    "name": "Census Tract 1.01; San Joaquin County; California",
+    "population": 1649,
+    "medianHouseholdIncome": 31694,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000102",
+    "name": "Census Tract 1.02; San Joaquin County; California",
+    "population": 2013,
+    "medianHouseholdIncome": 19233,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000300",
+    "name": "Census Tract 3; San Joaquin County; California",
+    "population": 2298,
+    "medianHouseholdIncome": 24223,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000401",
+    "name": "Census Tract 4.01; San Joaquin County; California",
+    "population": 2856,
+    "medianHouseholdIncome": 57500,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000402",
+    "name": "Census Tract 4.02; San Joaquin County; California",
+    "population": 4373,
+    "medianHouseholdIncome": 27872,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000500",
+    "name": "Census Tract 5; San Joaquin County; California",
+    "population": 2496,
+    "medianHouseholdIncome": 40278,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000600",
+    "name": "Census Tract 6; San Joaquin County; California",
+    "population": 2171,
+    "medianHouseholdIncome": 31853,
+    "medianAge": 32.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000700",
+    "name": "Census Tract 7; San Joaquin County; California",
+    "population": 5284,
+    "medianHouseholdIncome": 41793,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000802",
+    "name": "Census Tract 8.02; San Joaquin County; California",
+    "population": 1951,
+    "medianHouseholdIncome": 66481,
+    "medianAge": 26.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000803",
+    "name": "Census Tract 8.03; San Joaquin County; California",
+    "population": 5845,
+    "medianHouseholdIncome": 83602,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "000900",
+    "name": "Census Tract 9; San Joaquin County; California",
+    "population": 5566,
+    "medianHouseholdIncome": 65417,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001000",
+    "name": "Census Tract 10; San Joaquin County; California",
+    "population": 5346,
+    "medianHouseholdIncome": 75092,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001101",
+    "name": "Census Tract 11.01; San Joaquin County; California",
+    "population": 5153,
+    "medianHouseholdIncome": 83600,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001102",
+    "name": "Census Tract 11.02; San Joaquin County; California",
+    "population": 5356,
+    "medianHouseholdIncome": 54539,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001200",
+    "name": "Census Tract 12; San Joaquin County; California",
+    "population": 5842,
+    "medianHouseholdIncome": 87672,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001300",
+    "name": "Census Tract 13; San Joaquin County; California",
+    "population": 5745,
+    "medianHouseholdIncome": 70761,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001400",
+    "name": "Census Tract 14; San Joaquin County; California",
+    "population": 4636,
+    "medianHouseholdIncome": 57468,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001501",
+    "name": "Census Tract 15.01; San Joaquin County; California",
+    "population": 6290,
+    "medianHouseholdIncome": 91538,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001502",
+    "name": "Census Tract 15.02; San Joaquin County; California",
+    "population": 3963,
+    "medianHouseholdIncome": 55010,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001600",
+    "name": "Census Tract 16; San Joaquin County; California",
+    "population": 2494,
+    "medianHouseholdIncome": 54653,
+    "medianAge": 24.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001700",
+    "name": "Census Tract 17; San Joaquin County; California",
+    "population": 4245,
+    "medianHouseholdIncome": 51083,
+    "medianAge": 27.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001800",
+    "name": "Census Tract 18; San Joaquin County; California",
+    "population": 4355,
+    "medianHouseholdIncome": 62988,
+    "medianAge": 30.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "001900",
+    "name": "Census Tract 19; San Joaquin County; California",
+    "population": 5577,
+    "medianHouseholdIncome": 57461,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002000",
+    "name": "Census Tract 20; San Joaquin County; California",
+    "population": 3674,
+    "medianHouseholdIncome": 55515,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002100",
+    "name": "Census Tract 21; San Joaquin County; California",
+    "population": 5838,
+    "medianHouseholdIncome": 46113,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002201",
+    "name": "Census Tract 22.01; San Joaquin County; California",
+    "population": 3564,
+    "medianHouseholdIncome": 34588,
+    "medianAge": 24.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002202",
+    "name": "Census Tract 22.02; San Joaquin County; California",
+    "population": 5494,
+    "medianHouseholdIncome": 45000,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002300",
+    "name": "Census Tract 23; San Joaquin County; California",
+    "population": 4560,
+    "medianHouseholdIncome": 54185,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002401",
+    "name": "Census Tract 24.01; San Joaquin County; California",
+    "population": 5485,
+    "medianHouseholdIncome": 75849,
+    "medianAge": 26.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002402",
+    "name": "Census Tract 24.02; San Joaquin County; California",
+    "population": 2047,
+    "medianHouseholdIncome": 51996,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002503",
+    "name": "Census Tract 25.03; San Joaquin County; California",
+    "population": 2300,
+    "medianHouseholdIncome": 46705,
+    "medianAge": 25.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002504",
+    "name": "Census Tract 25.04; San Joaquin County; California",
+    "population": 4396,
+    "medianHouseholdIncome": 88030,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002701",
+    "name": "Census Tract 27.01; San Joaquin County; California",
+    "population": 6362,
+    "medianHouseholdIncome": 54338,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002702",
+    "name": "Census Tract 27.02; San Joaquin County; California",
+    "population": 3762,
+    "medianHouseholdIncome": 53690,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "002800",
+    "name": "Census Tract 28; San Joaquin County; California",
+    "population": 6262,
+    "medianHouseholdIncome": 75417,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003106",
+    "name": "Census Tract 31.06; San Joaquin County; California",
+    "population": 4203,
+    "medianHouseholdIncome": 77469,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003108",
+    "name": "Census Tract 31.08; San Joaquin County; California",
+    "population": 5196,
+    "medianHouseholdIncome": 77215,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003109",
+    "name": "Census Tract 31.09; San Joaquin County; California",
+    "population": 5210,
+    "medianHouseholdIncome": 75424,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003110",
+    "name": "Census Tract 31.10; San Joaquin County; California",
+    "population": 3988,
+    "medianHouseholdIncome": 59512,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003111",
+    "name": "Census Tract 31.11; San Joaquin County; California",
+    "population": 4828,
+    "medianHouseholdIncome": 70919,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003112",
+    "name": "Census Tract 31.12; San Joaquin County; California",
+    "population": 3306,
+    "medianHouseholdIncome": 101542,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003115",
+    "name": "Census Tract 31.15; San Joaquin County; California",
+    "population": 4348,
+    "medianHouseholdIncome": 72972,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003116",
+    "name": "Census Tract 31.16; San Joaquin County; California",
+    "population": 3058,
+    "medianHouseholdIncome": 33125,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003117",
+    "name": "Census Tract 31.17; San Joaquin County; California",
+    "population": 3701,
+    "medianHouseholdIncome": 142667,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003118",
+    "name": "Census Tract 31.18; San Joaquin County; California",
+    "population": 3112,
+    "medianHouseholdIncome": 113452,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003119",
+    "name": "Census Tract 31.19; San Joaquin County; California",
+    "population": 2959,
+    "medianHouseholdIncome": 155556,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003203",
+    "name": "Census Tract 32.03; San Joaquin County; California",
+    "population": 3861,
+    "medianHouseholdIncome": 87284,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003205",
+    "name": "Census Tract 32.05; San Joaquin County; California",
+    "population": 4290,
+    "medianHouseholdIncome": 77694,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003209",
+    "name": "Census Tract 32.09; San Joaquin County; California",
+    "population": 5159,
+    "medianHouseholdIncome": 103656,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003210",
+    "name": "Census Tract 32.10; San Joaquin County; California",
+    "population": 2692,
+    "medianHouseholdIncome": 83750,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003213",
+    "name": "Census Tract 32.13; San Joaquin County; California",
+    "population": 5216,
+    "medianHouseholdIncome": 64310,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003214",
+    "name": "Census Tract 32.14; San Joaquin County; California",
+    "population": 2888,
+    "medianHouseholdIncome": 97500,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003215",
+    "name": "Census Tract 32.15; San Joaquin County; California",
+    "population": 4206,
+    "medianHouseholdIncome": 81241,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003216",
+    "name": "Census Tract 32.16; San Joaquin County; California",
+    "population": 3785,
+    "medianHouseholdIncome": 93750,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003217",
+    "name": "Census Tract 32.17; San Joaquin County; California",
+    "population": 3584,
+    "medianHouseholdIncome": 46667,
+    "medianAge": 26.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003218",
+    "name": "Census Tract 32.18; San Joaquin County; California",
+    "population": 3363,
+    "medianHouseholdIncome": 68650,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003219",
+    "name": "Census Tract 32.19; San Joaquin County; California",
+    "population": 10755,
+    "medianHouseholdIncome": 124958,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003305",
+    "name": "Census Tract 33.05; San Joaquin County; California",
+    "population": 4918,
+    "medianHouseholdIncome": 75938,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003306",
+    "name": "Census Tract 33.06; San Joaquin County; California",
+    "population": 5062,
+    "medianHouseholdIncome": 60682,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003307",
+    "name": "Census Tract 33.07; San Joaquin County; California",
+    "population": 4837,
+    "medianHouseholdIncome": 50732,
+    "medianAge": 27.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003308",
+    "name": "Census Tract 33.08; San Joaquin County; California",
+    "population": 1631,
+    "medianHouseholdIncome": 42111,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003310",
+    "name": "Census Tract 33.10; San Joaquin County; California",
+    "population": 4710,
+    "medianHouseholdIncome": 52389,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003311",
+    "name": "Census Tract 33.11; San Joaquin County; California",
+    "population": 4029,
+    "medianHouseholdIncome": 65341,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003312",
+    "name": "Census Tract 33.12; San Joaquin County; California",
+    "population": 3095,
+    "medianHouseholdIncome": 32400,
+    "medianAge": 29.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003313",
+    "name": "Census Tract 33.13; San Joaquin County; California",
+    "population": 3033,
+    "medianHouseholdIncome": 58125,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003403",
+    "name": "Census Tract 34.03; San Joaquin County; California",
+    "population": 5287,
+    "medianHouseholdIncome": 72176,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003404",
+    "name": "Census Tract 34.04; San Joaquin County; California",
+    "population": 7182,
+    "medianHouseholdIncome": 53567,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003405",
+    "name": "Census Tract 34.05; San Joaquin County; California",
+    "population": 4466,
+    "medianHouseholdIncome": 63100,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003406",
+    "name": "Census Tract 34.06; San Joaquin County; California",
+    "population": 3768,
+    "medianHouseholdIncome": 38497,
+    "medianAge": 29.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003407",
+    "name": "Census Tract 34.07; San Joaquin County; California",
+    "population": 2608,
+    "medianHouseholdIncome": 50547,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003409",
+    "name": "Census Tract 34.09; San Joaquin County; California",
+    "population": 4073,
+    "medianHouseholdIncome": 61083,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003410",
+    "name": "Census Tract 34.10; San Joaquin County; California",
+    "population": 6531,
+    "medianHouseholdIncome": 64649,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003501",
+    "name": "Census Tract 35.01; San Joaquin County; California",
+    "population": 2183,
+    "medianHouseholdIncome": 90110,
+    "medianAge": 52.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003502",
+    "name": "Census Tract 35.02; San Joaquin County; California",
+    "population": 2934,
+    "medianHouseholdIncome": 86522,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003503",
+    "name": "Census Tract 35.03; San Joaquin County; California",
+    "population": 8750,
+    "medianHouseholdIncome": 109116,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003504",
+    "name": "Census Tract 35.04; San Joaquin County; California",
+    "population": 8244,
+    "medianHouseholdIncome": 116656,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003601",
+    "name": "Census Tract 36.01; San Joaquin County; California",
+    "population": 2976,
+    "medianHouseholdIncome": 66844,
+    "medianAge": 46
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003602",
+    "name": "Census Tract 36.02; San Joaquin County; California",
+    "population": 4476,
+    "medianHouseholdIncome": 71866,
+    "medianAge": 29.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003700",
+    "name": "Census Tract 37; San Joaquin County; California",
+    "population": 3489,
+    "medianHouseholdIncome": 52944,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003803",
+    "name": "Census Tract 38.03; San Joaquin County; California",
+    "population": 6728,
+    "medianHouseholdIncome": 88418,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003804",
+    "name": "Census Tract 38.04; San Joaquin County; California",
+    "population": 5477,
+    "medianHouseholdIncome": 101829,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003805",
+    "name": "Census Tract 38.05; San Joaquin County; California",
+    "population": 3345,
+    "medianHouseholdIncome": 123368,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003806",
+    "name": "Census Tract 38.06; San Joaquin County; California",
+    "population": 3851,
+    "medianHouseholdIncome": 97031,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003807",
+    "name": "Census Tract 38.07; San Joaquin County; California",
+    "population": 2543,
+    "medianHouseholdIncome": 94732,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003808",
+    "name": "Census Tract 38.08; San Joaquin County; California",
+    "population": 4850,
+    "medianHouseholdIncome": 80033,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "003900",
+    "name": "Census Tract 39; San Joaquin County; California",
+    "population": 1612,
+    "medianHouseholdIncome": 53482,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004001",
+    "name": "Census Tract 40.01; San Joaquin County; California",
+    "population": 2249,
+    "medianHouseholdIncome": 49609,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004003",
+    "name": "Census Tract 40.03; San Joaquin County; California",
+    "population": 5135,
+    "medianHouseholdIncome": 105096,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004004",
+    "name": "Census Tract 40.04; San Joaquin County; California",
+    "population": 6708,
+    "medianHouseholdIncome": 108278,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004104",
+    "name": "Census Tract 41.04; San Joaquin County; California",
+    "population": 4122,
+    "medianHouseholdIncome": 118192,
+    "medianAge": 46.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004105",
+    "name": "Census Tract 41.05; San Joaquin County; California",
+    "population": 5197,
+    "medianHouseholdIncome": 107625,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004106",
+    "name": "Census Tract 41.06; San Joaquin County; California",
+    "population": 2464,
+    "medianHouseholdIncome": 115329,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004107",
+    "name": "Census Tract 41.07; San Joaquin County; California",
+    "population": 3456,
+    "medianHouseholdIncome": 70793,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004108",
+    "name": "Census Tract 41.08; San Joaquin County; California",
+    "population": 7245,
+    "medianHouseholdIncome": 130583,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004202",
+    "name": "Census Tract 42.02; San Joaquin County; California",
+    "population": 1902,
+    "medianHouseholdIncome": 141683,
+    "medianAge": 57.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004203",
+    "name": "Census Tract 42.03; San Joaquin County; California",
+    "population": 4192,
+    "medianHouseholdIncome": 75224,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004204",
+    "name": "Census Tract 42.04; San Joaquin County; California",
+    "population": 2748,
+    "medianHouseholdIncome": 75050,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004205",
+    "name": "Census Tract 42.05; San Joaquin County; California",
+    "population": 3213,
+    "medianHouseholdIncome": 62727,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004206",
+    "name": "Census Tract 42.06; San Joaquin County; California",
+    "population": 3013,
+    "medianHouseholdIncome": 75208,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004302",
+    "name": "Census Tract 43.02; San Joaquin County; California",
+    "population": 6595,
+    "medianHouseholdIncome": 58243,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004305",
+    "name": "Census Tract 43.05; San Joaquin County; California",
+    "population": 5939,
+    "medianHouseholdIncome": 122750,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004307",
+    "name": "Census Tract 43.07; San Joaquin County; California",
+    "population": 3880,
+    "medianHouseholdIncome": 75156,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004308",
+    "name": "Census Tract 43.08; San Joaquin County; California",
+    "population": 4014,
+    "medianHouseholdIncome": 76359,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004309",
+    "name": "Census Tract 43.09; San Joaquin County; California",
+    "population": 2252,
+    "medianHouseholdIncome": 81786,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004310",
+    "name": "Census Tract 43.10; San Joaquin County; California",
+    "population": 2830,
+    "medianHouseholdIncome": 101953,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004402",
+    "name": "Census Tract 44.02; San Joaquin County; California",
+    "population": 5903,
+    "medianHouseholdIncome": 89167,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004403",
+    "name": "Census Tract 44.03; San Joaquin County; California",
+    "population": 3800,
+    "medianHouseholdIncome": 28992,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004404",
+    "name": "Census Tract 44.04; San Joaquin County; California",
+    "population": 4401,
+    "medianHouseholdIncome": 45357,
+    "medianAge": 25.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004501",
+    "name": "Census Tract 45.01; San Joaquin County; California",
+    "population": 2330,
+    "medianHouseholdIncome": 63182,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004502",
+    "name": "Census Tract 45.02; San Joaquin County; California",
+    "population": 4304,
+    "medianHouseholdIncome": 45976,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004600",
+    "name": "Census Tract 46; San Joaquin County; California",
+    "population": 6511,
+    "medianHouseholdIncome": 82260,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004701",
+    "name": "Census Tract 47.01; San Joaquin County; California",
+    "population": 3426,
+    "medianHouseholdIncome": 105870,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004703",
+    "name": "Census Tract 47.03; San Joaquin County; California",
+    "population": 3728,
+    "medianHouseholdIncome": 132969,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004704",
+    "name": "Census Tract 47.04; San Joaquin County; California",
+    "population": 5112,
+    "medianHouseholdIncome": 94866,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004800",
+    "name": "Census Tract 48; San Joaquin County; California",
+    "population": 5485,
+    "medianHouseholdIncome": 89120,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004903",
+    "name": "Census Tract 49.03; San Joaquin County; California",
+    "population": 2932,
+    "medianHouseholdIncome": 64768,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004904",
+    "name": "Census Tract 49.04; San Joaquin County; California",
+    "population": 4592,
+    "medianHouseholdIncome": 88656,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004905",
+    "name": "Census Tract 49.05; San Joaquin County; California",
+    "population": 2487,
+    "medianHouseholdIncome": 105726,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "004906",
+    "name": "Census Tract 49.06; San Joaquin County; California",
+    "population": 2990,
+    "medianHouseholdIncome": 74531,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005001",
+    "name": "Census Tract 50.01; San Joaquin County; California",
+    "population": 6192,
+    "medianHouseholdIncome": 89862,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005003",
+    "name": "Census Tract 50.03; San Joaquin County; California",
+    "population": 6158,
+    "medianHouseholdIncome": 126964,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005004",
+    "name": "Census Tract 50.04; San Joaquin County; California",
+    "population": 5928,
+    "medianHouseholdIncome": 97179,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005106",
+    "name": "Census Tract 51.06; San Joaquin County; California",
+    "population": 12516,
+    "medianHouseholdIncome": 119515,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005108",
+    "name": "Census Tract 51.08; San Joaquin County; California",
+    "population": 5445,
+    "medianHouseholdIncome": 62350,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005109",
+    "name": "Census Tract 51.09; San Joaquin County; California",
+    "population": 3493,
+    "medianHouseholdIncome": 53542,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005119",
+    "name": "Census Tract 51.19; San Joaquin County; California",
+    "population": 9550,
+    "medianHouseholdIncome": 121429,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005122",
+    "name": "Census Tract 51.22; San Joaquin County; California",
+    "population": 7781,
+    "medianHouseholdIncome": 122906,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005123",
+    "name": "Census Tract 51.23; San Joaquin County; California",
+    "population": 4242,
+    "medianHouseholdIncome": 90833,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005124",
+    "name": "Census Tract 51.24; San Joaquin County; California",
+    "population": 3340,
+    "medianHouseholdIncome": 65515,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005125",
+    "name": "Census Tract 51.25; San Joaquin County; California",
+    "population": 2086,
+    "medianHouseholdIncome": 80208,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005126",
+    "name": "Census Tract 51.26; San Joaquin County; California",
+    "population": 5242,
+    "medianHouseholdIncome": 69413,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005127",
+    "name": "Census Tract 51.27; San Joaquin County; California",
+    "population": 7580,
+    "medianHouseholdIncome": 102440,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005129",
+    "name": "Census Tract 51.29; San Joaquin County; California",
+    "population": 4439,
+    "medianHouseholdIncome": 76875,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005130",
+    "name": "Census Tract 51.30; San Joaquin County; California",
+    "population": 3265,
+    "medianHouseholdIncome": 95208,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005131",
+    "name": "Census Tract 51.31; San Joaquin County; California",
+    "population": 7931,
+    "medianHouseholdIncome": 80833,
+    "medianAge": 48
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005132",
+    "name": "Census Tract 51.32; San Joaquin County; California",
+    "population": 3075,
+    "medianHouseholdIncome": 58254,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005133",
+    "name": "Census Tract 51.33; San Joaquin County; California",
+    "population": 4447,
+    "medianHouseholdIncome": 80063,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005134",
+    "name": "Census Tract 51.34; San Joaquin County; California",
+    "population": 4883,
+    "medianHouseholdIncome": 105272,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005135",
+    "name": "Census Tract 51.35; San Joaquin County; California",
+    "population": 8420,
+    "medianHouseholdIncome": 111301,
+    "medianAge": 47.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005136",
+    "name": "Census Tract 51.36; San Joaquin County; California",
+    "population": 3348,
+    "medianHouseholdIncome": 135350,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005137",
+    "name": "Census Tract 51.37; San Joaquin County; California",
+    "population": 7752,
+    "medianHouseholdIncome": 110518,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005138",
+    "name": "Census Tract 51.38; San Joaquin County; California",
+    "population": 2884,
+    "medianHouseholdIncome": 50000,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005139",
+    "name": "Census Tract 51.39; San Joaquin County; California",
+    "population": 3212,
+    "medianHouseholdIncome": 139583,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005140",
+    "name": "Census Tract 51.40; San Joaquin County; California",
+    "population": 3864,
+    "medianHouseholdIncome": 78011,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005141",
+    "name": "Census Tract 51.41; San Joaquin County; California",
+    "population": 3040,
+    "medianHouseholdIncome": 84844,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005208",
+    "name": "Census Tract 52.08; San Joaquin County; California",
+    "population": 6863,
+    "medianHouseholdIncome": 99036,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005211",
+    "name": "Census Tract 52.11; San Joaquin County; California",
+    "population": 4568,
+    "medianHouseholdIncome": 132837,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005212",
+    "name": "Census Tract 52.12; San Joaquin County; California",
+    "population": 7352,
+    "medianHouseholdIncome": 170420,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005213",
+    "name": "Census Tract 52.13; San Joaquin County; California",
+    "population": 3300,
+    "medianHouseholdIncome": 137163,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005214",
+    "name": "Census Tract 52.14; San Joaquin County; California",
+    "population": 8130,
+    "medianHouseholdIncome": 108140,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005215",
+    "name": "Census Tract 52.15; San Joaquin County; California",
+    "population": 4477,
+    "medianHouseholdIncome": 175526,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005216",
+    "name": "Census Tract 52.16; San Joaquin County; California",
+    "population": 5157,
+    "medianHouseholdIncome": 164176,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005217",
+    "name": "Census Tract 52.17; San Joaquin County; California",
+    "population": 3497,
+    "medianHouseholdIncome": 116094,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005218",
+    "name": "Census Tract 52.18; San Joaquin County; California",
+    "population": 3808,
+    "medianHouseholdIncome": 166056,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005219",
+    "name": "Census Tract 52.19; San Joaquin County; California",
+    "population": 5401,
+    "medianHouseholdIncome": 158643,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005220",
+    "name": "Census Tract 52.20; San Joaquin County; California",
+    "population": 2270,
+    "medianHouseholdIncome": 105208,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005221",
+    "name": "Census Tract 52.21; San Joaquin County; California",
+    "population": 9430,
+    "medianHouseholdIncome": 165369,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005222",
+    "name": "Census Tract 52.22; San Joaquin County; California",
+    "population": 4969,
+    "medianHouseholdIncome": 172758,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005223",
+    "name": "Census Tract 52.23; San Joaquin County; California",
+    "population": 9191,
+    "medianHouseholdIncome": 178854,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005224",
+    "name": "Census Tract 52.24; San Joaquin County; California",
+    "population": 5834,
+    "medianHouseholdIncome": 106491,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005225",
+    "name": "Census Tract 52.25; San Joaquin County; California",
+    "population": 3109,
+    "medianHouseholdIncome": 97959,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005303",
+    "name": "Census Tract 53.03; San Joaquin County; California",
+    "population": 6454,
+    "medianHouseholdIncome": 81889,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005307",
+    "name": "Census Tract 53.07; San Joaquin County; California",
+    "population": 3403,
+    "medianHouseholdIncome": 94297,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005308",
+    "name": "Census Tract 53.08; San Joaquin County; California",
+    "population": 4356,
+    "medianHouseholdIncome": 96630,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005309",
+    "name": "Census Tract 53.09; San Joaquin County; California",
+    "population": 2727,
+    "medianHouseholdIncome": 98611,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005310",
+    "name": "Census Tract 53.10; San Joaquin County; California",
+    "population": 4440,
+    "medianHouseholdIncome": 99886,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005311",
+    "name": "Census Tract 53.11; San Joaquin County; California",
+    "population": 3055,
+    "medianHouseholdIncome": 58765,
+    "medianAge": 29.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005312",
+    "name": "Census Tract 53.12; San Joaquin County; California",
+    "population": 3073,
+    "medianHouseholdIncome": 104111,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005403",
+    "name": "Census Tract 54.03; San Joaquin County; California",
+    "population": 6249,
+    "medianHouseholdIncome": 122857,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005405",
+    "name": "Census Tract 54.05; San Joaquin County; California",
+    "population": 3862,
+    "medianHouseholdIncome": 85714,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005406",
+    "name": "Census Tract 54.06; San Joaquin County; California",
+    "population": 3129,
+    "medianHouseholdIncome": 64318,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005502",
+    "name": "Census Tract 55.02; San Joaquin County; California",
+    "population": 3096,
+    "medianHouseholdIncome": 162500,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "005503",
+    "name": "Census Tract 55.03; San Joaquin County; California",
+    "population": 1704,
+    "medianHouseholdIncome": 52463,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "077",
+    "tract": "980000",
+    "name": "Census Tract 9800; San Joaquin County; California",
+    "population": 1629,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 41.1
+  }
+]

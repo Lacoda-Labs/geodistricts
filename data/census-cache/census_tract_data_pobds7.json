@@ -1,0 +1,83 @@
+[
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "940500",
+    "name": "Census Tract 9405; Graham County; Arizona",
+    "population": 4333,
+    "medianHouseholdIncome": 29938,
+    "medianAge": 27.6
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961100",
+    "name": "Census Tract 9611; Graham County; Arizona",
+    "population": 4948,
+    "medianHouseholdIncome": 69167,
+    "medianAge": 38.6
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961201",
+    "name": "Census Tract 9612.01; Graham County; Arizona",
+    "population": 3121,
+    "medianHouseholdIncome": 73607,
+    "medianAge": 25.9
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961202",
+    "name": "Census Tract 9612.02; Graham County; Arizona",
+    "population": 4291,
+    "medianHouseholdIncome": 75938,
+    "medianAge": 27.9
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961300",
+    "name": "Census Tract 9613; Graham County; Arizona",
+    "population": 2910,
+    "medianHouseholdIncome": 63310,
+    "medianAge": 31.2
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961400",
+    "name": "Census Tract 9614; Graham County; Arizona",
+    "population": 5329,
+    "medianHouseholdIncome": 65143,
+    "medianAge": 35.8
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961500",
+    "name": "Census Tract 9615; Graham County; Arizona",
+    "population": 4636,
+    "medianHouseholdIncome": 58794,
+    "medianAge": 41.1
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961600",
+    "name": "Census Tract 9616; Graham County; Arizona",
+    "population": 2822,
+    "medianHouseholdIncome": 99792,
+    "medianAge": 37.9
+  },
+  {
+    "state": "04",
+    "county": "009",
+    "tract": "961700",
+    "name": "Census Tract 9617; Graham County; Arizona",
+    "population": 6063,
+    "medianHouseholdIncome": 54808,
+    "medianAge": 34.4
+  }
+]

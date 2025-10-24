@@ -1,0 +1,2432 @@
+[
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000100",
+    "name": "Census Tract 1; Pima County; Arizona",
+    "population": 903,
+    "medianHouseholdIncome": 28268,
+    "medianAge": 34.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000200",
+    "name": "Census Tract 2; Pima County; Arizona",
+    "population": 4257,
+    "medianHouseholdIncome": 40701,
+    "medianAge": 29.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000300",
+    "name": "Census Tract 3; Pima County; Arizona",
+    "population": 1314,
+    "medianHouseholdIncome": 37813,
+    "medianAge": 31.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Pima County; Arizona",
+    "population": 2099,
+    "medianHouseholdIncome": 36950,
+    "medianAge": 25.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Pima County; Arizona",
+    "population": 1324,
+    "medianHouseholdIncome": 24881,
+    "medianAge": 23.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Pima County; Arizona",
+    "population": 3863,
+    "medianHouseholdIncome": 29145,
+    "medianAge": 20.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Pima County; Arizona",
+    "population": 7715,
+    "medianHouseholdIncome": 33323,
+    "medianAge": 19.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000600",
+    "name": "Census Tract 6; Pima County; Arizona",
+    "population": 4827,
+    "medianHouseholdIncome": 83601,
+    "medianAge": 33.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000700",
+    "name": "Census Tract 7; Pima County; Arizona",
+    "population": 5658,
+    "medianHouseholdIncome": 57179,
+    "medianAge": 28.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "000800",
+    "name": "Census Tract 8; Pima County; Arizona",
+    "population": 1804,
+    "medianHouseholdIncome": 55670,
+    "medianAge": 33.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001100",
+    "name": "Census Tract 11; Pima County; Arizona",
+    "population": 2705,
+    "medianHouseholdIncome": 36446,
+    "medianAge": 41.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001200",
+    "name": "Census Tract 12; Pima County; Arizona",
+    "population": 3636,
+    "medianHouseholdIncome": 50272,
+    "medianAge": 32.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Pima County; Arizona",
+    "population": 2092,
+    "medianHouseholdIncome": 32273,
+    "medianAge": 38.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001303",
+    "name": "Census Tract 13.03; Pima County; Arizona",
+    "population": 2868,
+    "medianHouseholdIncome": 31801,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001304",
+    "name": "Census Tract 13.04; Pima County; Arizona",
+    "population": 5034,
+    "medianHouseholdIncome": 31733,
+    "medianAge": 31.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001400",
+    "name": "Census Tract 14; Pima County; Arizona",
+    "population": 6387,
+    "medianHouseholdIncome": 29571,
+    "medianAge": 25.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001500",
+    "name": "Census Tract 15; Pima County; Arizona",
+    "population": 5904,
+    "medianHouseholdIncome": 38294,
+    "medianAge": 22.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001600",
+    "name": "Census Tract 16; Pima County; Arizona",
+    "population": 3471,
+    "medianHouseholdIncome": 63041,
+    "medianAge": 40.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001700",
+    "name": "Census Tract 17; Pima County; Arizona",
+    "population": 2791,
+    "medianHouseholdIncome": 62632,
+    "medianAge": 40.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001801",
+    "name": "Census Tract 18.01; Pima County; Arizona",
+    "population": 4809,
+    "medianHouseholdIncome": 26175,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001802",
+    "name": "Census Tract 18.02; Pima County; Arizona",
+    "population": 2649,
+    "medianHouseholdIncome": 47424,
+    "medianAge": 32.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "001900",
+    "name": "Census Tract 19; Pima County; Arizona",
+    "population": 3577,
+    "medianHouseholdIncome": 84670,
+    "medianAge": 37.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002000",
+    "name": "Census Tract 20; Pima County; Arizona",
+    "population": 6563,
+    "medianHouseholdIncome": 50135,
+    "medianAge": 39.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002100",
+    "name": "Census Tract 21; Pima County; Arizona",
+    "population": 6314,
+    "medianHouseholdIncome": 58250,
+    "medianAge": 31.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002201",
+    "name": "Census Tract 22.01; Pima County; Arizona",
+    "population": 3217,
+    "medianHouseholdIncome": 46146,
+    "medianAge": 40.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002202",
+    "name": "Census Tract 22.02; Pima County; Arizona",
+    "population": 3290,
+    "medianHouseholdIncome": 43141,
+    "medianAge": 34.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002300",
+    "name": "Census Tract 23; Pima County; Arizona",
+    "population": 4642,
+    "medianHouseholdIncome": 34014,
+    "medianAge": 35.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002400",
+    "name": "Census Tract 24; Pima County; Arizona",
+    "population": 4767,
+    "medianHouseholdIncome": 39545,
+    "medianAge": 34.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002503",
+    "name": "Census Tract 25.03; Pima County; Arizona",
+    "population": 3972,
+    "medianHouseholdIncome": 40000,
+    "medianAge": 34.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002504",
+    "name": "Census Tract 25.04; Pima County; Arizona",
+    "population": 6762,
+    "medianHouseholdIncome": 51836,
+    "medianAge": 31.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002505",
+    "name": "Census Tract 25.05; Pima County; Arizona",
+    "population": 6778,
+    "medianHouseholdIncome": 62028,
+    "medianAge": 25.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002507",
+    "name": "Census Tract 25.07; Pima County; Arizona",
+    "population": 2826,
+    "medianHouseholdIncome": 37366,
+    "medianAge": 30.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002508",
+    "name": "Census Tract 25.08; Pima County; Arizona",
+    "population": 5459,
+    "medianHouseholdIncome": 59019,
+    "medianAge": 32.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002509",
+    "name": "Census Tract 25.09; Pima County; Arizona",
+    "population": 4465,
+    "medianHouseholdIncome": 41099,
+    "medianAge": 40.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002602",
+    "name": "Census Tract 26.02; Pima County; Arizona",
+    "population": 5089,
+    "medianHouseholdIncome": 29570,
+    "medianAge": 31.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002603",
+    "name": "Census Tract 26.03; Pima County; Arizona",
+    "population": 3057,
+    "medianHouseholdIncome": 29459,
+    "medianAge": 29.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002604",
+    "name": "Census Tract 26.04; Pima County; Arizona",
+    "population": 3895,
+    "medianHouseholdIncome": 30863,
+    "medianAge": 29.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002702",
+    "name": "Census Tract 27.02; Pima County; Arizona",
+    "population": 5543,
+    "medianHouseholdIncome": 52127,
+    "medianAge": 30.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002703",
+    "name": "Census Tract 27.03; Pima County; Arizona",
+    "population": 3690,
+    "medianHouseholdIncome": 41547,
+    "medianAge": 27.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002704",
+    "name": "Census Tract 27.04; Pima County; Arizona",
+    "population": 2600,
+    "medianHouseholdIncome": 38625,
+    "medianAge": 30
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002801",
+    "name": "Census Tract 28.01; Pima County; Arizona",
+    "population": 1901,
+    "medianHouseholdIncome": 30577,
+    "medianAge": 34
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002802",
+    "name": "Census Tract 28.02; Pima County; Arizona",
+    "population": 4122,
+    "medianHouseholdIncome": 43500,
+    "medianAge": 36.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002803",
+    "name": "Census Tract 28.03; Pima County; Arizona",
+    "population": 2630,
+    "medianHouseholdIncome": 50574,
+    "medianAge": 35.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002901",
+    "name": "Census Tract 29.01; Pima County; Arizona",
+    "population": 6006,
+    "medianHouseholdIncome": 42022,
+    "medianAge": 35.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002904",
+    "name": "Census Tract 29.04; Pima County; Arizona",
+    "population": 3389,
+    "medianHouseholdIncome": 51156,
+    "medianAge": 58.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002905",
+    "name": "Census Tract 29.05; Pima County; Arizona",
+    "population": 3962,
+    "medianHouseholdIncome": 53365,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "002906",
+    "name": "Census Tract 29.06; Pima County; Arizona",
+    "population": 2213,
+    "medianHouseholdIncome": 65859,
+    "medianAge": 50.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003002",
+    "name": "Census Tract 30.02; Pima County; Arizona",
+    "population": 4947,
+    "medianHouseholdIncome": 59545,
+    "medianAge": 40.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003003",
+    "name": "Census Tract 30.03; Pima County; Arizona",
+    "population": 4088,
+    "medianHouseholdIncome": 47983,
+    "medianAge": 45.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003004",
+    "name": "Census Tract 30.04; Pima County; Arizona",
+    "population": 1579,
+    "medianHouseholdIncome": 60083,
+    "medianAge": 41.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003102",
+    "name": "Census Tract 31.02; Pima County; Arizona",
+    "population": 3783,
+    "medianHouseholdIncome": 37285,
+    "medianAge": 45.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003103",
+    "name": "Census Tract 31.03; Pima County; Arizona",
+    "population": 2535,
+    "medianHouseholdIncome": 34312,
+    "medianAge": 32.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003104",
+    "name": "Census Tract 31.04; Pima County; Arizona",
+    "population": 2865,
+    "medianHouseholdIncome": 32742,
+    "medianAge": 33.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003201",
+    "name": "Census Tract 32.01; Pima County; Arizona",
+    "population": 3173,
+    "medianHouseholdIncome": 81307,
+    "medianAge": 42.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003202",
+    "name": "Census Tract 32.02; Pima County; Arizona",
+    "population": 2879,
+    "medianHouseholdIncome": 40908,
+    "medianAge": 42.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003302",
+    "name": "Census Tract 33.02; Pima County; Arizona",
+    "population": 3974,
+    "medianHouseholdIncome": 70362,
+    "medianAge": 41.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003303",
+    "name": "Census Tract 33.03; Pima County; Arizona",
+    "population": 4253,
+    "medianHouseholdIncome": 46217,
+    "medianAge": 38.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003304",
+    "name": "Census Tract 33.04; Pima County; Arizona",
+    "population": 3319,
+    "medianHouseholdIncome": 52422,
+    "medianAge": 36.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003400",
+    "name": "Census Tract 34; Pima County; Arizona",
+    "population": 5865,
+    "medianHouseholdIncome": 59821,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003502",
+    "name": "Census Tract 35.02; Pima County; Arizona",
+    "population": 3814,
+    "medianHouseholdIncome": 44926,
+    "medianAge": 35.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003503",
+    "name": "Census Tract 35.03; Pima County; Arizona",
+    "population": 4332,
+    "medianHouseholdIncome": 36514,
+    "medianAge": 29.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003504",
+    "name": "Census Tract 35.04; Pima County; Arizona",
+    "population": 2781,
+    "medianHouseholdIncome": 64052,
+    "medianAge": 35.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003505",
+    "name": "Census Tract 35.05; Pima County; Arizona",
+    "population": 4840,
+    "medianHouseholdIncome": 36690,
+    "medianAge": 34.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003506",
+    "name": "Census Tract 35.06; Pima County; Arizona",
+    "population": 3326,
+    "medianHouseholdIncome": 36908,
+    "medianAge": 32.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003601",
+    "name": "Census Tract 36.01; Pima County; Arizona",
+    "population": 4538,
+    "medianHouseholdIncome": 58019,
+    "medianAge": 22.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003702",
+    "name": "Census Tract 37.02; Pima County; Arizona",
+    "population": 7896,
+    "medianHouseholdIncome": 34837,
+    "medianAge": 26.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003704",
+    "name": "Census Tract 37.04; Pima County; Arizona",
+    "population": 4510,
+    "medianHouseholdIncome": 45578,
+    "medianAge": 28.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003705",
+    "name": "Census Tract 37.05; Pima County; Arizona",
+    "population": 5236,
+    "medianHouseholdIncome": 47649,
+    "medianAge": 29.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003706",
+    "name": "Census Tract 37.06; Pima County; Arizona",
+    "population": 6613,
+    "medianHouseholdIncome": 46591,
+    "medianAge": 32.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003707",
+    "name": "Census Tract 37.07; Pima County; Arizona",
+    "population": 3771,
+    "medianHouseholdIncome": 52917,
+    "medianAge": 26.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003801",
+    "name": "Census Tract 38.01; Pima County; Arizona",
+    "population": 3013,
+    "medianHouseholdIncome": 31867,
+    "medianAge": 33.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003802",
+    "name": "Census Tract 38.02; Pima County; Arizona",
+    "population": 5433,
+    "medianHouseholdIncome": 42500,
+    "medianAge": 32.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003901",
+    "name": "Census Tract 39.01; Pima County; Arizona",
+    "population": 2001,
+    "medianHouseholdIncome": 43646,
+    "medianAge": 36.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003902",
+    "name": "Census Tract 39.02; Pima County; Arizona",
+    "population": 2599,
+    "medianHouseholdIncome": 53932,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "003903",
+    "name": "Census Tract 39.03; Pima County; Arizona",
+    "population": 3522,
+    "medianHouseholdIncome": 51250,
+    "medianAge": 32.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004008",
+    "name": "Census Tract 40.08; Pima County; Arizona",
+    "population": 4439,
+    "medianHouseholdIncome": 64583,
+    "medianAge": 43.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004010",
+    "name": "Census Tract 40.10; Pima County; Arizona",
+    "population": 3050,
+    "medianHouseholdIncome": 55545,
+    "medianAge": 45.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004026",
+    "name": "Census Tract 40.26; Pima County; Arizona",
+    "population": 5909,
+    "medianHouseholdIncome": 93750,
+    "medianAge": 39.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004029",
+    "name": "Census Tract 40.29; Pima County; Arizona",
+    "population": 4298,
+    "medianHouseholdIncome": 54228,
+    "medianAge": 36.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004030",
+    "name": "Census Tract 40.30; Pima County; Arizona",
+    "population": 1819,
+    "medianHouseholdIncome": 149250,
+    "medianAge": 43.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004031",
+    "name": "Census Tract 40.31; Pima County; Arizona",
+    "population": 4040,
+    "medianHouseholdIncome": 71672,
+    "medianAge": 42.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004032",
+    "name": "Census Tract 40.32; Pima County; Arizona",
+    "population": 3823,
+    "medianHouseholdIncome": 70686,
+    "medianAge": 46.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004033",
+    "name": "Census Tract 40.33; Pima County; Arizona",
+    "population": 4128,
+    "medianHouseholdIncome": 40550,
+    "medianAge": 30.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004034",
+    "name": "Census Tract 40.34; Pima County; Arizona",
+    "population": 3349,
+    "medianHouseholdIncome": 50927,
+    "medianAge": 28.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004035",
+    "name": "Census Tract 40.35; Pima County; Arizona",
+    "population": 4146,
+    "medianHouseholdIncome": 50945,
+    "medianAge": 39.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004036",
+    "name": "Census Tract 40.36; Pima County; Arizona",
+    "population": 3233,
+    "medianHouseholdIncome": 63867,
+    "medianAge": 34
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004037",
+    "name": "Census Tract 40.37; Pima County; Arizona",
+    "population": 2678,
+    "medianHouseholdIncome": 52708,
+    "medianAge": 35.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004038",
+    "name": "Census Tract 40.38; Pima County; Arizona",
+    "population": 3108,
+    "medianHouseholdIncome": 60976,
+    "medianAge": 33.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004039",
+    "name": "Census Tract 40.39; Pima County; Arizona",
+    "population": 2327,
+    "medianHouseholdIncome": 35635,
+    "medianAge": 59.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004042",
+    "name": "Census Tract 40.42; Pima County; Arizona",
+    "population": 5443,
+    "medianHouseholdIncome": 71875,
+    "medianAge": 36.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004043",
+    "name": "Census Tract 40.43; Pima County; Arizona",
+    "population": 3734,
+    "medianHouseholdIncome": 95500,
+    "medianAge": 41.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004044",
+    "name": "Census Tract 40.44; Pima County; Arizona",
+    "population": 3864,
+    "medianHouseholdIncome": 110294,
+    "medianAge": 56.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004046",
+    "name": "Census Tract 40.46; Pima County; Arizona",
+    "population": 4691,
+    "medianHouseholdIncome": 80878,
+    "medianAge": 47.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004047",
+    "name": "Census Tract 40.47; Pima County; Arizona",
+    "population": 2758,
+    "medianHouseholdIncome": 94688,
+    "medianAge": 47.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004048",
+    "name": "Census Tract 40.48; Pima County; Arizona",
+    "population": 4156,
+    "medianHouseholdIncome": 73914,
+    "medianAge": 39.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004049",
+    "name": "Census Tract 40.49; Pima County; Arizona",
+    "population": 3090,
+    "medianHouseholdIncome": 55928,
+    "medianAge": 33.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004050",
+    "name": "Census Tract 40.50; Pima County; Arizona",
+    "population": 1776,
+    "medianHouseholdIncome": 100139,
+    "medianAge": 56.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004051",
+    "name": "Census Tract 40.51; Pima County; Arizona",
+    "population": 4959,
+    "medianHouseholdIncome": 130938,
+    "medianAge": 56.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004052",
+    "name": "Census Tract 40.52; Pima County; Arizona",
+    "population": 1831,
+    "medianHouseholdIncome": 116154,
+    "medianAge": 62.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004053",
+    "name": "Census Tract 40.53; Pima County; Arizona",
+    "population": 2940,
+    "medianHouseholdIncome": 103083,
+    "medianAge": 53.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004054",
+    "name": "Census Tract 40.54; Pima County; Arizona",
+    "population": 1320,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 56.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004055",
+    "name": "Census Tract 40.55; Pima County; Arizona",
+    "population": 3460,
+    "medianHouseholdIncome": 81406,
+    "medianAge": 47.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004056",
+    "name": "Census Tract 40.56; Pima County; Arizona",
+    "population": 2078,
+    "medianHouseholdIncome": 67670,
+    "medianAge": 39
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004057",
+    "name": "Census Tract 40.57; Pima County; Arizona",
+    "population": 4362,
+    "medianHouseholdIncome": 82733,
+    "medianAge": 43.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004058",
+    "name": "Census Tract 40.58; Pima County; Arizona",
+    "population": 4680,
+    "medianHouseholdIncome": 61094,
+    "medianAge": 41.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004061",
+    "name": "Census Tract 40.61; Pima County; Arizona",
+    "population": 4979,
+    "medianHouseholdIncome": 100813,
+    "medianAge": 46.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004062",
+    "name": "Census Tract 40.62; Pima County; Arizona",
+    "population": 8822,
+    "medianHouseholdIncome": 114924,
+    "medianAge": 28.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004063",
+    "name": "Census Tract 40.63; Pima County; Arizona",
+    "population": 7385,
+    "medianHouseholdIncome": 108314,
+    "medianAge": 35.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004065",
+    "name": "Census Tract 40.65; Pima County; Arizona",
+    "population": 3960,
+    "medianHouseholdIncome": 103077,
+    "medianAge": 36.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004066",
+    "name": "Census Tract 40.66; Pima County; Arizona",
+    "population": 2494,
+    "medianHouseholdIncome": 134500,
+    "medianAge": 37.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004067",
+    "name": "Census Tract 40.67; Pima County; Arizona",
+    "population": 2698,
+    "medianHouseholdIncome": 48885,
+    "medianAge": 48.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004068",
+    "name": "Census Tract 40.68; Pima County; Arizona",
+    "population": 4260,
+    "medianHouseholdIncome": 52788,
+    "medianAge": 54
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004069",
+    "name": "Census Tract 40.69; Pima County; Arizona",
+    "population": 3784,
+    "medianHouseholdIncome": 46601,
+    "medianAge": 33.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004070",
+    "name": "Census Tract 40.70; Pima County; Arizona",
+    "population": 2875,
+    "medianHouseholdIncome": 42847,
+    "medianAge": 33.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004071",
+    "name": "Census Tract 40.71; Pima County; Arizona",
+    "population": 3902,
+    "medianHouseholdIncome": 41189,
+    "medianAge": 54.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004072",
+    "name": "Census Tract 40.72; Pima County; Arizona",
+    "population": 2766,
+    "medianHouseholdIncome": 70385,
+    "medianAge": 31.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004073",
+    "name": "Census Tract 40.73; Pima County; Arizona",
+    "population": 5709,
+    "medianHouseholdIncome": 81927,
+    "medianAge": 36.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004074",
+    "name": "Census Tract 40.74; Pima County; Arizona",
+    "population": 1755,
+    "medianHouseholdIncome": 80938,
+    "medianAge": 35
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004075",
+    "name": "Census Tract 40.75; Pima County; Arizona",
+    "population": 2047,
+    "medianHouseholdIncome": 50139,
+    "medianAge": 51.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004076",
+    "name": "Census Tract 40.76; Pima County; Arizona",
+    "population": 4927,
+    "medianHouseholdIncome": 48349,
+    "medianAge": 35.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004077",
+    "name": "Census Tract 40.77; Pima County; Arizona",
+    "population": 3258,
+    "medianHouseholdIncome": 95547,
+    "medianAge": 53.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004078",
+    "name": "Census Tract 40.78; Pima County; Arizona",
+    "population": 3809,
+    "medianHouseholdIncome": 59663,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004079",
+    "name": "Census Tract 40.79; Pima County; Arizona",
+    "population": 2511,
+    "medianHouseholdIncome": 104659,
+    "medianAge": 53.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004080",
+    "name": "Census Tract 40.80; Pima County; Arizona",
+    "population": 3879,
+    "medianHouseholdIncome": 169028,
+    "medianAge": 53.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004081",
+    "name": "Census Tract 40.81; Pima County; Arizona",
+    "population": 4974,
+    "medianHouseholdIncome": 146528,
+    "medianAge": 45.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004082",
+    "name": "Census Tract 40.82; Pima County; Arizona",
+    "population": 5122,
+    "medianHouseholdIncome": 144674,
+    "medianAge": 43.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004109",
+    "name": "Census Tract 41.09; Pima County; Arizona",
+    "population": 5363,
+    "medianHouseholdIncome": 92083,
+    "medianAge": 50.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004110",
+    "name": "Census Tract 41.10; Pima County; Arizona",
+    "population": 2642,
+    "medianHouseholdIncome": 54286,
+    "medianAge": 36.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004112",
+    "name": "Census Tract 41.12; Pima County; Arizona",
+    "population": 3285,
+    "medianHouseholdIncome": 58636,
+    "medianAge": 30
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004114",
+    "name": "Census Tract 41.14; Pima County; Arizona",
+    "population": 5005,
+    "medianHouseholdIncome": 45850,
+    "medianAge": 33.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004115",
+    "name": "Census Tract 41.15; Pima County; Arizona",
+    "population": 8043,
+    "medianHouseholdIncome": 45330,
+    "medianAge": 26.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004116",
+    "name": "Census Tract 41.16; Pima County; Arizona",
+    "population": 2988,
+    "medianHouseholdIncome": 51058,
+    "medianAge": 24.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004117",
+    "name": "Census Tract 41.17; Pima County; Arizona",
+    "population": 5576,
+    "medianHouseholdIncome": 53870,
+    "medianAge": 29.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004118",
+    "name": "Census Tract 41.18; Pima County; Arizona",
+    "population": 5986,
+    "medianHouseholdIncome": 73281,
+    "medianAge": 31.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004122",
+    "name": "Census Tract 41.22; Pima County; Arizona",
+    "population": 4153,
+    "medianHouseholdIncome": 53864,
+    "medianAge": 25
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004126",
+    "name": "Census Tract 41.26; Pima County; Arizona",
+    "population": 6225,
+    "medianHouseholdIncome": 99605,
+    "medianAge": 34.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004127",
+    "name": "Census Tract 41.27; Pima County; Arizona",
+    "population": 6009,
+    "medianHouseholdIncome": 118828,
+    "medianAge": 41.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004128",
+    "name": "Census Tract 41.28; Pima County; Arizona",
+    "population": 4547,
+    "medianHouseholdIncome": 102411,
+    "medianAge": 35.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004129",
+    "name": "Census Tract 41.29; Pima County; Arizona",
+    "population": 3648,
+    "medianHouseholdIncome": 94400,
+    "medianAge": 68.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004130",
+    "name": "Census Tract 41.30; Pima County; Arizona",
+    "population": 1847,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 73.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004131",
+    "name": "Census Tract 41.31; Pima County; Arizona",
+    "population": 8792,
+    "medianHouseholdIncome": 96823,
+    "medianAge": 36.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004132",
+    "name": "Census Tract 41.32; Pima County; Arizona",
+    "population": 4566,
+    "medianHouseholdIncome": 80473,
+    "medianAge": 31
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004133",
+    "name": "Census Tract 41.33; Pima County; Arizona",
+    "population": 2247,
+    "medianHouseholdIncome": 50519,
+    "medianAge": 74
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004307",
+    "name": "Census Tract 43.07; Pima County; Arizona",
+    "population": 3266,
+    "medianHouseholdIncome": 52676,
+    "medianAge": 72.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004310",
+    "name": "Census Tract 43.10; Pima County; Arizona",
+    "population": 2618,
+    "medianHouseholdIncome": 91775,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004311",
+    "name": "Census Tract 43.11; Pima County; Arizona",
+    "population": 3945,
+    "medianHouseholdIncome": 74178,
+    "medianAge": 44.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004312",
+    "name": "Census Tract 43.12; Pima County; Arizona",
+    "population": 6309,
+    "medianHouseholdIncome": 66852,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004313",
+    "name": "Census Tract 43.13; Pima County; Arizona",
+    "population": 4613,
+    "medianHouseholdIncome": 58346,
+    "medianAge": 40.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004316",
+    "name": "Census Tract 43.16; Pima County; Arizona",
+    "population": 2816,
+    "medianHouseholdIncome": 55402,
+    "medianAge": 53
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004317",
+    "name": "Census Tract 43.17; Pima County; Arizona",
+    "population": 2721,
+    "medianHouseholdIncome": 43936,
+    "medianAge": 73.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004320",
+    "name": "Census Tract 43.20; Pima County; Arizona",
+    "population": 3251,
+    "medianHouseholdIncome": 53051,
+    "medianAge": 32
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004321",
+    "name": "Census Tract 43.21; Pima County; Arizona",
+    "population": 5086,
+    "medianHouseholdIncome": 73427,
+    "medianAge": 32
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004322",
+    "name": "Census Tract 43.22; Pima County; Arizona",
+    "population": 6897,
+    "medianHouseholdIncome": 65833,
+    "medianAge": 34.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004323",
+    "name": "Census Tract 43.23; Pima County; Arizona",
+    "population": 4018,
+    "medianHouseholdIncome": 120144,
+    "medianAge": 25.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004324",
+    "name": "Census Tract 43.24; Pima County; Arizona",
+    "population": 2667,
+    "medianHouseholdIncome": 61269,
+    "medianAge": 76.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004325",
+    "name": "Census Tract 43.25; Pima County; Arizona",
+    "population": 1548,
+    "medianHouseholdIncome": 80365,
+    "medianAge": 73.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004326",
+    "name": "Census Tract 43.26; Pima County; Arizona",
+    "population": 3605,
+    "medianHouseholdIncome": 72075,
+    "medianAge": 34.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004327",
+    "name": "Census Tract 43.27; Pima County; Arizona",
+    "population": 5360,
+    "medianHouseholdIncome": 61167,
+    "medianAge": 41.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004328",
+    "name": "Census Tract 43.28; Pima County; Arizona",
+    "population": 3341,
+    "medianHouseholdIncome": 69671,
+    "medianAge": 73.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004330",
+    "name": "Census Tract 43.30; Pima County; Arizona",
+    "population": 1624,
+    "medianHouseholdIncome": 49479,
+    "medianAge": 72.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004332",
+    "name": "Census Tract 43.32; Pima County; Arizona",
+    "population": 1988,
+    "medianHouseholdIncome": 70039,
+    "medianAge": 74.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004333",
+    "name": "Census Tract 43.33; Pima County; Arizona",
+    "population": 3257,
+    "medianHouseholdIncome": 71183,
+    "medianAge": 40
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004335",
+    "name": "Census Tract 43.35; Pima County; Arizona",
+    "population": 9213,
+    "medianHouseholdIncome": 110082,
+    "medianAge": 28.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004336",
+    "name": "Census Tract 43.36; Pima County; Arizona",
+    "population": 3719,
+    "medianHouseholdIncome": 106714,
+    "medianAge": 35.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004337",
+    "name": "Census Tract 43.37; Pima County; Arizona",
+    "population": 2133,
+    "medianHouseholdIncome": 53056,
+    "medianAge": 69.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004338",
+    "name": "Census Tract 43.38; Pima County; Arizona",
+    "population": 1232,
+    "medianHouseholdIncome": 52656,
+    "medianAge": 73.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004339",
+    "name": "Census Tract 43.39; Pima County; Arizona",
+    "population": 7055,
+    "medianHouseholdIncome": 101458,
+    "medianAge": 33.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004340",
+    "name": "Census Tract 43.40; Pima County; Arizona",
+    "population": 5719,
+    "medianHouseholdIncome": 65682,
+    "medianAge": 38.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004404",
+    "name": "Census Tract 44.04; Pima County; Arizona",
+    "population": 3506,
+    "medianHouseholdIncome": 48199,
+    "medianAge": 70.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004407",
+    "name": "Census Tract 44.07; Pima County; Arizona",
+    "population": 6270,
+    "medianHouseholdIncome": 44053,
+    "medianAge": 27.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004412",
+    "name": "Census Tract 44.12; Pima County; Arizona",
+    "population": 3777,
+    "medianHouseholdIncome": 87305,
+    "medianAge": 34
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004413",
+    "name": "Census Tract 44.13; Pima County; Arizona",
+    "population": 3280,
+    "medianHouseholdIncome": 58558,
+    "medianAge": 41.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004414",
+    "name": "Census Tract 44.14; Pima County; Arizona",
+    "population": 3155,
+    "medianHouseholdIncome": 71667,
+    "medianAge": 34.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004415",
+    "name": "Census Tract 44.15; Pima County; Arizona",
+    "population": 1468,
+    "medianHouseholdIncome": 66528,
+    "medianAge": 51
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004418",
+    "name": "Census Tract 44.18; Pima County; Arizona",
+    "population": 3795,
+    "medianHouseholdIncome": 104769,
+    "medianAge": 55.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004419",
+    "name": "Census Tract 44.19; Pima County; Arizona",
+    "population": 6564,
+    "medianHouseholdIncome": 51760,
+    "medianAge": 41.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004422",
+    "name": "Census Tract 44.22; Pima County; Arizona",
+    "population": 6090,
+    "medianHouseholdIncome": 82431,
+    "medianAge": 44.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004423",
+    "name": "Census Tract 44.23; Pima County; Arizona",
+    "population": 4166,
+    "medianHouseholdIncome": 61282,
+    "medianAge": 45.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004424",
+    "name": "Census Tract 44.24; Pima County; Arizona",
+    "population": 3682,
+    "medianHouseholdIncome": 50116,
+    "medianAge": 44.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004425",
+    "name": "Census Tract 44.25; Pima County; Arizona",
+    "population": 5479,
+    "medianHouseholdIncome": 54869,
+    "medianAge": 57.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004426",
+    "name": "Census Tract 44.26; Pima County; Arizona",
+    "population": 2636,
+    "medianHouseholdIncome": 92159,
+    "medianAge": 35.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004428",
+    "name": "Census Tract 44.28; Pima County; Arizona",
+    "population": 3604,
+    "medianHouseholdIncome": 149010,
+    "medianAge": 61.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004430",
+    "name": "Census Tract 44.30; Pima County; Arizona",
+    "population": 3663,
+    "medianHouseholdIncome": 78359,
+    "medianAge": 31.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004431",
+    "name": "Census Tract 44.31; Pima County; Arizona",
+    "population": 7107,
+    "medianHouseholdIncome": 101740,
+    "medianAge": 35
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004432",
+    "name": "Census Tract 44.32; Pima County; Arizona",
+    "population": 3467,
+    "medianHouseholdIncome": 40028,
+    "medianAge": 22.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004433",
+    "name": "Census Tract 44.33; Pima County; Arizona",
+    "population": 3598,
+    "medianHouseholdIncome": 129464,
+    "medianAge": 44.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004434",
+    "name": "Census Tract 44.34; Pima County; Arizona",
+    "population": 3110,
+    "medianHouseholdIncome": 58487,
+    "medianAge": 43.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004435",
+    "name": "Census Tract 44.35; Pima County; Arizona",
+    "population": 4204,
+    "medianHouseholdIncome": 78010,
+    "medianAge": 46.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004436",
+    "name": "Census Tract 44.36; Pima County; Arizona",
+    "population": 4441,
+    "medianHouseholdIncome": 86453,
+    "medianAge": 54.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004437",
+    "name": "Census Tract 44.37; Pima County; Arizona",
+    "population": 3384,
+    "medianHouseholdIncome": 105379,
+    "medianAge": 35.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004438",
+    "name": "Census Tract 44.38; Pima County; Arizona",
+    "population": 3558,
+    "medianHouseholdIncome": 104485,
+    "medianAge": 39
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004439",
+    "name": "Census Tract 44.39; Pima County; Arizona",
+    "population": 3168,
+    "medianHouseholdIncome": 116346,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004440",
+    "name": "Census Tract 44.40; Pima County; Arizona",
+    "population": 4683,
+    "medianHouseholdIncome": 131174,
+    "medianAge": 42.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004505",
+    "name": "Census Tract 45.05; Pima County; Arizona",
+    "population": 3751,
+    "medianHouseholdIncome": 35300,
+    "medianAge": 46.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004506",
+    "name": "Census Tract 45.06; Pima County; Arizona",
+    "population": 5827,
+    "medianHouseholdIncome": 36230,
+    "medianAge": 33.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004508",
+    "name": "Census Tract 45.08; Pima County; Arizona",
+    "population": 4645,
+    "medianHouseholdIncome": 36738,
+    "medianAge": 49
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004510",
+    "name": "Census Tract 45.10; Pima County; Arizona",
+    "population": 3562,
+    "medianHouseholdIncome": 29106,
+    "medianAge": 23.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004511",
+    "name": "Census Tract 45.11; Pima County; Arizona",
+    "population": 4402,
+    "medianHouseholdIncome": 44902,
+    "medianAge": 40.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004512",
+    "name": "Census Tract 45.12; Pima County; Arizona",
+    "population": 4418,
+    "medianHouseholdIncome": 36695,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004513",
+    "name": "Census Tract 45.13; Pima County; Arizona",
+    "population": 3404,
+    "medianHouseholdIncome": 33153,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004514",
+    "name": "Census Tract 45.14; Pima County; Arizona",
+    "population": 3125,
+    "medianHouseholdIncome": 30114,
+    "medianAge": 35.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004515",
+    "name": "Census Tract 45.15; Pima County; Arizona",
+    "population": 3476,
+    "medianHouseholdIncome": 44097,
+    "medianAge": 30.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004610",
+    "name": "Census Tract 46.10; Pima County; Arizona",
+    "population": 6993,
+    "medianHouseholdIncome": 79187,
+    "medianAge": 36.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004613",
+    "name": "Census Tract 46.13; Pima County; Arizona",
+    "population": 4132,
+    "medianHouseholdIncome": 51434,
+    "medianAge": 38.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004614",
+    "name": "Census Tract 46.14; Pima County; Arizona",
+    "population": 3500,
+    "medianHouseholdIncome": 88098,
+    "medianAge": 59.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004615",
+    "name": "Census Tract 46.15; Pima County; Arizona",
+    "population": 2737,
+    "medianHouseholdIncome": 90125,
+    "medianAge": 53
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004616",
+    "name": "Census Tract 46.16; Pima County; Arizona",
+    "population": 4199,
+    "medianHouseholdIncome": 75811,
+    "medianAge": 40.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004617",
+    "name": "Census Tract 46.17; Pima County; Arizona",
+    "population": 2511,
+    "medianHouseholdIncome": 58588,
+    "medianAge": 42.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004618",
+    "name": "Census Tract 46.18; Pima County; Arizona",
+    "population": 3468,
+    "medianHouseholdIncome": 62091,
+    "medianAge": 45.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004619",
+    "name": "Census Tract 46.19; Pima County; Arizona",
+    "population": 4166,
+    "medianHouseholdIncome": 91354,
+    "medianAge": 52.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004620",
+    "name": "Census Tract 46.20; Pima County; Arizona",
+    "population": 1925,
+    "medianHouseholdIncome": 57992,
+    "medianAge": 37.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004621",
+    "name": "Census Tract 46.21; Pima County; Arizona",
+    "population": 2709,
+    "medianHouseholdIncome": 69603,
+    "medianAge": 63
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004622",
+    "name": "Census Tract 46.22; Pima County; Arizona",
+    "population": 2998,
+    "medianHouseholdIncome": 55554,
+    "medianAge": 46
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004623",
+    "name": "Census Tract 46.23; Pima County; Arizona",
+    "population": 6512,
+    "medianHouseholdIncome": 85871,
+    "medianAge": 45.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004624",
+    "name": "Census Tract 46.24; Pima County; Arizona",
+    "population": 5276,
+    "medianHouseholdIncome": 80764,
+    "medianAge": 45.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004625",
+    "name": "Census Tract 46.25; Pima County; Arizona",
+    "population": 2175,
+    "medianHouseholdIncome": 59889,
+    "medianAge": 29.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004626",
+    "name": "Census Tract 46.26; Pima County; Arizona",
+    "population": 3292,
+    "medianHouseholdIncome": 47311,
+    "medianAge": 30.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004627",
+    "name": "Census Tract 46.27; Pima County; Arizona",
+    "population": 2635,
+    "medianHouseholdIncome": 69706,
+    "medianAge": 34.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004628",
+    "name": "Census Tract 46.28; Pima County; Arizona",
+    "population": 1157,
+    "medianHouseholdIncome": 88250,
+    "medianAge": 53.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004630",
+    "name": "Census Tract 46.30; Pima County; Arizona",
+    "population": 1990,
+    "medianHouseholdIncome": 72572,
+    "medianAge": 31.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004631",
+    "name": "Census Tract 46.31; Pima County; Arizona",
+    "population": 3764,
+    "medianHouseholdIncome": 88731,
+    "medianAge": 43.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004632",
+    "name": "Census Tract 46.32; Pima County; Arizona",
+    "population": 2742,
+    "medianHouseholdIncome": 92093,
+    "medianAge": 42.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004633",
+    "name": "Census Tract 46.33; Pima County; Arizona",
+    "population": 3262,
+    "medianHouseholdIncome": 101583,
+    "medianAge": 52.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004634",
+    "name": "Census Tract 46.34; Pima County; Arizona",
+    "population": 1741,
+    "medianHouseholdIncome": 160179,
+    "medianAge": 52.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004635",
+    "name": "Census Tract 46.35; Pima County; Arizona",
+    "population": 5059,
+    "medianHouseholdIncome": 105459,
+    "medianAge": 58.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004636",
+    "name": "Census Tract 46.36; Pima County; Arizona",
+    "population": 7487,
+    "medianHouseholdIncome": 113913,
+    "medianAge": 42
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004639",
+    "name": "Census Tract 46.39; Pima County; Arizona",
+    "population": 5099,
+    "medianHouseholdIncome": 142250,
+    "medianAge": 41.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004640",
+    "name": "Census Tract 46.40; Pima County; Arizona",
+    "population": 6447,
+    "medianHouseholdIncome": 121221,
+    "medianAge": 48.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004641",
+    "name": "Census Tract 46.41; Pima County; Arizona",
+    "population": 3952,
+    "medianHouseholdIncome": 118333,
+    "medianAge": 51.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004642",
+    "name": "Census Tract 46.42; Pima County; Arizona",
+    "population": 4463,
+    "medianHouseholdIncome": 115875,
+    "medianAge": 61.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004643",
+    "name": "Census Tract 46.43; Pima County; Arizona",
+    "population": 3693,
+    "medianHouseholdIncome": 82422,
+    "medianAge": 72.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004644",
+    "name": "Census Tract 46.44; Pima County; Arizona",
+    "population": 2792,
+    "medianHouseholdIncome": 89583,
+    "medianAge": 36.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004645",
+    "name": "Census Tract 46.45; Pima County; Arizona",
+    "population": 4957,
+    "medianHouseholdIncome": 86997,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004646",
+    "name": "Census Tract 46.46; Pima County; Arizona",
+    "population": 4434,
+    "medianHouseholdIncome": 87092,
+    "medianAge": 35.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004647",
+    "name": "Census Tract 46.47; Pima County; Arizona",
+    "population": 3879,
+    "medianHouseholdIncome": 77926,
+    "medianAge": 37.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004648",
+    "name": "Census Tract 46.48; Pima County; Arizona",
+    "population": 7028,
+    "medianHouseholdIncome": 96639,
+    "medianAge": 41.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004649",
+    "name": "Census Tract 46.49; Pima County; Arizona",
+    "population": 2057,
+    "medianHouseholdIncome": 118542,
+    "medianAge": 63.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004650",
+    "name": "Census Tract 46.50; Pima County; Arizona",
+    "population": 5653,
+    "medianHouseholdIncome": 117755,
+    "medianAge": 66.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004710",
+    "name": "Census Tract 47.10; Pima County; Arizona",
+    "population": 3943,
+    "medianHouseholdIncome": 50948,
+    "medianAge": 39.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004711",
+    "name": "Census Tract 47.11; Pima County; Arizona",
+    "population": 4195,
+    "medianHouseholdIncome": 128500,
+    "medianAge": 58.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004712",
+    "name": "Census Tract 47.12; Pima County; Arizona",
+    "population": 3248,
+    "medianHouseholdIncome": 89489,
+    "medianAge": 57.2
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004713",
+    "name": "Census Tract 47.13; Pima County; Arizona",
+    "population": 4293,
+    "medianHouseholdIncome": 139205,
+    "medianAge": 61.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004714",
+    "name": "Census Tract 47.14; Pima County; Arizona",
+    "population": 6102,
+    "medianHouseholdIncome": 129406,
+    "medianAge": 43.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004715",
+    "name": "Census Tract 47.15; Pima County; Arizona",
+    "population": 3798,
+    "medianHouseholdIncome": 56211,
+    "medianAge": 54.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004717",
+    "name": "Census Tract 47.17; Pima County; Arizona",
+    "population": 1993,
+    "medianHouseholdIncome": 151705,
+    "medianAge": 57.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004718",
+    "name": "Census Tract 47.18; Pima County; Arizona",
+    "population": 2342,
+    "medianHouseholdIncome": 85114,
+    "medianAge": 41.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004720",
+    "name": "Census Tract 47.20; Pima County; Arizona",
+    "population": 1245,
+    "medianHouseholdIncome": 106875,
+    "medianAge": 66.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004721",
+    "name": "Census Tract 47.21; Pima County; Arizona",
+    "population": 3920,
+    "medianHouseholdIncome": 84095,
+    "medianAge": 52.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004722",
+    "name": "Census Tract 47.22; Pima County; Arizona",
+    "population": 2552,
+    "medianHouseholdIncome": 91510,
+    "medianAge": 62
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004723",
+    "name": "Census Tract 47.23; Pima County; Arizona",
+    "population": 4601,
+    "medianHouseholdIncome": 79323,
+    "medianAge": 46.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004724",
+    "name": "Census Tract 47.24; Pima County; Arizona",
+    "population": 2233,
+    "medianHouseholdIncome": 108793,
+    "medianAge": 60.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004725",
+    "name": "Census Tract 47.25; Pima County; Arizona",
+    "population": 3137,
+    "medianHouseholdIncome": 53682,
+    "medianAge": 32.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004726",
+    "name": "Census Tract 47.26; Pima County; Arizona",
+    "population": 3926,
+    "medianHouseholdIncome": 135725,
+    "medianAge": 57.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004727",
+    "name": "Census Tract 47.27; Pima County; Arizona",
+    "population": 2565,
+    "medianHouseholdIncome": 81419,
+    "medianAge": 56.5
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004728",
+    "name": "Census Tract 47.28; Pima County; Arizona",
+    "population": 3804,
+    "medianHouseholdIncome": 102722,
+    "medianAge": 53.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004729",
+    "name": "Census Tract 47.29; Pima County; Arizona",
+    "population": 2692,
+    "medianHouseholdIncome": 107679,
+    "medianAge": 61.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "004730",
+    "name": "Census Tract 47.30; Pima County; Arizona",
+    "population": 2853,
+    "medianHouseholdIncome": 151797,
+    "medianAge": 60.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "005200",
+    "name": "Census Tract 52; Pima County; Arizona",
+    "population": 3105,
+    "medianHouseholdIncome": 44412,
+    "medianAge": 59.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "005300",
+    "name": "Census Tract 53; Pima County; Arizona",
+    "population": 3776,
+    "medianHouseholdIncome": 109189,
+    "medianAge": 42.8
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "005400",
+    "name": "Census Tract 54; Pima County; Arizona",
+    "population": 3342,
+    "medianHouseholdIncome": 54625,
+    "medianAge": 37.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "940800",
+    "name": "Census Tract 9408; Pima County; Arizona",
+    "population": 4494,
+    "medianHouseholdIncome": 30490,
+    "medianAge": 27.3
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "940900",
+    "name": "Census Tract 9409; Pima County; Arizona",
+    "population": 2329,
+    "medianHouseholdIncome": 49350,
+    "medianAge": 35.9
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "941000",
+    "name": "Census Tract 9410; Pima County; Arizona",
+    "population": 4129,
+    "medianHouseholdIncome": 45439,
+    "medianAge": 28.6
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "941100",
+    "name": "Census Tract 9411; Pima County; Arizona",
+    "population": 2479,
+    "medianHouseholdIncome": 33500,
+    "medianAge": 32.7
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980001",
+    "name": "Census Tract 9800.01; Pima County; Arizona",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980002",
+    "name": "Census Tract 9800.02; Pima County; Arizona",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980100",
+    "name": "Census Tract 9801; Pima County; Arizona",
+    "population": 306,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 39.4
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980200",
+    "name": "Census Tract 9802; Pima County; Arizona",
+    "population": 5265,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 35.1
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980300",
+    "name": "Census Tract 9803; Pima County; Arizona",
+    "population": 6,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "04",
+    "county": "019",
+    "tract": "980400",
+    "name": "Census Tract 9804; Pima County; Arizona",
+    "population": 1719,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 32.6
+  }
+]

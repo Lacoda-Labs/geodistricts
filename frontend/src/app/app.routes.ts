@@ -5,6 +5,7 @@ import { StateMapPageComponent } from './pages/state-map-page.component';
 import { CongressionalDistrictsViewerComponent } from './components/congressional-districts-viewer.component';
 import { GeodistrictPageComponent } from './pages/geodistrict-page.component';
 import { TractDebugPageComponent } from './pages/tract-debug-page.component';
+import { AlgorithmComplexityPageComponent } from './pages/algorithm-complexity-page.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -14,5 +15,6 @@ export const routes: Routes = [
   { path: 'districts', component: CongressionalDistrictsViewerComponent },
   { path: 'geodistrict', component: GeodistrictPageComponent },
   { path: 'tract-debug', component: TractDebugPageComponent },
+  { path: 'algorithm-complexity', component: AlgorithmComplexityPageComponent },
   { path: '**', redirectTo: '/home' }
 ];

@@ -1,0 +1,191 @@
+[
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000100",
+    "name": "Census Tract 1; Lake County; California",
+    "population": 3529,
+    "medianHouseholdIncome": 69620,
+    "medianAge": 45.6
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000300",
+    "name": "Census Tract 3; Lake County; California",
+    "population": 4139,
+    "medianHouseholdIncome": 68375,
+    "medianAge": 48.2
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Lake County; California",
+    "population": 2931,
+    "medianHouseholdIncome": 107708,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Lake County; California",
+    "population": 2452,
+    "medianHouseholdIncome": 45761,
+    "medianAge": 50.8
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Lake County; California",
+    "population": 2924,
+    "medianHouseholdIncome": 45860,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Lake County; California",
+    "population": 2271,
+    "medianHouseholdIncome": 69554,
+    "medianAge": 47.7
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Lake County; California",
+    "population": 1927,
+    "medianHouseholdIncome": 42399,
+    "medianAge": 57.3
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Lake County; California",
+    "population": 2150,
+    "medianHouseholdIncome": 44375,
+    "medianAge": 52
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Lake County; California",
+    "population": 4916,
+    "medianHouseholdIncome": 40346,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000703",
+    "name": "Census Tract 7.03; Lake County; California",
+    "population": 2084,
+    "medianHouseholdIncome": 36297,
+    "medianAge": 45
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000704",
+    "name": "Census Tract 7.04; Lake County; California",
+    "population": 2006,
+    "medianHouseholdIncome": 53682,
+    "medianAge": 43.9
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000801",
+    "name": "Census Tract 8.01; Lake County; California",
+    "population": 2959,
+    "medianHouseholdIncome": 38887,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000802",
+    "name": "Census Tract 8.02; Lake County; California",
+    "population": 4847,
+    "medianHouseholdIncome": 44728,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Lake County; California",
+    "population": 3027,
+    "medianHouseholdIncome": 77466,
+    "medianAge": 48.6
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Lake County; California",
+    "population": 4069,
+    "medianHouseholdIncome": 80085,
+    "medianAge": 56.5
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001000",
+    "name": "Census Tract 10; Lake County; California",
+    "population": 6891,
+    "medianHouseholdIncome": 55573,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Lake County; California",
+    "population": 2168,
+    "medianHouseholdIncome": 73083,
+    "medianAge": 56.3
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001102",
+    "name": "Census Tract 11.02; Lake County; California",
+    "population": 1059,
+    "medianHouseholdIncome": 64507,
+    "medianAge": 61.7
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001200",
+    "name": "Census Tract 12; Lake County; California",
+    "population": 3345,
+    "medianHouseholdIncome": 44436,
+    "medianAge": 56
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Lake County; California",
+    "population": 3857,
+    "medianHouseholdIncome": 79688,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "033",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Lake County; California",
+    "population": 4473,
+    "medianHouseholdIncome": 86729,
+    "medianAge": 45.2
+  }
+]

@@ -1,0 +1,110 @@
+[
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000100",
+    "name": "Census Tract 1; San Benito County; California",
+    "population": 5504,
+    "medianHouseholdIncome": 94044,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000200",
+    "name": "Census Tract 2; San Benito County; California",
+    "population": 6584,
+    "medianHouseholdIncome": 104986,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000300",
+    "name": "Census Tract 3; San Benito County; California",
+    "population": 5656,
+    "medianHouseholdIncome": 113056,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000400",
+    "name": "Census Tract 4; San Benito County; California",
+    "population": 6960,
+    "medianHouseholdIncome": 77500,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000501",
+    "name": "Census Tract 5.01; San Benito County; California",
+    "population": 5163,
+    "medianHouseholdIncome": 120676,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000502",
+    "name": "Census Tract 5.02; San Benito County; California",
+    "population": 7535,
+    "medianHouseholdIncome": 116250,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000601",
+    "name": "Census Tract 6.01; San Benito County; California",
+    "population": 5087,
+    "medianHouseholdIncome": 116638,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000602",
+    "name": "Census Tract 6.02; San Benito County; California",
+    "population": 4079,
+    "medianHouseholdIncome": 84525,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000701",
+    "name": "Census Tract 7.01; San Benito County; California",
+    "population": 4719,
+    "medianHouseholdIncome": 105179,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000702",
+    "name": "Census Tract 7.02; San Benito County; California",
+    "population": 6199,
+    "medianHouseholdIncome": 104707,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000801",
+    "name": "Census Tract 8.01; San Benito County; California",
+    "population": 3048,
+    "medianHouseholdIncome": 125647,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "069",
+    "tract": "000802",
+    "name": "Census Tract 8.02; San Benito County; California",
+    "population": 4219,
+    "medianHouseholdIncome": 126568,
+    "medianAge": 40.1
+  }
+]

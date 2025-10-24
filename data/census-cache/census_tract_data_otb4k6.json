@@ -1,0 +1,38 @@
+[
+  {
+    "state": "06",
+    "county": "051",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Mono County; California",
+    "population": 3506,
+    "medianHouseholdIncome": 91630,
+    "medianAge": 43.9
+  },
+  {
+    "state": "06",
+    "county": "051",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Mono County; California",
+    "population": 2460,
+    "medianHouseholdIncome": 72011,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "051",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Mono County; California",
+    "population": 3213,
+    "medianHouseholdIncome": 99136,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "051",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Mono County; California",
+    "population": 4040,
+    "medianHouseholdIncome": 69231,
+    "medianAge": 40.6
+  }
+]

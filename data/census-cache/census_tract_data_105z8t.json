@@ -1,0 +1,632 @@
+[
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100100",
+    "name": "Census Tract 1001; Santa Cruz County; California",
+    "population": 2253,
+    "medianHouseholdIncome": 143554,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100200",
+    "name": "Census Tract 1002; Santa Cruz County; California",
+    "population": 7093,
+    "medianHouseholdIncome": 110877,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100300",
+    "name": "Census Tract 1003; Santa Cruz County; California",
+    "population": 3741,
+    "medianHouseholdIncome": 118977,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100400",
+    "name": "Census Tract 1004; Santa Cruz County; California",
+    "population": 9546,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 19.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100500",
+    "name": "Census Tract 1005; Santa Cruz County; California",
+    "population": 5709,
+    "medianHouseholdIncome": 102517,
+    "medianAge": 23.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100600",
+    "name": "Census Tract 1006; Santa Cruz County; California",
+    "population": 3063,
+    "medianHouseholdIncome": 118798,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100700",
+    "name": "Census Tract 1007; Santa Cruz County; California",
+    "population": 2094,
+    "medianHouseholdIncome": 59709,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100801",
+    "name": "Census Tract 1008.01; Santa Cruz County; California",
+    "population": 3926,
+    "medianHouseholdIncome": 92665,
+    "medianAge": 26.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100802",
+    "name": "Census Tract 1008.02; Santa Cruz County; California",
+    "population": 3013,
+    "medianHouseholdIncome": 121339,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "100900",
+    "name": "Census Tract 1009; Santa Cruz County; California",
+    "population": 3921,
+    "medianHouseholdIncome": 106638,
+    "medianAge": 43.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "101001",
+    "name": "Census Tract 1010.01; Santa Cruz County; California",
+    "population": 3752,
+    "medianHouseholdIncome": 53125,
+    "medianAge": 24.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "101002",
+    "name": "Census Tract 1010.02; Santa Cruz County; California",
+    "population": 4041,
+    "medianHouseholdIncome": 77463,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "101100",
+    "name": "Census Tract 1011; Santa Cruz County; California",
+    "population": 5570,
+    "medianHouseholdIncome": 143063,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "101200",
+    "name": "Census Tract 1012; Santa Cruz County; California",
+    "population": 2928,
+    "medianHouseholdIncome": 100586,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110101",
+    "name": "Census Tract 1101.01; Santa Cruz County; California",
+    "population": 2767,
+    "medianHouseholdIncome": 96813,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110102",
+    "name": "Census Tract 1101.02; Santa Cruz County; California",
+    "population": 4747,
+    "medianHouseholdIncome": 64535,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110201",
+    "name": "Census Tract 1102.01; Santa Cruz County; California",
+    "population": 3144,
+    "medianHouseholdIncome": 79777,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110202",
+    "name": "Census Tract 1102.02; Santa Cruz County; California",
+    "population": 4642,
+    "medianHouseholdIncome": 95556,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110301",
+    "name": "Census Tract 1103.01; Santa Cruz County; California",
+    "population": 4285,
+    "medianHouseholdIncome": 66554,
+    "medianAge": 28.2
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110302",
+    "name": "Census Tract 1103.02; Santa Cruz County; California",
+    "population": 3178,
+    "medianHouseholdIncome": 54840,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110401",
+    "name": "Census Tract 1104.01; Santa Cruz County; California",
+    "population": 3546,
+    "medianHouseholdIncome": 63188,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110402",
+    "name": "Census Tract 1104.02; Santa Cruz County; California",
+    "population": 4369,
+    "medianHouseholdIncome": 92885,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110503",
+    "name": "Census Tract 1105.03; Santa Cruz County; California",
+    "population": 3110,
+    "medianHouseholdIncome": 51733,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110504",
+    "name": "Census Tract 1105.04; Santa Cruz County; California",
+    "population": 3166,
+    "medianHouseholdIncome": 88872,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110505",
+    "name": "Census Tract 1105.05; Santa Cruz County; California",
+    "population": 5206,
+    "medianHouseholdIncome": 84630,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110506",
+    "name": "Census Tract 1105.06; Santa Cruz County; California",
+    "population": 3077,
+    "medianHouseholdIncome": 83036,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110601",
+    "name": "Census Tract 1106.01; Santa Cruz County; California",
+    "population": 4587,
+    "medianHouseholdIncome": 56462,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110602",
+    "name": "Census Tract 1106.02; Santa Cruz County; California",
+    "population": 3465,
+    "medianHouseholdIncome": 67313,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "110700",
+    "name": "Census Tract 1107; Santa Cruz County; California",
+    "population": 2912,
+    "medianHouseholdIncome": 136786,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120200",
+    "name": "Census Tract 1202; Santa Cruz County; California",
+    "population": 4724,
+    "medianHouseholdIncome": 133958,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120301",
+    "name": "Census Tract 1203.01; Santa Cruz County; California",
+    "population": 4650,
+    "medianHouseholdIncome": 94267,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120302",
+    "name": "Census Tract 1203.02; Santa Cruz County; California",
+    "population": 3729,
+    "medianHouseholdIncome": 112000,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120400",
+    "name": "Census Tract 1204; Santa Cruz County; California",
+    "population": 4921,
+    "medianHouseholdIncome": 123265,
+    "medianAge": 46.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120500",
+    "name": "Census Tract 1205; Santa Cruz County; California",
+    "population": 5686,
+    "medianHouseholdIncome": 151046,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120600",
+    "name": "Census Tract 1206; Santa Cruz County; California",
+    "population": 4283,
+    "medianHouseholdIncome": 126000,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120700",
+    "name": "Census Tract 1207; Santa Cruz County; California",
+    "population": 4150,
+    "medianHouseholdIncome": 118306,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120800",
+    "name": "Census Tract 1208; Santa Cruz County; California",
+    "population": 6157,
+    "medianHouseholdIncome": 156034,
+    "medianAge": 51.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120901",
+    "name": "Census Tract 1209.01; Santa Cruz County; California",
+    "population": 3745,
+    "medianHouseholdIncome": 140028,
+    "medianAge": 48.8
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "120902",
+    "name": "Census Tract 1209.02; Santa Cruz County; California",
+    "population": 5004,
+    "medianHouseholdIncome": 104781,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121000",
+    "name": "Census Tract 1210; Santa Cruz County; California",
+    "population": 3090,
+    "medianHouseholdIncome": 130833,
+    "medianAge": 48.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121100",
+    "name": "Census Tract 1211; Santa Cruz County; California",
+    "population": 3122,
+    "medianHouseholdIncome": 115268,
+    "medianAge": 51.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121200",
+    "name": "Census Tract 1212; Santa Cruz County; California",
+    "population": 6718,
+    "medianHouseholdIncome": 169583,
+    "medianAge": 45
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121300",
+    "name": "Census Tract 1213; Santa Cruz County; California",
+    "population": 4248,
+    "medianHouseholdIncome": 117197,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121401",
+    "name": "Census Tract 1214.01; Santa Cruz County; California",
+    "population": 2967,
+    "medianHouseholdIncome": 88528,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121402",
+    "name": "Census Tract 1214.02; Santa Cruz County; California",
+    "population": 4626,
+    "medianHouseholdIncome": 106953,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121403",
+    "name": "Census Tract 1214.03; Santa Cruz County; California",
+    "population": 3192,
+    "medianHouseholdIncome": 80500,
+    "medianAge": 47
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121501",
+    "name": "Census Tract 1215.01; Santa Cruz County; California",
+    "population": 2548,
+    "medianHouseholdIncome": 74063,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121502",
+    "name": "Census Tract 1215.02; Santa Cruz County; California",
+    "population": 2542,
+    "medianHouseholdIncome": 66278,
+    "medianAge": 44.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121601",
+    "name": "Census Tract 1216.01; Santa Cruz County; California",
+    "population": 3741,
+    "medianHouseholdIncome": 126667,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121602",
+    "name": "Census Tract 1216.02; Santa Cruz County; California",
+    "population": 2685,
+    "medianHouseholdIncome": 83934,
+    "medianAge": 53.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121701",
+    "name": "Census Tract 1217.01; Santa Cruz County; California",
+    "population": 4572,
+    "medianHouseholdIncome": 92784,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121702",
+    "name": "Census Tract 1217.02; Santa Cruz County; California",
+    "population": 3392,
+    "medianHouseholdIncome": 115515,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121801",
+    "name": "Census Tract 1218.01; Santa Cruz County; California",
+    "population": 1748,
+    "medianHouseholdIncome": 91313,
+    "medianAge": 49.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "121802",
+    "name": "Census Tract 1218.02; Santa Cruz County; California",
+    "population": 2366,
+    "medianHouseholdIncome": 91458,
+    "medianAge": 54
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122001",
+    "name": "Census Tract 1220.01; Santa Cruz County; California",
+    "population": 5293,
+    "medianHouseholdIncome": 133950,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122002",
+    "name": "Census Tract 1220.02; Santa Cruz County; California",
+    "population": 2997,
+    "medianHouseholdIncome": 151500,
+    "medianAge": 51.6
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122004",
+    "name": "Census Tract 1220.04; Santa Cruz County; California",
+    "population": 3096,
+    "medianHouseholdIncome": 130143,
+    "medianAge": 49.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122005",
+    "name": "Census Tract 1220.05; Santa Cruz County; California",
+    "population": 4220,
+    "medianHouseholdIncome": 113645,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122100",
+    "name": "Census Tract 1221; Santa Cruz County; California",
+    "population": 3550,
+    "medianHouseholdIncome": 109269,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122202",
+    "name": "Census Tract 1222.02; Santa Cruz County; California",
+    "population": 2339,
+    "medianHouseholdIncome": 172578,
+    "medianAge": 45.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122203",
+    "name": "Census Tract 1222.03; Santa Cruz County; California",
+    "population": 3997,
+    "medianHouseholdIncome": 129529,
+    "medianAge": 51.4
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122204",
+    "name": "Census Tract 1222.04; Santa Cruz County; California",
+    "population": 3139,
+    "medianHouseholdIncome": 105375,
+    "medianAge": 47.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122205",
+    "name": "Census Tract 1222.05; Santa Cruz County; California",
+    "population": 2671,
+    "medianHouseholdIncome": 137734,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122300",
+    "name": "Census Tract 1223; Santa Cruz County; California",
+    "population": 3939,
+    "medianHouseholdIncome": 108162,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122401",
+    "name": "Census Tract 1224.01; Santa Cruz County; California",
+    "population": 2126,
+    "medianHouseholdIncome": 94205,
+    "medianAge": 53
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122402",
+    "name": "Census Tract 1224.02; Santa Cruz County; California",
+    "population": 4363,
+    "medianHouseholdIncome": 148368,
+    "medianAge": 58.3
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "122500",
+    "name": "Census Tract 1225; Santa Cruz County; California",
+    "population": 6975,
+    "medianHouseholdIncome": 113859,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "123100",
+    "name": "Census Tract 1231; Santa Cruz County; California",
+    "population": 3048,
+    "medianHouseholdIncome": 101141,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "123300",
+    "name": "Census Tract 1233; Santa Cruz County; California",
+    "population": 1361,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "087",
+    "tract": "990100",
+    "name": "Census Tract 9901; Santa Cruz County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

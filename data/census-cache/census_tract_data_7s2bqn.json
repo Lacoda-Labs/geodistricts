@@ -1,0 +1,857 @@
+[
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Pinal County; Arizona",
+    "population": 6282,
+    "medianHouseholdIncome": 71588,
+    "medianAge": 62.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000204",
+    "name": "Census Tract 2.04; Pinal County; Arizona",
+    "population": 13272,
+    "medianHouseholdIncome": 105130,
+    "medianAge": 34.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000206",
+    "name": "Census Tract 2.06; Pinal County; Arizona",
+    "population": 8884,
+    "medianHouseholdIncome": 103683,
+    "medianAge": 36.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000208",
+    "name": "Census Tract 2.08; Pinal County; Arizona",
+    "population": 3947,
+    "medianHouseholdIncome": 78050,
+    "medianAge": 35.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000211",
+    "name": "Census Tract 2.11; Pinal County; Arizona",
+    "population": 4625,
+    "medianHouseholdIncome": 87813,
+    "medianAge": 33.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000212",
+    "name": "Census Tract 2.12; Pinal County; Arizona",
+    "population": 7992,
+    "medianHouseholdIncome": 77398,
+    "medianAge": 38.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000215",
+    "name": "Census Tract 2.15; Pinal County; Arizona",
+    "population": 2931,
+    "medianHouseholdIncome": 104435,
+    "medianAge": 42.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000216",
+    "name": "Census Tract 2.16; Pinal County; Arizona",
+    "population": 4940,
+    "medianHouseholdIncome": 106422,
+    "medianAge": 30.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000217",
+    "name": "Census Tract 2.17; Pinal County; Arizona",
+    "population": 6973,
+    "medianHouseholdIncome": 77234,
+    "medianAge": 34.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000218",
+    "name": "Census Tract 2.18; Pinal County; Arizona",
+    "population": 7059,
+    "medianHouseholdIncome": 77222,
+    "medianAge": 31.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000219",
+    "name": "Census Tract 2.19; Pinal County; Arizona",
+    "population": 3988,
+    "medianHouseholdIncome": 87935,
+    "medianAge": 33.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000220",
+    "name": "Census Tract 2.20; Pinal County; Arizona",
+    "population": 4137,
+    "medianHouseholdIncome": 88631,
+    "medianAge": 37.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000221",
+    "name": "Census Tract 2.21; Pinal County; Arizona",
+    "population": 5420,
+    "medianHouseholdIncome": 91422,
+    "medianAge": 33.8
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000222",
+    "name": "Census Tract 2.22; Pinal County; Arizona",
+    "population": 6588,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 34.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000223",
+    "name": "Census Tract 2.23; Pinal County; Arizona",
+    "population": 5356,
+    "medianHouseholdIncome": 106429,
+    "medianAge": 31.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000224",
+    "name": "Census Tract 2.24; Pinal County; Arizona",
+    "population": 7243,
+    "medianHouseholdIncome": 84346,
+    "medianAge": 32.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000225",
+    "name": "Census Tract 2.25; Pinal County; Arizona",
+    "population": 2778,
+    "medianHouseholdIncome": 85851,
+    "medianAge": 30.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000226",
+    "name": "Census Tract 2.26; Pinal County; Arizona",
+    "population": 6586,
+    "medianHouseholdIncome": 82961,
+    "medianAge": 37.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000227",
+    "name": "Census Tract 2.27; Pinal County; Arizona",
+    "population": 4545,
+    "medianHouseholdIncome": 120750,
+    "medianAge": 40.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000228",
+    "name": "Census Tract 2.28; Pinal County; Arizona",
+    "population": 1933,
+    "medianHouseholdIncome": 87089,
+    "medianAge": 38.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000229",
+    "name": "Census Tract 2.29; Pinal County; Arizona",
+    "population": 5166,
+    "medianHouseholdIncome": 69615,
+    "medianAge": 38.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000307",
+    "name": "Census Tract 3.07; Pinal County; Arizona",
+    "population": 2452,
+    "medianHouseholdIncome": 111346,
+    "medianAge": 50.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000309",
+    "name": "Census Tract 3.09; Pinal County; Arizona",
+    "population": 2850,
+    "medianHouseholdIncome": 43284,
+    "medianAge": 57
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000310",
+    "name": "Census Tract 3.10; Pinal County; Arizona",
+    "population": 2732,
+    "medianHouseholdIncome": 46447,
+    "medianAge": 57.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000311",
+    "name": "Census Tract 3.11; Pinal County; Arizona",
+    "population": 3646,
+    "medianHouseholdIncome": 83915,
+    "medianAge": 48.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000312",
+    "name": "Census Tract 3.12; Pinal County; Arizona",
+    "population": 4076,
+    "medianHouseholdIncome": 56525,
+    "medianAge": 46.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000313",
+    "name": "Census Tract 3.13; Pinal County; Arizona",
+    "population": 4020,
+    "medianHouseholdIncome": 55459,
+    "medianAge": 59.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000315",
+    "name": "Census Tract 3.15; Pinal County; Arizona",
+    "population": 5268,
+    "medianHouseholdIncome": 65942,
+    "medianAge": 46.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000316",
+    "name": "Census Tract 3.16; Pinal County; Arizona",
+    "population": 6761,
+    "medianHouseholdIncome": 103816,
+    "medianAge": 67.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000317",
+    "name": "Census Tract 3.17; Pinal County; Arizona",
+    "population": 2353,
+    "medianHouseholdIncome": 49385,
+    "medianAge": 71.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000319",
+    "name": "Census Tract 3.19; Pinal County; Arizona",
+    "population": 1786,
+    "medianHouseholdIncome": 61638,
+    "medianAge": 73.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000320",
+    "name": "Census Tract 3.20; Pinal County; Arizona",
+    "population": 2041,
+    "medianHouseholdIncome": 47718,
+    "medianAge": 58.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000321",
+    "name": "Census Tract 3.21; Pinal County; Arizona",
+    "population": 3174,
+    "medianHouseholdIncome": 54005,
+    "medianAge": 54.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000322",
+    "name": "Census Tract 3.22; Pinal County; Arizona",
+    "population": 2833,
+    "medianHouseholdIncome": 77610,
+    "medianAge": 40.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000323",
+    "name": "Census Tract 3.23; Pinal County; Arizona",
+    "population": 2847,
+    "medianHouseholdIncome": 78931,
+    "medianAge": 68.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000324",
+    "name": "Census Tract 3.24; Pinal County; Arizona",
+    "population": 5368,
+    "medianHouseholdIncome": 58729,
+    "medianAge": 48.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000325",
+    "name": "Census Tract 3.25; Pinal County; Arizona",
+    "population": 3041,
+    "medianHouseholdIncome": 52312,
+    "medianAge": 29
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000400",
+    "name": "Census Tract 4; Pinal County; Arizona",
+    "population": 2639,
+    "medianHouseholdIncome": 39600,
+    "medianAge": 53.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000603",
+    "name": "Census Tract 6.03; Pinal County; Arizona",
+    "population": 6168,
+    "medianHouseholdIncome": 115347,
+    "medianAge": 67.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000604",
+    "name": "Census Tract 6.04; Pinal County; Arizona",
+    "population": 4251,
+    "medianHouseholdIncome": 83822,
+    "medianAge": 75
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000700",
+    "name": "Census Tract 7; Pinal County; Arizona",
+    "population": 3535,
+    "medianHouseholdIncome": 45625,
+    "medianAge": 52.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000802",
+    "name": "Census Tract 8.02; Pinal County; Arizona",
+    "population": 6201,
+    "medianHouseholdIncome": 63507,
+    "medianAge": 57.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000804",
+    "name": "Census Tract 8.04; Pinal County; Arizona",
+    "population": 1689,
+    "medianHouseholdIncome": 39025,
+    "medianAge": 73.8
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000805",
+    "name": "Census Tract 8.05; Pinal County; Arizona",
+    "population": 6352,
+    "medianHouseholdIncome": 74025,
+    "medianAge": 57.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000806",
+    "name": "Census Tract 8.06; Pinal County; Arizona",
+    "population": 6964,
+    "medianHouseholdIncome": 105188,
+    "medianAge": 36.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000807",
+    "name": "Census Tract 8.07; Pinal County; Arizona",
+    "population": 2717,
+    "medianHouseholdIncome": 46842,
+    "medianAge": 40.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000808",
+    "name": "Census Tract 8.08; Pinal County; Arizona",
+    "population": 6579,
+    "medianHouseholdIncome": 76563,
+    "medianAge": 37.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Pinal County; Arizona",
+    "population": 3223,
+    "medianHouseholdIncome": 71719,
+    "medianAge": 33
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000903",
+    "name": "Census Tract 9.03; Pinal County; Arizona",
+    "population": 4199,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "000904",
+    "name": "Census Tract 9.04; Pinal County; Arizona",
+    "population": 979,
+    "medianHouseholdIncome": 39737,
+    "medianAge": 42.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001000",
+    "name": "Census Tract 10; Pinal County; Arizona",
+    "population": 4848,
+    "medianHouseholdIncome": 42943,
+    "medianAge": 32.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001100",
+    "name": "Census Tract 11; Pinal County; Arizona",
+    "population": 8908,
+    "medianHouseholdIncome": 70533,
+    "medianAge": 34.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001200",
+    "name": "Census Tract 12; Pinal County; Arizona",
+    "population": 4585,
+    "medianHouseholdIncome": 61458,
+    "medianAge": 39.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001303",
+    "name": "Census Tract 13.03; Pinal County; Arizona",
+    "population": 1551,
+    "medianHouseholdIncome": 79750,
+    "medianAge": 51.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001305",
+    "name": "Census Tract 13.05; Pinal County; Arizona",
+    "population": 6692,
+    "medianHouseholdIncome": 60045,
+    "medianAge": 31.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001306",
+    "name": "Census Tract 13.06; Pinal County; Arizona",
+    "population": 6072,
+    "medianHouseholdIncome": 56544,
+    "medianAge": 31
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001307",
+    "name": "Census Tract 13.07; Pinal County; Arizona",
+    "population": 4451,
+    "medianHouseholdIncome": 65457,
+    "medianAge": 45.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001308",
+    "name": "Census Tract 13.08; Pinal County; Arizona",
+    "population": 2250,
+    "medianHouseholdIncome": 41000,
+    "medianAge": 31
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001309",
+    "name": "Census Tract 13.09; Pinal County; Arizona",
+    "population": 5737,
+    "medianHouseholdIncome": 80984,
+    "medianAge": 35.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001310",
+    "name": "Census Tract 13.10; Pinal County; Arizona",
+    "population": 4542,
+    "medianHouseholdIncome": 85000,
+    "medianAge": 35
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001403",
+    "name": "Census Tract 14.03; Pinal County; Arizona",
+    "population": 5666,
+    "medianHouseholdIncome": 60125,
+    "medianAge": 29.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001404",
+    "name": "Census Tract 14.04; Pinal County; Arizona",
+    "population": 3511,
+    "medianHouseholdIncome": 74652,
+    "medianAge": 38
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001405",
+    "name": "Census Tract 14.05; Pinal County; Arizona",
+    "population": 4398,
+    "medianHouseholdIncome": 61236,
+    "medianAge": 49
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001406",
+    "name": "Census Tract 14.06; Pinal County; Arizona",
+    "population": 5414,
+    "medianHouseholdIncome": 47202,
+    "medianAge": 29.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001407",
+    "name": "Census Tract 14.07; Pinal County; Arizona",
+    "population": 1768,
+    "medianHouseholdIncome": 57045,
+    "medianAge": 44.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001408",
+    "name": "Census Tract 14.08; Pinal County; Arizona",
+    "population": 2535,
+    "medianHouseholdIncome": 78026,
+    "medianAge": 68.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001500",
+    "name": "Census Tract 15; Pinal County; Arizona",
+    "population": 3479,
+    "medianHouseholdIncome": 43892,
+    "medianAge": 30.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001600",
+    "name": "Census Tract 16; Pinal County; Arizona",
+    "population": 6202,
+    "medianHouseholdIncome": 72723,
+    "medianAge": 40.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001701",
+    "name": "Census Tract 17.01; Pinal County; Arizona",
+    "population": 1148,
+    "medianHouseholdIncome": 96544,
+    "medianAge": 49.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001704",
+    "name": "Census Tract 17.04; Pinal County; Arizona",
+    "population": 7119,
+    "medianHouseholdIncome": 88432,
+    "medianAge": 33.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001705",
+    "name": "Census Tract 17.05; Pinal County; Arizona",
+    "population": 9153,
+    "medianHouseholdIncome": 104952,
+    "medianAge": 35.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001706",
+    "name": "Census Tract 17.06; Pinal County; Arizona",
+    "population": 5475,
+    "medianHouseholdIncome": 91185,
+    "medianAge": 35.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001707",
+    "name": "Census Tract 17.07; Pinal County; Arizona",
+    "population": 6290,
+    "medianHouseholdIncome": 94493,
+    "medianAge": 34.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001709",
+    "name": "Census Tract 17.09; Pinal County; Arizona",
+    "population": 6907,
+    "medianHouseholdIncome": 86080,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001712",
+    "name": "Census Tract 17.12; Pinal County; Arizona",
+    "population": 4802,
+    "medianHouseholdIncome": 79018,
+    "medianAge": 35.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001713",
+    "name": "Census Tract 17.13; Pinal County; Arizona",
+    "population": 2761,
+    "medianHouseholdIncome": 83221,
+    "medianAge": 35.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001714",
+    "name": "Census Tract 17.14; Pinal County; Arizona",
+    "population": 5149,
+    "medianHouseholdIncome": 86582,
+    "medianAge": 29.8
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001715",
+    "name": "Census Tract 17.15; Pinal County; Arizona",
+    "population": 4683,
+    "medianHouseholdIncome": 85609,
+    "medianAge": 37
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001716",
+    "name": "Census Tract 17.16; Pinal County; Arizona",
+    "population": 5363,
+    "medianHouseholdIncome": 96536,
+    "medianAge": 38.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001717",
+    "name": "Census Tract 17.17; Pinal County; Arizona",
+    "population": 1914,
+    "medianHouseholdIncome": 76490,
+    "medianAge": 71.3
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "001900",
+    "name": "Census Tract 19; Pinal County; Arizona",
+    "population": 2331,
+    "medianHouseholdIncome": 43500,
+    "medianAge": 37.8
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002001",
+    "name": "Census Tract 20.01; Pinal County; Arizona",
+    "population": 4689,
+    "medianHouseholdIncome": 71948,
+    "medianAge": 49.8
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002004",
+    "name": "Census Tract 20.04; Pinal County; Arizona",
+    "population": 3961,
+    "medianHouseholdIncome": 56181,
+    "medianAge": 35.5
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002005",
+    "name": "Census Tract 20.05; Pinal County; Arizona",
+    "population": 6979,
+    "medianHouseholdIncome": 71250,
+    "medianAge": 36.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002104",
+    "name": "Census Tract 21.04; Pinal County; Arizona",
+    "population": 3445,
+    "medianHouseholdIncome": 47453,
+    "medianAge": 60.1
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002105",
+    "name": "Census Tract 21.05; Pinal County; Arizona",
+    "population": 4559,
+    "medianHouseholdIncome": 55844,
+    "medianAge": 36
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002106",
+    "name": "Census Tract 21.06; Pinal County; Arizona",
+    "population": 1702,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 35.4
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002107",
+    "name": "Census Tract 21.07; Pinal County; Arizona",
+    "population": 3949,
+    "medianHouseholdIncome": 76034,
+    "medianAge": 38.7
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002200",
+    "name": "Census Tract 22; Pinal County; Arizona",
+    "population": 4254,
+    "medianHouseholdIncome": 63706,
+    "medianAge": 58.6
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002300",
+    "name": "Census Tract 23; Pinal County; Arizona",
+    "population": 2737,
+    "medianHouseholdIncome": 62722,
+    "medianAge": 43.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "002400",
+    "name": "Census Tract 24; Pinal County; Arizona",
+    "population": 1839,
+    "medianHouseholdIncome": 44967,
+    "medianAge": 52.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "941200",
+    "name": "Census Tract 9412; Pinal County; Arizona",
+    "population": 6907,
+    "medianHouseholdIncome": 34564,
+    "medianAge": 29
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "941300",
+    "name": "Census Tract 9413; Pinal County; Arizona",
+    "population": 2483,
+    "medianHouseholdIncome": 34125,
+    "medianAge": 28.2
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "941401",
+    "name": "Census Tract 9414.01; Pinal County; Arizona",
+    "population": 6158,
+    "medianHouseholdIncome": 57112,
+    "medianAge": 39.9
+  },
+  {
+    "state": "04",
+    "county": "021",
+    "tract": "941402",
+    "name": "Census Tract 9414.02; Pinal County; Arizona",
+    "population": 2583,
+    "medianHouseholdIncome": 48201,
+    "medianAge": 38.5
+  }
+]

@@ -1,0 +1,83 @@
+[
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Del Norte County; California",
+    "population": 4391,
+    "medianHouseholdIncome": 40571,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Del Norte County; California",
+    "population": 3676,
+    "medianHouseholdIncome": 66200,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000104",
+    "name": "Census Tract 1.04; Del Norte County; California",
+    "population": 2625,
+    "medianHouseholdIncome": 46220,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000106",
+    "name": "Census Tract 1.06; Del Norte County; California",
+    "population": 3978,
+    "medianHouseholdIncome": 105333,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000107",
+    "name": "Census Tract 1.07; Del Norte County; California",
+    "population": 3187,
+    "medianHouseholdIncome": 57609,
+    "medianAge": 42.8
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Del Norte County; California",
+    "population": 5322,
+    "medianHouseholdIncome": 82475,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Del Norte County; California",
+    "population": 3249,
+    "medianHouseholdIncome": 71111,
+    "medianAge": 57
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "000203",
+    "name": "Census Tract 2.03; Del Norte County; California",
+    "population": 1034,
+    "medianHouseholdIncome": 48276,
+    "medianAge": 51.6
+  },
+  {
+    "state": "06",
+    "county": "015",
+    "tract": "990000",
+    "name": "Census Tract 9900; Del Norte County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

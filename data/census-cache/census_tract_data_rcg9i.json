@@ -1,0 +1,902 @@
+[
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250103",
+    "name": "Census Tract 2501.03; Solano County; California",
+    "population": 4232,
+    "medianHouseholdIncome": 105903,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250104",
+    "name": "Census Tract 2501.04; Solano County; California",
+    "population": 2225,
+    "medianHouseholdIncome": 88125,
+    "medianAge": 48.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250105",
+    "name": "Census Tract 2501.05; Solano County; California",
+    "population": 7595,
+    "medianHouseholdIncome": 109918,
+    "medianAge": 41.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250106",
+    "name": "Census Tract 2501.06; Solano County; California",
+    "population": 3668,
+    "medianHouseholdIncome": 168750,
+    "medianAge": 47.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250200",
+    "name": "Census Tract 2502; Solano County; California",
+    "population": 4560,
+    "medianHouseholdIncome": 76875,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250300",
+    "name": "Census Tract 2503; Solano County; California",
+    "population": 3526,
+    "medianHouseholdIncome": 70278,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250400",
+    "name": "Census Tract 2504; Solano County; California",
+    "population": 3511,
+    "medianHouseholdIncome": 82711,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250501",
+    "name": "Census Tract 2505.01; Solano County; California",
+    "population": 2473,
+    "medianHouseholdIncome": 110250,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250502",
+    "name": "Census Tract 2505.02; Solano County; California",
+    "population": 3250,
+    "medianHouseholdIncome": 104145,
+    "medianAge": 49.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250601",
+    "name": "Census Tract 2506.01; Solano County; California",
+    "population": 5270,
+    "medianHouseholdIncome": 84668,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250604",
+    "name": "Census Tract 2506.04; Solano County; California",
+    "population": 4057,
+    "medianHouseholdIncome": 104805,
+    "medianAge": 49.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250605",
+    "name": "Census Tract 2506.05; Solano County; California",
+    "population": 3969,
+    "medianHouseholdIncome": 133125,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250701",
+    "name": "Census Tract 2507.01; Solano County; California",
+    "population": 3579,
+    "medianHouseholdIncome": 54634,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250801",
+    "name": "Census Tract 2508.01; Solano County; California",
+    "population": 4232,
+    "medianHouseholdIncome": 103816,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "250900",
+    "name": "Census Tract 2509; Solano County; California",
+    "population": 2911,
+    "medianHouseholdIncome": 39709,
+    "medianAge": 30.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251000",
+    "name": "Census Tract 2510; Solano County; California",
+    "population": 2206,
+    "medianHouseholdIncome": 53607,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251100",
+    "name": "Census Tract 2511; Solano County; California",
+    "population": 3015,
+    "medianHouseholdIncome": 77870,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251200",
+    "name": "Census Tract 2512; Solano County; California",
+    "population": 3266,
+    "medianHouseholdIncome": 75333,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251300",
+    "name": "Census Tract 2513; Solano County; California",
+    "population": 3185,
+    "medianHouseholdIncome": 98523,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251400",
+    "name": "Census Tract 2514; Solano County; California",
+    "population": 5952,
+    "medianHouseholdIncome": 93091,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251500",
+    "name": "Census Tract 2515; Solano County; California",
+    "population": 3592,
+    "medianHouseholdIncome": 53975,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251600",
+    "name": "Census Tract 2516; Solano County; California",
+    "population": 2604,
+    "medianHouseholdIncome": 53333,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251701",
+    "name": "Census Tract 2517.01; Solano County; California",
+    "population": 3449,
+    "medianHouseholdIncome": 66175,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251702",
+    "name": "Census Tract 2517.02; Solano County; California",
+    "population": 2803,
+    "medianHouseholdIncome": 83750,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251802",
+    "name": "Census Tract 2518.02; Solano County; California",
+    "population": 3174,
+    "medianHouseholdIncome": 31841,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251803",
+    "name": "Census Tract 2518.03; Solano County; California",
+    "population": 4774,
+    "medianHouseholdIncome": 85612,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251804",
+    "name": "Census Tract 2518.04; Solano County; California",
+    "population": 3313,
+    "medianHouseholdIncome": 116250,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251901",
+    "name": "Census Tract 2519.01; Solano County; California",
+    "population": 5762,
+    "medianHouseholdIncome": 75802,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251902",
+    "name": "Census Tract 2519.02; Solano County; California",
+    "population": 5481,
+    "medianHouseholdIncome": 93750,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "251903",
+    "name": "Census Tract 2519.03; Solano County; California",
+    "population": 5672,
+    "medianHouseholdIncome": 84136,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252000",
+    "name": "Census Tract 2520; Solano County; California",
+    "population": 4203,
+    "medianHouseholdIncome": 90370,
+    "medianAge": 56.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252102",
+    "name": "Census Tract 2521.02; Solano County; California",
+    "population": 4224,
+    "medianHouseholdIncome": 105109,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252103",
+    "name": "Census Tract 2521.03; Solano County; California",
+    "population": 6673,
+    "medianHouseholdIncome": 102760,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252104",
+    "name": "Census Tract 2521.04; Solano County; California",
+    "population": 5837,
+    "medianHouseholdIncome": 158229,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252105",
+    "name": "Census Tract 2521.05; Solano County; California",
+    "population": 3112,
+    "medianHouseholdIncome": 133784,
+    "medianAge": 48.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252106",
+    "name": "Census Tract 2521.06; Solano County; California",
+    "population": 4479,
+    "medianHouseholdIncome": 114943,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252107",
+    "name": "Census Tract 2521.07; Solano County; California",
+    "population": 3342,
+    "medianHouseholdIncome": 123787,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252108",
+    "name": "Census Tract 2521.08; Solano County; California",
+    "population": 2996,
+    "medianHouseholdIncome": 156818,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252203",
+    "name": "Census Tract 2522.03; Solano County; California",
+    "population": 4121,
+    "medianHouseholdIncome": 134142,
+    "medianAge": 44.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252204",
+    "name": "Census Tract 2522.04; Solano County; California",
+    "population": 5524,
+    "medianHouseholdIncome": 161974,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252205",
+    "name": "Census Tract 2522.05; Solano County; California",
+    "population": 8501,
+    "medianHouseholdIncome": 156586,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252206",
+    "name": "Census Tract 2522.06; Solano County; California",
+    "population": 5955,
+    "medianHouseholdIncome": 129914,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252305",
+    "name": "Census Tract 2523.05; Solano County; California",
+    "population": 6178,
+    "medianHouseholdIncome": 126369,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252306",
+    "name": "Census Tract 2523.06; Solano County; California",
+    "population": 3058,
+    "medianHouseholdIncome": 111012,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252310",
+    "name": "Census Tract 2523.10; Solano County; California",
+    "population": 3099,
+    "medianHouseholdIncome": 162750,
+    "medianAge": 51.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252311",
+    "name": "Census Tract 2523.11; Solano County; California",
+    "population": 4305,
+    "medianHouseholdIncome": 152560,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252312",
+    "name": "Census Tract 2523.12; Solano County; California",
+    "population": 3769,
+    "medianHouseholdIncome": 94712,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252313",
+    "name": "Census Tract 2523.13; Solano County; California",
+    "population": 4835,
+    "medianHouseholdIncome": 95103,
+    "medianAge": 48.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252314",
+    "name": "Census Tract 2523.14; Solano County; California",
+    "population": 4441,
+    "medianHouseholdIncome": 93500,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252315",
+    "name": "Census Tract 2523.15; Solano County; California",
+    "population": 3852,
+    "medianHouseholdIncome": 126650,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252316",
+    "name": "Census Tract 2523.16; Solano County; California",
+    "population": 3679,
+    "medianHouseholdIncome": 96938,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252317",
+    "name": "Census Tract 2523.17; Solano County; California",
+    "population": 13124,
+    "medianHouseholdIncome": 146397,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252401",
+    "name": "Census Tract 2524.01; Solano County; California",
+    "population": 4820,
+    "medianHouseholdIncome": 75370,
+    "medianAge": 33
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252402",
+    "name": "Census Tract 2524.02; Solano County; California",
+    "population": 5610,
+    "medianHouseholdIncome": 78098,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252501",
+    "name": "Census Tract 2525.01; Solano County; California",
+    "population": 3067,
+    "medianHouseholdIncome": 62524,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252502",
+    "name": "Census Tract 2525.02; Solano County; California",
+    "population": 1599,
+    "medianHouseholdIncome": 71944,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252604",
+    "name": "Census Tract 2526.04; Solano County; California",
+    "population": 4004,
+    "medianHouseholdIncome": 100122,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252605",
+    "name": "Census Tract 2526.05; Solano County; California",
+    "population": 5914,
+    "medianHouseholdIncome": 64278,
+    "medianAge": 29.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252606",
+    "name": "Census Tract 2526.06; Solano County; California",
+    "population": 6206,
+    "medianHouseholdIncome": 65011,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252607",
+    "name": "Census Tract 2526.07; Solano County; California",
+    "population": 3740,
+    "medianHouseholdIncome": 60536,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252608",
+    "name": "Census Tract 2526.08; Solano County; California",
+    "population": 4559,
+    "medianHouseholdIncome": 85322,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252610",
+    "name": "Census Tract 2526.10; Solano County; California",
+    "population": 2906,
+    "medianHouseholdIncome": 82500,
+    "medianAge": 48.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252611",
+    "name": "Census Tract 2526.11; Solano County; California",
+    "population": 3846,
+    "medianHouseholdIncome": 91771,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252702",
+    "name": "Census Tract 2527.02; Solano County; California",
+    "population": 6893,
+    "medianHouseholdIncome": 66590,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252703",
+    "name": "Census Tract 2527.03; Solano County; California",
+    "population": 4222,
+    "medianHouseholdIncome": 86579,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252704",
+    "name": "Census Tract 2527.04; Solano County; California",
+    "population": 5345,
+    "medianHouseholdIncome": 82120,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252705",
+    "name": "Census Tract 2527.05; Solano County; California",
+    "population": 6372,
+    "medianHouseholdIncome": 103992,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252706",
+    "name": "Census Tract 2527.06; Solano County; California",
+    "population": 4247,
+    "medianHouseholdIncome": 117708,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252707",
+    "name": "Census Tract 2527.07; Solano County; California",
+    "population": 4297,
+    "medianHouseholdIncome": 80321,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252801",
+    "name": "Census Tract 2528.01; Solano County; California",
+    "population": 2720,
+    "medianHouseholdIncome": 78082,
+    "medianAge": 22.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252802",
+    "name": "Census Tract 2528.02; Solano County; California",
+    "population": 990,
+    "medianHouseholdIncome": 86500,
+    "medianAge": 22.2
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252903",
+    "name": "Census Tract 2529.03; Solano County; California",
+    "population": 4508,
+    "medianHouseholdIncome": 117991,
+    "medianAge": 54.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252904",
+    "name": "Census Tract 2529.04; Solano County; California",
+    "population": 8528,
+    "medianHouseholdIncome": 111068,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252908",
+    "name": "Census Tract 2529.08; Solano County; California",
+    "population": 3708,
+    "medianHouseholdIncome": 102500,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252909",
+    "name": "Census Tract 2529.09; Solano County; California",
+    "population": 5112,
+    "medianHouseholdIncome": 141739,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252910",
+    "name": "Census Tract 2529.10; Solano County; California",
+    "population": 4900,
+    "medianHouseholdIncome": 120795,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252911",
+    "name": "Census Tract 2529.11; Solano County; California",
+    "population": 5330,
+    "medianHouseholdIncome": 76812,
+    "medianAge": 63.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252912",
+    "name": "Census Tract 2529.12; Solano County; California",
+    "population": 5495,
+    "medianHouseholdIncome": 153542,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252913",
+    "name": "Census Tract 2529.13; Solano County; California",
+    "population": 4622,
+    "medianHouseholdIncome": 106694,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252914",
+    "name": "Census Tract 2529.14; Solano County; California",
+    "population": 5750,
+    "medianHouseholdIncome": 125233,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "252915",
+    "name": "Census Tract 2529.15; Solano County; California",
+    "population": 6449,
+    "medianHouseholdIncome": 156375,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253000",
+    "name": "Census Tract 2530; Solano County; California",
+    "population": 5774,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 47
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253101",
+    "name": "Census Tract 2531.01; Solano County; California",
+    "population": 5156,
+    "medianHouseholdIncome": 110241,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253105",
+    "name": "Census Tract 2531.05; Solano County; California",
+    "population": 7130,
+    "medianHouseholdIncome": 93500,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253106",
+    "name": "Census Tract 2531.06; Solano County; California",
+    "population": 3797,
+    "medianHouseholdIncome": 85208,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253107",
+    "name": "Census Tract 2531.07; Solano County; California",
+    "population": 5862,
+    "medianHouseholdIncome": 77250,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253108",
+    "name": "Census Tract 2531.08; Solano County; California",
+    "population": 3875,
+    "medianHouseholdIncome": 80786,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253201",
+    "name": "Census Tract 2532.01; Solano County; California",
+    "population": 5230,
+    "medianHouseholdIncome": 132500,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253203",
+    "name": "Census Tract 2532.03; Solano County; California",
+    "population": 3922,
+    "medianHouseholdIncome": 89135,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253205",
+    "name": "Census Tract 2532.05; Solano County; California",
+    "population": 3091,
+    "medianHouseholdIncome": 118821,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253206",
+    "name": "Census Tract 2532.06; Solano County; California",
+    "population": 3894,
+    "medianHouseholdIncome": 155110,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253207",
+    "name": "Census Tract 2532.07; Solano County; California",
+    "population": 2539,
+    "medianHouseholdIncome": 100357,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253208",
+    "name": "Census Tract 2532.08; Solano County; California",
+    "population": 4842,
+    "medianHouseholdIncome": 99643,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253300",
+    "name": "Census Tract 2533; Solano County; California",
+    "population": 2972,
+    "medianHouseholdIncome": 96585,
+    "medianAge": 44.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253402",
+    "name": "Census Tract 2534.02; Solano County; California",
+    "population": 8310,
+    "medianHouseholdIncome": 90857,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253403",
+    "name": "Census Tract 2534.03; Solano County; California",
+    "population": 5032,
+    "medianHouseholdIncome": 106397,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253404",
+    "name": "Census Tract 2534.04; Solano County; California",
+    "population": 6656,
+    "medianHouseholdIncome": 93337,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253501",
+    "name": "Census Tract 2535.01; Solano County; California",
+    "population": 5982,
+    "medianHouseholdIncome": 75402,
+    "medianAge": 69.5
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "253502",
+    "name": "Census Tract 2535.02; Solano County; California",
+    "population": 4559,
+    "medianHouseholdIncome": 83856,
+    "medianAge": 44.4
+  },
+  {
+    "state": "06",
+    "county": "095",
+    "tract": "980000",
+    "name": "Census Tract 9800; Solano County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

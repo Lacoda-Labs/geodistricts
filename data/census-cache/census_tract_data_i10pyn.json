@@ -1,0 +1,452 @@
+[
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010100",
+    "name": "Census Tract 101; Shasta County; California",
+    "population": 1834,
+    "medianHouseholdIncome": 22572,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010200",
+    "name": "Census Tract 102; Shasta County; California",
+    "population": 2396,
+    "medianHouseholdIncome": 60556,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010300",
+    "name": "Census Tract 103; Shasta County; California",
+    "population": 4271,
+    "medianHouseholdIncome": 69236,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010400",
+    "name": "Census Tract 104; Shasta County; California",
+    "population": 4830,
+    "medianHouseholdIncome": 75500,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010500",
+    "name": "Census Tract 105; Shasta County; California",
+    "population": 5505,
+    "medianHouseholdIncome": 53125,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010601",
+    "name": "Census Tract 106.01; Shasta County; California",
+    "population": 2489,
+    "medianHouseholdIncome": 107837,
+    "medianAge": 52.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010602",
+    "name": "Census Tract 106.02; Shasta County; California",
+    "population": 5340,
+    "medianHouseholdIncome": 80547,
+    "medianAge": 45.9
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010603",
+    "name": "Census Tract 106.03; Shasta County; California",
+    "population": 1252,
+    "medianHouseholdIncome": 108500,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010702",
+    "name": "Census Tract 107.02; Shasta County; California",
+    "population": 3001,
+    "medianHouseholdIncome": 91994,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010703",
+    "name": "Census Tract 107.03; Shasta County; California",
+    "population": 3607,
+    "medianHouseholdIncome": 52988,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010704",
+    "name": "Census Tract 107.04; Shasta County; California",
+    "population": 4022,
+    "medianHouseholdIncome": 46384,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010803",
+    "name": "Census Tract 108.03; Shasta County; California",
+    "population": 5538,
+    "medianHouseholdIncome": 57538,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010804",
+    "name": "Census Tract 108.04; Shasta County; California",
+    "population": 2185,
+    "medianHouseholdIncome": 78750,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010805",
+    "name": "Census Tract 108.05; Shasta County; California",
+    "population": 5548,
+    "medianHouseholdIncome": 92226,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010806",
+    "name": "Census Tract 108.06; Shasta County; California",
+    "population": 3203,
+    "medianHouseholdIncome": 56806,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010807",
+    "name": "Census Tract 108.07; Shasta County; California",
+    "population": 4640,
+    "medianHouseholdIncome": 91591,
+    "medianAge": 45.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "010900",
+    "name": "Census Tract 109; Shasta County; California",
+    "population": 4514,
+    "medianHouseholdIncome": 69488,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011001",
+    "name": "Census Tract 110.01; Shasta County; California",
+    "population": 1609,
+    "medianHouseholdIncome": 109643,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011002",
+    "name": "Census Tract 110.02; Shasta County; California",
+    "population": 5364,
+    "medianHouseholdIncome": 76081,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011100",
+    "name": "Census Tract 111; Shasta County; California",
+    "population": 3347,
+    "medianHouseholdIncome": 97986,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011209",
+    "name": "Census Tract 112.09; Shasta County; California",
+    "population": 5738,
+    "medianHouseholdIncome": 58795,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011300",
+    "name": "Census Tract 113; Shasta County; California",
+    "population": 4955,
+    "medianHouseholdIncome": 70329,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011401",
+    "name": "Census Tract 114.01; Shasta County; California",
+    "population": 4288,
+    "medianHouseholdIncome": 85983,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011402",
+    "name": "Census Tract 114.02; Shasta County; California",
+    "population": 2810,
+    "medianHouseholdIncome": 84792,
+    "medianAge": 42.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011403",
+    "name": "Census Tract 114.03; Shasta County; California",
+    "population": 3322,
+    "medianHouseholdIncome": 78472,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011501",
+    "name": "Census Tract 115.01; Shasta County; California",
+    "population": 3296,
+    "medianHouseholdIncome": 78854,
+    "medianAge": 45.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011502",
+    "name": "Census Tract 115.02; Shasta County; California",
+    "population": 2715,
+    "medianHouseholdIncome": 66974,
+    "medianAge": 58.5
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011600",
+    "name": "Census Tract 116; Shasta County; California",
+    "population": 3889,
+    "medianHouseholdIncome": 68224,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011701",
+    "name": "Census Tract 117.01; Shasta County; California",
+    "population": 3001,
+    "medianHouseholdIncome": 77000,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011702",
+    "name": "Census Tract 117.02; Shasta County; California",
+    "population": 3582,
+    "medianHouseholdIncome": 55429,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011703",
+    "name": "Census Tract 117.03; Shasta County; California",
+    "population": 2782,
+    "medianHouseholdIncome": 44625,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011801",
+    "name": "Census Tract 118.01; Shasta County; California",
+    "population": 3057,
+    "medianHouseholdIncome": 85664,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011802",
+    "name": "Census Tract 118.02; Shasta County; California",
+    "population": 2746,
+    "medianHouseholdIncome": 90472,
+    "medianAge": 51.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011803",
+    "name": "Census Tract 118.03; Shasta County; California",
+    "population": 2590,
+    "medianHouseholdIncome": 63448,
+    "medianAge": 50.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "011900",
+    "name": "Census Tract 119; Shasta County; California",
+    "population": 5052,
+    "medianHouseholdIncome": 113911,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012000",
+    "name": "Census Tract 120; Shasta County; California",
+    "population": 5157,
+    "medianHouseholdIncome": 40773,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012101",
+    "name": "Census Tract 121.01; Shasta County; California",
+    "population": 5105,
+    "medianHouseholdIncome": 65823,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012102",
+    "name": "Census Tract 121.02; Shasta County; California",
+    "population": 2298,
+    "medianHouseholdIncome": 41641,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012200",
+    "name": "Census Tract 122; Shasta County; California",
+    "population": 5637,
+    "medianHouseholdIncome": 70921,
+    "medianAge": 47.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012301",
+    "name": "Census Tract 123.01; Shasta County; California",
+    "population": 2618,
+    "medianHouseholdIncome": 52500,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012302",
+    "name": "Census Tract 123.02; Shasta County; California",
+    "population": 5597,
+    "medianHouseholdIncome": 75079,
+    "medianAge": 49.9
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012303",
+    "name": "Census Tract 123.03; Shasta County; California",
+    "population": 3603,
+    "medianHouseholdIncome": 96789,
+    "medianAge": 43.1
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012400",
+    "name": "Census Tract 124; Shasta County; California",
+    "population": 3364,
+    "medianHouseholdIncome": 97500,
+    "medianAge": 49.4
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012500",
+    "name": "Census Tract 125; Shasta County; California",
+    "population": 1382,
+    "medianHouseholdIncome": 63826,
+    "medianAge": 59.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012603",
+    "name": "Census Tract 126.03; Shasta County; California",
+    "population": 4111,
+    "medianHouseholdIncome": 70301,
+    "medianAge": 57.7
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012604",
+    "name": "Census Tract 126.04; Shasta County; California",
+    "population": 2218,
+    "medianHouseholdIncome": 65889,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012605",
+    "name": "Census Tract 126.05; Shasta County; California",
+    "population": 1983,
+    "medianHouseholdIncome": 89036,
+    "medianAge": 55.9
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012606",
+    "name": "Census Tract 126.06; Shasta County; California",
+    "population": 3407,
+    "medianHouseholdIncome": 61912,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012701",
+    "name": "Census Tract 127.01; Shasta County; California",
+    "population": 4268,
+    "medianHouseholdIncome": 56571,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "089",
+    "tract": "012702",
+    "name": "Census Tract 127.02; Shasta County; California",
+    "population": 2786,
+    "medianHouseholdIncome": 70526,
+    "medianAge": 48.4
+  }
+]

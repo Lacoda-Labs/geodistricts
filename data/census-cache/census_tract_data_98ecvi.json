@@ -1,0 +1,362 @@
+[
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200201",
+    "name": "Census Tract 2002.01; Napa County; California",
+    "population": 3906,
+    "medianHouseholdIncome": 81875,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200202",
+    "name": "Census Tract 2002.02; Napa County; California",
+    "population": 2089,
+    "medianHouseholdIncome": 69537,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200203",
+    "name": "Census Tract 2002.03; Napa County; California",
+    "population": 2062,
+    "medianHouseholdIncome": 79886,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200301",
+    "name": "Census Tract 2003.01; Napa County; California",
+    "population": 6120,
+    "medianHouseholdIncome": 93400,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200302",
+    "name": "Census Tract 2003.02; Napa County; California",
+    "population": 2716,
+    "medianHouseholdIncome": 110673,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200400",
+    "name": "Census Tract 2004; Napa County; California",
+    "population": 3440,
+    "medianHouseholdIncome": 128065,
+    "medianAge": 57.1
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200501",
+    "name": "Census Tract 2005.01; Napa County; California",
+    "population": 5648,
+    "medianHouseholdIncome": 92344,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200503",
+    "name": "Census Tract 2005.03; Napa County; California",
+    "population": 1785,
+    "medianHouseholdIncome": 110179,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200504",
+    "name": "Census Tract 2005.04; Napa County; California",
+    "population": 5956,
+    "medianHouseholdIncome": 91379,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200505",
+    "name": "Census Tract 2005.05; Napa County; California",
+    "population": 2857,
+    "medianHouseholdIncome": 84394,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200601",
+    "name": "Census Tract 2006.01; Napa County; California",
+    "population": 4949,
+    "medianHouseholdIncome": 137679,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200602",
+    "name": "Census Tract 2006.02; Napa County; California",
+    "population": 4482,
+    "medianHouseholdIncome": 100212,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200703",
+    "name": "Census Tract 2007.03; Napa County; California",
+    "population": 3036,
+    "medianHouseholdIncome": 144625,
+    "medianAge": 51.9
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200704",
+    "name": "Census Tract 2007.04; Napa County; California",
+    "population": 4930,
+    "medianHouseholdIncome": 63462,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200705",
+    "name": "Census Tract 2007.05; Napa County; California",
+    "population": 2846,
+    "medianHouseholdIncome": 100750,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200706",
+    "name": "Census Tract 2007.06; Napa County; California",
+    "population": 3132,
+    "medianHouseholdIncome": 136419,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200707",
+    "name": "Census Tract 2007.07; Napa County; California",
+    "population": 3508,
+    "medianHouseholdIncome": 119643,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200802",
+    "name": "Census Tract 2008.02; Napa County; California",
+    "population": 6458,
+    "medianHouseholdIncome": 106452,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200803",
+    "name": "Census Tract 2008.03; Napa County; California",
+    "population": 2236,
+    "medianHouseholdIncome": 135000,
+    "medianAge": 48
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200804",
+    "name": "Census Tract 2008.04; Napa County; California",
+    "population": 5411,
+    "medianHouseholdIncome": 89924,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "200900",
+    "name": "Census Tract 2009; Napa County; California",
+    "population": 438,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201003",
+    "name": "Census Tract 2010.03; Napa County; California",
+    "population": 5018,
+    "medianHouseholdIncome": 165833,
+    "medianAge": 33
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201004",
+    "name": "Census Tract 2010.04; Napa County; California",
+    "population": 6844,
+    "medianHouseholdIncome": 105703,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201005",
+    "name": "Census Tract 2010.05; Napa County; California",
+    "population": 2688,
+    "medianHouseholdIncome": 100600,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201006",
+    "name": "Census Tract 2010.06; Napa County; California",
+    "population": 3436,
+    "medianHouseholdIncome": 137292,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201007",
+    "name": "Census Tract 2010.07; Napa County; California",
+    "population": 3991,
+    "medianHouseholdIncome": 133750,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201101",
+    "name": "Census Tract 2011.01; Napa County; California",
+    "population": 1894,
+    "medianHouseholdIncome": 116226,
+    "medianAge": 53.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201102",
+    "name": "Census Tract 2011.02; Napa County; California",
+    "population": 2053,
+    "medianHouseholdIncome": 134167,
+    "medianAge": 56
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201200",
+    "name": "Census Tract 2012; Napa County; California",
+    "population": 4587,
+    "medianHouseholdIncome": 74154,
+    "medianAge": 54.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201300",
+    "name": "Census Tract 2013; Napa County; California",
+    "population": 3397,
+    "medianHouseholdIncome": 75134,
+    "medianAge": 64.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201401",
+    "name": "Census Tract 2014.01; Napa County; California",
+    "population": 2548,
+    "medianHouseholdIncome": 145682,
+    "medianAge": 61.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201402",
+    "name": "Census Tract 2014.02; Napa County; California",
+    "population": 2415,
+    "medianHouseholdIncome": 169028,
+    "medianAge": 57.4
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201403",
+    "name": "Census Tract 2014.03; Napa County; California",
+    "population": 739,
+    "medianHouseholdIncome": 198603,
+    "medianAge": 55.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201500",
+    "name": "Census Tract 2015; Napa County; California",
+    "population": 1668,
+    "medianHouseholdIncome": 118500,
+    "medianAge": 53.9
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201601",
+    "name": "Census Tract 2016.01; Napa County; California",
+    "population": 2446,
+    "medianHouseholdIncome": 130357,
+    "medianAge": 42.6
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201602",
+    "name": "Census Tract 2016.02; Napa County; California",
+    "population": 2980,
+    "medianHouseholdIncome": 150375,
+    "medianAge": 55.8
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201700",
+    "name": "Census Tract 2017; Napa County; California",
+    "population": 4494,
+    "medianHouseholdIncome": 115625,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201800",
+    "name": "Census Tract 2018; Napa County; California",
+    "population": 1480,
+    "medianHouseholdIncome": 80313,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "201900",
+    "name": "Census Tract 2019; Napa County; California",
+    "population": 1510,
+    "medianHouseholdIncome": 127159,
+    "medianAge": 47.5
+  },
+  {
+    "state": "06",
+    "county": "055",
+    "tract": "202000",
+    "name": "Census Tract 2020; Napa County; California",
+    "population": 5191,
+    "medianHouseholdIncome": 96667,
+    "medianAge": 49.2
+  }
+]

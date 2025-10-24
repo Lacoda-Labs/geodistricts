@@ -1,0 +1,128 @@
+[
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000100",
+    "name": "Census Tract 1; Tehama County; California",
+    "population": 5036,
+    "medianHouseholdIncome": 70368,
+    "medianAge": 47.7
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Tehama County; California",
+    "population": 4196,
+    "medianHouseholdIncome": 93315,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Tehama County; California",
+    "population": 3450,
+    "medianHouseholdIncome": 49583,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000300",
+    "name": "Census Tract 3; Tehama County; California",
+    "population": 4005,
+    "medianHouseholdIncome": 54400,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000400",
+    "name": "Census Tract 4; Tehama County; California",
+    "population": 6517,
+    "medianHouseholdIncome": 119200,
+    "medianAge": 50
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000500",
+    "name": "Census Tract 5; Tehama County; California",
+    "population": 5385,
+    "medianHouseholdIncome": 53295,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000600",
+    "name": "Census Tract 6; Tehama County; California",
+    "population": 5920,
+    "medianHouseholdIncome": 53250,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Tehama County; California",
+    "population": 4354,
+    "medianHouseholdIncome": 45143,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Tehama County; California",
+    "population": 3628,
+    "medianHouseholdIncome": 49837,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000800",
+    "name": "Census Tract 8; Tehama County; California",
+    "population": 4413,
+    "medianHouseholdIncome": 50529,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "000900",
+    "name": "Census Tract 9; Tehama County; California",
+    "population": 3487,
+    "medianHouseholdIncome": 48533,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "001000",
+    "name": "Census Tract 10; Tehama County; California",
+    "population": 7665,
+    "medianHouseholdIncome": 69821,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Tehama County; California",
+    "population": 2206,
+    "medianHouseholdIncome": 61737,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "103",
+    "tract": "001102",
+    "name": "Census Tract 11.02; Tehama County; California",
+    "population": 5222,
+    "medianHouseholdIncome": 54063,
+    "medianAge": 33.5
+  }
+]

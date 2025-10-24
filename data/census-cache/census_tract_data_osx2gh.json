@@ -1,0 +1,128 @@
+[
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966000",
+    "name": "Census Tract 9660; Santa Cruz County; Arizona",
+    "population": 3364,
+    "medianHouseholdIncome": 54113,
+    "medianAge": 61.4
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966101",
+    "name": "Census Tract 9661.01; Santa Cruz County; Arizona",
+    "population": 2684,
+    "medianHouseholdIncome": 77296,
+    "medianAge": 58.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966103",
+    "name": "Census Tract 9661.03; Santa Cruz County; Arizona",
+    "population": 1044,
+    "medianHouseholdIncome": 29324,
+    "medianAge": 37.5
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966106",
+    "name": "Census Tract 9661.06; Santa Cruz County; Arizona",
+    "population": 1947,
+    "medianHouseholdIncome": 62904,
+    "medianAge": 32.4
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966107",
+    "name": "Census Tract 9661.07; Santa Cruz County; Arizona",
+    "population": 1477,
+    "medianHouseholdIncome": 105202,
+    "medianAge": 34.2
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966108",
+    "name": "Census Tract 9661.08; Santa Cruz County; Arizona",
+    "population": 6034,
+    "medianHouseholdIncome": 43594,
+    "medianAge": 34.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966109",
+    "name": "Census Tract 9661.09; Santa Cruz County; Arizona",
+    "population": 3440,
+    "medianHouseholdIncome": 55703,
+    "medianAge": 39
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966110",
+    "name": "Census Tract 9661.10; Santa Cruz County; Arizona",
+    "population": 3025,
+    "medianHouseholdIncome": 98504,
+    "medianAge": 24.4
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966111",
+    "name": "Census Tract 9661.11; Santa Cruz County; Arizona",
+    "population": 5135,
+    "medianHouseholdIncome": 67799,
+    "medianAge": 39.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966200",
+    "name": "Census Tract 9662; Santa Cruz County; Arizona",
+    "population": 4197,
+    "medianHouseholdIncome": 40368,
+    "medianAge": 30.6
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966301",
+    "name": "Census Tract 9663.01; Santa Cruz County; Arizona",
+    "population": 4530,
+    "medianHouseholdIncome": 52578,
+    "medianAge": 39.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966302",
+    "name": "Census Tract 9663.02; Santa Cruz County; Arizona",
+    "population": 3587,
+    "medianHouseholdIncome": 30837,
+    "medianAge": 45.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966401",
+    "name": "Census Tract 9664.01; Santa Cruz County; Arizona",
+    "population": 3653,
+    "medianHouseholdIncome": 31358,
+    "medianAge": 31.1
+  },
+  {
+    "state": "04",
+    "county": "023",
+    "tract": "966402",
+    "name": "Census Tract 9664.02; Santa Cruz County; Arizona",
+    "population": 3721,
+    "medianHouseholdIncome": 35233,
+    "medianAge": 37.3
+  }
+]

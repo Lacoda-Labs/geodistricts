@@ -1,0 +1,2126 @@
+[
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Kern County; California",
+    "population": 3154,
+    "medianHouseholdIncome": 63371,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000103",
+    "name": "Census Tract 1.03; Kern County; California",
+    "population": 5163,
+    "medianHouseholdIncome": 48250,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000104",
+    "name": "Census Tract 1.04; Kern County; California",
+    "population": 1388,
+    "medianHouseholdIncome": 56815,
+    "medianAge": 24.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000105",
+    "name": "Census Tract 1.05; Kern County; California",
+    "population": 4006,
+    "medianHouseholdIncome": 75700,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000106",
+    "name": "Census Tract 1.06; Kern County; California",
+    "population": 2879,
+    "medianHouseholdIncome": 59965,
+    "medianAge": 26.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Kern County; California",
+    "population": 3718,
+    "medianHouseholdIncome": 29696,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Kern County; California",
+    "population": 3458,
+    "medianHouseholdIncome": 34883,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000300",
+    "name": "Census Tract 3; Kern County; California",
+    "population": 4956,
+    "medianHouseholdIncome": 45130,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000400",
+    "name": "Census Tract 4; Kern County; California",
+    "population": 4840,
+    "medianHouseholdIncome": 25820,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000504",
+    "name": "Census Tract 5.04; Kern County; California",
+    "population": 4851,
+    "medianHouseholdIncome": 57250,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000505",
+    "name": "Census Tract 5.05; Kern County; California",
+    "population": 3976,
+    "medianHouseholdIncome": 85992,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000506",
+    "name": "Census Tract 5.06; Kern County; California",
+    "population": 2901,
+    "medianHouseholdIncome": 78313,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000507",
+    "name": "Census Tract 5.07; Kern County; California",
+    "population": 3843,
+    "medianHouseholdIncome": 96957,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000508",
+    "name": "Census Tract 5.08; Kern County; California",
+    "population": 1643,
+    "medianHouseholdIncome": 112689,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000509",
+    "name": "Census Tract 5.09; Kern County; California",
+    "population": 2498,
+    "medianHouseholdIncome": 179244,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000510",
+    "name": "Census Tract 5.10; Kern County; California",
+    "population": 4757,
+    "medianHouseholdIncome": 147262,
+    "medianAge": 32.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Kern County; California",
+    "population": 2025,
+    "medianHouseholdIncome": 30938,
+    "medianAge": 46.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Kern County; California",
+    "population": 2888,
+    "medianHouseholdIncome": 33208,
+    "medianAge": 20.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000603",
+    "name": "Census Tract 6.03; Kern County; California",
+    "population": 2272,
+    "medianHouseholdIncome": 25693,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Kern County; California",
+    "population": 2962,
+    "medianHouseholdIncome": 43258,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Kern County; California",
+    "population": 2710,
+    "medianHouseholdIncome": 67609,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000800",
+    "name": "Census Tract 8; Kern County; California",
+    "population": 5353,
+    "medianHouseholdIncome": 63527,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Kern County; California",
+    "population": 3034,
+    "medianHouseholdIncome": 58800,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000903",
+    "name": "Census Tract 9.03; Kern County; California",
+    "population": 4466,
+    "medianHouseholdIncome": 77592,
+    "medianAge": 29
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000904",
+    "name": "Census Tract 9.04; Kern County; California",
+    "population": 3836,
+    "medianHouseholdIncome": 45458,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000905",
+    "name": "Census Tract 9.05; Kern County; California",
+    "population": 2784,
+    "medianHouseholdIncome": 59852,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000906",
+    "name": "Census Tract 9.06; Kern County; California",
+    "population": 4089,
+    "medianHouseholdIncome": 60799,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000907",
+    "name": "Census Tract 9.07; Kern County; California",
+    "population": 2256,
+    "medianHouseholdIncome": 68438,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000908",
+    "name": "Census Tract 9.08; Kern County; California",
+    "population": 4647,
+    "medianHouseholdIncome": 83963,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000909",
+    "name": "Census Tract 9.09; Kern County; California",
+    "population": 2607,
+    "medianHouseholdIncome": 93906,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000911",
+    "name": "Census Tract 9.11; Kern County; California",
+    "population": 2487,
+    "medianHouseholdIncome": 33966,
+    "medianAge": 27.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000912",
+    "name": "Census Tract 9.12; Kern County; California",
+    "population": 3917,
+    "medianHouseholdIncome": 63281,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000913",
+    "name": "Census Tract 9.13; Kern County; California",
+    "population": 3768,
+    "medianHouseholdIncome": 131071,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "000914",
+    "name": "Census Tract 9.14; Kern County; California",
+    "population": 4181,
+    "medianHouseholdIncome": 91215,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001001",
+    "name": "Census Tract 10.01; Kern County; California",
+    "population": 4876,
+    "medianHouseholdIncome": 91220,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001002",
+    "name": "Census Tract 10.02; Kern County; California",
+    "population": 3418,
+    "medianHouseholdIncome": 59375,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001003",
+    "name": "Census Tract 10.03; Kern County; California",
+    "population": 3338,
+    "medianHouseholdIncome": 64886,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001101",
+    "name": "Census Tract 11.01; Kern County; California",
+    "population": 6718,
+    "medianHouseholdIncome": 29139,
+    "medianAge": 23.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001104",
+    "name": "Census Tract 11.04; Kern County; California",
+    "population": 2562,
+    "medianHouseholdIncome": 46957,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001105",
+    "name": "Census Tract 11.05; Kern County; California",
+    "population": 3644,
+    "medianHouseholdIncome": 54010,
+    "medianAge": 27.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001106",
+    "name": "Census Tract 11.06; Kern County; California",
+    "population": 2722,
+    "medianHouseholdIncome": 39494,
+    "medianAge": 21.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001107",
+    "name": "Census Tract 11.07; Kern County; California",
+    "population": 2702,
+    "medianHouseholdIncome": 52825,
+    "medianAge": 26
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001201",
+    "name": "Census Tract 12.01; Kern County; California",
+    "population": 2878,
+    "medianHouseholdIncome": 42313,
+    "medianAge": 27.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001202",
+    "name": "Census Tract 12.02; Kern County; California",
+    "population": 6420,
+    "medianHouseholdIncome": 29389,
+    "medianAge": 27
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Kern County; California",
+    "population": 4802,
+    "medianHouseholdIncome": 27793,
+    "medianAge": 23.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Kern County; California",
+    "population": 2317,
+    "medianHouseholdIncome": 24506,
+    "medianAge": 23.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001401",
+    "name": "Census Tract 14.01; Kern County; California",
+    "population": 4253,
+    "medianHouseholdIncome": 36622,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001402",
+    "name": "Census Tract 14.02; Kern County; California",
+    "population": 2729,
+    "medianHouseholdIncome": 33155,
+    "medianAge": 28.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001500",
+    "name": "Census Tract 15; Kern County; California",
+    "population": 2819,
+    "medianHouseholdIncome": 34844,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001600",
+    "name": "Census Tract 16; Kern County; California",
+    "population": 2278,
+    "medianHouseholdIncome": 18778,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001700",
+    "name": "Census Tract 17; Kern County; California",
+    "population": 4214,
+    "medianHouseholdIncome": 71486,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001801",
+    "name": "Census Tract 18.01; Kern County; California",
+    "population": 5752,
+    "medianHouseholdIncome": 54420,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001803",
+    "name": "Census Tract 18.03; Kern County; California",
+    "population": 2913,
+    "medianHouseholdIncome": 70058,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001804",
+    "name": "Census Tract 18.04; Kern County; California",
+    "population": 3490,
+    "medianHouseholdIncome": 91250,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001901",
+    "name": "Census Tract 19.01; Kern County; California",
+    "population": 3860,
+    "medianHouseholdIncome": 64851,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "001902",
+    "name": "Census Tract 19.02; Kern County; California",
+    "population": 4383,
+    "medianHouseholdIncome": 50250,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002001",
+    "name": "Census Tract 20.01; Kern County; California",
+    "population": 3707,
+    "medianHouseholdIncome": 18156,
+    "medianAge": 26.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002002",
+    "name": "Census Tract 20.02; Kern County; California",
+    "population": 4599,
+    "medianHouseholdIncome": 28831,
+    "medianAge": 25.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002100",
+    "name": "Census Tract 21; Kern County; California",
+    "population": 3390,
+    "medianHouseholdIncome": 32917,
+    "medianAge": 32.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002201",
+    "name": "Census Tract 22.01; Kern County; California",
+    "population": 2765,
+    "medianHouseholdIncome": 40946,
+    "medianAge": 26.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002202",
+    "name": "Census Tract 22.02; Kern County; California",
+    "population": 3659,
+    "medianHouseholdIncome": 38049,
+    "medianAge": 23.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002302",
+    "name": "Census Tract 23.02; Kern County; California",
+    "population": 4047,
+    "medianHouseholdIncome": 50755,
+    "medianAge": 23.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002303",
+    "name": "Census Tract 23.03; Kern County; California",
+    "population": 3610,
+    "medianHouseholdIncome": 51046,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002304",
+    "name": "Census Tract 23.04; Kern County; California",
+    "population": 3840,
+    "medianHouseholdIncome": 47346,
+    "medianAge": 19.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002305",
+    "name": "Census Tract 23.05; Kern County; California",
+    "population": 2679,
+    "medianHouseholdIncome": 62009,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002401",
+    "name": "Census Tract 24.01; Kern County; California",
+    "population": 1692,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002402",
+    "name": "Census Tract 24.02; Kern County; California",
+    "population": 4922,
+    "medianHouseholdIncome": 69403,
+    "medianAge": 24.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002403",
+    "name": "Census Tract 24.03; Kern County; California",
+    "population": 2396,
+    "medianHouseholdIncome": 41250,
+    "medianAge": 23.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002501",
+    "name": "Census Tract 25.01; Kern County; California",
+    "population": 4429,
+    "medianHouseholdIncome": 40060,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002502",
+    "name": "Census Tract 25.02; Kern County; California",
+    "population": 2167,
+    "medianHouseholdIncome": 42050,
+    "medianAge": 24.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002503",
+    "name": "Census Tract 25.03; Kern County; California",
+    "population": 3711,
+    "medianHouseholdIncome": 60702,
+    "medianAge": 19.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002600",
+    "name": "Census Tract 26; Kern County; California",
+    "population": 3429,
+    "medianHouseholdIncome": 40872,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002701",
+    "name": "Census Tract 27.01; Kern County; California",
+    "population": 2968,
+    "medianHouseholdIncome": 58301,
+    "medianAge": 28.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002702",
+    "name": "Census Tract 27.02; Kern County; California",
+    "population": 3357,
+    "medianHouseholdIncome": 62270,
+    "medianAge": 27
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002804",
+    "name": "Census Tract 28.04; Kern County; California",
+    "population": 2080,
+    "medianHouseholdIncome": 45246,
+    "medianAge": 68.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002806",
+    "name": "Census Tract 28.06; Kern County; California",
+    "population": 2403,
+    "medianHouseholdIncome": 72632,
+    "medianAge": 26.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002807",
+    "name": "Census Tract 28.07; Kern County; California",
+    "population": 3972,
+    "medianHouseholdIncome": 128112,
+    "medianAge": 42.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002811",
+    "name": "Census Tract 28.11; Kern County; California",
+    "population": 3524,
+    "medianHouseholdIncome": 170986,
+    "medianAge": 49.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002813",
+    "name": "Census Tract 28.13; Kern County; California",
+    "population": 4267,
+    "medianHouseholdIncome": 55257,
+    "medianAge": 27.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002814",
+    "name": "Census Tract 28.14; Kern County; California",
+    "population": 4032,
+    "medianHouseholdIncome": 41250,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002815",
+    "name": "Census Tract 28.15; Kern County; California",
+    "population": 4601,
+    "medianHouseholdIncome": 45287,
+    "medianAge": 27.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002816",
+    "name": "Census Tract 28.16; Kern County; California",
+    "population": 6947,
+    "medianHouseholdIncome": 64014,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002817",
+    "name": "Census Tract 28.17; Kern County; California",
+    "population": 5402,
+    "medianHouseholdIncome": 52744,
+    "medianAge": 29.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002818",
+    "name": "Census Tract 28.18; Kern County; California",
+    "population": 4933,
+    "medianHouseholdIncome": 80588,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002819",
+    "name": "Census Tract 28.19; Kern County; California",
+    "population": 4482,
+    "medianHouseholdIncome": 76449,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002820",
+    "name": "Census Tract 28.20; Kern County; California",
+    "population": 7100,
+    "medianHouseholdIncome": 113603,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002821",
+    "name": "Census Tract 28.21; Kern County; California",
+    "population": 4842,
+    "medianHouseholdIncome": 85492,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002822",
+    "name": "Census Tract 28.22; Kern County; California",
+    "population": 3339,
+    "medianHouseholdIncome": 156548,
+    "medianAge": 42.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002823",
+    "name": "Census Tract 28.23; Kern County; California",
+    "population": 4826,
+    "medianHouseholdIncome": 69817,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002824",
+    "name": "Census Tract 28.24; Kern County; California",
+    "population": 2260,
+    "medianHouseholdIncome": 39958,
+    "medianAge": 26.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002825",
+    "name": "Census Tract 28.25; Kern County; California",
+    "population": 2901,
+    "medianHouseholdIncome": 46574,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002901",
+    "name": "Census Tract 29.01; Kern County; California",
+    "population": 3391,
+    "medianHouseholdIncome": 44645,
+    "medianAge": 27.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "002902",
+    "name": "Census Tract 29.02; Kern County; California",
+    "population": 4038,
+    "medianHouseholdIncome": 45761,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003001",
+    "name": "Census Tract 30.01; Kern County; California",
+    "population": 4132,
+    "medianHouseholdIncome": 39859,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003002",
+    "name": "Census Tract 30.02; Kern County; California",
+    "population": 3575,
+    "medianHouseholdIncome": 37277,
+    "medianAge": 30.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003103",
+    "name": "Census Tract 31.03; Kern County; California",
+    "population": 4204,
+    "medianHouseholdIncome": 46788,
+    "medianAge": 26.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003112",
+    "name": "Census Tract 31.12; Kern County; California",
+    "population": 6096,
+    "medianHouseholdIncome": 59287,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003113",
+    "name": "Census Tract 31.13; Kern County; California",
+    "population": 5239,
+    "medianHouseholdIncome": 57222,
+    "medianAge": 26.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003124",
+    "name": "Census Tract 31.24; Kern County; California",
+    "population": 6159,
+    "medianHouseholdIncome": 82574,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003125",
+    "name": "Census Tract 31.25; Kern County; California",
+    "population": 3434,
+    "medianHouseholdIncome": 70254,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003126",
+    "name": "Census Tract 31.26; Kern County; California",
+    "population": 5823,
+    "medianHouseholdIncome": 49519,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003127",
+    "name": "Census Tract 31.27; Kern County; California",
+    "population": 3686,
+    "medianHouseholdIncome": 48466,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003128",
+    "name": "Census Tract 31.28; Kern County; California",
+    "population": 4574,
+    "medianHouseholdIncome": 47668,
+    "medianAge": 28.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003129",
+    "name": "Census Tract 31.29; Kern County; California",
+    "population": 3553,
+    "medianHouseholdIncome": 65825,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003130",
+    "name": "Census Tract 31.30; Kern County; California",
+    "population": 4960,
+    "medianHouseholdIncome": 133409,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003131",
+    "name": "Census Tract 31.31; Kern County; California",
+    "population": 3305,
+    "medianHouseholdIncome": 73883,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003132",
+    "name": "Census Tract 31.32; Kern County; California",
+    "population": 4776,
+    "medianHouseholdIncome": 72024,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003133",
+    "name": "Census Tract 31.33; Kern County; California",
+    "population": 2723,
+    "medianHouseholdIncome": 88050,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003134",
+    "name": "Census Tract 31.34; Kern County; California",
+    "population": 3450,
+    "medianHouseholdIncome": 81797,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003135",
+    "name": "Census Tract 31.35; Kern County; California",
+    "population": 4320,
+    "medianHouseholdIncome": 128666,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003136",
+    "name": "Census Tract 31.36; Kern County; California",
+    "population": 1748,
+    "medianHouseholdIncome": 59306,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003137",
+    "name": "Census Tract 31.37; Kern County; California",
+    "population": 3192,
+    "medianHouseholdIncome": 57475,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003203",
+    "name": "Census Tract 32.03; Kern County; California",
+    "population": 2135,
+    "medianHouseholdIncome": 109615,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003207",
+    "name": "Census Tract 32.07; Kern County; California",
+    "population": 5013,
+    "medianHouseholdIncome": 80365,
+    "medianAge": 28.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003208",
+    "name": "Census Tract 32.08; Kern County; California",
+    "population": 6857,
+    "medianHouseholdIncome": 68573,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003209",
+    "name": "Census Tract 32.09; Kern County; California",
+    "population": 4811,
+    "medianHouseholdIncome": 68805,
+    "medianAge": 25.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003210",
+    "name": "Census Tract 32.10; Kern County; California",
+    "population": 4826,
+    "medianHouseholdIncome": 70382,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003211",
+    "name": "Census Tract 32.11; Kern County; California",
+    "population": 4897,
+    "medianHouseholdIncome": 115292,
+    "medianAge": 25.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003212",
+    "name": "Census Tract 32.12; Kern County; California",
+    "population": 6191,
+    "medianHouseholdIncome": 168657,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003213",
+    "name": "Census Tract 32.13; Kern County; California",
+    "population": 1836,
+    "medianHouseholdIncome": 116845,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003214",
+    "name": "Census Tract 32.14; Kern County; California",
+    "population": 2498,
+    "medianHouseholdIncome": 74284,
+    "medianAge": 25.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003215",
+    "name": "Census Tract 32.15; Kern County; California",
+    "population": 4052,
+    "medianHouseholdIncome": 68788,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003216",
+    "name": "Census Tract 32.16; Kern County; California",
+    "population": 3727,
+    "medianHouseholdIncome": 113155,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003217",
+    "name": "Census Tract 32.17; Kern County; California",
+    "population": 3234,
+    "medianHouseholdIncome": 110914,
+    "medianAge": 28.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003218",
+    "name": "Census Tract 32.18; Kern County; California",
+    "population": 6161,
+    "medianHouseholdIncome": 97435,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003219",
+    "name": "Census Tract 32.19; Kern County; California",
+    "population": 5594,
+    "medianHouseholdIncome": 110500,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003220",
+    "name": "Census Tract 32.20; Kern County; California",
+    "population": 4653,
+    "medianHouseholdIncome": 141310,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003221",
+    "name": "Census Tract 32.21; Kern County; California",
+    "population": 3700,
+    "medianHouseholdIncome": 120922,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003222",
+    "name": "Census Tract 32.22; Kern County; California",
+    "population": 2102,
+    "medianHouseholdIncome": 54911,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003303",
+    "name": "Census Tract 33.03; Kern County; California",
+    "population": 1470,
+    "medianHouseholdIncome": 50333,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003304",
+    "name": "Census Tract 33.04; Kern County; California",
+    "population": 2683,
+    "medianHouseholdIncome": 70357,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003305",
+    "name": "Census Tract 33.05; Kern County; California",
+    "population": 3448,
+    "medianHouseholdIncome": 40074,
+    "medianAge": 45.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003307",
+    "name": "Census Tract 33.07; Kern County; California",
+    "population": 2303,
+    "medianHouseholdIncome": 52791,
+    "medianAge": 58.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003308",
+    "name": "Census Tract 33.08; Kern County; California",
+    "population": 2019,
+    "medianHouseholdIncome": 48143,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003400",
+    "name": "Census Tract 34; Kern County; California",
+    "population": 4357,
+    "medianHouseholdIncome": 42826,
+    "medianAge": 25.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003500",
+    "name": "Census Tract 35; Kern County; California",
+    "population": 6915,
+    "medianHouseholdIncome": 51770,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003600",
+    "name": "Census Tract 36; Kern County; California",
+    "population": 4243,
+    "medianHouseholdIncome": 51324,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003806",
+    "name": "Census Tract 38.06; Kern County; California",
+    "population": 5634,
+    "medianHouseholdIncome": 129714,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003807",
+    "name": "Census Tract 38.07; Kern County; California",
+    "population": 3357,
+    "medianHouseholdIncome": 89483,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003808",
+    "name": "Census Tract 38.08; Kern County; California",
+    "population": 4745,
+    "medianHouseholdIncome": 84267,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003810",
+    "name": "Census Tract 38.10; Kern County; California",
+    "population": 2513,
+    "medianHouseholdIncome": 141750,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003811",
+    "name": "Census Tract 38.11; Kern County; California",
+    "population": 2581,
+    "medianHouseholdIncome": 82188,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003812",
+    "name": "Census Tract 38.12; Kern County; California",
+    "population": 5030,
+    "medianHouseholdIncome": 86125,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003814",
+    "name": "Census Tract 38.14; Kern County; California",
+    "population": 7540,
+    "medianHouseholdIncome": 140608,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003815",
+    "name": "Census Tract 38.15; Kern County; California",
+    "population": 6710,
+    "medianHouseholdIncome": 124203,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003816",
+    "name": "Census Tract 38.16; Kern County; California",
+    "population": 3190,
+    "medianHouseholdIncome": 99583,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003817",
+    "name": "Census Tract 38.17; Kern County; California",
+    "population": 4243,
+    "medianHouseholdIncome": 138516,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003818",
+    "name": "Census Tract 38.18; Kern County; California",
+    "population": 5687,
+    "medianHouseholdIncome": 99124,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003819",
+    "name": "Census Tract 38.19; Kern County; California",
+    "population": 4600,
+    "medianHouseholdIncome": 98939,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003820",
+    "name": "Census Tract 38.20; Kern County; California",
+    "population": 2857,
+    "medianHouseholdIncome": 131563,
+    "medianAge": 58.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003821",
+    "name": "Census Tract 38.21; Kern County; California",
+    "population": 4226,
+    "medianHouseholdIncome": 144740,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003822",
+    "name": "Census Tract 38.22; Kern County; California",
+    "population": 2828,
+    "medianHouseholdIncome": 120156,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003823",
+    "name": "Census Tract 38.23; Kern County; California",
+    "population": 4487,
+    "medianHouseholdIncome": 170729,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003824",
+    "name": "Census Tract 38.24; Kern County; California",
+    "population": 2694,
+    "medianHouseholdIncome": 84146,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003825",
+    "name": "Census Tract 38.25; Kern County; California",
+    "population": 2703,
+    "medianHouseholdIncome": 126932,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003826",
+    "name": "Census Tract 38.26; Kern County; California",
+    "population": 2964,
+    "medianHouseholdIncome": 159743,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003827",
+    "name": "Census Tract 38.27; Kern County; California",
+    "population": 2693,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 23.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "003900",
+    "name": "Census Tract 39; Kern County; California",
+    "population": 3388,
+    "medianHouseholdIncome": 104881,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004001",
+    "name": "Census Tract 40.01; Kern County; California",
+    "population": 4570,
+    "medianHouseholdIncome": 74135,
+    "medianAge": 29
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004002",
+    "name": "Census Tract 40.02; Kern County; California",
+    "population": 4038,
+    "medianHouseholdIncome": 86563,
+    "medianAge": 26.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004101",
+    "name": "Census Tract 41.01; Kern County; California",
+    "population": 6450,
+    "medianHouseholdIncome": 72868,
+    "medianAge": 25.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004102",
+    "name": "Census Tract 41.02; Kern County; California",
+    "population": 4642,
+    "medianHouseholdIncome": 34242,
+    "medianAge": 26.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004302",
+    "name": "Census Tract 43.02; Kern County; California",
+    "population": 4321,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004303",
+    "name": "Census Tract 43.03; Kern County; California",
+    "population": 5404,
+    "medianHouseholdIncome": 49483,
+    "medianAge": 27.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004304",
+    "name": "Census Tract 43.04; Kern County; California",
+    "population": 2590,
+    "medianHouseholdIncome": 62800,
+    "medianAge": 27.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004305",
+    "name": "Census Tract 43.05; Kern County; California",
+    "population": 1662,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 27.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004402",
+    "name": "Census Tract 44.02; Kern County; California",
+    "population": 4600,
+    "medianHouseholdIncome": 27807,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004403",
+    "name": "Census Tract 44.03; Kern County; California",
+    "population": 2885,
+    "medianHouseholdIncome": 57872,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004404",
+    "name": "Census Tract 44.04; Kern County; California",
+    "population": 4930,
+    "medianHouseholdIncome": 49907,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004500",
+    "name": "Census Tract 45; Kern County; California",
+    "population": 3008,
+    "medianHouseholdIncome": 46915,
+    "medianAge": 24
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004601",
+    "name": "Census Tract 46.01; Kern County; California",
+    "population": 3792,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004603",
+    "name": "Census Tract 46.03; Kern County; California",
+    "population": 2452,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004605",
+    "name": "Census Tract 46.05; Kern County; California",
+    "population": 3447,
+    "medianHouseholdIncome": 93965,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004606",
+    "name": "Census Tract 46.06; Kern County; California",
+    "population": 2465,
+    "medianHouseholdIncome": 33906,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004607",
+    "name": "Census Tract 46.07; Kern County; California",
+    "population": 6123,
+    "medianHouseholdIncome": 75960,
+    "medianAge": 26.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004702",
+    "name": "Census Tract 47.02; Kern County; California",
+    "population": 3755,
+    "medianHouseholdIncome": 35833,
+    "medianAge": 25.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004703",
+    "name": "Census Tract 47.03; Kern County; California",
+    "population": 4891,
+    "medianHouseholdIncome": 46250,
+    "medianAge": 29.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004704",
+    "name": "Census Tract 47.04; Kern County; California",
+    "population": 5951,
+    "medianHouseholdIncome": 44397,
+    "medianAge": 22.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004801",
+    "name": "Census Tract 48.01; Kern County; California",
+    "population": 4381,
+    "medianHouseholdIncome": 38295,
+    "medianAge": 24.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004802",
+    "name": "Census Tract 48.02; Kern County; California",
+    "population": 6067,
+    "medianHouseholdIncome": 34583,
+    "medianAge": 33.2
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004901",
+    "name": "Census Tract 49.01; Kern County; California",
+    "population": 6038,
+    "medianHouseholdIncome": 41218,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004903",
+    "name": "Census Tract 49.03; Kern County; California",
+    "population": 4974,
+    "medianHouseholdIncome": 72031,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "004904",
+    "name": "Census Tract 49.04; Kern County; California",
+    "population": 3121,
+    "medianHouseholdIncome": 41712,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005003",
+    "name": "Census Tract 50.03; Kern County; California",
+    "population": 3250,
+    "medianHouseholdIncome": 37188,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005005",
+    "name": "Census Tract 50.05; Kern County; California",
+    "population": 3207,
+    "medianHouseholdIncome": 50143,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005006",
+    "name": "Census Tract 50.06; Kern County; California",
+    "population": 3919,
+    "medianHouseholdIncome": 95941,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005103",
+    "name": "Census Tract 51.03; Kern County; California",
+    "population": 2163,
+    "medianHouseholdIncome": 42409,
+    "medianAge": 59.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005104",
+    "name": "Census Tract 51.04; Kern County; California",
+    "population": 4111,
+    "medianHouseholdIncome": 97101,
+    "medianAge": 59.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005203",
+    "name": "Census Tract 52.03; Kern County; California",
+    "population": 4278,
+    "medianHouseholdIncome": 44886,
+    "medianAge": 60.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005205",
+    "name": "Census Tract 52.05; Kern County; California",
+    "population": 3714,
+    "medianHouseholdIncome": 26775,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005206",
+    "name": "Census Tract 52.06; Kern County; California",
+    "population": 2521,
+    "medianHouseholdIncome": 34193,
+    "medianAge": 55.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005207",
+    "name": "Census Tract 52.07; Kern County; California",
+    "population": 1910,
+    "medianHouseholdIncome": 40482,
+    "medianAge": 59.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005208",
+    "name": "Census Tract 52.08; Kern County; California",
+    "population": 2885,
+    "medianHouseholdIncome": 38208,
+    "medianAge": 59.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005300",
+    "name": "Census Tract 53; Kern County; California",
+    "population": 2441,
+    "medianHouseholdIncome": 45676,
+    "medianAge": 21.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005402",
+    "name": "Census Tract 54.02; Kern County; California",
+    "population": 5157,
+    "medianHouseholdIncome": 94906,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005405",
+    "name": "Census Tract 54.05; Kern County; California",
+    "population": 2518,
+    "medianHouseholdIncome": 70172,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005406",
+    "name": "Census Tract 54.06; Kern County; California",
+    "population": 3743,
+    "medianHouseholdIncome": 110889,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005407",
+    "name": "Census Tract 54.07; Kern County; California",
+    "population": 3702,
+    "medianHouseholdIncome": 64714,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005408",
+    "name": "Census Tract 54.08; Kern County; California",
+    "population": 5024,
+    "medianHouseholdIncome": 77460,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005409",
+    "name": "Census Tract 54.09; Kern County; California",
+    "population": 4435,
+    "medianHouseholdIncome": 98922,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005410",
+    "name": "Census Tract 54.10; Kern County; California",
+    "population": 1758,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005508",
+    "name": "Census Tract 55.08; Kern County; California",
+    "population": 4865,
+    "medianHouseholdIncome": 53125,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005509",
+    "name": "Census Tract 55.09; Kern County; California",
+    "population": 4481,
+    "medianHouseholdIncome": 75598,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005510",
+    "name": "Census Tract 55.10; Kern County; California",
+    "population": 1659,
+    "medianHouseholdIncome": 84871,
+    "medianAge": 56.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005511",
+    "name": "Census Tract 55.11; Kern County; California",
+    "population": 4393,
+    "medianHouseholdIncome": 54978,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005512",
+    "name": "Census Tract 55.12; Kern County; California",
+    "population": 3646,
+    "medianHouseholdIncome": 58214,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005513",
+    "name": "Census Tract 55.13; Kern County; California",
+    "population": 1945,
+    "medianHouseholdIncome": 82529,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005514",
+    "name": "Census Tract 55.14; Kern County; California",
+    "population": 3632,
+    "medianHouseholdIncome": 77198,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005600",
+    "name": "Census Tract 56; Kern County; California",
+    "population": 2469,
+    "medianHouseholdIncome": 52969,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005700",
+    "name": "Census Tract 57; Kern County; California",
+    "population": 2851,
+    "medianHouseholdIncome": 77328,
+    "medianAge": 23.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005803",
+    "name": "Census Tract 58.03; Kern County; California",
+    "population": 3600,
+    "medianHouseholdIncome": 58663,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005804",
+    "name": "Census Tract 58.04; Kern County; California",
+    "population": 5523,
+    "medianHouseholdIncome": 65123,
+    "medianAge": 28.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005805",
+    "name": "Census Tract 58.05; Kern County; California",
+    "population": 2176,
+    "medianHouseholdIncome": 93147,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005806",
+    "name": "Census Tract 58.06; Kern County; California",
+    "population": 5115,
+    "medianHouseholdIncome": 127904,
+    "medianAge": 29.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "005900",
+    "name": "Census Tract 59; Kern County; California",
+    "population": 3570,
+    "medianHouseholdIncome": 46797,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006002",
+    "name": "Census Tract 60.02; Kern County; California",
+    "population": 3611,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006003",
+    "name": "Census Tract 60.03; Kern County; California",
+    "population": 5908,
+    "medianHouseholdIncome": 90921,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006004",
+    "name": "Census Tract 60.04; Kern County; California",
+    "population": 1270,
+    "medianHouseholdIncome": 58113,
+    "medianAge": 60.8
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006006",
+    "name": "Census Tract 60.06; Kern County; California",
+    "population": 4054,
+    "medianHouseholdIncome": 101500,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006009",
+    "name": "Census Tract 60.09; Kern County; California",
+    "population": 2813,
+    "medianHouseholdIncome": 106924,
+    "medianAge": 54
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006010",
+    "name": "Census Tract 60.10; Kern County; California",
+    "population": 3130,
+    "medianHouseholdIncome": 116444,
+    "medianAge": 55.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006011",
+    "name": "Census Tract 60.11; Kern County; California",
+    "population": 2918,
+    "medianHouseholdIncome": 75538,
+    "medianAge": 53.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006012",
+    "name": "Census Tract 60.12; Kern County; California",
+    "population": 3182,
+    "medianHouseholdIncome": 86397,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006101",
+    "name": "Census Tract 61.01; Kern County; California",
+    "population": 3928,
+    "medianHouseholdIncome": 40953,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006102",
+    "name": "Census Tract 61.02; Kern County; California",
+    "population": 4949,
+    "medianHouseholdIncome": 79286,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006201",
+    "name": "Census Tract 62.01; Kern County; California",
+    "population": 2473,
+    "medianHouseholdIncome": 44531,
+    "medianAge": 26.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006202",
+    "name": "Census Tract 62.02; Kern County; California",
+    "population": 7943,
+    "medianHouseholdIncome": 66912,
+    "medianAge": 24
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006301",
+    "name": "Census Tract 63.01; Kern County; California",
+    "population": 3644,
+    "medianHouseholdIncome": 42095,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006303",
+    "name": "Census Tract 63.03; Kern County; California",
+    "population": 5184,
+    "medianHouseholdIncome": 42705,
+    "medianAge": 23.6
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006304",
+    "name": "Census Tract 63.04; Kern County; California",
+    "population": 4037,
+    "medianHouseholdIncome": 39643,
+    "medianAge": 26.7
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006403",
+    "name": "Census Tract 64.03; Kern County; California",
+    "population": 5953,
+    "medianHouseholdIncome": 40359,
+    "medianAge": 26.4
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006404",
+    "name": "Census Tract 64.04; Kern County; California",
+    "population": 3551,
+    "medianHouseholdIncome": 22245,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006405",
+    "name": "Census Tract 64.05; Kern County; California",
+    "population": 2543,
+    "medianHouseholdIncome": 48505,
+    "medianAge": 27.3
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006406",
+    "name": "Census Tract 64.06; Kern County; California",
+    "population": 4063,
+    "medianHouseholdIncome": 28385,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006500",
+    "name": "Census Tract 65; Kern County; California",
+    "population": 4352,
+    "medianHouseholdIncome": 35694,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "029",
+    "tract": "006600",
+    "name": "Census Tract 66; Kern County; California",
+    "population": 4707,
+    "medianHouseholdIncome": 61581,
+    "medianAge": 27.9
+  }
+]

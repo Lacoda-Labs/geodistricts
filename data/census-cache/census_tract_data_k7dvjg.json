@@ -1,0 +1,38 @@
+[
+  {
+    "state": "06",
+    "county": "105",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Trinity County; California",
+    "population": 3877,
+    "medianHouseholdIncome": 53365,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "105",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Trinity County; California",
+    "population": 4418,
+    "medianHouseholdIncome": 50319,
+    "medianAge": 47.5
+  },
+  {
+    "state": "06",
+    "county": "105",
+    "tract": "000200",
+    "name": "Census Tract 2; Trinity County; California",
+    "population": 2923,
+    "medianHouseholdIncome": 56064,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "105",
+    "tract": "000500",
+    "name": "Census Tract 5; Trinity County; California",
+    "population": 4671,
+    "medianHouseholdIncome": 34135,
+    "medianAge": 56.7
+  }
+]

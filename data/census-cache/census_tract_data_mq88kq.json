@@ -1,0 +1,6635 @@
+[
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000100",
+    "name": "Census Tract 1; San Diego County; California",
+    "population": 3027,
+    "medianHouseholdIncome": 194643,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000201",
+    "name": "Census Tract 2.01; San Diego County; California",
+    "population": 2294,
+    "medianHouseholdIncome": 115449,
+    "medianAge": 51.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000202",
+    "name": "Census Tract 2.02; San Diego County; California",
+    "population": 3919,
+    "medianHouseholdIncome": 108780,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000301",
+    "name": "Census Tract 3.01; San Diego County; California",
+    "population": 2340,
+    "medianHouseholdIncome": 92619,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000302",
+    "name": "Census Tract 3.02; San Diego County; California",
+    "population": 2934,
+    "medianHouseholdIncome": 85568,
+    "medianAge": 48.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000400",
+    "name": "Census Tract 4; San Diego County; California",
+    "population": 3802,
+    "medianHouseholdIncome": 86688,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000500",
+    "name": "Census Tract 5; San Diego County; California",
+    "population": 2934,
+    "medianHouseholdIncome": 97546,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000600",
+    "name": "Census Tract 6; San Diego County; California",
+    "population": 3144,
+    "medianHouseholdIncome": 97097,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000700",
+    "name": "Census Tract 7; San Diego County; California",
+    "population": 4631,
+    "medianHouseholdIncome": 99375,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000800",
+    "name": "Census Tract 8; San Diego County; California",
+    "population": 5257,
+    "medianHouseholdIncome": 78924,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000901",
+    "name": "Census Tract 9.01; San Diego County; California",
+    "population": 3585,
+    "medianHouseholdIncome": 99353,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "000902",
+    "name": "Census Tract 9.02; San Diego County; California",
+    "population": 2468,
+    "medianHouseholdIncome": 75682,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001000",
+    "name": "Census Tract 10; San Diego County; California",
+    "population": 4545,
+    "medianHouseholdIncome": 83253,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001100",
+    "name": "Census Tract 11; San Diego County; California",
+    "population": 3054,
+    "medianHouseholdIncome": 91161,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001201",
+    "name": "Census Tract 12.01; San Diego County; California",
+    "population": 2590,
+    "medianHouseholdIncome": 70795,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001202",
+    "name": "Census Tract 12.02; San Diego County; California",
+    "population": 3239,
+    "medianHouseholdIncome": 96250,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001301",
+    "name": "Census Tract 13.01; San Diego County; California",
+    "population": 2649,
+    "medianHouseholdIncome": 97125,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001302",
+    "name": "Census Tract 13.02; San Diego County; California",
+    "population": 3316,
+    "medianHouseholdIncome": 82898,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001400",
+    "name": "Census Tract 14; San Diego County; California",
+    "population": 3319,
+    "medianHouseholdIncome": 87911,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001500",
+    "name": "Census Tract 15; San Diego County; California",
+    "population": 3935,
+    "medianHouseholdIncome": 93387,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001600",
+    "name": "Census Tract 16; San Diego County; California",
+    "population": 5352,
+    "medianHouseholdIncome": 56900,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001700",
+    "name": "Census Tract 17; San Diego County; California",
+    "population": 4313,
+    "medianHouseholdIncome": 93382,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001801",
+    "name": "Census Tract 18.01; San Diego County; California",
+    "population": 1700,
+    "medianHouseholdIncome": 64355,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001802",
+    "name": "Census Tract 18.02; San Diego County; California",
+    "population": 3358,
+    "medianHouseholdIncome": 79172,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "001900",
+    "name": "Census Tract 19; San Diego County; California",
+    "population": 3113,
+    "medianHouseholdIncome": 125347,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002001",
+    "name": "Census Tract 20.01; San Diego County; California",
+    "population": 3306,
+    "medianHouseholdIncome": 180909,
+    "medianAge": 52
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002002",
+    "name": "Census Tract 20.02; San Diego County; California",
+    "population": 2485,
+    "medianHouseholdIncome": 158652,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002100",
+    "name": "Census Tract 21; San Diego County; California",
+    "population": 5585,
+    "medianHouseholdIncome": 74672,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002201",
+    "name": "Census Tract 22.01; San Diego County; California",
+    "population": 3361,
+    "medianHouseholdIncome": 36037,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002202",
+    "name": "Census Tract 22.02; San Diego County; California",
+    "population": 5314,
+    "medianHouseholdIncome": 50380,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002301",
+    "name": "Census Tract 23.01; San Diego County; California",
+    "population": 3038,
+    "medianHouseholdIncome": 73505,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002302",
+    "name": "Census Tract 23.02; San Diego County; California",
+    "population": 5925,
+    "medianHouseholdIncome": 37333,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002401",
+    "name": "Census Tract 24.01; San Diego County; California",
+    "population": 4819,
+    "medianHouseholdIncome": 70332,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002402",
+    "name": "Census Tract 24.02; San Diego County; California",
+    "population": 4634,
+    "medianHouseholdIncome": 54554,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002501",
+    "name": "Census Tract 25.01; San Diego County; California",
+    "population": 5181,
+    "medianHouseholdIncome": 63705,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002502",
+    "name": "Census Tract 25.02; San Diego County; California",
+    "population": 6859,
+    "medianHouseholdIncome": 87632,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002601",
+    "name": "Census Tract 26.01; San Diego County; California",
+    "population": 6477,
+    "medianHouseholdIncome": 56042,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002602",
+    "name": "Census Tract 26.02; San Diego County; California",
+    "population": 4923,
+    "medianHouseholdIncome": 53576,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002702",
+    "name": "Census Tract 27.02; San Diego County; California",
+    "population": 5584,
+    "medianHouseholdIncome": 70066,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002703",
+    "name": "Census Tract 27.03; San Diego County; California",
+    "population": 6870,
+    "medianHouseholdIncome": 78037,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002705",
+    "name": "Census Tract 27.05; San Diego County; California",
+    "population": 4359,
+    "medianHouseholdIncome": 61591,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002707",
+    "name": "Census Tract 27.07; San Diego County; California",
+    "population": 5410,
+    "medianHouseholdIncome": 42581,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002708",
+    "name": "Census Tract 27.08; San Diego County; California",
+    "population": 4665,
+    "medianHouseholdIncome": 32307,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002709",
+    "name": "Census Tract 27.09; San Diego County; California",
+    "population": 3842,
+    "medianHouseholdIncome": 46458,
+    "medianAge": 28.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002710",
+    "name": "Census Tract 27.10; San Diego County; California",
+    "population": 3603,
+    "medianHouseholdIncome": 59297,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002711",
+    "name": "Census Tract 27.11; San Diego County; California",
+    "population": 3509,
+    "medianHouseholdIncome": 68750,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002712",
+    "name": "Census Tract 27.12; San Diego County; California",
+    "population": 5585,
+    "medianHouseholdIncome": 56784,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002801",
+    "name": "Census Tract 28.01; San Diego County; California",
+    "population": 3509,
+    "medianHouseholdIncome": 62031,
+    "medianAge": 19.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002803",
+    "name": "Census Tract 28.03; San Diego County; California",
+    "population": 4999,
+    "medianHouseholdIncome": 76923,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002804",
+    "name": "Census Tract 28.04; San Diego County; California",
+    "population": 5598,
+    "medianHouseholdIncome": 86587,
+    "medianAge": 23.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002902",
+    "name": "Census Tract 29.02; San Diego County; California",
+    "population": 6335,
+    "medianHouseholdIncome": 71419,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002903",
+    "name": "Census Tract 29.03; San Diego County; California",
+    "population": 4516,
+    "medianHouseholdIncome": 88204,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002904",
+    "name": "Census Tract 29.04; San Diego County; California",
+    "population": 9541,
+    "medianHouseholdIncome": 35469,
+    "medianAge": 21.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "002905",
+    "name": "Census Tract 29.05; San Diego County; California",
+    "population": 4638,
+    "medianHouseholdIncome": 70521,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003001",
+    "name": "Census Tract 30.01; San Diego County; California",
+    "population": 4713,
+    "medianHouseholdIncome": 97370,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003003",
+    "name": "Census Tract 30.03; San Diego County; California",
+    "population": 5617,
+    "medianHouseholdIncome": 80724,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003004",
+    "name": "Census Tract 30.04; San Diego County; California",
+    "population": 5336,
+    "medianHouseholdIncome": 62393,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003101",
+    "name": "Census Tract 31.01; San Diego County; California",
+    "population": 4076,
+    "medianHouseholdIncome": 84671,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003103",
+    "name": "Census Tract 31.03; San Diego County; California",
+    "population": 6141,
+    "medianHouseholdIncome": 82079,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003105",
+    "name": "Census Tract 31.05; San Diego County; California",
+    "population": 4588,
+    "medianHouseholdIncome": 91023,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003107",
+    "name": "Census Tract 31.07; San Diego County; California",
+    "population": 5292,
+    "medianHouseholdIncome": 90698,
+    "medianAge": 47.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003108",
+    "name": "Census Tract 31.08; San Diego County; California",
+    "population": 3665,
+    "medianHouseholdIncome": 113906,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003109",
+    "name": "Census Tract 31.09; San Diego County; California",
+    "population": 3401,
+    "medianHouseholdIncome": 117979,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003111",
+    "name": "Census Tract 31.11; San Diego County; California",
+    "population": 6531,
+    "medianHouseholdIncome": 55637,
+    "medianAge": 30.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003112",
+    "name": "Census Tract 31.12; San Diego County; California",
+    "population": 4020,
+    "medianHouseholdIncome": 84637,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003113",
+    "name": "Census Tract 31.13; San Diego County; California",
+    "population": 4634,
+    "medianHouseholdIncome": 105212,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003114",
+    "name": "Census Tract 31.14; San Diego County; California",
+    "population": 3515,
+    "medianHouseholdIncome": 105454,
+    "medianAge": 42.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003115",
+    "name": "Census Tract 31.15; San Diego County; California",
+    "population": 5828,
+    "medianHouseholdIncome": 74550,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003201",
+    "name": "Census Tract 32.01; San Diego County; California",
+    "population": 5399,
+    "medianHouseholdIncome": 87422,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003202",
+    "name": "Census Tract 32.02; San Diego County; California",
+    "population": 4661,
+    "medianHouseholdIncome": 85527,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003204",
+    "name": "Census Tract 32.04; San Diego County; California",
+    "population": 3451,
+    "medianHouseholdIncome": 84464,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003207",
+    "name": "Census Tract 32.07; San Diego County; California",
+    "population": 6086,
+    "medianHouseholdIncome": 113548,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003208",
+    "name": "Census Tract 32.08; San Diego County; California",
+    "population": 6964,
+    "medianHouseholdIncome": 74828,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003209",
+    "name": "Census Tract 32.09; San Diego County; California",
+    "population": 5382,
+    "medianHouseholdIncome": 82083,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003211",
+    "name": "Census Tract 32.11; San Diego County; California",
+    "population": 3213,
+    "medianHouseholdIncome": 98281,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003212",
+    "name": "Census Tract 32.12; San Diego County; California",
+    "population": 3774,
+    "medianHouseholdIncome": 84194,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003213",
+    "name": "Census Tract 32.13; San Diego County; California",
+    "population": 3765,
+    "medianHouseholdIncome": 120313,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003214",
+    "name": "Census Tract 32.14; San Diego County; California",
+    "population": 5121,
+    "medianHouseholdIncome": 80224,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003301",
+    "name": "Census Tract 33.01; San Diego County; California",
+    "population": 3631,
+    "medianHouseholdIncome": 68157,
+    "medianAge": 27.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003303",
+    "name": "Census Tract 33.03; San Diego County; California",
+    "population": 4536,
+    "medianHouseholdIncome": 56313,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003304",
+    "name": "Census Tract 33.04; San Diego County; California",
+    "population": 3390,
+    "medianHouseholdIncome": 44706,
+    "medianAge": 29.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003305",
+    "name": "Census Tract 33.05; San Diego County; California",
+    "population": 6904,
+    "medianHouseholdIncome": 56151,
+    "medianAge": 29.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003401",
+    "name": "Census Tract 34.01; San Diego County; California",
+    "population": 5948,
+    "medianHouseholdIncome": 68750,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003403",
+    "name": "Census Tract 34.03; San Diego County; California",
+    "population": 4415,
+    "medianHouseholdIncome": 71250,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003404",
+    "name": "Census Tract 34.04; San Diego County; California",
+    "population": 4528,
+    "medianHouseholdIncome": 69375,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003501",
+    "name": "Census Tract 35.01; San Diego County; California",
+    "population": 4150,
+    "medianHouseholdIncome": 50568,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003502",
+    "name": "Census Tract 35.02; San Diego County; California",
+    "population": 4917,
+    "medianHouseholdIncome": 49583,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003601",
+    "name": "Census Tract 36.01; San Diego County; California",
+    "population": 3526,
+    "medianHouseholdIncome": 78679,
+    "medianAge": 28
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003602",
+    "name": "Census Tract 36.02; San Diego County; California",
+    "population": 3593,
+    "medianHouseholdIncome": 61907,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003603",
+    "name": "Census Tract 36.03; San Diego County; California",
+    "population": 3312,
+    "medianHouseholdIncome": 65833,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003800",
+    "name": "Census Tract 38; San Diego County; California",
+    "population": 9630,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 24.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003901",
+    "name": "Census Tract 39.01; San Diego County; California",
+    "population": 4375,
+    "medianHouseholdIncome": 63026,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "003902",
+    "name": "Census Tract 39.02; San Diego County; California",
+    "population": 4282,
+    "medianHouseholdIncome": 55901,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004000",
+    "name": "Census Tract 40; San Diego County; California",
+    "population": 4164,
+    "medianHouseholdIncome": 44342,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004101",
+    "name": "Census Tract 41.01; San Diego County; California",
+    "population": 4173,
+    "medianHouseholdIncome": 75000,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004102",
+    "name": "Census Tract 41.02; San Diego County; California",
+    "population": 2185,
+    "medianHouseholdIncome": 60556,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004200",
+    "name": "Census Tract 42; San Diego County; California",
+    "population": 6155,
+    "medianHouseholdIncome": 117422,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004300",
+    "name": "Census Tract 43; San Diego County; California",
+    "population": 4365,
+    "medianHouseholdIncome": 93356,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004400",
+    "name": "Census Tract 44; San Diego County; California",
+    "population": 3970,
+    "medianHouseholdIncome": 89122,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004501",
+    "name": "Census Tract 45.01; San Diego County; California",
+    "population": 2774,
+    "medianHouseholdIncome": 77577,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004600",
+    "name": "Census Tract 46; San Diego County; California",
+    "population": 2034,
+    "medianHouseholdIncome": 77455,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004700",
+    "name": "Census Tract 47; San Diego County; California",
+    "population": 1446,
+    "medianHouseholdIncome": 63594,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004800",
+    "name": "Census Tract 48; San Diego County; California",
+    "population": 3584,
+    "medianHouseholdIncome": 58987,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "004900",
+    "name": "Census Tract 49; San Diego County; California",
+    "population": 4877,
+    "medianHouseholdIncome": 43425,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005000",
+    "name": "Census Tract 50; San Diego County; California",
+    "population": 2108,
+    "medianHouseholdIncome": 53529,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005101",
+    "name": "Census Tract 51.01; San Diego County; California",
+    "population": 2912,
+    "medianHouseholdIncome": 85417,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005102",
+    "name": "Census Tract 51.02; San Diego County; California",
+    "population": 4200,
+    "medianHouseholdIncome": 99041,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005103",
+    "name": "Census Tract 51.03; San Diego County; California",
+    "population": 2732,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 45.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005201",
+    "name": "Census Tract 52.01; San Diego County; California",
+    "population": 3194,
+    "medianHouseholdIncome": 90260,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005202",
+    "name": "Census Tract 52.02; San Diego County; California",
+    "population": 4796,
+    "medianHouseholdIncome": 49512,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005301",
+    "name": "Census Tract 53.01; San Diego County; California",
+    "population": 2987,
+    "medianHouseholdIncome": 63269,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005302",
+    "name": "Census Tract 53.02; San Diego County; California",
+    "population": 3883,
+    "medianHouseholdIncome": 74939,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005401",
+    "name": "Census Tract 54.01; San Diego County; California",
+    "population": 1604,
+    "medianHouseholdIncome": 140116,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005402",
+    "name": "Census Tract 54.02; San Diego County; California",
+    "population": 4590,
+    "medianHouseholdIncome": 141250,
+    "medianAge": 47.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005403",
+    "name": "Census Tract 54.03; San Diego County; California",
+    "population": 2446,
+    "medianHouseholdIncome": 150250,
+    "medianAge": 54.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005500",
+    "name": "Census Tract 55; San Diego County; California",
+    "population": 241,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 21.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005601",
+    "name": "Census Tract 56.01; San Diego County; California",
+    "population": 2749,
+    "medianHouseholdIncome": 62601,
+    "medianAge": 44.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005602",
+    "name": "Census Tract 56.02; San Diego County; California",
+    "population": 2192,
+    "medianHouseholdIncome": 90398,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005700",
+    "name": "Census Tract 57; San Diego County; California",
+    "population": 1902,
+    "medianHouseholdIncome": 70116,
+    "medianAge": 46.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005801",
+    "name": "Census Tract 58.01; San Diego County; California",
+    "population": 1729,
+    "medianHouseholdIncome": 102721,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005802",
+    "name": "Census Tract 58.02; San Diego County; California",
+    "population": 2972,
+    "medianHouseholdIncome": 141276,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "005900",
+    "name": "Census Tract 59; San Diego County; California",
+    "population": 3085,
+    "medianHouseholdIncome": 73081,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006000",
+    "name": "Census Tract 60; San Diego County; California",
+    "population": 4111,
+    "medianHouseholdIncome": 96408,
+    "medianAge": 53.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006100",
+    "name": "Census Tract 61; San Diego County; California",
+    "population": 2232,
+    "medianHouseholdIncome": 97750,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006200",
+    "name": "Census Tract 62; San Diego County; California",
+    "population": 36,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 23.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006300",
+    "name": "Census Tract 63; San Diego County; California",
+    "population": 2807,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 19.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006500",
+    "name": "Census Tract 65; San Diego County; California",
+    "population": 3588,
+    "medianHouseholdIncome": 69745,
+    "medianAge": 52
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006600",
+    "name": "Census Tract 66; San Diego County; California",
+    "population": 1908,
+    "medianHouseholdIncome": 66083,
+    "medianAge": 25.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006801",
+    "name": "Census Tract 68.01; San Diego County; California",
+    "population": 3159,
+    "medianHouseholdIncome": 88061,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006802",
+    "name": "Census Tract 68.02; San Diego County; California",
+    "population": 5845,
+    "medianHouseholdIncome": 85732,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "006900",
+    "name": "Census Tract 69; San Diego County; California",
+    "population": 6310,
+    "medianHouseholdIncome": 136526,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007002",
+    "name": "Census Tract 70.02; San Diego County; California",
+    "population": 3102,
+    "medianHouseholdIncome": 188869,
+    "medianAge": 52.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007100",
+    "name": "Census Tract 71; San Diego County; California",
+    "population": 4450,
+    "medianHouseholdIncome": 140179,
+    "medianAge": 60.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007200",
+    "name": "Census Tract 72; San Diego County; California",
+    "population": 5784,
+    "medianHouseholdIncome": 170284,
+    "medianAge": 24.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007302",
+    "name": "Census Tract 73.02; San Diego County; California",
+    "population": 2568,
+    "medianHouseholdIncome": 164000,
+    "medianAge": 42.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007303",
+    "name": "Census Tract 73.03; San Diego County; California",
+    "population": 1659,
+    "medianHouseholdIncome": 116908,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007304",
+    "name": "Census Tract 73.04; San Diego County; California",
+    "population": 3451,
+    "medianHouseholdIncome": 100586,
+    "medianAge": 35.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007401",
+    "name": "Census Tract 74.01; San Diego County; California",
+    "population": 2850,
+    "medianHouseholdIncome": 85893,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007402",
+    "name": "Census Tract 74.02; San Diego County; California",
+    "population": 3915,
+    "medianHouseholdIncome": 120601,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007501",
+    "name": "Census Tract 75.01; San Diego County; California",
+    "population": 4145,
+    "medianHouseholdIncome": 79544,
+    "medianAge": 33
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007502",
+    "name": "Census Tract 75.02; San Diego County; California",
+    "population": 3017,
+    "medianHouseholdIncome": 80016,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007601",
+    "name": "Census Tract 76.01; San Diego County; California",
+    "population": 1923,
+    "medianHouseholdIncome": 82425,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007602",
+    "name": "Census Tract 76.02; San Diego County; California",
+    "population": 1690,
+    "medianHouseholdIncome": 106944,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007701",
+    "name": "Census Tract 77.01; San Diego County; California",
+    "population": 4091,
+    "medianHouseholdIncome": 114330,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007702",
+    "name": "Census Tract 77.02; San Diego County; California",
+    "population": 3345,
+    "medianHouseholdIncome": 83388,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007800",
+    "name": "Census Tract 78; San Diego County; California",
+    "population": 5792,
+    "medianHouseholdIncome": 85084,
+    "medianAge": 31.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007905",
+    "name": "Census Tract 79.05; San Diego County; California",
+    "population": 2557,
+    "medianHouseholdIncome": 106969,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007907",
+    "name": "Census Tract 79.07; San Diego County; California",
+    "population": 3206,
+    "medianHouseholdIncome": 110272,
+    "medianAge": 28.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007908",
+    "name": "Census Tract 79.08; San Diego County; California",
+    "population": 3239,
+    "medianHouseholdIncome": 77798,
+    "medianAge": 30.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007910",
+    "name": "Census Tract 79.10; San Diego County; California",
+    "population": 2830,
+    "medianHouseholdIncome": 93750,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007911",
+    "name": "Census Tract 79.11; San Diego County; California",
+    "population": 2158,
+    "medianHouseholdIncome": 95139,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "007912",
+    "name": "Census Tract 79.12; San Diego County; California",
+    "population": 1539,
+    "medianHouseholdIncome": 98675,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008002",
+    "name": "Census Tract 80.02; San Diego County; California",
+    "population": 2583,
+    "medianHouseholdIncome": 180795,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008003",
+    "name": "Census Tract 80.03; San Diego County; California",
+    "population": 3392,
+    "medianHouseholdIncome": 154932,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008006",
+    "name": "Census Tract 80.06; San Diego County; California",
+    "population": 4009,
+    "medianHouseholdIncome": 119850,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008101",
+    "name": "Census Tract 81.01; San Diego County; California",
+    "population": 3463,
+    "medianHouseholdIncome": 84688,
+    "medianAge": 49
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008102",
+    "name": "Census Tract 81.02; San Diego County; California",
+    "population": 3282,
+    "medianHouseholdIncome": 175455,
+    "medianAge": 49.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008201",
+    "name": "Census Tract 82.01; San Diego County; California",
+    "population": 1893,
+    "medianHouseholdIncome": 118977,
+    "medianAge": 47.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008202",
+    "name": "Census Tract 82.02; San Diego County; California",
+    "population": 1242,
+    "medianHouseholdIncome": 117500,
+    "medianAge": 72.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008301",
+    "name": "Census Tract 83.01; San Diego County; California",
+    "population": 3240,
+    "medianHouseholdIncome": 225215,
+    "medianAge": 45.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008303",
+    "name": "Census Tract 83.03; San Diego County; California",
+    "population": 3048,
+    "medianHouseholdIncome": 217253,
+    "medianAge": 55.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008305",
+    "name": "Census Tract 83.05; San Diego County; California",
+    "population": 4431,
+    "medianHouseholdIncome": 45517,
+    "medianAge": 19.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008306",
+    "name": "Census Tract 83.06; San Diego County; California",
+    "population": 2648,
+    "medianHouseholdIncome": 242721,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008307",
+    "name": "Census Tract 83.07; San Diego County; California",
+    "population": 4331,
+    "medianHouseholdIncome": 109861,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008310",
+    "name": "Census Tract 83.10; San Diego County; California",
+    "population": 6369,
+    "medianHouseholdIncome": 152478,
+    "medianAge": 53.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008311",
+    "name": "Census Tract 83.11; San Diego County; California",
+    "population": 2581,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 55.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008312",
+    "name": "Census Tract 83.12; San Diego County; California",
+    "population": 3386,
+    "medianHouseholdIncome": 142784,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008313",
+    "name": "Census Tract 83.13; San Diego County; California",
+    "population": 2228,
+    "medianHouseholdIncome": 248125,
+    "medianAge": 49.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008324",
+    "name": "Census Tract 83.24; San Diego County; California",
+    "population": 6681,
+    "medianHouseholdIncome": 211417,
+    "medianAge": 52.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008327",
+    "name": "Census Tract 83.27; San Diego County; California",
+    "population": 5548,
+    "medianHouseholdIncome": 178056,
+    "medianAge": 49
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008328",
+    "name": "Census Tract 83.28; San Diego County; California",
+    "population": 7436,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008330",
+    "name": "Census Tract 83.30; San Diego County; California",
+    "population": 4560,
+    "medianHouseholdIncome": 155185,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008331",
+    "name": "Census Tract 83.31; San Diego County; California",
+    "population": 2667,
+    "medianHouseholdIncome": 200750,
+    "medianAge": 45.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008336",
+    "name": "Census Tract 83.36; San Diego County; California",
+    "population": 2184,
+    "medianHouseholdIncome": 191875,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008337",
+    "name": "Census Tract 83.37; San Diego County; California",
+    "population": 4901,
+    "medianHouseholdIncome": 172818,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008339",
+    "name": "Census Tract 83.39; San Diego County; California",
+    "population": 1869,
+    "medianHouseholdIncome": 70057,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008343",
+    "name": "Census Tract 83.43; San Diego County; California",
+    "population": 4197,
+    "medianHouseholdIncome": 64286,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008344",
+    "name": "Census Tract 83.44; San Diego County; California",
+    "population": 3593,
+    "medianHouseholdIncome": 164934,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008345",
+    "name": "Census Tract 83.45; San Diego County; California",
+    "population": 4302,
+    "medianHouseholdIncome": 88837,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008346",
+    "name": "Census Tract 83.46; San Diego County; California",
+    "population": 4332,
+    "medianHouseholdIncome": 172549,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008347",
+    "name": "Census Tract 83.47; San Diego County; California",
+    "population": 6723,
+    "medianHouseholdIncome": 137500,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008348",
+    "name": "Census Tract 83.48; San Diego County; California",
+    "population": 4951,
+    "medianHouseholdIncome": 125125,
+    "medianAge": 43.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008349",
+    "name": "Census Tract 83.49; San Diego County; California",
+    "population": 3632,
+    "medianHouseholdIncome": 119762,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008350",
+    "name": "Census Tract 83.50; San Diego County; California",
+    "population": 6314,
+    "medianHouseholdIncome": 116228,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008351",
+    "name": "Census Tract 83.51; San Diego County; California",
+    "population": 4680,
+    "medianHouseholdIncome": 134779,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008352",
+    "name": "Census Tract 83.52; San Diego County; California",
+    "population": 4276,
+    "medianHouseholdIncome": 126364,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008353",
+    "name": "Census Tract 83.53; San Diego County; California",
+    "population": 4853,
+    "medianHouseholdIncome": 142443,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008355",
+    "name": "Census Tract 83.55; San Diego County; California",
+    "population": 3025,
+    "medianHouseholdIncome": 137670,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008356",
+    "name": "Census Tract 83.56; San Diego County; California",
+    "population": 3970,
+    "medianHouseholdIncome": 116566,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008357",
+    "name": "Census Tract 83.57; San Diego County; California",
+    "population": 4376,
+    "medianHouseholdIncome": 114500,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008358",
+    "name": "Census Tract 83.58; San Diego County; California",
+    "population": 7206,
+    "medianHouseholdIncome": 116002,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008359",
+    "name": "Census Tract 83.59; San Diego County; California",
+    "population": 4464,
+    "medianHouseholdIncome": 80060,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008360",
+    "name": "Census Tract 83.60; San Diego County; California",
+    "population": 7203,
+    "medianHouseholdIncome": 93918,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008361",
+    "name": "Census Tract 83.61; San Diego County; California",
+    "population": 2708,
+    "medianHouseholdIncome": 82589,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008362",
+    "name": "Census Tract 83.62; San Diego County; California",
+    "population": 3156,
+    "medianHouseholdIncome": 122885,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008363",
+    "name": "Census Tract 83.63; San Diego County; California",
+    "population": 5287,
+    "medianHouseholdIncome": 60878,
+    "medianAge": 23.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008364",
+    "name": "Census Tract 83.64; San Diego County; California",
+    "population": 4916,
+    "medianHouseholdIncome": 90781,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008365",
+    "name": "Census Tract 83.65; San Diego County; California",
+    "population": 2627,
+    "medianHouseholdIncome": 202083,
+    "medianAge": 49.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008366",
+    "name": "Census Tract 83.66; San Diego County; California",
+    "population": 6716,
+    "medianHouseholdIncome": 203875,
+    "medianAge": 45.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008367",
+    "name": "Census Tract 83.67; San Diego County; California",
+    "population": 3134,
+    "medianHouseholdIncome": 116852,
+    "medianAge": 43.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008368",
+    "name": "Census Tract 83.68; San Diego County; California",
+    "population": 6579,
+    "medianHouseholdIncome": 172917,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008369",
+    "name": "Census Tract 83.69; San Diego County; California",
+    "population": 4221,
+    "medianHouseholdIncome": 163167,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008370",
+    "name": "Census Tract 83.70; San Diego County; California",
+    "population": 3651,
+    "medianHouseholdIncome": 139022,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008371",
+    "name": "Census Tract 83.71; San Diego County; California",
+    "population": 3760,
+    "medianHouseholdIncome": 151903,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008372",
+    "name": "Census Tract 83.72; San Diego County; California",
+    "population": 3931,
+    "medianHouseholdIncome": 238661,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008373",
+    "name": "Census Tract 83.73; San Diego County; California",
+    "population": 3603,
+    "medianHouseholdIncome": 175906,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008374",
+    "name": "Census Tract 83.74; San Diego County; California",
+    "population": 4005,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008375",
+    "name": "Census Tract 83.75; San Diego County; California",
+    "population": 4029,
+    "medianHouseholdIncome": 134955,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008376",
+    "name": "Census Tract 83.76; San Diego County; California",
+    "population": 6367,
+    "medianHouseholdIncome": 131009,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008377",
+    "name": "Census Tract 83.77; San Diego County; California",
+    "population": 2036,
+    "medianHouseholdIncome": 78333,
+    "medianAge": 28.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008378",
+    "name": "Census Tract 83.78; San Diego County; California",
+    "population": 870,
+    "medianHouseholdIncome": 75676,
+    "medianAge": 25.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008379",
+    "name": "Census Tract 83.79; San Diego County; California",
+    "population": 4282,
+    "medianHouseholdIncome": 63068,
+    "medianAge": 27.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008380",
+    "name": "Census Tract 83.80; San Diego County; California",
+    "population": 7052,
+    "medianHouseholdIncome": 94702,
+    "medianAge": 32.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008381",
+    "name": "Census Tract 83.81; San Diego County; California",
+    "population": 3468,
+    "medianHouseholdIncome": 187686,
+    "medianAge": 27
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008501",
+    "name": "Census Tract 85.01; San Diego County; California",
+    "population": 6101,
+    "medianHouseholdIncome": 133858,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008502",
+    "name": "Census Tract 85.02; San Diego County; California",
+    "population": 6953,
+    "medianHouseholdIncome": 108811,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008503",
+    "name": "Census Tract 85.03; San Diego County; California",
+    "population": 8026,
+    "medianHouseholdIncome": 93438,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008504",
+    "name": "Census Tract 85.04; San Diego County; California",
+    "population": 6145,
+    "medianHouseholdIncome": 127105,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008505",
+    "name": "Census Tract 85.05; San Diego County; California",
+    "population": 5485,
+    "medianHouseholdIncome": 95523,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008506",
+    "name": "Census Tract 85.06; San Diego County; California",
+    "population": 4156,
+    "medianHouseholdIncome": 112934,
+    "medianAge": 37.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008507",
+    "name": "Census Tract 85.07; San Diego County; California",
+    "population": 7406,
+    "medianHouseholdIncome": 95335,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008509",
+    "name": "Census Tract 85.09; San Diego County; California",
+    "population": 6745,
+    "medianHouseholdIncome": 117971,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008510",
+    "name": "Census Tract 85.10; San Diego County; California",
+    "population": 6006,
+    "medianHouseholdIncome": 62604,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008511",
+    "name": "Census Tract 85.11; San Diego County; California",
+    "population": 5172,
+    "medianHouseholdIncome": 119167,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008512",
+    "name": "Census Tract 85.12; San Diego County; California",
+    "population": 4169,
+    "medianHouseholdIncome": 116296,
+    "medianAge": 44.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008513",
+    "name": "Census Tract 85.13; San Diego County; California",
+    "population": 2800,
+    "medianHouseholdIncome": 130069,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008600",
+    "name": "Census Tract 86; San Diego County; California",
+    "population": 6824,
+    "medianHouseholdIncome": 57500,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008701",
+    "name": "Census Tract 87.01; San Diego County; California",
+    "population": 3439,
+    "medianHouseholdIncome": 80066,
+    "medianAge": 30.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008702",
+    "name": "Census Tract 87.02; San Diego County; California",
+    "population": 5008,
+    "medianHouseholdIncome": 108583,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008800",
+    "name": "Census Tract 88; San Diego County; California",
+    "population": 6999,
+    "medianHouseholdIncome": 78715,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008901",
+    "name": "Census Tract 89.01; San Diego County; California",
+    "population": 5289,
+    "medianHouseholdIncome": 87386,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "008902",
+    "name": "Census Tract 89.02; San Diego County; California",
+    "population": 3215,
+    "medianHouseholdIncome": 102594,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009000",
+    "name": "Census Tract 90; San Diego County; California",
+    "population": 4177,
+    "medianHouseholdIncome": 105398,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009101",
+    "name": "Census Tract 91.01; San Diego County; California",
+    "population": 5597,
+    "medianHouseholdIncome": 110117,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009102",
+    "name": "Census Tract 91.02; San Diego County; California",
+    "population": 4137,
+    "medianHouseholdIncome": 71094,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009103",
+    "name": "Census Tract 91.03; San Diego County; California",
+    "population": 4053,
+    "medianHouseholdIncome": 146154,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009104",
+    "name": "Census Tract 91.04; San Diego County; California",
+    "population": 2821,
+    "medianHouseholdIncome": 132955,
+    "medianAge": 43.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009107",
+    "name": "Census Tract 91.07; San Diego County; California",
+    "population": 4991,
+    "medianHouseholdIncome": 67466,
+    "medianAge": 28.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009108",
+    "name": "Census Tract 91.08; San Diego County; California",
+    "population": 2062,
+    "medianHouseholdIncome": 93897,
+    "medianAge": 42.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009109",
+    "name": "Census Tract 91.09; San Diego County; California",
+    "population": 3508,
+    "medianHouseholdIncome": 90000,
+    "medianAge": 19.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009201",
+    "name": "Census Tract 92.01; San Diego County; California",
+    "population": 5900,
+    "medianHouseholdIncome": 74092,
+    "medianAge": 30.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009203",
+    "name": "Census Tract 92.03; San Diego County; California",
+    "population": 3959,
+    "medianHouseholdIncome": 115122,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009204",
+    "name": "Census Tract 92.04; San Diego County; California",
+    "population": 4118,
+    "medianHouseholdIncome": 159135,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009301",
+    "name": "Census Tract 93.01; San Diego County; California",
+    "population": 5555,
+    "medianHouseholdIncome": 88958,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009305",
+    "name": "Census Tract 93.05; San Diego County; California",
+    "population": 5049,
+    "medianHouseholdIncome": 122967,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009306",
+    "name": "Census Tract 93.06; San Diego County; California",
+    "population": 5871,
+    "medianHouseholdIncome": 122788,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009307",
+    "name": "Census Tract 93.07; San Diego County; California",
+    "population": 4190,
+    "medianHouseholdIncome": 104886,
+    "medianAge": 30.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009308",
+    "name": "Census Tract 93.08; San Diego County; California",
+    "population": 4545,
+    "medianHouseholdIncome": 87180,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009400",
+    "name": "Census Tract 94; San Diego County; California",
+    "population": 4873,
+    "medianHouseholdIncome": 71111,
+    "medianAge": 21.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009502",
+    "name": "Census Tract 95.02; San Diego County; California",
+    "population": 4247,
+    "medianHouseholdIncome": 131754,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009504",
+    "name": "Census Tract 95.04; San Diego County; California",
+    "population": 6198,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 49.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009505",
+    "name": "Census Tract 95.05; San Diego County; California",
+    "population": 6369,
+    "medianHouseholdIncome": 118603,
+    "medianAge": 46.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009506",
+    "name": "Census Tract 95.06; San Diego County; California",
+    "population": 4443,
+    "medianHouseholdIncome": 133831,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009507",
+    "name": "Census Tract 95.07; San Diego County; California",
+    "population": 3840,
+    "medianHouseholdIncome": 103333,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009509",
+    "name": "Census Tract 95.09; San Diego County; California",
+    "population": 5108,
+    "medianHouseholdIncome": 101863,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009510",
+    "name": "Census Tract 95.10; San Diego County; California",
+    "population": 4924,
+    "medianHouseholdIncome": 47337,
+    "medianAge": 21.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009511",
+    "name": "Census Tract 95.11; San Diego County; California",
+    "population": 4072,
+    "medianHouseholdIncome": 68200,
+    "medianAge": 18
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009602",
+    "name": "Census Tract 96.02; San Diego County; California",
+    "population": 3837,
+    "medianHouseholdIncome": 148317,
+    "medianAge": 41.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009603",
+    "name": "Census Tract 96.03; San Diego County; California",
+    "population": 6231,
+    "medianHouseholdIncome": 70907,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009604",
+    "name": "Census Tract 96.04; San Diego County; California",
+    "population": 3324,
+    "medianHouseholdIncome": 89107,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009703",
+    "name": "Census Tract 97.03; San Diego County; California",
+    "population": 3407,
+    "medianHouseholdIncome": 115855,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009704",
+    "name": "Census Tract 97.04; San Diego County; California",
+    "population": 6526,
+    "medianHouseholdIncome": 111339,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009705",
+    "name": "Census Tract 97.05; San Diego County; California",
+    "population": 3689,
+    "medianHouseholdIncome": 137135,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009706",
+    "name": "Census Tract 97.06; San Diego County; California",
+    "population": 7029,
+    "medianHouseholdIncome": 137665,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009801",
+    "name": "Census Tract 98.01; San Diego County; California",
+    "population": 4872,
+    "medianHouseholdIncome": 113750,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009802",
+    "name": "Census Tract 98.02; San Diego County; California",
+    "population": 6935,
+    "medianHouseholdIncome": 100302,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009804",
+    "name": "Census Tract 98.04; San Diego County; California",
+    "population": 5663,
+    "medianHouseholdIncome": 123618,
+    "medianAge": 44.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009805",
+    "name": "Census Tract 98.05; San Diego County; California",
+    "population": 4623,
+    "medianHouseholdIncome": 96426,
+    "medianAge": 44.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009901",
+    "name": "Census Tract 99.01; San Diego County; California",
+    "population": 855,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 22.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "009902",
+    "name": "Census Tract 99.02; San Diego County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010001",
+    "name": "Census Tract 100.01; San Diego County; California",
+    "population": 4415,
+    "medianHouseholdIncome": 95325,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010003",
+    "name": "Census Tract 100.03; San Diego County; California",
+    "population": 5237,
+    "medianHouseholdIncome": 95541,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010004",
+    "name": "Census Tract 100.04; San Diego County; California",
+    "population": 5446,
+    "medianHouseholdIncome": 105511,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010005",
+    "name": "Census Tract 100.05; San Diego County; California",
+    "population": 6951,
+    "medianHouseholdIncome": 35750,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010009",
+    "name": "Census Tract 100.09; San Diego County; California",
+    "population": 5780,
+    "medianHouseholdIncome": 69688,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010010",
+    "name": "Census Tract 100.10; San Diego County; California",
+    "population": 4705,
+    "medianHouseholdIncome": 57313,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010011",
+    "name": "Census Tract 100.11; San Diego County; California",
+    "population": 4509,
+    "medianHouseholdIncome": 100469,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010012",
+    "name": "Census Tract 100.12; San Diego County; California",
+    "population": 5141,
+    "medianHouseholdIncome": 74191,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010013",
+    "name": "Census Tract 100.13; San Diego County; California",
+    "population": 5372,
+    "medianHouseholdIncome": 62179,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010015",
+    "name": "Census Tract 100.15; San Diego County; California",
+    "population": 4233,
+    "medianHouseholdIncome": 125536,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010016",
+    "name": "Census Tract 100.16; San Diego County; California",
+    "population": 3200,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010017",
+    "name": "Census Tract 100.17; San Diego County; California",
+    "population": 6261,
+    "medianHouseholdIncome": 104194,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010018",
+    "name": "Census Tract 100.18; San Diego County; California",
+    "population": 6687,
+    "medianHouseholdIncome": 131365,
+    "medianAge": 28.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010019",
+    "name": "Census Tract 100.19; San Diego County; California",
+    "population": 3519,
+    "medianHouseholdIncome": 124070,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010103",
+    "name": "Census Tract 101.03; San Diego County; California",
+    "population": 6829,
+    "medianHouseholdIncome": 54023,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010104",
+    "name": "Census Tract 101.04; San Diego County; California",
+    "population": 3338,
+    "medianHouseholdIncome": 90146,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010106",
+    "name": "Census Tract 101.06; San Diego County; California",
+    "population": 4896,
+    "medianHouseholdIncome": 52963,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010107",
+    "name": "Census Tract 101.07; San Diego County; California",
+    "population": 6168,
+    "medianHouseholdIncome": 64188,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010109",
+    "name": "Census Tract 101.09; San Diego County; California",
+    "population": 5228,
+    "medianHouseholdIncome": 98333,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010110",
+    "name": "Census Tract 101.10; San Diego County; California",
+    "population": 7097,
+    "medianHouseholdIncome": 54402,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010111",
+    "name": "Census Tract 101.11; San Diego County; California",
+    "population": 3733,
+    "medianHouseholdIncome": 55000,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010112",
+    "name": "Census Tract 101.12; San Diego County; California",
+    "population": 5293,
+    "medianHouseholdIncome": 56291,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010201",
+    "name": "Census Tract 102.01; San Diego County; California",
+    "population": 3528,
+    "medianHouseholdIncome": 103041,
+    "medianAge": 29.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010202",
+    "name": "Census Tract 102.02; San Diego County; California",
+    "population": 3711,
+    "medianHouseholdIncome": 98688,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010300",
+    "name": "Census Tract 103; San Diego County; California",
+    "population": 4244,
+    "medianHouseholdIncome": 56121,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010401",
+    "name": "Census Tract 104.01; San Diego County; California",
+    "population": 2318,
+    "medianHouseholdIncome": 64338,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010402",
+    "name": "Census Tract 104.02; San Diego County; California",
+    "population": 5519,
+    "medianHouseholdIncome": 61081,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010501",
+    "name": "Census Tract 105.01; San Diego County; California",
+    "population": 1251,
+    "medianHouseholdIncome": 111453,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010502",
+    "name": "Census Tract 105.02; San Diego County; California",
+    "population": 5586,
+    "medianHouseholdIncome": 64357,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010601",
+    "name": "Census Tract 106.01; San Diego County; California",
+    "population": 1825,
+    "medianHouseholdIncome": 194625,
+    "medianAge": 52.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010800",
+    "name": "Census Tract 108; San Diego County; California",
+    "population": 2080,
+    "medianHouseholdIncome": 123271,
+    "medianAge": 49.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "010900",
+    "name": "Census Tract 109; San Diego County; California",
+    "population": 1634,
+    "medianHouseholdIncome": 168438,
+    "medianAge": 49.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011000",
+    "name": "Census Tract 110; San Diego County; California",
+    "population": 2761,
+    "medianHouseholdIncome": 101012,
+    "medianAge": 47.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011100",
+    "name": "Census Tract 111; San Diego County; California",
+    "population": 3428,
+    "medianHouseholdIncome": 116827,
+    "medianAge": 42.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011300",
+    "name": "Census Tract 113; San Diego County; California",
+    "population": 2562,
+    "medianHouseholdIncome": 152000,
+    "medianAge": 22.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011601",
+    "name": "Census Tract 116.01; San Diego County; California",
+    "population": 5959,
+    "medianHouseholdIncome": 62212,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011602",
+    "name": "Census Tract 116.02; San Diego County; California",
+    "population": 4031,
+    "medianHouseholdIncome": 53920,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011700",
+    "name": "Census Tract 117; San Diego County; California",
+    "population": 6845,
+    "medianHouseholdIncome": 51627,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011801",
+    "name": "Census Tract 118.01; San Diego County; California",
+    "population": 3497,
+    "medianHouseholdIncome": 49427,
+    "medianAge": 36.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011802",
+    "name": "Census Tract 118.02; San Diego County; California",
+    "population": 7320,
+    "medianHouseholdIncome": 56540,
+    "medianAge": 33
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "011902",
+    "name": "Census Tract 119.02; San Diego County; California",
+    "population": 6034,
+    "medianHouseholdIncome": 74583,
+    "medianAge": 49.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012002",
+    "name": "Census Tract 120.02; San Diego County; California",
+    "population": 3149,
+    "medianHouseholdIncome": 30147,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012003",
+    "name": "Census Tract 120.03; San Diego County; California",
+    "population": 2910,
+    "medianHouseholdIncome": 92212,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012101",
+    "name": "Census Tract 121.01; San Diego County; California",
+    "population": 2207,
+    "medianHouseholdIncome": 90286,
+    "medianAge": 40.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012102",
+    "name": "Census Tract 121.02; San Diego County; California",
+    "population": 2890,
+    "medianHouseholdIncome": 63849,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012200",
+    "name": "Census Tract 122; San Diego County; California",
+    "population": 3606,
+    "medianHouseholdIncome": 58807,
+    "medianAge": 30.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012302",
+    "name": "Census Tract 123.02; San Diego County; California",
+    "population": 1606,
+    "medianHouseholdIncome": 42670,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012303",
+    "name": "Census Tract 123.03; San Diego County; California",
+    "population": 3396,
+    "medianHouseholdIncome": 77756,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012304",
+    "name": "Census Tract 123.04; San Diego County; California",
+    "population": 4254,
+    "medianHouseholdIncome": 93672,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012401",
+    "name": "Census Tract 124.01; San Diego County; California",
+    "population": 3005,
+    "medianHouseholdIncome": 88714,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012402",
+    "name": "Census Tract 124.02; San Diego County; California",
+    "population": 5730,
+    "medianHouseholdIncome": 59313,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012501",
+    "name": "Census Tract 125.01; San Diego County; California",
+    "population": 3997,
+    "medianHouseholdIncome": 41182,
+    "medianAge": 31.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012502",
+    "name": "Census Tract 125.02; San Diego County; California",
+    "population": 4661,
+    "medianHouseholdIncome": 54508,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012600",
+    "name": "Census Tract 126; San Diego County; California",
+    "population": 4944,
+    "medianHouseholdIncome": 72071,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012700",
+    "name": "Census Tract 127; San Diego County; California",
+    "population": 4990,
+    "medianHouseholdIncome": 62461,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012800",
+    "name": "Census Tract 128; San Diego County; California",
+    "population": 3786,
+    "medianHouseholdIncome": 81811,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "012900",
+    "name": "Census Tract 129; San Diego County; California",
+    "population": 3374,
+    "medianHouseholdIncome": 101321,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013000",
+    "name": "Census Tract 130; San Diego County; California",
+    "population": 5772,
+    "medianHouseholdIncome": 80625,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013102",
+    "name": "Census Tract 131.02; San Diego County; California",
+    "population": 6909,
+    "medianHouseholdIncome": 63585,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013103",
+    "name": "Census Tract 131.03; San Diego County; California",
+    "population": 2467,
+    "medianHouseholdIncome": 67250,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013104",
+    "name": "Census Tract 131.04; San Diego County; California",
+    "population": 5765,
+    "medianHouseholdIncome": 51935,
+    "medianAge": 31.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013203",
+    "name": "Census Tract 132.03; San Diego County; California",
+    "population": 6002,
+    "medianHouseholdIncome": 50647,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013204",
+    "name": "Census Tract 132.04; San Diego County; California",
+    "population": 4452,
+    "medianHouseholdIncome": 56010,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013205",
+    "name": "Census Tract 132.05; San Diego County; California",
+    "population": 2261,
+    "medianHouseholdIncome": 72011,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013206",
+    "name": "Census Tract 132.06; San Diego County; California",
+    "population": 6266,
+    "medianHouseholdIncome": 50913,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013301",
+    "name": "Census Tract 133.01; San Diego County; California",
+    "population": 5277,
+    "medianHouseholdIncome": 100367,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013302",
+    "name": "Census Tract 133.02; San Diego County; California",
+    "population": 7134,
+    "medianHouseholdIncome": 111544,
+    "medianAge": 32.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013303",
+    "name": "Census Tract 133.03; San Diego County; California",
+    "population": 4916,
+    "medianHouseholdIncome": 71875,
+    "medianAge": 41.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013306",
+    "name": "Census Tract 133.06; San Diego County; California",
+    "population": 4055,
+    "medianHouseholdIncome": 97679,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013307",
+    "name": "Census Tract 133.07; San Diego County; California",
+    "population": 5047,
+    "medianHouseholdIncome": 76750,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013308",
+    "name": "Census Tract 133.08; San Diego County; California",
+    "population": 3909,
+    "medianHouseholdIncome": 82992,
+    "medianAge": 33.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013309",
+    "name": "Census Tract 133.09; San Diego County; California",
+    "population": 7210,
+    "medianHouseholdIncome": 135964,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013312",
+    "name": "Census Tract 133.12; San Diego County; California",
+    "population": 2821,
+    "medianHouseholdIncome": 84719,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013315",
+    "name": "Census Tract 133.15; San Diego County; California",
+    "population": 4006,
+    "medianHouseholdIncome": 136181,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013316",
+    "name": "Census Tract 133.16; San Diego County; California",
+    "population": 7890,
+    "medianHouseholdIncome": 137137,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013317",
+    "name": "Census Tract 133.17; San Diego County; California",
+    "population": 16008,
+    "medianHouseholdIncome": 142096,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013318",
+    "name": "Census Tract 133.18; San Diego County; California",
+    "population": 8191,
+    "medianHouseholdIncome": 147188,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013319",
+    "name": "Census Tract 133.19; San Diego County; California",
+    "population": 8215,
+    "medianHouseholdIncome": 132525,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013320",
+    "name": "Census Tract 133.20; San Diego County; California",
+    "population": 7187,
+    "medianHouseholdIncome": 129383,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013321",
+    "name": "Census Tract 133.21; San Diego County; California",
+    "population": 8310,
+    "medianHouseholdIncome": 141852,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013322",
+    "name": "Census Tract 133.22; San Diego County; California",
+    "population": 4494,
+    "medianHouseholdIncome": 130807,
+    "medianAge": 26.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013323",
+    "name": "Census Tract 133.23; San Diego County; California",
+    "population": 6353,
+    "medianHouseholdIncome": 146053,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013324",
+    "name": "Census Tract 133.24; San Diego County; California",
+    "population": 2218,
+    "medianHouseholdIncome": 122303,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013325",
+    "name": "Census Tract 133.25; San Diego County; California",
+    "population": 6074,
+    "medianHouseholdIncome": 100679,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013326",
+    "name": "Census Tract 133.26; San Diego County; California",
+    "population": 4357,
+    "medianHouseholdIncome": 197565,
+    "medianAge": 40.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013327",
+    "name": "Census Tract 133.27; San Diego County; California",
+    "population": 6270,
+    "medianHouseholdIncome": 139281,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013401",
+    "name": "Census Tract 134.01; San Diego County; California",
+    "population": 4419,
+    "medianHouseholdIncome": 125000,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013409",
+    "name": "Census Tract 134.09; San Diego County; California",
+    "population": 6072,
+    "medianHouseholdIncome": 105250,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013411",
+    "name": "Census Tract 134.11; San Diego County; California",
+    "population": 4795,
+    "medianHouseholdIncome": 159861,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013412",
+    "name": "Census Tract 134.12; San Diego County; California",
+    "population": 5101,
+    "medianHouseholdIncome": 117569,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013414",
+    "name": "Census Tract 134.14; San Diego County; California",
+    "population": 7256,
+    "medianHouseholdIncome": 136061,
+    "medianAge": 45.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013415",
+    "name": "Census Tract 134.15; San Diego County; California",
+    "population": 1406,
+    "medianHouseholdIncome": 149063,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013416",
+    "name": "Census Tract 134.16; San Diego County; California",
+    "population": 4182,
+    "medianHouseholdIncome": 120642,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013417",
+    "name": "Census Tract 134.17; San Diego County; California",
+    "population": 2075,
+    "medianHouseholdIncome": 147100,
+    "medianAge": 41.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013418",
+    "name": "Census Tract 134.18; San Diego County; California",
+    "population": 6179,
+    "medianHouseholdIncome": 90826,
+    "medianAge": 44.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013420",
+    "name": "Census Tract 134.20; San Diego County; California",
+    "population": 3159,
+    "medianHouseholdIncome": 106250,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013421",
+    "name": "Census Tract 134.21; San Diego County; California",
+    "population": 4008,
+    "medianHouseholdIncome": 135000,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013422",
+    "name": "Census Tract 134.22; San Diego County; California",
+    "population": 4105,
+    "medianHouseholdIncome": 147434,
+    "medianAge": 48.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013423",
+    "name": "Census Tract 134.23; San Diego County; California",
+    "population": 2911,
+    "medianHouseholdIncome": 92036,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013424",
+    "name": "Census Tract 134.24; San Diego County; California",
+    "population": 6802,
+    "medianHouseholdIncome": 154352,
+    "medianAge": 36.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013425",
+    "name": "Census Tract 134.25; San Diego County; California",
+    "population": 2017,
+    "medianHouseholdIncome": 177000,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013503",
+    "name": "Census Tract 135.03; San Diego County; California",
+    "population": 6236,
+    "medianHouseholdIncome": 91875,
+    "medianAge": 32.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013504",
+    "name": "Census Tract 135.04; San Diego County; California",
+    "population": 4061,
+    "medianHouseholdIncome": 131479,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013505",
+    "name": "Census Tract 135.05; San Diego County; California",
+    "population": 6266,
+    "medianHouseholdIncome": 98563,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013506",
+    "name": "Census Tract 135.06; San Diego County; California",
+    "population": 4432,
+    "medianHouseholdIncome": 86006,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013601",
+    "name": "Census Tract 136.01; San Diego County; California",
+    "population": 5680,
+    "medianHouseholdIncome": 108969,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013604",
+    "name": "Census Tract 136.04; San Diego County; California",
+    "population": 5984,
+    "medianHouseholdIncome": 106773,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013605",
+    "name": "Census Tract 136.05; San Diego County; California",
+    "population": 6305,
+    "medianHouseholdIncome": 129400,
+    "medianAge": 46.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013607",
+    "name": "Census Tract 136.07; San Diego County; California",
+    "population": 2839,
+    "medianHouseholdIncome": 68792,
+    "medianAge": 32.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013608",
+    "name": "Census Tract 136.08; San Diego County; California",
+    "population": 4171,
+    "medianHouseholdIncome": 84083,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013701",
+    "name": "Census Tract 137.01; San Diego County; California",
+    "population": 2369,
+    "medianHouseholdIncome": 116196,
+    "medianAge": 47.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013702",
+    "name": "Census Tract 137.02; San Diego County; California",
+    "population": 5414,
+    "medianHouseholdIncome": 88644,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013801",
+    "name": "Census Tract 138.01; San Diego County; California",
+    "population": 5594,
+    "medianHouseholdIncome": 94615,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013802",
+    "name": "Census Tract 138.02; San Diego County; California",
+    "population": 3210,
+    "medianHouseholdIncome": 65703,
+    "medianAge": 32.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013903",
+    "name": "Census Tract 139.03; San Diego County; California",
+    "population": 3764,
+    "medianHouseholdIncome": 94792,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013905",
+    "name": "Census Tract 139.05; San Diego County; California",
+    "population": 4800,
+    "medianHouseholdIncome": 121328,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013906",
+    "name": "Census Tract 139.06; San Diego County; California",
+    "population": 5181,
+    "medianHouseholdIncome": 71325,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013907",
+    "name": "Census Tract 139.07; San Diego County; California",
+    "population": 4340,
+    "medianHouseholdIncome": 56771,
+    "medianAge": 29.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013908",
+    "name": "Census Tract 139.08; San Diego County; California",
+    "population": 4235,
+    "medianHouseholdIncome": 76604,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "013909",
+    "name": "Census Tract 139.09; San Diego County; California",
+    "population": 5650,
+    "medianHouseholdIncome": 89135,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014001",
+    "name": "Census Tract 140.01; San Diego County; California",
+    "population": 5045,
+    "medianHouseholdIncome": 79750,
+    "medianAge": 33.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014002",
+    "name": "Census Tract 140.02; San Diego County; California",
+    "population": 4522,
+    "medianHouseholdIncome": 83042,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014101",
+    "name": "Census Tract 141.01; San Diego County; California",
+    "population": 4020,
+    "medianHouseholdIncome": 97401,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014102",
+    "name": "Census Tract 141.02; San Diego County; California",
+    "population": 3775,
+    "medianHouseholdIncome": 91545,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014200",
+    "name": "Census Tract 142; San Diego County; California",
+    "population": 6543,
+    "medianHouseholdIncome": 104449,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014300",
+    "name": "Census Tract 143; San Diego County; California",
+    "population": 4636,
+    "medianHouseholdIncome": 85717,
+    "medianAge": 32.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014400",
+    "name": "Census Tract 144; San Diego County; California",
+    "population": 4379,
+    "medianHouseholdIncome": 37722,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014500",
+    "name": "Census Tract 145; San Diego County; California",
+    "population": 4019,
+    "medianHouseholdIncome": 77232,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014601",
+    "name": "Census Tract 146.01; San Diego County; California",
+    "population": 4835,
+    "medianHouseholdIncome": 56714,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014602",
+    "name": "Census Tract 146.02; San Diego County; California",
+    "population": 5198,
+    "medianHouseholdIncome": 128750,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014701",
+    "name": "Census Tract 147.01; San Diego County; California",
+    "population": 3770,
+    "medianHouseholdIncome": 92778,
+    "medianAge": 36.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014702",
+    "name": "Census Tract 147.02; San Diego County; California",
+    "population": 4124,
+    "medianHouseholdIncome": 103576,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014803",
+    "name": "Census Tract 148.03; San Diego County; California",
+    "population": 4737,
+    "medianHouseholdIncome": 76453,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014804",
+    "name": "Census Tract 148.04; San Diego County; California",
+    "population": 4627,
+    "medianHouseholdIncome": 73591,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014805",
+    "name": "Census Tract 148.05; San Diego County; California",
+    "population": 4595,
+    "medianHouseholdIncome": 81513,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014806",
+    "name": "Census Tract 148.06; San Diego County; California",
+    "population": 3120,
+    "medianHouseholdIncome": 55769,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014901",
+    "name": "Census Tract 149.01; San Diego County; California",
+    "population": 4855,
+    "medianHouseholdIncome": 76719,
+    "medianAge": 32.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "014902",
+    "name": "Census Tract 149.02; San Diego County; California",
+    "population": 2949,
+    "medianHouseholdIncome": 72774,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015001",
+    "name": "Census Tract 150.01; San Diego County; California",
+    "population": 4567,
+    "medianHouseholdIncome": 88654,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015002",
+    "name": "Census Tract 150.02; San Diego County; California",
+    "population": 2663,
+    "medianHouseholdIncome": 56448,
+    "medianAge": 29.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015100",
+    "name": "Census Tract 151; San Diego County; California",
+    "population": 5118,
+    "medianHouseholdIncome": 96690,
+    "medianAge": 33.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015200",
+    "name": "Census Tract 152; San Diego County; California",
+    "population": 3944,
+    "medianHouseholdIncome": 155068,
+    "medianAge": 50.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015301",
+    "name": "Census Tract 153.01; San Diego County; California",
+    "population": 3767,
+    "medianHouseholdIncome": 62961,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015302",
+    "name": "Census Tract 153.02; San Diego County; California",
+    "population": 4402,
+    "medianHouseholdIncome": 118000,
+    "medianAge": 46.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015403",
+    "name": "Census Tract 154.03; San Diego County; California",
+    "population": 2533,
+    "medianHouseholdIncome": 160380,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015405",
+    "name": "Census Tract 154.05; San Diego County; California",
+    "population": 5584,
+    "medianHouseholdIncome": 132531,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015406",
+    "name": "Census Tract 154.06; San Diego County; California",
+    "population": 2526,
+    "medianHouseholdIncome": 134000,
+    "medianAge": 46.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015407",
+    "name": "Census Tract 154.07; San Diego County; California",
+    "population": 3869,
+    "medianHouseholdIncome": 50903,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015408",
+    "name": "Census Tract 154.08; San Diego County; California",
+    "population": 4078,
+    "medianHouseholdIncome": 88080,
+    "medianAge": 45.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015501",
+    "name": "Census Tract 155.01; San Diego County; California",
+    "population": 5577,
+    "medianHouseholdIncome": 109046,
+    "medianAge": 45.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015502",
+    "name": "Census Tract 155.02; San Diego County; California",
+    "population": 3130,
+    "medianHouseholdIncome": 120000,
+    "medianAge": 35.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015601",
+    "name": "Census Tract 156.01; San Diego County; California",
+    "population": 5798,
+    "medianHouseholdIncome": 59941,
+    "medianAge": 39.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015602",
+    "name": "Census Tract 156.02; San Diego County; California",
+    "population": 2802,
+    "medianHouseholdIncome": 137120,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015701",
+    "name": "Census Tract 157.01; San Diego County; California",
+    "population": 6486,
+    "medianHouseholdIncome": 45122,
+    "medianAge": 32.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015704",
+    "name": "Census Tract 157.04; San Diego County; California",
+    "population": 4483,
+    "medianHouseholdIncome": 52679,
+    "medianAge": 38.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015705",
+    "name": "Census Tract 157.05; San Diego County; California",
+    "population": 3882,
+    "medianHouseholdIncome": 54559,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015706",
+    "name": "Census Tract 157.06; San Diego County; California",
+    "population": 2689,
+    "medianHouseholdIncome": 27813,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015801",
+    "name": "Census Tract 158.01; San Diego County; California",
+    "population": 4109,
+    "medianHouseholdIncome": 49878,
+    "medianAge": 30
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015802",
+    "name": "Census Tract 158.02; San Diego County; California",
+    "population": 4901,
+    "medianHouseholdIncome": 62060,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015901",
+    "name": "Census Tract 159.01; San Diego County; California",
+    "population": 3974,
+    "medianHouseholdIncome": 42778,
+    "medianAge": 26.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "015902",
+    "name": "Census Tract 159.02; San Diego County; California",
+    "population": 5473,
+    "medianHouseholdIncome": 48429,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016000",
+    "name": "Census Tract 160; San Diego County; California",
+    "population": 2374,
+    "medianHouseholdIncome": 93902,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016100",
+    "name": "Census Tract 161; San Diego County; California",
+    "population": 6518,
+    "medianHouseholdIncome": 101588,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016201",
+    "name": "Census Tract 162.01; San Diego County; California",
+    "population": 5227,
+    "medianHouseholdIncome": 131836,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016202",
+    "name": "Census Tract 162.02; San Diego County; California",
+    "population": 4266,
+    "medianHouseholdIncome": 81545,
+    "medianAge": 30.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016301",
+    "name": "Census Tract 163.01; San Diego County; California",
+    "population": 5128,
+    "medianHouseholdIncome": 58899,
+    "medianAge": 34
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016302",
+    "name": "Census Tract 163.02; San Diego County; California",
+    "population": 5918,
+    "medianHouseholdIncome": 48558,
+    "medianAge": 30.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016401",
+    "name": "Census Tract 164.01; San Diego County; California",
+    "population": 5439,
+    "medianHouseholdIncome": 107713,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016403",
+    "name": "Census Tract 164.03; San Diego County; California",
+    "population": 5977,
+    "medianHouseholdIncome": 76875,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016404",
+    "name": "Census Tract 164.04; San Diego County; California",
+    "population": 3790,
+    "medianHouseholdIncome": 48125,
+    "medianAge": 35.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016502",
+    "name": "Census Tract 165.02; San Diego County; California",
+    "population": 8159,
+    "medianHouseholdIncome": 72977,
+    "medianAge": 33.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016503",
+    "name": "Census Tract 165.03; San Diego County; California",
+    "population": 2944,
+    "medianHouseholdIncome": 96500,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016504",
+    "name": "Census Tract 165.04; San Diego County; California",
+    "population": 6729,
+    "medianHouseholdIncome": 55219,
+    "medianAge": 32.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016606",
+    "name": "Census Tract 166.06; San Diego County; California",
+    "population": 3625,
+    "medianHouseholdIncome": 122569,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016607",
+    "name": "Census Tract 166.07; San Diego County; California",
+    "population": 6765,
+    "medianHouseholdIncome": 132539,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016608",
+    "name": "Census Tract 166.08; San Diego County; California",
+    "population": 2641,
+    "medianHouseholdIncome": 129911,
+    "medianAge": 40.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016609",
+    "name": "Census Tract 166.09; San Diego County; California",
+    "population": 5862,
+    "medianHouseholdIncome": 118758,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016610",
+    "name": "Census Tract 166.10; San Diego County; California",
+    "population": 4754,
+    "medianHouseholdIncome": 88333,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016613",
+    "name": "Census Tract 166.13; San Diego County; California",
+    "population": 1898,
+    "medianHouseholdIncome": 104861,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016614",
+    "name": "Census Tract 166.14; San Diego County; California",
+    "population": 3900,
+    "medianHouseholdIncome": 116406,
+    "medianAge": 39
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016615",
+    "name": "Census Tract 166.15; San Diego County; California",
+    "population": 4453,
+    "medianHouseholdIncome": 137792,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016616",
+    "name": "Census Tract 166.16; San Diego County; California",
+    "population": 4021,
+    "medianHouseholdIncome": 86786,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016617",
+    "name": "Census Tract 166.17; San Diego County; California",
+    "population": 3669,
+    "medianHouseholdIncome": 65227,
+    "medianAge": 42.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016618",
+    "name": "Census Tract 166.18; San Diego County; California",
+    "population": 3600,
+    "medianHouseholdIncome": 95684,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016619",
+    "name": "Census Tract 166.19; San Diego County; California",
+    "population": 4289,
+    "medianHouseholdIncome": 73958,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016620",
+    "name": "Census Tract 166.20; San Diego County; California",
+    "population": 2413,
+    "medianHouseholdIncome": 90119,
+    "medianAge": 39.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016621",
+    "name": "Census Tract 166.21; San Diego County; California",
+    "population": 3825,
+    "medianHouseholdIncome": 126731,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016703",
+    "name": "Census Tract 167.03; San Diego County; California",
+    "population": 2945,
+    "medianHouseholdIncome": 108952,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016704",
+    "name": "Census Tract 167.04; San Diego County; California",
+    "population": 7685,
+    "medianHouseholdIncome": 107891,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016705",
+    "name": "Census Tract 167.05; San Diego County; California",
+    "population": 4543,
+    "medianHouseholdIncome": 58030,
+    "medianAge": 34.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016706",
+    "name": "Census Tract 167.06; San Diego County; California",
+    "population": 2922,
+    "medianHouseholdIncome": 91250,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016804",
+    "name": "Census Tract 168.04; San Diego County; California",
+    "population": 8790,
+    "medianHouseholdIncome": 79729,
+    "medianAge": 29.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016806",
+    "name": "Census Tract 168.06; San Diego County; California",
+    "population": 4213,
+    "medianHouseholdIncome": 74750,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016807",
+    "name": "Census Tract 168.07; San Diego County; California",
+    "population": 7535,
+    "medianHouseholdIncome": 106934,
+    "medianAge": 45.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016809",
+    "name": "Census Tract 168.09; San Diego County; California",
+    "population": 5629,
+    "medianHouseholdIncome": 92819,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016810",
+    "name": "Census Tract 168.10; San Diego County; California",
+    "population": 3021,
+    "medianHouseholdIncome": 141125,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016811",
+    "name": "Census Tract 168.11; San Diego County; California",
+    "population": 4549,
+    "medianHouseholdIncome": 101620,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016812",
+    "name": "Census Tract 168.12; San Diego County; California",
+    "population": 2783,
+    "medianHouseholdIncome": 75263,
+    "medianAge": 57
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016813",
+    "name": "Census Tract 168.13; San Diego County; California",
+    "population": 3439,
+    "medianHouseholdIncome": 111250,
+    "medianAge": 46.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016901",
+    "name": "Census Tract 169.01; San Diego County; California",
+    "population": 7438,
+    "medianHouseholdIncome": 110750,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "016902",
+    "name": "Census Tract 169.02; San Diego County; California",
+    "population": 2530,
+    "medianHouseholdIncome": 100441,
+    "medianAge": 49
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017006",
+    "name": "Census Tract 170.06; San Diego County; California",
+    "population": 3184,
+    "medianHouseholdIncome": 160268,
+    "medianAge": 50.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017009",
+    "name": "Census Tract 170.09; San Diego County; California",
+    "population": 4204,
+    "medianHouseholdIncome": 92917,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017010",
+    "name": "Census Tract 170.10; San Diego County; California",
+    "population": 3086,
+    "medianHouseholdIncome": 185250,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017014",
+    "name": "Census Tract 170.14; San Diego County; California",
+    "population": 2603,
+    "medianHouseholdIncome": 71842,
+    "medianAge": 72.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017018",
+    "name": "Census Tract 170.18; San Diego County; California",
+    "population": 3933,
+    "medianHouseholdIncome": 86875,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017020",
+    "name": "Census Tract 170.20; San Diego County; California",
+    "population": 4094,
+    "medianHouseholdIncome": 175662,
+    "medianAge": 44.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017021",
+    "name": "Census Tract 170.21; San Diego County; California",
+    "population": 3496,
+    "medianHouseholdIncome": 198472,
+    "medianAge": 51.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017022",
+    "name": "Census Tract 170.22; San Diego County; California",
+    "population": 5310,
+    "medianHouseholdIncome": 117054,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017031",
+    "name": "Census Tract 170.31; San Diego County; California",
+    "population": 3607,
+    "medianHouseholdIncome": 128214,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017033",
+    "name": "Census Tract 170.33; San Diego County; California",
+    "population": 5470,
+    "medianHouseholdIncome": 163512,
+    "medianAge": 40.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017034",
+    "name": "Census Tract 170.34; San Diego County; California",
+    "population": 5484,
+    "medianHouseholdIncome": 120089,
+    "medianAge": 38.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017035",
+    "name": "Census Tract 170.35; San Diego County; California",
+    "population": 3467,
+    "medianHouseholdIncome": 122765,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017036",
+    "name": "Census Tract 170.36; San Diego County; California",
+    "population": 3130,
+    "medianHouseholdIncome": 125789,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017037",
+    "name": "Census Tract 170.37; San Diego County; California",
+    "population": 5205,
+    "medianHouseholdIncome": 130833,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017039",
+    "name": "Census Tract 170.39; San Diego County; California",
+    "population": 6788,
+    "medianHouseholdIncome": 137330,
+    "medianAge": 39.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017040",
+    "name": "Census Tract 170.40; San Diego County; California",
+    "population": 4456,
+    "medianHouseholdIncome": 157976,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017041",
+    "name": "Census Tract 170.41; San Diego County; California",
+    "population": 5564,
+    "medianHouseholdIncome": 137326,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017043",
+    "name": "Census Tract 170.43; San Diego County; California",
+    "population": 5925,
+    "medianHouseholdIncome": 154764,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017044",
+    "name": "Census Tract 170.44; San Diego County; California",
+    "population": 5578,
+    "medianHouseholdIncome": 183571,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017045",
+    "name": "Census Tract 170.45; San Diego County; California",
+    "population": 2298,
+    "medianHouseholdIncome": 215500,
+    "medianAge": 46.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017046",
+    "name": "Census Tract 170.46; San Diego County; California",
+    "population": 3772,
+    "medianHouseholdIncome": 168958,
+    "medianAge": 45.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017047",
+    "name": "Census Tract 170.47; San Diego County; California",
+    "population": 4487,
+    "medianHouseholdIncome": 175827,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017048",
+    "name": "Census Tract 170.48; San Diego County; California",
+    "population": 6181,
+    "medianHouseholdIncome": 91118,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017049",
+    "name": "Census Tract 170.49; San Diego County; California",
+    "population": 2723,
+    "medianHouseholdIncome": 113056,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017050",
+    "name": "Census Tract 170.50; San Diego County; California",
+    "population": 3129,
+    "medianHouseholdIncome": 67857,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017051",
+    "name": "Census Tract 170.51; San Diego County; California",
+    "population": 5070,
+    "medianHouseholdIncome": 117153,
+    "medianAge": 45.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017052",
+    "name": "Census Tract 170.52; San Diego County; California",
+    "population": 4948,
+    "medianHouseholdIncome": 118253,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017053",
+    "name": "Census Tract 170.53; San Diego County; California",
+    "population": 3558,
+    "medianHouseholdIncome": 200833,
+    "medianAge": 47.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017054",
+    "name": "Census Tract 170.54; San Diego County; California",
+    "population": 5873,
+    "medianHouseholdIncome": 133375,
+    "medianAge": 43.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017055",
+    "name": "Census Tract 170.55; San Diego County; California",
+    "population": 4933,
+    "medianHouseholdIncome": 149327,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017056",
+    "name": "Census Tract 170.56; San Diego County; California",
+    "population": 4534,
+    "medianHouseholdIncome": 114490,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017057",
+    "name": "Census Tract 170.57; San Diego County; California",
+    "population": 3929,
+    "medianHouseholdIncome": 176581,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017058",
+    "name": "Census Tract 170.58; San Diego County; California",
+    "population": 4302,
+    "medianHouseholdIncome": 138961,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017059",
+    "name": "Census Tract 170.59; San Diego County; California",
+    "population": 3508,
+    "medianHouseholdIncome": 86542,
+    "medianAge": 66.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017060",
+    "name": "Census Tract 170.60; San Diego County; California",
+    "population": 3273,
+    "medianHouseholdIncome": 143295,
+    "medianAge": 59.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017061",
+    "name": "Census Tract 170.61; San Diego County; California",
+    "population": 3362,
+    "medianHouseholdIncome": 154078,
+    "medianAge": 52.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017062",
+    "name": "Census Tract 170.62; San Diego County; California",
+    "population": 5184,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017063",
+    "name": "Census Tract 170.63; San Diego County; California",
+    "population": 4601,
+    "medianHouseholdIncome": 142725,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017064",
+    "name": "Census Tract 170.64; San Diego County; California",
+    "population": 8315,
+    "medianHouseholdIncome": 215875,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017065",
+    "name": "Census Tract 170.65; San Diego County; California",
+    "population": 9839,
+    "medianHouseholdIncome": 195875,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017066",
+    "name": "Census Tract 170.66; San Diego County; California",
+    "population": 5303,
+    "medianHouseholdIncome": 183884,
+    "medianAge": 35.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017067",
+    "name": "Census Tract 170.67; San Diego County; California",
+    "population": 2705,
+    "medianHouseholdIncome": 220882,
+    "medianAge": 40.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017068",
+    "name": "Census Tract 170.68; San Diego County; California",
+    "population": 4694,
+    "medianHouseholdIncome": 145585,
+    "medianAge": 37.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017069",
+    "name": "Census Tract 170.69; San Diego County; California",
+    "population": 2519,
+    "medianHouseholdIncome": 172833,
+    "medianAge": 32.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017070",
+    "name": "Census Tract 170.70; San Diego County; California",
+    "population": 5868,
+    "medianHouseholdIncome": 168212,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017071",
+    "name": "Census Tract 170.71; San Diego County; California",
+    "population": 5614,
+    "medianHouseholdIncome": 128933,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017104",
+    "name": "Census Tract 171.04; San Diego County; California",
+    "population": 3752,
+    "medianHouseholdIncome": 129133,
+    "medianAge": 45.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017106",
+    "name": "Census Tract 171.06; San Diego County; California",
+    "population": 4649,
+    "medianHouseholdIncome": 226548,
+    "medianAge": 49.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017107",
+    "name": "Census Tract 171.07; San Diego County; California",
+    "population": 3062,
+    "medianHouseholdIncome": 206833,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017108",
+    "name": "Census Tract 171.08; San Diego County; California",
+    "population": 4638,
+    "medianHouseholdIncome": 144167,
+    "medianAge": 44.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017109",
+    "name": "Census Tract 171.09; San Diego County; California",
+    "population": 6350,
+    "medianHouseholdIncome": 244638,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017111",
+    "name": "Census Tract 171.11; San Diego County; California",
+    "population": 4637,
+    "medianHouseholdIncome": 245191,
+    "medianAge": 51.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017112",
+    "name": "Census Tract 171.12; San Diego County; California",
+    "population": 2408,
+    "medianHouseholdIncome": 171385,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017113",
+    "name": "Census Tract 171.13; San Diego County; California",
+    "population": 5590,
+    "medianHouseholdIncome": 107059,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017201",
+    "name": "Census Tract 172.01; San Diego County; California",
+    "population": 2207,
+    "medianHouseholdIncome": 185518,
+    "medianAge": 55.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017202",
+    "name": "Census Tract 172.02; San Diego County; California",
+    "population": 1730,
+    "medianHouseholdIncome": 178365,
+    "medianAge": 47.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017303",
+    "name": "Census Tract 173.03; San Diego County; California",
+    "population": 3466,
+    "medianHouseholdIncome": 114649,
+    "medianAge": 46.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017305",
+    "name": "Census Tract 173.05; San Diego County; California",
+    "population": 3016,
+    "medianHouseholdIncome": 148147,
+    "medianAge": 52.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017306",
+    "name": "Census Tract 173.06; San Diego County; California",
+    "population": 2427,
+    "medianHouseholdIncome": 213400,
+    "medianAge": 52.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017307",
+    "name": "Census Tract 173.07; San Diego County; California",
+    "population": 2303,
+    "medianHouseholdIncome": 137614,
+    "medianAge": 50.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017308",
+    "name": "Census Tract 173.08; San Diego County; California",
+    "population": 2658,
+    "medianHouseholdIncome": 104886,
+    "medianAge": 42.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017403",
+    "name": "Census Tract 174.03; San Diego County; California",
+    "population": 4455,
+    "medianHouseholdIncome": 142736,
+    "medianAge": 53.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017405",
+    "name": "Census Tract 174.05; San Diego County; California",
+    "population": 4371,
+    "medianHouseholdIncome": 133618,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017406",
+    "name": "Census Tract 174.06; San Diego County; California",
+    "population": 2950,
+    "medianHouseholdIncome": 148750,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017407",
+    "name": "Census Tract 174.07; San Diego County; California",
+    "population": 3361,
+    "medianHouseholdIncome": 182305,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017408",
+    "name": "Census Tract 174.08; San Diego County; California",
+    "population": 2417,
+    "medianHouseholdIncome": 112095,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017501",
+    "name": "Census Tract 175.01; San Diego County; California",
+    "population": 2749,
+    "medianHouseholdIncome": 141458,
+    "medianAge": 48.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017502",
+    "name": "Census Tract 175.02; San Diego County; California",
+    "population": 3380,
+    "medianHouseholdIncome": 114167,
+    "medianAge": 42
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017601",
+    "name": "Census Tract 176.01; San Diego County; California",
+    "population": 5264,
+    "medianHouseholdIncome": 142298,
+    "medianAge": 56.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017603",
+    "name": "Census Tract 176.03; San Diego County; California",
+    "population": 2924,
+    "medianHouseholdIncome": 164861,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017605",
+    "name": "Census Tract 176.05; San Diego County; California",
+    "population": 3771,
+    "medianHouseholdIncome": 126042,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017606",
+    "name": "Census Tract 176.06; San Diego County; California",
+    "population": 3340,
+    "medianHouseholdIncome": 90308,
+    "medianAge": 46.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017701",
+    "name": "Census Tract 177.01; San Diego County; California",
+    "population": 5723,
+    "medianHouseholdIncome": 131373,
+    "medianAge": 35.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017702",
+    "name": "Census Tract 177.02; San Diego County; California",
+    "population": 3450,
+    "medianHouseholdIncome": 144539,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017801",
+    "name": "Census Tract 178.01; San Diego County; California",
+    "population": 7245,
+    "medianHouseholdIncome": 110143,
+    "medianAge": 38.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017808",
+    "name": "Census Tract 178.08; San Diego County; California",
+    "population": 5895,
+    "medianHouseholdIncome": 154906,
+    "medianAge": 53
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017809",
+    "name": "Census Tract 178.09; San Diego County; California",
+    "population": 2359,
+    "medianHouseholdIncome": 110250,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017810",
+    "name": "Census Tract 178.10; San Diego County; California",
+    "population": 4815,
+    "medianHouseholdIncome": 107366,
+    "medianAge": 52.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017811",
+    "name": "Census Tract 178.11; San Diego County; California",
+    "population": 6504,
+    "medianHouseholdIncome": 151292,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017813",
+    "name": "Census Tract 178.13; San Diego County; California",
+    "population": 4654,
+    "medianHouseholdIncome": 126141,
+    "medianAge": 49
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017901",
+    "name": "Census Tract 179.01; San Diego County; California",
+    "population": 3683,
+    "medianHouseholdIncome": 77371,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "017902",
+    "name": "Census Tract 179.02; San Diego County; California",
+    "population": 3089,
+    "medianHouseholdIncome": 70685,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018000",
+    "name": "Census Tract 180; San Diego County; California",
+    "population": 3507,
+    "medianHouseholdIncome": 101351,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018101",
+    "name": "Census Tract 181.01; San Diego County; California",
+    "population": 3101,
+    "medianHouseholdIncome": 88170,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018102",
+    "name": "Census Tract 181.02; San Diego County; California",
+    "population": 2482,
+    "medianHouseholdIncome": 67340,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018201",
+    "name": "Census Tract 182.01; San Diego County; California",
+    "population": 2942,
+    "medianHouseholdIncome": 68563,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018202",
+    "name": "Census Tract 182.02; San Diego County; California",
+    "population": 3546,
+    "medianHouseholdIncome": 68816,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018301",
+    "name": "Census Tract 183.01; San Diego County; California",
+    "population": 908,
+    "medianHouseholdIncome": 71442,
+    "medianAge": 51.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018302",
+    "name": "Census Tract 183.02; San Diego County; California",
+    "population": 1306,
+    "medianHouseholdIncome": 63011,
+    "medianAge": 38.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018400",
+    "name": "Census Tract 184; San Diego County; California",
+    "population": 3551,
+    "medianHouseholdIncome": 73365,
+    "medianAge": 34.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018504",
+    "name": "Census Tract 185.04; San Diego County; California",
+    "population": 6230,
+    "medianHouseholdIncome": 71607,
+    "medianAge": 40.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018509",
+    "name": "Census Tract 185.09; San Diego County; California",
+    "population": 5525,
+    "medianHouseholdIncome": 59048,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018510",
+    "name": "Census Tract 185.10; San Diego County; California",
+    "population": 2697,
+    "medianHouseholdIncome": 53958,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018511",
+    "name": "Census Tract 185.11; San Diego County; California",
+    "population": 4527,
+    "medianHouseholdIncome": 69573,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018512",
+    "name": "Census Tract 185.12; San Diego County; California",
+    "population": 3517,
+    "medianHouseholdIncome": 53348,
+    "medianAge": 63.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018515",
+    "name": "Census Tract 185.15; San Diego County; California",
+    "population": 5382,
+    "medianHouseholdIncome": 96250,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018516",
+    "name": "Census Tract 185.16; San Diego County; California",
+    "population": 4021,
+    "medianHouseholdIncome": 99964,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018517",
+    "name": "Census Tract 185.17; San Diego County; California",
+    "population": 4276,
+    "medianHouseholdIncome": 85464,
+    "medianAge": 41.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018518",
+    "name": "Census Tract 185.18; San Diego County; California",
+    "population": 3538,
+    "medianHouseholdIncome": 99339,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018519",
+    "name": "Census Tract 185.19; San Diego County; California",
+    "population": 5941,
+    "medianHouseholdIncome": 75201,
+    "medianAge": 32
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018520",
+    "name": "Census Tract 185.20; San Diego County; California",
+    "population": 5103,
+    "medianHouseholdIncome": 86172,
+    "medianAge": 34.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018521",
+    "name": "Census Tract 185.21; San Diego County; California",
+    "population": 5793,
+    "medianHouseholdIncome": 97436,
+    "medianAge": 35
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018522",
+    "name": "Census Tract 185.22; San Diego County; California",
+    "population": 4991,
+    "medianHouseholdIncome": 107798,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018523",
+    "name": "Census Tract 185.23; San Diego County; California",
+    "population": 4793,
+    "medianHouseholdIncome": 69030,
+    "medianAge": 38.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018524",
+    "name": "Census Tract 185.24; San Diego County; California",
+    "population": 3875,
+    "medianHouseholdIncome": 98153,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018525",
+    "name": "Census Tract 185.25; San Diego County; California",
+    "population": 4039,
+    "medianHouseholdIncome": 145750,
+    "medianAge": 49.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018601",
+    "name": "Census Tract 186.01; San Diego County; California",
+    "population": 5174,
+    "medianHouseholdIncome": 137500,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018608",
+    "name": "Census Tract 186.08; San Diego County; California",
+    "population": 3247,
+    "medianHouseholdIncome": 125160,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018609",
+    "name": "Census Tract 186.09; San Diego County; California",
+    "population": 6365,
+    "medianHouseholdIncome": 71605,
+    "medianAge": 37.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018612",
+    "name": "Census Tract 186.12; San Diego County; California",
+    "population": 5074,
+    "medianHouseholdIncome": 137857,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018613",
+    "name": "Census Tract 186.13; San Diego County; California",
+    "population": 3853,
+    "medianHouseholdIncome": 86481,
+    "medianAge": 32.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018615",
+    "name": "Census Tract 186.15; San Diego County; California",
+    "population": 3306,
+    "medianHouseholdIncome": 63514,
+    "medianAge": 25.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018616",
+    "name": "Census Tract 186.16; San Diego County; California",
+    "population": 3445,
+    "medianHouseholdIncome": 53571,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018617",
+    "name": "Census Tract 186.17; San Diego County; California",
+    "population": 3496,
+    "medianHouseholdIncome": 114500,
+    "medianAge": 37.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018618",
+    "name": "Census Tract 186.18; San Diego County; California",
+    "population": 4071,
+    "medianHouseholdIncome": 87800,
+    "medianAge": 28.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018619",
+    "name": "Census Tract 186.19; San Diego County; California",
+    "population": 4922,
+    "medianHouseholdIncome": 164035,
+    "medianAge": 41.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018620",
+    "name": "Census Tract 186.20; San Diego County; California",
+    "population": 2427,
+    "medianHouseholdIncome": 86047,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018621",
+    "name": "Census Tract 186.21; San Diego County; California",
+    "population": 1983,
+    "medianHouseholdIncome": 96923,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018622",
+    "name": "Census Tract 186.22; San Diego County; California",
+    "population": 4973,
+    "medianHouseholdIncome": 70543,
+    "medianAge": 30.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018700",
+    "name": "Census Tract 187; San Diego County; California",
+    "population": 38907,
+    "medianHouseholdIncome": 60525,
+    "medianAge": 21.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018801",
+    "name": "Census Tract 188.01; San Diego County; California",
+    "population": 3685,
+    "medianHouseholdIncome": 111547,
+    "medianAge": 45.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018803",
+    "name": "Census Tract 188.03; San Diego County; California",
+    "population": 4429,
+    "medianHouseholdIncome": 93821,
+    "medianAge": 50.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018804",
+    "name": "Census Tract 188.04; San Diego County; California",
+    "population": 5098,
+    "medianHouseholdIncome": 150417,
+    "medianAge": 55.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018805",
+    "name": "Census Tract 188.05; San Diego County; California",
+    "population": 3737,
+    "medianHouseholdIncome": 126250,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018903",
+    "name": "Census Tract 189.03; San Diego County; California",
+    "population": 5967,
+    "medianHouseholdIncome": 66734,
+    "medianAge": 28.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018904",
+    "name": "Census Tract 189.04; San Diego County; California",
+    "population": 6441,
+    "medianHouseholdIncome": 57832,
+    "medianAge": 29.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018905",
+    "name": "Census Tract 189.05; San Diego County; California",
+    "population": 6448,
+    "medianHouseholdIncome": 68197,
+    "medianAge": 31.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "018906",
+    "name": "Census Tract 189.06; San Diego County; California",
+    "population": 6516,
+    "medianHouseholdIncome": 74440,
+    "medianAge": 32.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019001",
+    "name": "Census Tract 190.01; San Diego County; California",
+    "population": 6281,
+    "medianHouseholdIncome": 122147,
+    "medianAge": 53.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019002",
+    "name": "Census Tract 190.02; San Diego County; California",
+    "population": 3428,
+    "medianHouseholdIncome": 107500,
+    "medianAge": 39.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019103",
+    "name": "Census Tract 191.03; San Diego County; California",
+    "population": 6131,
+    "medianHouseholdIncome": 102768,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019105",
+    "name": "Census Tract 191.05; San Diego County; California",
+    "population": 6116,
+    "medianHouseholdIncome": 134771,
+    "medianAge": 52.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019107",
+    "name": "Census Tract 191.07; San Diego County; California",
+    "population": 2616,
+    "medianHouseholdIncome": 101250,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019108",
+    "name": "Census Tract 191.08; San Diego County; California",
+    "population": 2399,
+    "medianHouseholdIncome": 94382,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019109",
+    "name": "Census Tract 191.09; San Diego County; California",
+    "population": 4485,
+    "medianHouseholdIncome": 124568,
+    "medianAge": 44
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019110",
+    "name": "Census Tract 191.10; San Diego County; California",
+    "population": 5194,
+    "medianHouseholdIncome": 115069,
+    "medianAge": 40
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019111",
+    "name": "Census Tract 191.11; San Diego County; California",
+    "population": 4444,
+    "medianHouseholdIncome": 116023,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019203",
+    "name": "Census Tract 192.03; San Diego County; California",
+    "population": 2842,
+    "medianHouseholdIncome": 141146,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019205",
+    "name": "Census Tract 192.05; San Diego County; California",
+    "population": 6218,
+    "medianHouseholdIncome": 82375,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019206",
+    "name": "Census Tract 192.06; San Diego County; California",
+    "population": 5729,
+    "medianHouseholdIncome": 87891,
+    "medianAge": 31.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019208",
+    "name": "Census Tract 192.08; San Diego County; California",
+    "population": 3625,
+    "medianHouseholdIncome": 100125,
+    "medianAge": 42.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019209",
+    "name": "Census Tract 192.09; San Diego County; California",
+    "population": 2743,
+    "medianHouseholdIncome": 140663,
+    "medianAge": 43
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019210",
+    "name": "Census Tract 192.10; San Diego County; California",
+    "population": 6285,
+    "medianHouseholdIncome": 75973,
+    "medianAge": 26.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019301",
+    "name": "Census Tract 193.01; San Diego County; California",
+    "population": 6453,
+    "medianHouseholdIncome": 110880,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019303",
+    "name": "Census Tract 193.03; San Diego County; California",
+    "population": 8365,
+    "medianHouseholdIncome": 105742,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019304",
+    "name": "Census Tract 193.04; San Diego County; California",
+    "population": 3300,
+    "medianHouseholdIncome": 89792,
+    "medianAge": 34.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019305",
+    "name": "Census Tract 193.05; San Diego County; California",
+    "population": 4208,
+    "medianHouseholdIncome": 74634,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019403",
+    "name": "Census Tract 194.03; San Diego County; California",
+    "population": 5793,
+    "medianHouseholdIncome": 110020,
+    "medianAge": 38.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019404",
+    "name": "Census Tract 194.04; San Diego County; California",
+    "population": 3300,
+    "medianHouseholdIncome": 76944,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019405",
+    "name": "Census Tract 194.05; San Diego County; California",
+    "population": 3884,
+    "medianHouseholdIncome": 77153,
+    "medianAge": 33.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019406",
+    "name": "Census Tract 194.06; San Diego County; California",
+    "population": 4704,
+    "medianHouseholdIncome": 81743,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019501",
+    "name": "Census Tract 195.01; San Diego County; California",
+    "population": 3671,
+    "medianHouseholdIncome": 76767,
+    "medianAge": 28.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019502",
+    "name": "Census Tract 195.02; San Diego County; California",
+    "population": 5994,
+    "medianHouseholdIncome": 59844,
+    "medianAge": 28.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019503",
+    "name": "Census Tract 195.03; San Diego County; California",
+    "population": 5148,
+    "medianHouseholdIncome": 79148,
+    "medianAge": 34.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019601",
+    "name": "Census Tract 196.01; San Diego County; California",
+    "population": 6651,
+    "medianHouseholdIncome": 107550,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019602",
+    "name": "Census Tract 196.02; San Diego County; California",
+    "population": 5585,
+    "medianHouseholdIncome": 98901,
+    "medianAge": 36
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019701",
+    "name": "Census Tract 197.01; San Diego County; California",
+    "population": 7484,
+    "medianHouseholdIncome": 86406,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019702",
+    "name": "Census Tract 197.02; San Diego County; California",
+    "population": 4919,
+    "medianHouseholdIncome": 104432,
+    "medianAge": 41.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019803",
+    "name": "Census Tract 198.03; San Diego County; California",
+    "population": 5210,
+    "medianHouseholdIncome": 114020,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019804",
+    "name": "Census Tract 198.04; San Diego County; California",
+    "population": 4392,
+    "medianHouseholdIncome": 143500,
+    "medianAge": 43.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019805",
+    "name": "Census Tract 198.05; San Diego County; California",
+    "population": 4005,
+    "medianHouseholdIncome": 71630,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019808",
+    "name": "Census Tract 198.08; San Diego County; California",
+    "population": 4603,
+    "medianHouseholdIncome": 94779,
+    "medianAge": 63.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019809",
+    "name": "Census Tract 198.09; San Diego County; California",
+    "population": 4271,
+    "medianHouseholdIncome": 111875,
+    "medianAge": 51.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019810",
+    "name": "Census Tract 198.10; San Diego County; California",
+    "population": 6591,
+    "medianHouseholdIncome": 110893,
+    "medianAge": 36.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019811",
+    "name": "Census Tract 198.11; San Diego County; California",
+    "population": 5878,
+    "medianHouseholdIncome": 116948,
+    "medianAge": 43.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019902",
+    "name": "Census Tract 199.02; San Diego County; California",
+    "population": 4403,
+    "medianHouseholdIncome": 86300,
+    "medianAge": 34.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019903",
+    "name": "Census Tract 199.03; San Diego County; California",
+    "population": 4786,
+    "medianHouseholdIncome": 101250,
+    "medianAge": 37.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019904",
+    "name": "Census Tract 199.04; San Diego County; California",
+    "population": 5938,
+    "medianHouseholdIncome": 99636,
+    "medianAge": 44.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "019905",
+    "name": "Census Tract 199.05; San Diego County; California",
+    "population": 5302,
+    "medianHouseholdIncome": 105865,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020015",
+    "name": "Census Tract 200.15; San Diego County; California",
+    "population": 5621,
+    "medianHouseholdIncome": 170179,
+    "medianAge": 43.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020017",
+    "name": "Census Tract 200.17; San Diego County; California",
+    "population": 2693,
+    "medianHouseholdIncome": 61366,
+    "medianAge": 39.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020019",
+    "name": "Census Tract 200.19; San Diego County; California",
+    "population": 7405,
+    "medianHouseholdIncome": 90800,
+    "medianAge": 50.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020021",
+    "name": "Census Tract 200.21; San Diego County; California",
+    "population": 5554,
+    "medianHouseholdIncome": 88213,
+    "medianAge": 35.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020023",
+    "name": "Census Tract 200.23; San Diego County; California",
+    "population": 4098,
+    "medianHouseholdIncome": 100000,
+    "medianAge": 39.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020024",
+    "name": "Census Tract 200.24; San Diego County; California",
+    "population": 4313,
+    "medianHouseholdIncome": 63846,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020025",
+    "name": "Census Tract 200.25; San Diego County; California",
+    "population": 5422,
+    "medianHouseholdIncome": 84148,
+    "medianAge": 33.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020026",
+    "name": "Census Tract 200.26; San Diego County; California",
+    "population": 4100,
+    "medianHouseholdIncome": 130552,
+    "medianAge": 46.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020028",
+    "name": "Census Tract 200.28; San Diego County; California",
+    "population": 3860,
+    "medianHouseholdIncome": 52791,
+    "medianAge": 25.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020029",
+    "name": "Census Tract 200.29; San Diego County; California",
+    "population": 6059,
+    "medianHouseholdIncome": 55888,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020030",
+    "name": "Census Tract 200.30; San Diego County; California",
+    "population": 8725,
+    "medianHouseholdIncome": 205202,
+    "medianAge": 41
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020031",
+    "name": "Census Tract 200.31; San Diego County; California",
+    "population": 6855,
+    "medianHouseholdIncome": 107303,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020032",
+    "name": "Census Tract 200.32; San Diego County; California",
+    "population": 3127,
+    "medianHouseholdIncome": 158125,
+    "medianAge": 47.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020033",
+    "name": "Census Tract 200.33; San Diego County; California",
+    "population": 4603,
+    "medianHouseholdIncome": 112361,
+    "medianAge": 37
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020034",
+    "name": "Census Tract 200.34; San Diego County; California",
+    "population": 2636,
+    "medianHouseholdIncome": 218063,
+    "medianAge": 40.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020035",
+    "name": "Census Tract 200.35; San Diego County; California",
+    "population": 6376,
+    "medianHouseholdIncome": 166984,
+    "medianAge": 43.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020036",
+    "name": "Census Tract 200.36; San Diego County; California",
+    "population": 3426,
+    "medianHouseholdIncome": 68248,
+    "medianAge": 30.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020037",
+    "name": "Census Tract 200.37; San Diego County; California",
+    "population": 4783,
+    "medianHouseholdIncome": 78004,
+    "medianAge": 33.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020038",
+    "name": "Census Tract 200.38; San Diego County; California",
+    "population": 5323,
+    "medianHouseholdIncome": 153714,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020039",
+    "name": "Census Tract 200.39; San Diego County; California",
+    "population": 1952,
+    "medianHouseholdIncome": 119018,
+    "medianAge": 38.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020040",
+    "name": "Census Tract 200.40; San Diego County; California",
+    "population": 3980,
+    "medianHouseholdIncome": 129063,
+    "medianAge": 49.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020041",
+    "name": "Census Tract 200.41; San Diego County; California",
+    "population": 2445,
+    "medianHouseholdIncome": 80438,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020042",
+    "name": "Census Tract 200.42; San Diego County; California",
+    "population": 4670,
+    "medianHouseholdIncome": 102826,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020043",
+    "name": "Census Tract 200.43; San Diego County; California",
+    "population": 5374,
+    "medianHouseholdIncome": 185804,
+    "medianAge": 36.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020044",
+    "name": "Census Tract 200.44; San Diego County; California",
+    "population": 8598,
+    "medianHouseholdIncome": 175923,
+    "medianAge": 38.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020105",
+    "name": "Census Tract 201.05; San Diego County; California",
+    "population": 4087,
+    "medianHouseholdIncome": 100000,
+    "medianAge": 37.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020106",
+    "name": "Census Tract 201.06; San Diego County; California",
+    "population": 3651,
+    "medianHouseholdIncome": 73889,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020107",
+    "name": "Census Tract 201.07; San Diego County; California",
+    "population": 4881,
+    "medianHouseholdIncome": 98694,
+    "medianAge": 33
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020108",
+    "name": "Census Tract 201.08; San Diego County; California",
+    "population": 5107,
+    "medianHouseholdIncome": 64265,
+    "medianAge": 30.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020109",
+    "name": "Census Tract 201.09; San Diego County; California",
+    "population": 5151,
+    "medianHouseholdIncome": 98176,
+    "medianAge": 34.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020110",
+    "name": "Census Tract 201.10; San Diego County; California",
+    "population": 8196,
+    "medianHouseholdIncome": 130045,
+    "medianAge": 37.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020111",
+    "name": "Census Tract 201.11; San Diego County; California",
+    "population": 3575,
+    "medianHouseholdIncome": 101118,
+    "medianAge": 50.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020202",
+    "name": "Census Tract 202.02; San Diego County; California",
+    "population": 6735,
+    "medianHouseholdIncome": 43777,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020206",
+    "name": "Census Tract 202.06; San Diego County; California",
+    "population": 5601,
+    "medianHouseholdIncome": 59923,
+    "medianAge": 31.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020207",
+    "name": "Census Tract 202.07; San Diego County; California",
+    "population": 5078,
+    "medianHouseholdIncome": 58222,
+    "medianAge": 27.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020208",
+    "name": "Census Tract 202.08; San Diego County; California",
+    "population": 3642,
+    "medianHouseholdIncome": 99844,
+    "medianAge": 31.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020209",
+    "name": "Census Tract 202.09; San Diego County; California",
+    "population": 4621,
+    "medianHouseholdIncome": 51603,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020210",
+    "name": "Census Tract 202.10; San Diego County; California",
+    "population": 4802,
+    "medianHouseholdIncome": 61214,
+    "medianAge": 34.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020211",
+    "name": "Census Tract 202.11; San Diego County; California",
+    "population": 5778,
+    "medianHouseholdIncome": 58324,
+    "medianAge": 35.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020213",
+    "name": "Census Tract 202.13; San Diego County; California",
+    "population": 4266,
+    "medianHouseholdIncome": 57083,
+    "medianAge": 28.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020214",
+    "name": "Census Tract 202.14; San Diego County; California",
+    "population": 4880,
+    "medianHouseholdIncome": 32322,
+    "medianAge": 36.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020304",
+    "name": "Census Tract 203.04; San Diego County; California",
+    "population": 7431,
+    "medianHouseholdIncome": 134911,
+    "medianAge": 39.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020305",
+    "name": "Census Tract 203.05; San Diego County; California",
+    "population": 5937,
+    "medianHouseholdIncome": 97711,
+    "medianAge": 44.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020308",
+    "name": "Census Tract 203.08; San Diego County; California",
+    "population": 6700,
+    "medianHouseholdIncome": 44264,
+    "medianAge": 42.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020309",
+    "name": "Census Tract 203.09; San Diego County; California",
+    "population": 4554,
+    "medianHouseholdIncome": 105049,
+    "medianAge": 31.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020310",
+    "name": "Census Tract 203.10; San Diego County; California",
+    "population": 8631,
+    "medianHouseholdIncome": 117009,
+    "medianAge": 27.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020311",
+    "name": "Census Tract 203.11; San Diego County; California",
+    "population": 3536,
+    "medianHouseholdIncome": 98891,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020312",
+    "name": "Census Tract 203.12; San Diego County; California",
+    "population": 4050,
+    "medianHouseholdIncome": 101905,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020313",
+    "name": "Census Tract 203.13; San Diego County; California",
+    "population": 3011,
+    "medianHouseholdIncome": 60170,
+    "medianAge": 49.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020401",
+    "name": "Census Tract 204.01; San Diego County; California",
+    "population": 2299,
+    "medianHouseholdIncome": 144688,
+    "medianAge": 56.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020403",
+    "name": "Census Tract 204.03; San Diego County; California",
+    "population": 3902,
+    "medianHouseholdIncome": 114297,
+    "medianAge": 39.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020404",
+    "name": "Census Tract 204.04; San Diego County; California",
+    "population": 5563,
+    "medianHouseholdIncome": 95653,
+    "medianAge": 37.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020405",
+    "name": "Census Tract 204.05; San Diego County; California",
+    "population": 3333,
+    "medianHouseholdIncome": 146033,
+    "medianAge": 51.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020500",
+    "name": "Census Tract 205; San Diego County; California",
+    "population": 4849,
+    "medianHouseholdIncome": 79688,
+    "medianAge": 36.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020601",
+    "name": "Census Tract 206.01; San Diego County; California",
+    "population": 5508,
+    "medianHouseholdIncome": 58114,
+    "medianAge": 33.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020602",
+    "name": "Census Tract 206.02; San Diego County; California",
+    "population": 6045,
+    "medianHouseholdIncome": 62744,
+    "medianAge": 36.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020705",
+    "name": "Census Tract 207.05; San Diego County; California",
+    "population": 4631,
+    "medianHouseholdIncome": 130284,
+    "medianAge": 36.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020706",
+    "name": "Census Tract 207.06; San Diego County; California",
+    "population": 6195,
+    "medianHouseholdIncome": 178018,
+    "medianAge": 48.1
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020707",
+    "name": "Census Tract 207.07; San Diego County; California",
+    "population": 4722,
+    "medianHouseholdIncome": 54271,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020708",
+    "name": "Census Tract 207.08; San Diego County; California",
+    "population": 3770,
+    "medianHouseholdIncome": 119688,
+    "medianAge": 44.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020710",
+    "name": "Census Tract 207.10; San Diego County; California",
+    "population": 1820,
+    "medianHouseholdIncome": 144750,
+    "medianAge": 46.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020711",
+    "name": "Census Tract 207.11; San Diego County; California",
+    "population": 3710,
+    "medianHouseholdIncome": 144728,
+    "medianAge": 40.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020712",
+    "name": "Census Tract 207.12; San Diego County; California",
+    "population": 4481,
+    "medianHouseholdIncome": 129865,
+    "medianAge": 43.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020801",
+    "name": "Census Tract 208.01; San Diego County; California",
+    "population": 5509,
+    "medianHouseholdIncome": 156359,
+    "medianAge": 41.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020805",
+    "name": "Census Tract 208.05; San Diego County; California",
+    "population": 3422,
+    "medianHouseholdIncome": 106688,
+    "medianAge": 41.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020806",
+    "name": "Census Tract 208.06; San Diego County; California",
+    "population": 5713,
+    "medianHouseholdIncome": 76081,
+    "medianAge": 34.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020807",
+    "name": "Census Tract 208.07; San Diego County; California",
+    "population": 2910,
+    "medianHouseholdIncome": 125197,
+    "medianAge": 50.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020810",
+    "name": "Census Tract 208.10; San Diego County; California",
+    "population": 5074,
+    "medianHouseholdIncome": 138444,
+    "medianAge": 44.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020811",
+    "name": "Census Tract 208.11; San Diego County; California",
+    "population": 5903,
+    "medianHouseholdIncome": 134766,
+    "medianAge": 42.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020812",
+    "name": "Census Tract 208.12; San Diego County; California",
+    "population": 2069,
+    "medianHouseholdIncome": 51632,
+    "medianAge": 40.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020813",
+    "name": "Census Tract 208.13; San Diego County; California",
+    "population": 5753,
+    "medianHouseholdIncome": 134028,
+    "medianAge": 31.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020902",
+    "name": "Census Tract 209.02; San Diego County; California",
+    "population": 2504,
+    "medianHouseholdIncome": 100350,
+    "medianAge": 37.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020903",
+    "name": "Census Tract 209.03; San Diego County; California",
+    "population": 2955,
+    "medianHouseholdIncome": 64342,
+    "medianAge": 59.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "020904",
+    "name": "Census Tract 209.04; San Diego County; California",
+    "population": 2513,
+    "medianHouseholdIncome": 81111,
+    "medianAge": 57.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021001",
+    "name": "Census Tract 210.01; San Diego County; California",
+    "population": 1937,
+    "medianHouseholdIncome": 56393,
+    "medianAge": 63.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021002",
+    "name": "Census Tract 210.02; San Diego County; California",
+    "population": 1794,
+    "medianHouseholdIncome": 125811,
+    "medianAge": 55.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021101",
+    "name": "Census Tract 211.01; San Diego County; California",
+    "population": 5619,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 42.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021102",
+    "name": "Census Tract 211.02; San Diego County; California",
+    "population": 2809,
+    "medianHouseholdIncome": 78371,
+    "medianAge": 54.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021202",
+    "name": "Census Tract 212.02; San Diego County; California",
+    "population": 2952,
+    "medianHouseholdIncome": 90598,
+    "medianAge": 53.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021204",
+    "name": "Census Tract 212.04; San Diego County; California",
+    "population": 6057,
+    "medianHouseholdIncome": 133788,
+    "medianAge": 43.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021205",
+    "name": "Census Tract 212.05; San Diego County; California",
+    "population": 7302,
+    "medianHouseholdIncome": 89719,
+    "medianAge": 38.2
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021206",
+    "name": "Census Tract 212.06; San Diego County; California",
+    "population": 3602,
+    "medianHouseholdIncome": 128929,
+    "medianAge": 44.9
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021302",
+    "name": "Census Tract 213.02; San Diego County; California",
+    "population": 6743,
+    "medianHouseholdIncome": 125563,
+    "medianAge": 41.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021304",
+    "name": "Census Tract 213.04; San Diego County; California",
+    "population": 3229,
+    "medianHouseholdIncome": 155500,
+    "medianAge": 42.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021305",
+    "name": "Census Tract 213.05; San Diego County; California",
+    "population": 3485,
+    "medianHouseholdIncome": 117011,
+    "medianAge": 53.7
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021306",
+    "name": "Census Tract 213.06; San Diego County; California",
+    "population": 5496,
+    "medianHouseholdIncome": 157287,
+    "medianAge": 44.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021401",
+    "name": "Census Tract 214.01; San Diego County; California",
+    "population": 4390,
+    "medianHouseholdIncome": 95732,
+    "medianAge": 29.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021402",
+    "name": "Census Tract 214.02; San Diego County; California",
+    "population": 2594,
+    "medianHouseholdIncome": 87557,
+    "medianAge": 39.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021501",
+    "name": "Census Tract 215.01; San Diego County; California",
+    "population": 3855,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 46.3
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021502",
+    "name": "Census Tract 215.02; San Diego County; California",
+    "population": 8764,
+    "medianHouseholdIncome": 167606,
+    "medianAge": 38
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021600",
+    "name": "Census Tract 216; San Diego County; California",
+    "population": 2732,
+    "medianHouseholdIncome": 104688,
+    "medianAge": 27.5
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021800",
+    "name": "Census Tract 218; San Diego County; California",
+    "population": 1871,
+    "medianHouseholdIncome": 194375,
+    "medianAge": 52.8
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "021900",
+    "name": "Census Tract 219; San Diego County; California",
+    "population": 3224,
+    "medianHouseholdIncome": 50158,
+    "medianAge": 31
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "022000",
+    "name": "Census Tract 220; San Diego County; California",
+    "population": 4336,
+    "medianHouseholdIncome": 72619,
+    "medianAge": 35.6
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "022101",
+    "name": "Census Tract 221.01; San Diego County; California",
+    "population": 2214,
+    "medianHouseholdIncome": 152411,
+    "medianAge": 47
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "022102",
+    "name": "Census Tract 221.02; San Diego County; California",
+    "population": 7920,
+    "medianHouseholdIncome": 116849,
+    "medianAge": 35.4
+  },
+  {
+    "state": "06",
+    "county": "073",
+    "tract": "990100",
+    "name": "Census Tract 9901; San Diego County; California",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

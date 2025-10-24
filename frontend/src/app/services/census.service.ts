@@ -241,7 +241,10 @@ export class CensusService {
     params.set('state', state);
     if (county) params.set('county', county);
     if (tract) params.set('tract', tract);
-    if (forceInvalidate) params.set('forceInvalidate', 'true');
+    if (forceInvalidate) {
+      params.set('forceInvalidate', 'true');
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract data - state: ${state}, county: ${county || 'all'}`);
+    }
 
     return this.http.get<CensusTractData[]>(`${CENSUS_PROXY_BASE}/api/census/tract-data?${params.toString()}`).pipe(
       catchError(this.handleError)
@@ -388,7 +391,10 @@ export class CensusService {
     const params = new URLSearchParams();
     params.set('state', stateFips);
     if (county) params.set('county', county);
-    if (forceInvalidate) params.set('forceInvalidate', 'true');
+    if (forceInvalidate) {
+      params.set('forceInvalidate', 'true');
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract boundaries - state: ${state}, county: ${county || 'all'}`);
+    }
 
     console.log('Getting tract boundaries via Cloud Run proxy for state:', state, 'FIPS:', stateFips);
 
@@ -511,9 +517,27 @@ export class CensusService {
    * Get all tract data for a state by fetching all counties
    */
   getAllTractDataForState(state: string, forceInvalidate: boolean = false): Observable<CensusTractData[]> {
+    if (forceInvalidate) {
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for all tract data - state: ${state}`);
+    }
+    
     return this.getCountiesForState(state).pipe(
       switchMap(counties => {
         console.log(`Found ${counties.length} counties for state ${state}`);
+        
+        // Debug: Show which counties are being fetched
+        const countyFips = counties.map(c => c.fips).sort();
+        console.log(`🏛️ Counties being fetched: ${countyFips.join(', ')}`);
+        
+        // Check for missing key counties
+        const keyCounties = ['001', '003', '005', '007', '009', '011', '012', '013', '015', '017', '019', '021', '023', '025', '027'];
+        const missingCounties = keyCounties.filter(county => !countyFips.includes(county));
+        if (missingCounties.length > 0) {
+          console.log(`⚠️ Missing counties from fetch: ${missingCounties.join(', ')}`);
+          if (missingCounties.includes('005')) {
+            console.log(`🚨 County 005 (Coconino) is missing from fetch - tract 001700 may not be available`);
+          }
+        }
         
         // Fetch tract data for each county in parallel
         const countyRequests = counties.map(county => 
@@ -631,6 +655,370 @@ export class CensusService {
   }
 
   /**
+   * Enhanced zig-zag sorting with S4 adjacency data support
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @param direction Either 'latitude' for north/south or 'longitude' for east/west
+   * @param geodistrictService Optional GeodistrictAlgorithmService for S4 data access
+   * @returns Sorted array of tracts in contiguous order
+   */
+  private async zigZagSortTractsWithS4(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    direction: 'latitude' | 'longitude',
+    geodistrictService?: any
+  ): Promise<Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>> {
+    if (tractsWithCentroids.length === 0) return [];
+
+    // Try S4 adjacency data first (if available and service provided)
+    if (geodistrictService && tractsWithCentroids.length > 0) {
+      try {
+        const state = tractsWithCentroids[0].tract.properties?.STATE || '';
+        if (state) {
+          console.log(`🔄 Attempting S4 adjacency-based sorting for ${tractsWithCentroids.length} tracts`);
+          
+          // Load S4 adjacency data (cached)
+          const s4AdjacencyGraph = await geodistrictService.loadS4AdjacencyData(state);
+          
+          // Use S4 data for sorting
+          const result = this.sortTractsByS4Adjacency(tractsWithCentroids, s4AdjacencyGraph, direction);
+          
+          console.log(`✅ S4 adjacency sorting successful for ${tractsWithCentroids.length} tracts`);
+          return result;
+        }
+      } catch (error) {
+        console.warn('S4 adjacency sorting failed, falling back to boundary-based:', error);
+      }
+    }
+
+    // Fallback to current boundary-based approach for small datasets
+    if (tractsWithCentroids.length <= 50) {
+      try {
+        const startTime = Date.now();
+        const result = this.sortTractsByAdjacency(tractsWithCentroids, direction);
+        const elapsed = Date.now() - startTime;
+        
+        if (elapsed > 5000) { // If it took more than 5 seconds, warn and use fallback
+          console.warn(`Boundary-based sorting took ${elapsed}ms, using fallback for better performance`);
+          return this.fallbackGeographicSort(tractsWithCentroids, direction);
+        }
+        
+        return result;
+      } catch (error) {
+        console.warn('Boundary-based sorting failed, falling back to geographic sorting:', error);
+        return this.fallbackGeographicSort(tractsWithCentroids, direction);
+      }
+    }
+
+    // Fallback to geographic sorting for large datasets
+    console.log(`Using efficient geographic sorting for ${tractsWithCentroids.length} tracts`);
+    return this.fallbackGeographicSort(tractsWithCentroids, direction);
+  }
+
+  /**
+   * Get tract ID from tract properties
+   * @param tract Tract feature
+   * @returns Tract ID string
+   */
+  private getTractId(tract: GeoJsonFeature): string {
+    // Try different possible ID fields
+    const possibleIds = [
+      tract.properties?.['GEOID'],
+      tract.properties?.['TRACT_FIPS'],
+      tract.properties?.['TRACTID'],
+      tract.properties?.['GISJOIN']
+    ];
+    
+    for (const id of possibleIds) {
+      if (id && typeof id === 'string') {
+        return id;
+      }
+    }
+    
+    // Fallback: create ID from coordinates
+    const centroid = this.calculateTractCentroid(tract);
+    return `${centroid.lat.toFixed(6)},${centroid.lng.toFixed(6)}`;
+  }
+
+  /**
+   * Sort tracts using S4 adjacency data for optimal performance and contiguity
+   * @param tractsWithCentroids Array of tracts with their centroids
+   * @param s4AdjacencyGraph S4 adjacency graph from GeodistrictAlgorithmService
+   * @param direction Either 'latitude' for north/south or 'longitude' for east/west
+   * @returns Sorted array of tracts in contiguous order
+   */
+  private sortTractsByS4Adjacency(
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
+    s4AdjacencyGraph: Map<string, string[]>,
+    direction: 'latitude' | 'longitude'
+  ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
+    if (tractsWithCentroids.length === 0) return [];
+    if (tractsWithCentroids.length === 1) return tractsWithCentroids;
+
+    console.log(`🔄 Using S4 adjacency data for ${tractsWithCentroids.length} tracts (${direction} direction)`);
+
+    // Detect enclosed tracts first
+    const tracts = tractsWithCentroids.map(item => item.tract);
+    const enclosedMap = this.detectEnclosedTracts(tracts);
+    
+    if (enclosedMap.size > 0) {
+      console.log(`📦 Found ${enclosedMap.size} enclosed tracts that will be paired with their containers`);
+    }
+
+    // Convert tracts to tract ID map for O(1) lookup
+    const tractMap = new Map<string, { tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>();
+    tractsWithCentroids.forEach(item => {
+      const tractId = this.getTractId(item.tract);
+      tractMap.set(tractId, item);
+    });
+
+    // Find starting tract (northwest-most for latitude, southwest-most for longitude)
+    let startTract = tractsWithCentroids[0];
+    for (const tract of tractsWithCentroids) {
+      if (direction === 'latitude') {
+        // For latitude: find northwest-most (highest lat, lowest lng)
+        if (tract.centroid.lat > startTract.centroid.lat || 
+            (tract.centroid.lat === startTract.centroid.lat && tract.centroid.lng < startTract.centroid.lng)) {
+          startTract = tract;
+        }
+      } else {
+        // For longitude: find southwest-most (lowest lat, lowest lng)
+        if (tract.centroid.lat < startTract.centroid.lat || 
+            (tract.centroid.lat === startTract.centroid.lat && tract.centroid.lng < startTract.centroid.lng)) {
+          startTract = tract;
+        }
+      }
+    }
+
+    // Perform traversal using S4 adjacency data
+    const visited = new Set<string>();
+    const result: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> = [];
+    
+    const startTractId = this.getTractId(startTract.tract);
+    visited.add(startTractId);
+    result.push(startTract);
+    
+    let currentTract = startTract;
+    let attempts = 0;
+    const maxAttempts = tractsWithCentroids.length * 2;
+    
+    while (result.length < tractsWithCentroids.length && attempts < maxAttempts) {
+      const currentTractId = this.getTractId(currentTract.tract);
+      const neighbors = s4AdjacencyGraph.get(currentTractId) || [];
+      
+      // Find next unvisited adjacent tract
+      let nextTract = null;
+      for (const neighborId of neighbors) {
+        if (!visited.has(neighborId) && tractMap.has(neighborId)) {
+          nextTract = tractMap.get(neighborId)!;
+          break;
+        }
+      }
+      
+      if (nextTract) {
+        visited.add(this.getTractId(nextTract.tract));
+        result.push(nextTract);
+        
+        // Check if this tract has any enclosed tracts that should be added immediately
+        const nextTractId = this.getTractId(nextTract.tract);
+        for (const [enclosedId, containerId] of enclosedMap.entries()) {
+          if (containerId === nextTractId && !visited.has(enclosedId) && tractMap.has(enclosedId)) {
+            const enclosedTract = tractMap.get(enclosedId)!;
+            visited.add(enclosedId);
+            result.push(enclosedTract);
+            console.log(`📦 Added enclosed tract ${enclosedId} immediately after container ${containerId}`);
+          }
+        }
+        
+        currentTract = nextTract;
+      } else {
+        // No more adjacent tracts, find nearest unvisited tract
+        const unvisitedTracts = tractsWithCentroids.filter(item => 
+          !visited.has(this.getTractId(item.tract))
+        );
+        
+        if (unvisitedTracts.length > 0) {
+          // Find nearest unvisited tract by centroid distance
+          let nearestTract = unvisitedTracts[0];
+          let minDistance = this.calculateDistance(currentTract.centroid, nearestTract.centroid);
+          
+          for (const tract of unvisitedTracts) {
+            const distance = this.calculateDistance(currentTract.centroid, tract.centroid);
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestTract = tract;
+            }
+          }
+          
+          visited.add(this.getTractId(nearestTract.tract));
+          result.push(nearestTract);
+          
+          // Check if this tract has any enclosed tracts that should be added immediately
+          const nearestTractId = this.getTractId(nearestTract.tract);
+          for (const [enclosedId, containerId] of enclosedMap.entries()) {
+            if (containerId === nearestTractId && !visited.has(enclosedId) && tractMap.has(enclosedId)) {
+              const enclosedTract = tractMap.get(enclosedId)!;
+              visited.add(enclosedId);
+              result.push(enclosedTract);
+              console.log(`📦 Added enclosed tract ${enclosedId} immediately after container ${containerId}`);
+            }
+          }
+          
+          currentTract = nearestTract;
+        } else {
+          break;
+        }
+      }
+      
+      attempts++;
+    }
+    
+    console.log(`✅ S4 adjacency sorting complete: ${result.length} tracts sorted in ${attempts} attempts`);
+    return result;
+  }
+
+  /**
+   * Calculate distance between two coordinates
+   * @param coord1 First coordinate
+   * @param coord2 Second coordinate
+   * @returns Distance in coordinate units
+   */
+  private calculateDistance(coord1: { lat: number; lng: number }, coord2: { lat: number; lng: number }): number {
+    const latDiff = coord1.lat - coord2.lat;
+    const lngDiff = coord1.lng - coord2.lng;
+    return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+  }
+
+  /**
+   * Detect enclosed tracts (tracts completely surrounded by another tract)
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @returns Map of enclosed tract ID to containing tract ID
+   */
+  public detectEnclosedTracts(tracts: GeoJsonFeature[]): Map<string, string> {
+    const enclosedMap = new Map<string, string>();
+    
+    if (tracts.length <= 1) return enclosedMap;
+
+    console.log(`🔍 Detecting enclosed tracts among ${tracts.length} tracts...`);
+
+    // For performance, limit to reasonable dataset sizes
+    if (tracts.length > 200) {
+      console.log(`📦 Skipping enclosed tract detection for large dataset (${tracts.length} tracts) - using S4 adjacency data instead`);
+      return enclosedMap;
+    }
+
+    // Check each pair of tracts for containment
+    for (let i = 0; i < tracts.length; i++) {
+      for (let j = 0; j < tracts.length; j++) {
+        if (i === j) continue;
+
+        const tractA = tracts[i];
+        const tractB = tracts[j];
+        const tractAId = this.getTractId(tractA);
+        const tractBId = this.getTractId(tractB);
+
+        // Skip if already processed
+        if (enclosedMap.has(tractAId) || enclosedMap.has(tractBId)) continue;
+
+        // Check if tractA is enclosed by tractB
+        if (this.isTractEnclosedBy(tractA, tractB)) {
+          enclosedMap.set(tractAId, tractBId);
+          console.log(`📦 Found enclosed tract: ${tractAId} is enclosed by ${tractBId}`);
+        }
+        // Check if tractB is enclosed by tractA
+        else if (this.isTractEnclosedBy(tractB, tractA)) {
+          enclosedMap.set(tractBId, tractAId);
+          console.log(`📦 Found enclosed tract: ${tractBId} is enclosed by ${tractAId}`);
+        }
+      }
+    }
+
+    console.log(`✅ Enclosed tract detection complete: found ${enclosedMap.size} enclosed tracts`);
+    return enclosedMap;
+  }
+
+  /**
+   * Check if tract A is completely enclosed by tract B
+   * @param tractA Potentially enclosed tract
+   * @param tractB Potentially containing tract
+   * @returns True if tractA is enclosed by tractB
+   */
+  private isTractEnclosedBy(tractA: GeoJsonFeature, tractB: GeoJsonFeature): boolean {
+    if (!tractA.geometry || !tractB.geometry) return false;
+
+    try {
+      // Get coordinates of both tracts
+      const coordsA = this.extractAllCoordinates(tractA.geometry);
+      const coordsB = this.extractAllCoordinates(tractB.geometry);
+      
+      if (coordsA.length === 0 || coordsB.length === 0) return false;
+
+      // Check if all points of tractA are inside tractB
+      for (const point of coordsA) {
+        if (!this.isPointInPolygon(point, coordsB)) {
+          return false;
+        }
+      }
+
+      // Additional check: ensure tractA is significantly smaller than tractB
+      // This helps avoid false positives where tracts just touch
+      const areaA = this.calculateTractArea(tractA);
+      const areaB = this.calculateTractArea(tractB);
+      
+      return areaA < areaB * 0.8; // tractA must be at least 20% smaller
+    } catch (error) {
+      console.warn('Error checking tract enclosure:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Point in polygon test using ray casting algorithm
+   * @param point Point to test [lng, lat]
+   * @param polygon Array of polygon vertices [lng, lat]
+   * @returns True if point is inside polygon
+   */
+  private isPointInPolygon(point: number[], polygon: number[][]): boolean {
+    const [x, y] = point;
+    let inside = false;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i];
+      const [xj, yj] = polygon[j];
+
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+
+    return inside;
+  }
+
+  /**
+   * Calculate approximate area of a tract (simplified)
+   * @param tract Tract feature
+   * @returns Approximate area in coordinate units squared
+   */
+  private calculateTractArea(tract: GeoJsonFeature): number {
+    if (!tract.geometry) return 0;
+
+    try {
+      const coords = this.extractAllCoordinates(tract.geometry);
+      if (coords.length < 3) return 0;
+
+      // Simple shoelace formula for polygon area
+      let area = 0;
+      for (let i = 0; i < coords.length; i++) {
+        const j = (i + 1) % coords.length;
+        area += coords[i][0] * coords[j][1];
+        area -= coords[j][0] * coords[i][1];
+      }
+      return Math.abs(area) / 2;
+    } catch (error) {
+      console.warn('Error calculating tract area:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Sort tracts by boundary-based adjacency to ensure true contiguity
    * @param tractsWithCentroids Array of tracts with their centroids
    * @param direction Either 'latitude' for north/south or 'longitude' for east/west
@@ -642,6 +1030,14 @@ export class CensusService {
   ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
     if (tractsWithCentroids.length === 0) return [];
     if (tractsWithCentroids.length === 1) return tractsWithCentroids;
+
+    // Detect enclosed tracts first
+    const tracts = tractsWithCentroids.map(item => item.tract);
+    const enclosedMap = this.detectEnclosedTracts(tracts);
+    
+    if (enclosedMap.size > 0) {
+      console.log(`📦 Found ${enclosedMap.size} enclosed tracts that will be paired with their containers`);
+    }
 
     // Find the starting tract (top-north-west)
     let startTract = tractsWithCentroids[0];
@@ -689,6 +1085,23 @@ export class CensusService {
         const nextKey = `${nextTract.centroid.lat},${nextTract.centroid.lng}`;
         visited.add(nextKey);
         result.push(nextTract);
+        
+        // Check if this tract has any enclosed tracts that should be added immediately
+        const nextTractId = this.getTractId(nextTract.tract);
+        for (const [enclosedId, containerId] of enclosedMap.entries()) {
+          if (containerId === nextTractId) {
+            // Find the enclosed tract in our dataset
+            const enclosedTract = tractsWithCentroids.find(item => 
+              this.getTractId(item.tract) === enclosedId
+            );
+            if (enclosedTract && !visited.has(`${enclosedTract.centroid.lat},${enclosedTract.centroid.lng}`)) {
+              visited.add(`${enclosedTract.centroid.lat},${enclosedTract.centroid.lng}`);
+              result.push(enclosedTract);
+              console.log(`📦 Added enclosed tract ${enclosedId} immediately after container ${containerId}`);
+            }
+          }
+        }
+        
         currentTract = nextTract;
       } else {
         // No adjacent unvisited tracts - need to find the closest unvisited tract
@@ -1244,6 +1657,181 @@ export class CensusService {
     const firstGroupPopulation = this.calculateTotalPopulation(firstGroup);
     const secondGroupPopulation = this.calculateTotalPopulation(secondGroup);
 
+    // Create initial result
+    let result: TractDivisionResult;
+    if (direction === 'latitude') {
+      result = {
+        northTracts: secondGroup, // Higher latitude values
+        southTracts: firstGroup,  // Lower latitude values
+        eastTracts: [],
+        westTracts: [],
+        divisionLine,
+        divisionType: direction,
+        totalPopulation,
+        northPopulation: secondGroupPopulation,
+        southPopulation: firstGroupPopulation,
+        eastPopulation: 0,
+        westPopulation: 0
+      };
+    } else {
+      result = {
+        northTracts: [],
+        southTracts: [],
+        eastTracts: secondGroup,  // Higher longitude values
+        westTracts: firstGroup,   // Lower longitude values
+        divisionLine,
+        divisionType: direction,
+        totalPopulation,
+        northPopulation: 0,
+        southPopulation: 0,
+        eastPopulation: secondGroupPopulation,
+        westPopulation: firstGroupPopulation
+      };
+    }
+
+    // Fix any isolated tracts
+    const fixedResult = this.fixIsolatedTractsPostDivision(result, tracts);
+    
+    return fixedResult;
+  }
+
+  /**
+   * Enhanced divide tracts by coordinate with proper enclosed tract handling
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param options Division options including ratio and direction
+   * @param geodistrictService Optional GeodistrictAlgorithmService for S4 data access
+   * @returns Division result with tracts split into groups, population statistics, and division information
+   */
+  async divideTractsByCoordinateWithEnclosedHandling(
+    tracts: GeoJsonFeature[], 
+    options: TractDivisionOptions = {},
+    geodistrictService?: any
+  ): Promise<TractDivisionResult> {
+    const { ratio = [50, 50], direction = 'latitude' } = options;
+
+    if (tracts.length === 0) {
+      return {
+        northTracts: [],
+        southTracts: [],
+        eastTracts: [],
+        westTracts: [],
+        divisionLine: 0,
+        divisionType: direction,
+        totalPopulation: 0,
+        northPopulation: 0,
+        southPopulation: 0,
+        eastPopulation: 0,
+        westPopulation: 0
+      };
+    }
+
+    if (direction === 'population') {
+      return this.divideTractsByPopulation(tracts, ratio);
+    }
+
+    console.log(`🔄 Starting enhanced division with enclosed tract handling for ${tracts.length} tracts`);
+
+    // Step 1: Pre-process tracts to handle enclosed tracts
+    const preprocessing = this.preprocessTractsForEnclosedHandling(tracts);
+    const processedTracts = preprocessing.processedTracts;
+    const enclosedGroupings = preprocessing.enclosedGroupings;
+
+    console.log(`📦 Pre-processing: ${tracts.length} original tracts → ${processedTracts.length} processed tracts`);
+
+    // Step 2: Perform division on processed tracts
+    let divisionResult: TractDivisionResult;
+    
+    if (geodistrictService) {
+      // Use S4-enhanced division
+      divisionResult = await this.divideTractsByCoordinateWithS4(processedTracts, options, geodistrictService);
+    } else {
+      // Use standard division
+      divisionResult = this.divideTractsByCoordinate(processedTracts, options);
+    }
+
+    // Step 3: Post-process to expand combined tracts back to individual tracts
+    const finalResult = this.postprocessDivisionResults(divisionResult, tracts, enclosedGroupings);
+
+    console.log(`✅ Enhanced division complete: ${finalResult.northTracts.length + finalResult.southTracts.length + finalResult.eastTracts.length + finalResult.westTracts.length} individual tracts in final result`);
+
+    return finalResult;
+  }
+
+  /**
+   * Enhanced divide tracts by coordinate with S4 adjacency data support
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param options Division options including ratio and direction
+   * @param geodistrictService Optional GeodistrictAlgorithmService for S4 data access
+   * @returns Division result with tracts split into groups, population statistics, and division information
+   */
+  async divideTractsByCoordinateWithS4(
+    tracts: GeoJsonFeature[], 
+    options: TractDivisionOptions = {},
+    geodistrictService?: any
+  ): Promise<TractDivisionResult> {
+    const { ratio = [50, 50], direction = 'latitude' } = options;
+
+    if (tracts.length === 0) {
+      return {
+        northTracts: [],
+        southTracts: [],
+        eastTracts: [],
+        westTracts: [],
+        divisionLine: 0,
+        divisionType: direction,
+        totalPopulation: 0,
+        northPopulation: 0,
+        southPopulation: 0,
+        eastPopulation: 0,
+        westPopulation: 0
+      };
+    }
+
+    if (direction === 'population') {
+      return this.divideTractsByPopulation(tracts, ratio);
+    }
+
+    // Calculate centroids for all tracts
+    const tractsWithCentroids = tracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract)
+    }));
+
+    // Sort tracts using enhanced zig-zag pattern with S4 adjacency data support
+    const sortedTracts = await this.zigZagSortTractsWithS4(tractsWithCentroids, direction, geodistrictService);
+
+    // Calculate division point based on population ratio
+    const totalPopulation = this.calculateTotalPopulation(tracts);
+    const targetFirstGroupPopulation = (totalPopulation * ratio[0]) / (ratio[0] + ratio[1]);
+    
+    // Find the division index where cumulative population is closest to target
+    let cumulativePopulation = 0;
+    let divisionIndex = 0;
+    let bestDifference = Infinity;
+    
+    for (let i = 0; i < sortedTracts.length; i++) {
+      cumulativePopulation += this.getTractPopulation(sortedTracts[i].tract);
+      const difference = Math.abs(cumulativePopulation - targetFirstGroupPopulation);
+      
+      if (difference < bestDifference) {
+        bestDifference = difference;
+        divisionIndex = i + 1; // Split after this tract
+      }
+    }
+
+    // Find the division line coordinate
+    const divisionLine = direction === 'latitude'
+      ? sortedTracts[Math.max(0, divisionIndex - 1)].centroid.lat
+      : sortedTracts[Math.max(0, divisionIndex - 1)].centroid.lng;
+
+    // Split tracts into groups
+    const firstGroup = sortedTracts.slice(0, divisionIndex).map(item => item.tract);
+    const secondGroup = sortedTracts.slice(divisionIndex).map(item => item.tract);
+
+    // Calculate population totals
+    const firstGroupPopulation = this.calculateTotalPopulation(firstGroup);
+    const secondGroupPopulation = this.calculateTotalPopulation(secondGroup);
+
     // Return result based on direction
     if (direction === 'latitude') {
       return {
@@ -1274,6 +1862,638 @@ export class CensusService {
         westPopulation: firstGroupPopulation
       };
     }
+  }
+
+  /**
+   * Pre-process tracts to group enclosed tracts with their containers
+   * This ensures enclosed tracts are treated as part of their containing tract from the start
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @returns Object with processed tracts and grouping information
+   */
+  public preprocessTractsForEnclosedHandling(tracts: GeoJsonFeature[]): {
+    processedTracts: GeoJsonFeature[];
+    enclosedGroupings: Map<string, string[]>; // containerId -> [enclosedIds]
+    originalToProcessed: Map<string, string>; // originalTractId -> processedTractId
+  } {
+    console.log(`🔍 Pre-processing ${tracts.length} tracts for enclosed tract handling...`);
+    
+    const enclosedMap = this.detectEnclosedTracts(tracts);
+    const enclosedGroupings = new Map<string, string[]>();
+    const originalToProcessed = new Map<string, string>();
+    const processedTracts: GeoJsonFeature[] = [];
+    const processedTractIds = new Set<string>();
+
+    // First, identify all containers and their enclosed tracts
+    for (const [enclosedId, containerId] of enclosedMap.entries()) {
+      if (!enclosedGroupings.has(containerId)) {
+        enclosedGroupings.set(containerId, []);
+      }
+      enclosedGroupings.get(containerId)!.push(enclosedId);
+    }
+
+    console.log(`📦 Found ${enclosedGroupings.size} containers with enclosed tracts`);
+
+    // Process each tract
+    for (const tract of tracts) {
+      const tractId = this.getTractId(tract);
+      
+      // Check if this tract is a container
+      if (enclosedGroupings.has(tractId)) {
+        // This is a container tract - create a combined tract
+        const enclosedIds = enclosedGroupings.get(tractId)!;
+        const combinedTract = this.createCombinedTract(tract, tracts, enclosedIds);
+        
+        processedTracts.push(combinedTract);
+        processedTractIds.add(tractId);
+        
+        // Map all enclosed tracts to this combined tract
+        originalToProcessed.set(tractId, tractId);
+        for (const enclosedId of enclosedIds) {
+          originalToProcessed.set(enclosedId, tractId);
+          processedTractIds.add(enclosedId);
+        }
+        
+        console.log(`📦 Created combined tract for container ${tractId} with ${enclosedIds.length} enclosed tracts`);
+      } else if (!processedTractIds.has(tractId)) {
+        // This is a regular tract (not enclosed by another)
+        processedTracts.push(tract);
+        originalToProcessed.set(tractId, tractId);
+        processedTractIds.add(tractId);
+      }
+      // Skip enclosed tracts as they're now part of their container
+    }
+
+    console.log(`✅ Pre-processing complete: ${processedTracts.length} processed tracts from ${tracts.length} original tracts`);
+    return {
+      processedTracts,
+      enclosedGroupings,
+      originalToProcessed
+    };
+  }
+
+  /**
+   * Create a combined tract that includes the container and all its enclosed tracts
+   * @param containerTract The containing tract
+   * @param allTracts All tracts in the dataset
+   * @param enclosedIds Array of enclosed tract IDs
+   * @returns Combined tract with updated properties
+   */
+  private createCombinedTract(
+    containerTract: GeoJsonFeature,
+    allTracts: GeoJsonFeature[],
+    enclosedIds: string[]
+  ): GeoJsonFeature {
+    // Find all enclosed tracts
+    const enclosedTracts = allTracts.filter(tract => 
+      enclosedIds.includes(this.getTractId(tract))
+    );
+
+    // Calculate combined population
+    const containerPopulation = this.getTractPopulation(containerTract);
+    const enclosedPopulation = enclosedTracts.reduce((sum, tract) => 
+      sum + this.getTractPopulation(tract), 0
+    );
+    const totalPopulation = containerPopulation + enclosedPopulation;
+
+    // Create combined tract with updated properties
+    const combinedTract: GeoJsonFeature = {
+      ...containerTract,
+      properties: {
+        ...containerTract.properties,
+        POPULATION: totalPopulation,
+        COMBINED_TRACTS: enclosedIds,
+        IS_CONTAINER: true
+      }
+    };
+
+    return combinedTract;
+  }
+
+  /**
+   * Post-process division results to expand combined tracts back to individual tracts
+   * @param divisionResult Original division result with combined tracts
+   * @param originalTracts Original tract dataset
+   * @param enclosedGroupings Map of container to enclosed tract IDs
+   * @returns Division result with individual tracts restored
+   */
+  public postprocessDivisionResults(
+    divisionResult: TractDivisionResult,
+    originalTracts: GeoJsonFeature[],
+    enclosedGroupings: Map<string, string[]>
+  ): TractDivisionResult {
+    console.log(`🔍 Post-processing division results to expand combined tracts...`);
+
+    const expandTractGroup = (tractGroup: GeoJsonFeature[]): GeoJsonFeature[] => {
+      const expandedTracts: GeoJsonFeature[] = [];
+      
+      for (const tract of tractGroup) {
+        const tractId = this.getTractId(tract);
+        
+        if (enclosedGroupings.has(tractId)) {
+          // This is a combined tract - expand it
+          const containerTract = originalTracts.find(t => this.getTractId(t) === tractId);
+          const enclosedIds = enclosedGroupings.get(tractId)!;
+          const enclosedTracts = originalTracts.filter(t => 
+            enclosedIds.includes(this.getTractId(t))
+          );
+          
+          if (containerTract) {
+            expandedTracts.push(containerTract);
+          }
+          expandedTracts.push(...enclosedTracts);
+          
+          console.log(`📦 Expanded combined tract ${tractId} into ${1 + enclosedTracts.length} individual tracts`);
+        } else {
+          // Regular tract
+          expandedTracts.push(tract);
+        }
+      }
+      
+      return expandedTracts;
+    };
+
+    // Expand all tract groups
+    const expandedNorthTracts = expandTractGroup(divisionResult.northTracts);
+    const expandedSouthTracts = expandTractGroup(divisionResult.southTracts);
+    const expandedEastTracts = expandTractGroup(divisionResult.eastTracts);
+    const expandedWestTracts = expandTractGroup(divisionResult.westTracts);
+
+    // Recalculate populations
+    const northPopulation = this.calculateTotalPopulation(expandedNorthTracts);
+    const southPopulation = this.calculateTotalPopulation(expandedSouthTracts);
+    const eastPopulation = this.calculateTotalPopulation(expandedEastTracts);
+    const westPopulation = this.calculateTotalPopulation(expandedWestTracts);
+
+    console.log(`✅ Post-processing complete: expanded combined tracts back to individual tracts`);
+
+    return {
+      ...divisionResult,
+      northTracts: expandedNorthTracts,
+      southTracts: expandedSouthTracts,
+      eastTracts: expandedEastTracts,
+      westTracts: expandedWestTracts,
+      northPopulation,
+      southPopulation,
+      eastPopulation,
+      westPopulation
+    };
+  }
+
+  /**
+   * Check if a tract is isolated (not connected to other tracts in its group)
+   * @param tract Tract to check
+   * @param groupTracts All tracts in the same group
+   * @param allTracts All tracts in the dataset
+   * @returns True if tract is isolated
+   */
+  private isTractIsolated(
+    tract: GeoJsonFeature,
+    groupTracts: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[]
+  ): boolean {
+    if (groupTracts.length <= 1) return false;
+
+    const tractId = this.getTractId(tract);
+    
+    // Check if this tract is enclosed by another tract
+    const enclosedMap = this.detectEnclosedTracts(allTracts);
+    const containerId = enclosedMap.get(tractId);
+    
+    if (containerId) {
+      // If this tract is enclosed, check if its container is in the same group
+      const containerInGroup = groupTracts.some(t => this.getTractId(t) === containerId);
+      return !containerInGroup;
+    }
+
+    // For non-enclosed tracts, check if they have any adjacent tracts in the group
+    const adjacentTracts = this.findAdjacentTractsInGroup(tract, groupTracts);
+    return adjacentTracts.length === 0;
+  }
+
+  /**
+   * Find tracts that are adjacent to the given tract within a group
+   * @param tract Tract to find adjacents for
+   * @param groupTracts Tracts in the group
+   * @returns Array of adjacent tract IDs
+   */
+  private findAdjacentTractsInGroup(tract: GeoJsonFeature, groupTracts: GeoJsonFeature[]): string[] {
+    const adjacentTracts: string[] = [];
+    const tractId = this.getTractId(tract);
+
+    for (const otherTract of groupTracts) {
+      if (this.getTractId(otherTract) === tractId) continue;
+      
+      if (this.areTractsAdjacent(tract, otherTract)) {
+        adjacentTracts.push(this.getTractId(otherTract));
+      }
+    }
+
+    return adjacentTracts;
+  }
+
+  /**
+   * Simple post-division check to fix isolated tracts
+   * @param divisionResult Division result to check and fix
+   * @param allTracts All tracts in the original dataset
+   * @returns Fixed division result with isolated tracts moved
+   */
+  public fixIsolatedTractsPostDivision(
+    divisionResult: TractDivisionResult,
+    allTracts: GeoJsonFeature[]
+  ): TractDivisionResult {
+    console.log(`🔍 Checking for isolated tracts after division...`);
+    console.log(`📊 Division result: North=${divisionResult.northTracts.length}, South=${divisionResult.southTracts.length}, East=${divisionResult.eastTracts.length}, West=${divisionResult.westTracts.length}`);
+    
+    const movedTracts: { tractId: string; fromGroup: string; toGroup: string }[] = [];
+    
+    // Detect enclosed tracts
+    const enclosedMap = this.detectEnclosedTracts(allTracts);
+    console.log(`📦 Enclosed tracts detected: ${enclosedMap.size}`);
+    
+    if (enclosedMap.size === 0) {
+      console.log(`✅ No enclosed tracts found, no isolation issues expected`);
+      return divisionResult;
+    }
+    
+    // Log all enclosed relationships
+    console.log(`📋 Enclosed tract relationships:`);
+    for (const [enclosedId, containerId] of enclosedMap.entries()) {
+      console.log(`   ${enclosedId} is enclosed by ${containerId}`);
+    }
+    
+    // Check each group for isolated tracts
+    const groups = [
+      { name: 'north', tracts: divisionResult.northTracts },
+      { name: 'south', tracts: divisionResult.southTracts },
+      { name: 'east', tracts: divisionResult.eastTracts },
+      { name: 'west', tracts: divisionResult.westTracts }
+    ];
+    
+    let updatedResult = { ...divisionResult };
+    
+    for (const group of groups) {
+      if (group.tracts.length === 0) continue;
+      
+      console.log(`🔍 Checking ${group.name} group (${group.tracts.length} tracts)...`);
+      
+      // Check each tract in this group for isolation
+      for (const tract of group.tracts) {
+        const tractId = this.getTractId(tract);
+        
+        // Check if this tract is enclosed by another tract
+        const containerId = enclosedMap.get(tractId);
+        if (containerId) {
+          console.log(`📦 Found enclosed tract ${tractId} in ${group.name} group, container: ${containerId}`);
+          
+          // This tract is enclosed - check if its container is in the same group
+          const containerInSameGroup = group.tracts.some(t => this.getTractId(t) === containerId);
+          console.log(`🔍 Container ${containerId} in same group (${group.name}): ${containerInSameGroup}`);
+          
+          if (!containerInSameGroup) {
+            // Isolated tract! Find which group contains the container
+            const containerGroup = groups.find(g => 
+              g.tracts.some(t => this.getTractId(t) === containerId)
+            );
+            
+            console.log(`🚨 ISOLATED TRACT: ${tractId} in ${group.name} but container ${containerId} is in ${containerGroup?.name || 'unknown'}`);
+            
+            if (containerGroup) {
+              // Move the isolated tract to the container's group
+              console.log(`📦 Moving isolated tract ${tractId} from ${group.name} to ${containerGroup.name} (container: ${containerId})`);
+              
+              // Remove from current group
+              if (group.name === 'north') {
+                updatedResult.northTracts = updatedResult.northTracts.filter(t => this.getTractId(t) !== tractId);
+              } else if (group.name === 'south') {
+                updatedResult.southTracts = updatedResult.southTracts.filter(t => this.getTractId(t) !== tractId);
+              } else if (group.name === 'east') {
+                updatedResult.eastTracts = updatedResult.eastTracts.filter(t => this.getTractId(t) !== tractId);
+              } else if (group.name === 'west') {
+                updatedResult.westTracts = updatedResult.westTracts.filter(t => this.getTractId(t) !== tractId);
+              }
+              
+              // Add to container's group
+              if (containerGroup.name === 'north') {
+                updatedResult.northTracts.push(tract);
+              } else if (containerGroup.name === 'south') {
+                updatedResult.southTracts.push(tract);
+              } else if (containerGroup.name === 'east') {
+                updatedResult.eastTracts.push(tract);
+              } else if (containerGroup.name === 'west') {
+                updatedResult.westTracts.push(tract);
+              }
+              
+              movedTracts.push({
+                tractId,
+                fromGroup: group.name,
+                toGroup: containerGroup.name
+              });
+            } else {
+              console.log(`⚠️ Container ${containerId} not found in any group`);
+            }
+          } else {
+            console.log(`✅ Enclosed tract ${tractId} is with its container ${containerId} in ${group.name} group`);
+          }
+        }
+      }
+    }
+    
+    // Recalculate populations
+    updatedResult.northPopulation = this.calculateTotalPopulation(updatedResult.northTracts);
+    updatedResult.southPopulation = this.calculateTotalPopulation(updatedResult.southTracts);
+    updatedResult.eastPopulation = this.calculateTotalPopulation(updatedResult.eastTracts);
+    updatedResult.westPopulation = this.calculateTotalPopulation(updatedResult.westTracts);
+    
+    console.log(`✅ Isolated tract fix complete: moved ${movedTracts.length} tracts`);
+    console.log(`📊 Final result: North=${updatedResult.northTracts.length}, South=${updatedResult.southTracts.length}, East=${updatedResult.eastTracts.length}, West=${updatedResult.westTracts.length}`);
+    
+    return updatedResult;
+  }
+
+  /**
+   * Enhanced divide tracts by coordinate with post-division isolated tract fix
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param options Division options including ratio and direction
+   * @param geodistrictService Optional GeodistrictAlgorithmService for S4 data access
+   * @returns Division result with isolated tracts fixed
+   */
+  async divideTractsByCoordinateWithIsolationFix(
+    tracts: GeoJsonFeature[], 
+    options: TractDivisionOptions = {},
+    geodistrictService?: any
+  ): Promise<TractDivisionResult> {
+    console.log(`🔄 Starting division with post-division isolated tract fix for ${tracts.length} tracts`);
+    
+    // Perform the division
+    let divisionResult: TractDivisionResult;
+    
+    if (geodistrictService) {
+      // Use S4-enhanced division
+      divisionResult = await this.divideTractsByCoordinateWithS4(tracts, options, geodistrictService);
+    } else {
+      // Use standard division
+      divisionResult = this.divideTractsByCoordinate(tracts, options);
+    }
+    
+    // Fix any isolated tracts
+    const fixedResult = this.fixIsolatedTractsPostDivision(divisionResult, tracts);
+    
+    console.log(`✅ Division with isolation fix complete`);
+    
+    return fixedResult;
+  }
+
+  /**
+   * Debug method to check specific tract IDs for enclosed relationships
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param targetTractIds Array of specific tract IDs to check
+   * @returns Debug information about enclosed relationships
+   */
+  public debugEnclosedTractDetection(
+    tracts: GeoJsonFeature[],
+    targetTractIds: string[] = ['04001001700', '04001001901', '001700', '001901']
+  ): {
+    allTractIds: string[];
+    targetTractsFound: string[];
+    enclosedMap: Map<string, string>;
+    specificResults: { tractId: string; found: boolean; isEnclosed: boolean; containerId?: string }[];
+  } {
+    console.log(`🔍 Debugging enclosed tract detection for ${tracts.length} tracts...`);
+    
+    // Get all tract IDs
+    const allTractIds = tracts.map(tract => this.getTractId(tract));
+    console.log(`📋 All tract IDs: ${allTractIds.slice(0, 10).join(', ')}${allTractIds.length > 10 ? '...' : ''}`);
+    
+    // Check which target tract IDs are found
+    const targetTractsFound = targetTractIds.filter(targetId => 
+      allTractIds.some(tractId => tractId.includes(targetId) || targetId.includes(tractId))
+    );
+    console.log(`🎯 Target tracts found: ${targetTractsFound.join(', ')}`);
+    
+    // Detect enclosed tracts
+    const enclosedMap = this.detectEnclosedTracts(tracts);
+    console.log(`📦 Enclosed tracts detected: ${enclosedMap.size}`);
+    
+    // Check specific results
+    const specificResults = targetTractIds.map(targetId => {
+      const found = allTractIds.some(tractId => tractId.includes(targetId) || targetId.includes(tractId));
+      let isEnclosed = false;
+      let containerId: string | undefined;
+      
+      if (found) {
+        // Find the actual tract ID that matches
+        const actualTractId = allTractIds.find(tractId => 
+          tractId.includes(targetId) || targetId.includes(tractId)
+        );
+        if (actualTractId) {
+          isEnclosed = enclosedMap.has(actualTractId);
+          containerId = enclosedMap.get(actualTractId);
+        }
+      }
+      
+      return {
+        tractId: targetId,
+        found,
+        isEnclosed,
+        containerId
+      };
+    });
+    
+    console.log(`📊 Debug Results:`);
+    specificResults.forEach(result => {
+      console.log(`   ${result.tractId}: found=${result.found}, enclosed=${result.isEnclosed}, container=${result.containerId || 'none'}`);
+    });
+    
+    return {
+      allTractIds,
+      targetTractsFound,
+      enclosedMap,
+      specificResults
+    };
+  }
+
+  /**
+   * Public method to test isolated tract fixing
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param options Division options
+   * @returns Promise with test results
+   */
+  public async testIsolatedTractFixing(
+    tracts: GeoJsonFeature[],
+    options: TractDivisionOptions = { ratio: [50, 50], direction: 'latitude' }
+  ): Promise<{
+    beforeFix: TractDivisionResult;
+    afterFix: TractDivisionResult;
+    summary: string;
+  }> {
+    console.log(`🧪 Testing isolated tract fixing for ${tracts.length} tracts...`);
+    
+    // First debug the enclosed tract detection
+    const debug = this.debugEnclosedTractDetection(tracts);
+    console.log(`🔍 Debug results: ${debug.specificResults.length} target tracts checked`);
+    
+    // Perform division without fix
+    const beforeFix = this.divideTractsByCoordinate(tracts, options);
+    
+    // The divideTractsByCoordinate method now includes the fix by default
+    // So we need to manually test the fix method
+    const tempResult = { ...beforeFix };
+    const afterFix = this.fixIsolatedTractsPostDivision(tempResult, tracts);
+    
+    const summary = `Tested isolated tract fixing: ${tracts.length} tracts divided into ${afterFix.northTracts.length + afterFix.southTracts.length + afterFix.eastTracts.length + afterFix.westTracts.length} final tracts`;
+    
+    console.log(`📊 Isolated Tract Fixing Test Results:`);
+    console.log(`   ${summary}`);
+    
+    return {
+      beforeFix,
+      afterFix,
+      summary
+    };
+  }
+
+  /**
+   * Simple method to test debug functionality from browser console
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @returns Debug results
+   */
+  public debugAZTracts(tracts: GeoJsonFeature[]): any {
+    console.log(`🔍 Debugging AZ tracts for isolated tract issue...`);
+    
+    // Debug enclosed tract detection
+    const debug = this.debugEnclosedTractDetection(tracts);
+    
+    // Test division with detailed logging
+    const divisionResult = this.divideTractsByCoordinate(tracts, { ratio: [50, 50], direction: 'latitude' });
+    
+    console.log(`🧪 Debug complete. Check console for detailed logs.`);
+    
+    return {
+      debug,
+      divisionResult,
+      message: 'Check console for detailed debug information'
+    };
+  }
+
+  /**
+   * Public method to test enclosed tract detection
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @returns Object with enclosed tract detection results
+   */
+  public testEnclosedTractDetection(tracts: GeoJsonFeature[]): {
+    enclosedTracts: Map<string, string>;
+    summary: string;
+    specificExamples: { tractId: string; isEnclosed: boolean; containerId?: string }[];
+  } {
+    console.log(`🔍 Testing enclosed tract detection for ${tracts.length} tracts...`);
+    
+    const enclosedMap = this.detectEnclosedTracts(tracts);
+    
+    // Check for specific examples mentioned by user
+    const specificExamples: { tractId: string; isEnclosed: boolean; containerId?: string }[] = [
+      { tractId: '04001001700', isEnclosed: false }, // AZ 001700
+      { tractId: '04001001901', isEnclosed: false }, // AZ 001901
+      { tractId: '001700', isEnclosed: false },      // Alternative format
+      { tractId: '001901', isEnclosed: false }       // Alternative format
+    ];
+    
+    // Check if any of the specific examples are found
+    for (const example of specificExamples) {
+      for (const [enclosedId, containerId] of enclosedMap.entries()) {
+        if (enclosedId.includes(example.tractId) || example.tractId.includes(enclosedId)) {
+          example.isEnclosed = true;
+          example.containerId = containerId;
+          break;
+        }
+      }
+    }
+    
+    const summary = `Found ${enclosedMap.size} enclosed tracts among ${tracts.length} total tracts`;
+    
+    console.log(`📊 Enclosed Tract Detection Results:`);
+    console.log(`   ${summary}`);
+    console.log(`   Specific examples checked: ${specificExamples.filter(e => e.isEnclosed).length} found`);
+    
+    return {
+      enclosedTracts: enclosedMap,
+      summary,
+      specificExamples
+    };
+  }
+
+  /**
+   * Public method to test S4 adjacency sorting performance
+   * @param tracts Array of GeoJSON features representing census tracts
+   * @param direction Either 'latitude' for north/south or 'longitude' for east/west
+   * @param geodistrictService Optional GeodistrictAlgorithmService for S4 data access
+   * @returns Promise with sorting performance comparison
+   */
+  public async testS4AdjacencySorting(
+    tracts: GeoJsonFeature[], 
+    direction: 'latitude' | 'longitude' = 'latitude',
+    geodistrictService?: any
+  ): Promise<{
+    originalTime: number;
+    s4Time: number;
+    improvement: number;
+    originalResult: any[];
+    s4Result: any[];
+  }> {
+    if (tracts.length === 0) {
+      return {
+        originalTime: 0,
+        s4Time: 0,
+        improvement: 0,
+        originalResult: [],
+        s4Result: []
+      };
+    }
+
+    // Calculate centroids for all tracts
+    const tractsWithCentroids = tracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract)
+    }));
+
+    // Test original method
+    const originalStart = Date.now();
+    const originalResult = this.zigZagSortTracts(tractsWithCentroids, direction);
+    const originalTime = Date.now() - originalStart;
+
+    // Test S4 method (if service provided)
+    let s4Time = 0;
+    let s4Result: any[] = [];
+    
+    if (geodistrictService) {
+      try {
+        const s4Start = Date.now();
+        s4Result = await this.zigZagSortTractsWithS4(tractsWithCentroids, direction, geodistrictService);
+        s4Time = Date.now() - s4Start;
+      } catch (error) {
+        console.warn('S4 adjacency sorting test failed:', error);
+        s4Time = originalTime; // Fallback to original time
+        s4Result = originalResult;
+      }
+    } else {
+      s4Time = originalTime;
+      s4Result = originalResult;
+    }
+
+    const improvement = originalTime > 0 ? ((originalTime - s4Time) / originalTime) * 100 : 0;
+
+    console.log(`📊 S4 Adjacency Sorting Performance Test:`);
+    console.log(`   Dataset size: ${tracts.length} tracts`);
+    console.log(`   Original method: ${originalTime}ms`);
+    console.log(`   S4 method: ${s4Time}ms`);
+    console.log(`   Performance improvement: ${improvement.toFixed(1)}%`);
+
+    return {
+      originalTime,
+      s4Time,
+      improvement,
+      originalResult: originalResult.map(item => this.getTractId(item.tract)),
+      s4Result: s4Result.map(item => this.getTractId(item.tract))
+    };
   }
 
   /**
