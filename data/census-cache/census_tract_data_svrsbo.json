@@ -1,0 +1,20 @@
+[
+  {
+    "state": "08",
+    "county": "091",
+    "tract": "967601",
+    "name": "Census Tract 9676.01; Ouray County; Colorado",
+    "population": 1256,
+    "medianHouseholdIncome": 83491,
+    "medianAge": 66
+  },
+  {
+    "state": "08",
+    "county": "091",
+    "tract": "967602",
+    "name": "Census Tract 9676.02; Ouray County; Colorado",
+    "population": 3680,
+    "medianHouseholdIncome": 73472,
+    "medianAge": 52.2
+  }
+]

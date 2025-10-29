@@ -1,0 +1,110 @@
+[
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951600",
+    "name": "Census Tract 9516; Garfield County; Colorado",
+    "population": 3990,
+    "medianHouseholdIncome": 101154,
+    "medianAge": 38.4
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951701",
+    "name": "Census Tract 9517.01; Garfield County; Colorado",
+    "population": 5266,
+    "medianHouseholdIncome": 102238,
+    "medianAge": 34.8
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951702",
+    "name": "Census Tract 9517.02; Garfield County; Colorado",
+    "population": 2967,
+    "medianHouseholdIncome": 63547,
+    "medianAge": 42.2
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951802",
+    "name": "Census Tract 9518.02; Garfield County; Colorado",
+    "population": 4373,
+    "medianHouseholdIncome": 121825,
+    "medianAge": 47.2
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951803",
+    "name": "Census Tract 9518.03; Garfield County; Colorado",
+    "population": 5526,
+    "medianHouseholdIncome": 91125,
+    "medianAge": 42
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951804",
+    "name": "Census Tract 9518.04; Garfield County; Colorado",
+    "population": 5718,
+    "medianHouseholdIncome": 97922,
+    "medianAge": 39.7
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951901",
+    "name": "Census Tract 9519.01; Garfield County; Colorado",
+    "population": 5688,
+    "medianHouseholdIncome": 82150,
+    "medianAge": 35.8
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "951902",
+    "name": "Census Tract 9519.02; Garfield County; Colorado",
+    "population": 6653,
+    "medianHouseholdIncome": 81909,
+    "medianAge": 39.1
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "952001",
+    "name": "Census Tract 9520.01; Garfield County; Colorado",
+    "population": 5386,
+    "medianHouseholdIncome": 66935,
+    "medianAge": 34.3
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "952003",
+    "name": "Census Tract 9520.03; Garfield County; Colorado",
+    "population": 2299,
+    "medianHouseholdIncome": 152581,
+    "medianAge": 35.9
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "952004",
+    "name": "Census Tract 9520.04; Garfield County; Colorado",
+    "population": 6617,
+    "medianHouseholdIncome": 74048,
+    "medianAge": 32
+  },
+  {
+    "state": "08",
+    "county": "045",
+    "tract": "952100",
+    "name": "Census Tract 9521; Garfield County; Colorado",
+    "population": 7200,
+    "medianHouseholdIncome": 65915,
+    "medianAge": 31.1
+  }
+]

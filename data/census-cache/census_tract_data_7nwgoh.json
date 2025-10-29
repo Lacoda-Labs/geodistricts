@@ -1,0 +1,308 @@
+[
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040101",
+    "name": "Census Tract 401.01; Livingston Parish; Louisiana",
+    "population": 2125,
+    "medianHouseholdIncome": 63185,
+    "medianAge": 40.5
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040102",
+    "name": "Census Tract 401.02; Livingston Parish; Louisiana",
+    "population": 3195,
+    "medianHouseholdIncome": 113750,
+    "medianAge": 28.3
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040103",
+    "name": "Census Tract 401.03; Livingston Parish; Louisiana",
+    "population": 4351,
+    "medianHouseholdIncome": 85417,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040202",
+    "name": "Census Tract 402.02; Livingston Parish; Louisiana",
+    "population": 5878,
+    "medianHouseholdIncome": 82994,
+    "medianAge": 34.8
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040203",
+    "name": "Census Tract 402.03; Livingston Parish; Louisiana",
+    "population": 2244,
+    "medianHouseholdIncome": 59487,
+    "medianAge": 33.9
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040204",
+    "name": "Census Tract 402.04; Livingston Parish; Louisiana",
+    "population": 5104,
+    "medianHouseholdIncome": 77583,
+    "medianAge": 32.7
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040304",
+    "name": "Census Tract 403.04; Livingston Parish; Louisiana",
+    "population": 5125,
+    "medianHouseholdIncome": 88686,
+    "medianAge": 37.7
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040305",
+    "name": "Census Tract 403.05; Livingston Parish; Louisiana",
+    "population": 5532,
+    "medianHouseholdIncome": 111229,
+    "medianAge": 33.2
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040306",
+    "name": "Census Tract 403.06; Livingston Parish; Louisiana",
+    "population": 4583,
+    "medianHouseholdIncome": 60321,
+    "medianAge": 40.1
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040307",
+    "name": "Census Tract 403.07; Livingston Parish; Louisiana",
+    "population": 5055,
+    "medianHouseholdIncome": 110343,
+    "medianAge": 41.1
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040308",
+    "name": "Census Tract 403.08; Livingston Parish; Louisiana",
+    "population": 5783,
+    "medianHouseholdIncome": 89736,
+    "medianAge": 33.5
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040403",
+    "name": "Census Tract 404.03; Livingston Parish; Louisiana",
+    "population": 4295,
+    "medianHouseholdIncome": 73655,
+    "medianAge": 31.8
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040404",
+    "name": "Census Tract 404.04; Livingston Parish; Louisiana",
+    "population": 3420,
+    "medianHouseholdIncome": 90330,
+    "medianAge": 30.9
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040405",
+    "name": "Census Tract 404.05; Livingston Parish; Louisiana",
+    "population": 3956,
+    "medianHouseholdIncome": 52946,
+    "medianAge": 35.9
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040406",
+    "name": "Census Tract 404.06; Livingston Parish; Louisiana",
+    "population": 5708,
+    "medianHouseholdIncome": 75243,
+    "medianAge": 36.4
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040501",
+    "name": "Census Tract 405.01; Livingston Parish; Louisiana",
+    "population": 2800,
+    "medianHouseholdIncome": 45509,
+    "medianAge": 36.8
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040502",
+    "name": "Census Tract 405.02; Livingston Parish; Louisiana",
+    "population": 5391,
+    "medianHouseholdIncome": 93801,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040503",
+    "name": "Census Tract 405.03; Livingston Parish; Louisiana",
+    "population": 3994,
+    "medianHouseholdIncome": 72500,
+    "medianAge": 33.1
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040601",
+    "name": "Census Tract 406.01; Livingston Parish; Louisiana",
+    "population": 4638,
+    "medianHouseholdIncome": 103606,
+    "medianAge": 41.4
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040602",
+    "name": "Census Tract 406.02; Livingston Parish; Louisiana",
+    "population": 5076,
+    "medianHouseholdIncome": 53629,
+    "medianAge": 39.4
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040700",
+    "name": "Census Tract 407; Livingston Parish; Louisiana",
+    "population": 3901,
+    "medianHouseholdIncome": 58537,
+    "medianAge": 34.2
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040805",
+    "name": "Census Tract 408.05; Livingston Parish; Louisiana",
+    "population": 4816,
+    "medianHouseholdIncome": 56693,
+    "medianAge": 40.8
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040807",
+    "name": "Census Tract 408.07; Livingston Parish; Louisiana",
+    "population": 2458,
+    "medianHouseholdIncome": 36046,
+    "medianAge": 38.5
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040808",
+    "name": "Census Tract 408.08; Livingston Parish; Louisiana",
+    "population": 6028,
+    "medianHouseholdIncome": 107972,
+    "medianAge": 33
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040809",
+    "name": "Census Tract 408.09; Livingston Parish; Louisiana",
+    "population": 2754,
+    "medianHouseholdIncome": 69332,
+    "medianAge": 40.6
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040810",
+    "name": "Census Tract 408.10; Livingston Parish; Louisiana",
+    "population": 3208,
+    "medianHouseholdIncome": 55959,
+    "medianAge": 39.5
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040811",
+    "name": "Census Tract 408.11; Livingston Parish; Louisiana",
+    "population": 2032,
+    "medianHouseholdIncome": 121216,
+    "medianAge": 42.7
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040812",
+    "name": "Census Tract 408.12; Livingston Parish; Louisiana",
+    "population": 7271,
+    "medianHouseholdIncome": 79802,
+    "medianAge": 31
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040813",
+    "name": "Census Tract 408.13; Livingston Parish; Louisiana",
+    "population": 5311,
+    "medianHouseholdIncome": 83372,
+    "medianAge": 31.7
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040814",
+    "name": "Census Tract 408.14; Livingston Parish; Louisiana",
+    "population": 5255,
+    "medianHouseholdIncome": 99252,
+    "medianAge": 33.1
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040903",
+    "name": "Census Tract 409.03; Livingston Parish; Louisiana",
+    "population": 3312,
+    "medianHouseholdIncome": 67601,
+    "medianAge": 40.5
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040904",
+    "name": "Census Tract 409.04; Livingston Parish; Louisiana",
+    "population": 3317,
+    "medianHouseholdIncome": 38357,
+    "medianAge": 39.6
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040905",
+    "name": "Census Tract 409.05; Livingston Parish; Louisiana",
+    "population": 3692,
+    "medianHouseholdIncome": 75956,
+    "medianAge": 45.2
+  },
+  {
+    "state": "22",
+    "county": "063",
+    "tract": "040906",
+    "name": "Census Tract 409.06; Livingston Parish; Louisiana",
+    "population": 1817,
+    "medianHouseholdIncome": 63993,
+    "medianAge": 49.8
+  }
+]

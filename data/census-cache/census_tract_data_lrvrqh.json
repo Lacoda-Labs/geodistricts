@@ -1,0 +1,155 @@
+[
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950101",
+    "name": "Census Tract 9501.01; Vermilion Parish; Louisiana",
+    "population": 4340,
+    "medianHouseholdIncome": 76429,
+    "medianAge": 32.4
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950102",
+    "name": "Census Tract 9501.02; Vermilion Parish; Louisiana",
+    "population": 2798,
+    "medianHouseholdIncome": 72479,
+    "medianAge": 36.6
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950103",
+    "name": "Census Tract 9501.03; Vermilion Parish; Louisiana",
+    "population": 3586,
+    "medianHouseholdIncome": 56792,
+    "medianAge": 43
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950201",
+    "name": "Census Tract 9502.01; Vermilion Parish; Louisiana",
+    "population": 1957,
+    "medianHouseholdIncome": 69189,
+    "medianAge": 34.9
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950202",
+    "name": "Census Tract 9502.02; Vermilion Parish; Louisiana",
+    "population": 2606,
+    "medianHouseholdIncome": 43125,
+    "medianAge": 44
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950400",
+    "name": "Census Tract 9504; Vermilion Parish; Louisiana",
+    "population": 5159,
+    "medianHouseholdIncome": 58006,
+    "medianAge": 41.1
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950500",
+    "name": "Census Tract 9505; Vermilion Parish; Louisiana",
+    "population": 5887,
+    "medianHouseholdIncome": 66618,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950600",
+    "name": "Census Tract 9506; Vermilion Parish; Louisiana",
+    "population": 3324,
+    "medianHouseholdIncome": 50398,
+    "medianAge": 41.6
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950700",
+    "name": "Census Tract 9507; Vermilion Parish; Louisiana",
+    "population": 3420,
+    "medianHouseholdIncome": 43179,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950800",
+    "name": "Census Tract 9508; Vermilion Parish; Louisiana",
+    "population": 4308,
+    "medianHouseholdIncome": 29330,
+    "medianAge": 31.4
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950901",
+    "name": "Census Tract 9509.01; Vermilion Parish; Louisiana",
+    "population": 2299,
+    "medianHouseholdIncome": 68906,
+    "medianAge": 47.1
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950903",
+    "name": "Census Tract 9509.03; Vermilion Parish; Louisiana",
+    "population": 3427,
+    "medianHouseholdIncome": 47258,
+    "medianAge": 40.5
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "950904",
+    "name": "Census Tract 9509.04; Vermilion Parish; Louisiana",
+    "population": 4833,
+    "medianHouseholdIncome": 91816,
+    "medianAge": 35.5
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "951001",
+    "name": "Census Tract 9510.01; Vermilion Parish; Louisiana",
+    "population": 4443,
+    "medianHouseholdIncome": 47473,
+    "medianAge": 35.4
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "951002",
+    "name": "Census Tract 9510.02; Vermilion Parish; Louisiana",
+    "population": 3578,
+    "medianHouseholdIncome": 49000,
+    "medianAge": 42.7
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "951100",
+    "name": "Census Tract 9511; Vermilion Parish; Louisiana",
+    "population": 1237,
+    "medianHouseholdIncome": 45714,
+    "medianAge": 48.2
+  },
+  {
+    "state": "22",
+    "county": "113",
+    "tract": "990000",
+    "name": "Census Tract 9900; Vermilion Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

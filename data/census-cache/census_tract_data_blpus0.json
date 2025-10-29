@@ -1,0 +1,146 @@
+[
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000100",
+    "name": "Census Tract 1; Eagle County; Colorado",
+    "population": 1513,
+    "medianHouseholdIncome": 79375,
+    "medianAge": 32.2
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000200",
+    "name": "Census Tract 2; Eagle County; Colorado",
+    "population": 8366,
+    "medianHouseholdIncome": 98833,
+    "medianAge": 38.6
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Eagle County; Colorado",
+    "population": 6162,
+    "medianHouseholdIncome": 117791,
+    "medianAge": 39.5
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Eagle County; Colorado",
+    "population": 2482,
+    "medianHouseholdIncome": 97979,
+    "medianAge": 59
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Eagle County; Colorado",
+    "population": 5780,
+    "medianHouseholdIncome": 82745,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Eagle County; Colorado",
+    "population": 4814,
+    "medianHouseholdIncome": 105833,
+    "medianAge": 36.8
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000404",
+    "name": "Census Tract 4.04; Eagle County; Colorado",
+    "population": 2509,
+    "medianHouseholdIncome": 67111,
+    "medianAge": 31.7
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000405",
+    "name": "Census Tract 4.05; Eagle County; Colorado",
+    "population": 6086,
+    "medianHouseholdIncome": 113214,
+    "medianAge": 37.2
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Eagle County; Colorado",
+    "population": 2214,
+    "medianHouseholdIncome": 97841,
+    "medianAge": 37.5
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Eagle County; Colorado",
+    "population": 4463,
+    "medianHouseholdIncome": 115562,
+    "medianAge": 34.6
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000504",
+    "name": "Census Tract 5.04; Eagle County; Colorado",
+    "population": 2999,
+    "medianHouseholdIncome": 69282,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000505",
+    "name": "Census Tract 5.05; Eagle County; Colorado",
+    "population": 1919,
+    "medianHouseholdIncome": 141934,
+    "medianAge": 48.9
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000600",
+    "name": "Census Tract 6; Eagle County; Colorado",
+    "population": 1292,
+    "medianHouseholdIncome": 92841,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Eagle County; Colorado",
+    "population": 1430,
+    "medianHouseholdIncome": 128080,
+    "medianAge": 33.6
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000702",
+    "name": "Census Tract 7.02; Eagle County; Colorado",
+    "population": 1252,
+    "medianHouseholdIncome": 118125,
+    "medianAge": 55
+  },
+  {
+    "state": "08",
+    "county": "037",
+    "tract": "000703",
+    "name": "Census Tract 7.03; Eagle County; Colorado",
+    "population": 2369,
+    "medianHouseholdIncome": 79408,
+    "medianAge": 49.5
+  }
+]

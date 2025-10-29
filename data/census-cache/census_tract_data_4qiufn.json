@@ -1,0 +1,110 @@
+[
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Summit County; Colorado",
+    "population": 960,
+    "medianHouseholdIncome": 86713,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Summit County; Colorado",
+    "population": 5454,
+    "medianHouseholdIncome": 103431,
+    "medianAge": 48.5
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000103",
+    "name": "Census Tract 1.03; Summit County; Colorado",
+    "population": 1276,
+    "medianHouseholdIncome": 110647,
+    "medianAge": 46.6
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000201",
+    "name": "Census Tract 2.01; Summit County; Colorado",
+    "population": 1378,
+    "medianHouseholdIncome": 48943,
+    "medianAge": 35.3
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000202",
+    "name": "Census Tract 2.02; Summit County; Colorado",
+    "population": 2915,
+    "medianHouseholdIncome": 67895,
+    "medianAge": 29.9
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000203",
+    "name": "Census Tract 2.03; Summit County; Colorado",
+    "population": 4043,
+    "medianHouseholdIncome": 115813,
+    "medianAge": 40.4
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000301",
+    "name": "Census Tract 3.01; Summit County; Colorado",
+    "population": 1964,
+    "medianHouseholdIncome": 106700,
+    "medianAge": 45.7
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000302",
+    "name": "Census Tract 3.02; Summit County; Colorado",
+    "population": 2154,
+    "medianHouseholdIncome": 91908,
+    "medianAge": 48.2
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000403",
+    "name": "Census Tract 4.03; Summit County; Colorado",
+    "population": 1534,
+    "medianHouseholdIncome": 170459,
+    "medianAge": 37.5
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000404",
+    "name": "Census Tract 4.04; Summit County; Colorado",
+    "population": 2133,
+    "medianHouseholdIncome": 106589,
+    "medianAge": 56.8
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000405",
+    "name": "Census Tract 4.05; Summit County; Colorado",
+    "population": 4292,
+    "medianHouseholdIncome": 139474,
+    "medianAge": 36.3
+  },
+  {
+    "state": "08",
+    "county": "117",
+    "tract": "000406",
+    "name": "Census Tract 4.06; Summit County; Colorado",
+    "population": 2852,
+    "medianHouseholdIncome": 88977,
+    "medianAge": 32
+  }
+]

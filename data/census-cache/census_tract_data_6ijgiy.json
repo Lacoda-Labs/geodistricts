@@ -1,0 +1,29 @@
+[
+  {
+    "state": "22",
+    "county": "123",
+    "tract": "000100",
+    "name": "Census Tract 1; West Carroll Parish; Louisiana",
+    "population": 3275,
+    "medianHouseholdIncome": 39118,
+    "medianAge": 50.2
+  },
+  {
+    "state": "22",
+    "county": "123",
+    "tract": "000200",
+    "name": "Census Tract 2; West Carroll Parish; Louisiana",
+    "population": 3706,
+    "medianHouseholdIncome": 57396,
+    "medianAge": 40.7
+  },
+  {
+    "state": "22",
+    "county": "123",
+    "tract": "000300",
+    "name": "Census Tract 3; West Carroll Parish; Louisiana",
+    "population": 2819,
+    "medianHouseholdIncome": 55859,
+    "medianAge": 34.1
+  }
+]

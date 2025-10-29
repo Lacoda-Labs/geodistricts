@@ -1,0 +1,965 @@
+[
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "007801",
+    "name": "Census Tract 78.01; Adams County; Colorado",
+    "population": 3889,
+    "medianHouseholdIncome": 36300,
+    "medianAge": 29.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "007802",
+    "name": "Census Tract 78.02; Adams County; Colorado",
+    "population": 4359,
+    "medianHouseholdIncome": 47466,
+    "medianAge": 33
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "007900",
+    "name": "Census Tract 79; Adams County; Colorado",
+    "population": 6126,
+    "medianHouseholdIncome": 61667,
+    "medianAge": 31.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008000",
+    "name": "Census Tract 80; Adams County; Colorado",
+    "population": 5763,
+    "medianHouseholdIncome": 71212,
+    "medianAge": 34.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008100",
+    "name": "Census Tract 81; Adams County; Colorado",
+    "population": 1674,
+    "medianHouseholdIncome": 48846,
+    "medianAge": 30.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008200",
+    "name": "Census Tract 82; Adams County; Colorado",
+    "population": 6795,
+    "medianHouseholdIncome": 91828,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008308",
+    "name": "Census Tract 83.08; Adams County; Colorado",
+    "population": 6087,
+    "medianHouseholdIncome": 52585,
+    "medianAge": 31.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008309",
+    "name": "Census Tract 83.09; Adams County; Colorado",
+    "population": 4005,
+    "medianHouseholdIncome": 69009,
+    "medianAge": 32.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008354",
+    "name": "Census Tract 83.54; Adams County; Colorado",
+    "population": 4871,
+    "medianHouseholdIncome": 113339,
+    "medianAge": 30.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008355",
+    "name": "Census Tract 83.55; Adams County; Colorado",
+    "population": 5148,
+    "medianHouseholdIncome": 70517,
+    "medianAge": 32.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008401",
+    "name": "Census Tract 84.01; Adams County; Colorado",
+    "population": 5441,
+    "medianHouseholdIncome": 96558,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008402",
+    "name": "Census Tract 84.02; Adams County; Colorado",
+    "population": 5531,
+    "medianHouseholdIncome": 127524,
+    "medianAge": 33.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008505",
+    "name": "Census Tract 85.05; Adams County; Colorado",
+    "population": 6933,
+    "medianHouseholdIncome": 90733,
+    "medianAge": 37.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008506",
+    "name": "Census Tract 85.06; Adams County; Colorado",
+    "population": 6298,
+    "medianHouseholdIncome": 50731,
+    "medianAge": 29.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008507",
+    "name": "Census Tract 85.07; Adams County; Colorado",
+    "population": 6284,
+    "medianHouseholdIncome": 99625,
+    "medianAge": 37.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008508",
+    "name": "Census Tract 85.08; Adams County; Colorado",
+    "population": 5371,
+    "medianHouseholdIncome": 74167,
+    "medianAge": 37.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008524",
+    "name": "Census Tract 85.24; Adams County; Colorado",
+    "population": 9338,
+    "medianHouseholdIncome": 139345,
+    "medianAge": 36.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008526",
+    "name": "Census Tract 85.26; Adams County; Colorado",
+    "population": 7320,
+    "medianHouseholdIncome": 113540,
+    "medianAge": 37.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008533",
+    "name": "Census Tract 85.33; Adams County; Colorado",
+    "population": 8176,
+    "medianHouseholdIncome": 80224,
+    "medianAge": 34
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008534",
+    "name": "Census Tract 85.34; Adams County; Colorado",
+    "population": 4814,
+    "medianHouseholdIncome": 97125,
+    "medianAge": 34.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008535",
+    "name": "Census Tract 85.35; Adams County; Colorado",
+    "population": 4806,
+    "medianHouseholdIncome": 105441,
+    "medianAge": 32.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008536",
+    "name": "Census Tract 85.36; Adams County; Colorado",
+    "population": 4679,
+    "medianHouseholdIncome": 142130,
+    "medianAge": 38.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008538",
+    "name": "Census Tract 85.38; Adams County; Colorado",
+    "population": 11645,
+    "medianHouseholdIncome": 144674,
+    "medianAge": 33.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008540",
+    "name": "Census Tract 85.40; Adams County; Colorado",
+    "population": 9387,
+    "medianHouseholdIncome": 145181,
+    "medianAge": 38.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008544",
+    "name": "Census Tract 85.44; Adams County; Colorado",
+    "population": 5859,
+    "medianHouseholdIncome": 138875,
+    "medianAge": 32.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008545",
+    "name": "Census Tract 85.45; Adams County; Colorado",
+    "population": 6135,
+    "medianHouseholdIncome": 121780,
+    "medianAge": 37.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008546",
+    "name": "Census Tract 85.46; Adams County; Colorado",
+    "population": 3842,
+    "medianHouseholdIncome": 98333,
+    "medianAge": 33.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008547",
+    "name": "Census Tract 85.47; Adams County; Colorado",
+    "population": 3296,
+    "medianHouseholdIncome": 108967,
+    "medianAge": 35.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008548",
+    "name": "Census Tract 85.48; Adams County; Colorado",
+    "population": 1739,
+    "medianHouseholdIncome": 101563,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008549",
+    "name": "Census Tract 85.49; Adams County; Colorado",
+    "population": 4316,
+    "medianHouseholdIncome": 127821,
+    "medianAge": 33.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008550",
+    "name": "Census Tract 85.50; Adams County; Colorado",
+    "population": 8214,
+    "medianHouseholdIncome": 109527,
+    "medianAge": 35.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008551",
+    "name": "Census Tract 85.51; Adams County; Colorado",
+    "population": 1664,
+    "medianHouseholdIncome": 151250,
+    "medianAge": 40.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008552",
+    "name": "Census Tract 85.52; Adams County; Colorado",
+    "population": 4380,
+    "medianHouseholdIncome": 89457,
+    "medianAge": 37.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008553",
+    "name": "Census Tract 85.53; Adams County; Colorado",
+    "population": 5360,
+    "medianHouseholdIncome": 140355,
+    "medianAge": 39
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008554",
+    "name": "Census Tract 85.54; Adams County; Colorado",
+    "population": 2756,
+    "medianHouseholdIncome": 79474,
+    "medianAge": 40.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008555",
+    "name": "Census Tract 85.55; Adams County; Colorado",
+    "population": 6772,
+    "medianHouseholdIncome": 67948,
+    "medianAge": 26.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008556",
+    "name": "Census Tract 85.56; Adams County; Colorado",
+    "population": 5992,
+    "medianHouseholdIncome": 106563,
+    "medianAge": 40
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008557",
+    "name": "Census Tract 85.57; Adams County; Colorado",
+    "population": 1123,
+    "medianHouseholdIncome": 115994,
+    "medianAge": 41.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008558",
+    "name": "Census Tract 85.58; Adams County; Colorado",
+    "population": 4247,
+    "medianHouseholdIncome": 139902,
+    "medianAge": 30.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008559",
+    "name": "Census Tract 85.59; Adams County; Colorado",
+    "population": 8540,
+    "medianHouseholdIncome": 97018,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008560",
+    "name": "Census Tract 85.60; Adams County; Colorado",
+    "population": 2241,
+    "medianHouseholdIncome": 174519,
+    "medianAge": 39.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008561",
+    "name": "Census Tract 85.61; Adams County; Colorado",
+    "population": 4944,
+    "medianHouseholdIncome": 138250,
+    "medianAge": 52.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008562",
+    "name": "Census Tract 85.62; Adams County; Colorado",
+    "population": 5754,
+    "medianHouseholdIncome": 127048,
+    "medianAge": 30.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008563",
+    "name": "Census Tract 85.63; Adams County; Colorado",
+    "population": 4635,
+    "medianHouseholdIncome": 118611,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008564",
+    "name": "Census Tract 85.64; Adams County; Colorado",
+    "population": 1666,
+    "medianHouseholdIncome": 81442,
+    "medianAge": 32.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008565",
+    "name": "Census Tract 85.65; Adams County; Colorado",
+    "population": 7506,
+    "medianHouseholdIncome": 68476,
+    "medianAge": 35.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008603",
+    "name": "Census Tract 86.03; Adams County; Colorado",
+    "population": 2007,
+    "medianHouseholdIncome": 47109,
+    "medianAge": 28.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008604",
+    "name": "Census Tract 86.04; Adams County; Colorado",
+    "population": 5177,
+    "medianHouseholdIncome": 80653,
+    "medianAge": 33.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008605",
+    "name": "Census Tract 86.05; Adams County; Colorado",
+    "population": 3788,
+    "medianHouseholdIncome": 88841,
+    "medianAge": 45.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008606",
+    "name": "Census Tract 86.06; Adams County; Colorado",
+    "population": 6319,
+    "medianHouseholdIncome": 66232,
+    "medianAge": 36.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008705",
+    "name": "Census Tract 87.05; Adams County; Colorado",
+    "population": 5719,
+    "medianHouseholdIncome": 61627,
+    "medianAge": 31.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008706",
+    "name": "Census Tract 87.06; Adams County; Colorado",
+    "population": 5474,
+    "medianHouseholdIncome": 47234,
+    "medianAge": 35.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008709",
+    "name": "Census Tract 87.09; Adams County; Colorado",
+    "population": 8251,
+    "medianHouseholdIncome": 44318,
+    "medianAge": 30.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008801",
+    "name": "Census Tract 88.01; Adams County; Colorado",
+    "population": 5272,
+    "medianHouseholdIncome": 68393,
+    "medianAge": 29.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008802",
+    "name": "Census Tract 88.02; Adams County; Colorado",
+    "population": 4698,
+    "medianHouseholdIncome": 75313,
+    "medianAge": 33.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "008901",
+    "name": "Census Tract 89.01; Adams County; Colorado",
+    "population": 2681,
+    "medianHouseholdIncome": 93942,
+    "medianAge": 36.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009001",
+    "name": "Census Tract 90.01; Adams County; Colorado",
+    "population": 4894,
+    "medianHouseholdIncome": 56250,
+    "medianAge": 37.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009003",
+    "name": "Census Tract 90.03; Adams County; Colorado",
+    "population": 4583,
+    "medianHouseholdIncome": 107708,
+    "medianAge": 38
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009004",
+    "name": "Census Tract 90.04; Adams County; Colorado",
+    "population": 5272,
+    "medianHouseholdIncome": 72426,
+    "medianAge": 29.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009101",
+    "name": "Census Tract 91.01; Adams County; Colorado",
+    "population": 4223,
+    "medianHouseholdIncome": 89962,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009103",
+    "name": "Census Tract 91.03; Adams County; Colorado",
+    "population": 4500,
+    "medianHouseholdIncome": 61891,
+    "medianAge": 26.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009104",
+    "name": "Census Tract 91.04; Adams County; Colorado",
+    "population": 6629,
+    "medianHouseholdIncome": 93333,
+    "medianAge": 31.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009202",
+    "name": "Census Tract 92.02; Adams County; Colorado",
+    "population": 4602,
+    "medianHouseholdIncome": 79875,
+    "medianAge": 30.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009203",
+    "name": "Census Tract 92.03; Adams County; Colorado",
+    "population": 5335,
+    "medianHouseholdIncome": 65915,
+    "medianAge": 25.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009204",
+    "name": "Census Tract 92.04; Adams County; Colorado",
+    "population": 6716,
+    "medianHouseholdIncome": 77717,
+    "medianAge": 34.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009206",
+    "name": "Census Tract 92.06; Adams County; Colorado",
+    "population": 2563,
+    "medianHouseholdIncome": 83021,
+    "medianAge": 37.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009207",
+    "name": "Census Tract 92.07; Adams County; Colorado",
+    "population": 4649,
+    "medianHouseholdIncome": 82917,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009304",
+    "name": "Census Tract 93.04; Adams County; Colorado",
+    "population": 5549,
+    "medianHouseholdIncome": 67847,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009306",
+    "name": "Census Tract 93.06; Adams County; Colorado",
+    "population": 3841,
+    "medianHouseholdIncome": 77778,
+    "medianAge": 40.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009307",
+    "name": "Census Tract 93.07; Adams County; Colorado",
+    "population": 3741,
+    "medianHouseholdIncome": 70459,
+    "medianAge": 35.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009308",
+    "name": "Census Tract 93.08; Adams County; Colorado",
+    "population": 4572,
+    "medianHouseholdIncome": 68234,
+    "medianAge": 34.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009309",
+    "name": "Census Tract 93.09; Adams County; Colorado",
+    "population": 4324,
+    "medianHouseholdIncome": 70154,
+    "medianAge": 33
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009310",
+    "name": "Census Tract 93.10; Adams County; Colorado",
+    "population": 5966,
+    "medianHouseholdIncome": 69100,
+    "medianAge": 29.2
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009316",
+    "name": "Census Tract 93.16; Adams County; Colorado",
+    "population": 7111,
+    "medianHouseholdIncome": 62137,
+    "medianAge": 32.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009318",
+    "name": "Census Tract 93.18; Adams County; Colorado",
+    "population": 6973,
+    "medianHouseholdIncome": 58214,
+    "medianAge": 25.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009319",
+    "name": "Census Tract 93.19; Adams County; Colorado",
+    "population": 2820,
+    "medianHouseholdIncome": 47759,
+    "medianAge": 32
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009320",
+    "name": "Census Tract 93.20; Adams County; Colorado",
+    "population": 3152,
+    "medianHouseholdIncome": 44385,
+    "medianAge": 31.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009321",
+    "name": "Census Tract 93.21; Adams County; Colorado",
+    "population": 4483,
+    "medianHouseholdIncome": 61700,
+    "medianAge": 30.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009322",
+    "name": "Census Tract 93.22; Adams County; Colorado",
+    "population": 5064,
+    "medianHouseholdIncome": 71966,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009323",
+    "name": "Census Tract 93.23; Adams County; Colorado",
+    "population": 3678,
+    "medianHouseholdIncome": 66295,
+    "medianAge": 32.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009325",
+    "name": "Census Tract 93.25; Adams County; Colorado",
+    "population": 5456,
+    "medianHouseholdIncome": 81975,
+    "medianAge": 36.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009326",
+    "name": "Census Tract 93.26; Adams County; Colorado",
+    "population": 2968,
+    "medianHouseholdIncome": 99375,
+    "medianAge": 42.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009327",
+    "name": "Census Tract 93.27; Adams County; Colorado",
+    "population": 4662,
+    "medianHouseholdIncome": 100125,
+    "medianAge": 35
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009401",
+    "name": "Census Tract 94.01; Adams County; Colorado",
+    "population": 4626,
+    "medianHouseholdIncome": 102339,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009406",
+    "name": "Census Tract 94.06; Adams County; Colorado",
+    "population": 4495,
+    "medianHouseholdIncome": 89974,
+    "medianAge": 35.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009407",
+    "name": "Census Tract 94.07; Adams County; Colorado",
+    "population": 5052,
+    "medianHouseholdIncome": 74344,
+    "medianAge": 33.8
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009408",
+    "name": "Census Tract 94.08; Adams County; Colorado",
+    "population": 4918,
+    "medianHouseholdIncome": 137902,
+    "medianAge": 44.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009409",
+    "name": "Census Tract 94.09; Adams County; Colorado",
+    "population": 5840,
+    "medianHouseholdIncome": 138214,
+    "medianAge": 42.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009410",
+    "name": "Census Tract 94.10; Adams County; Colorado",
+    "population": 3206,
+    "medianHouseholdIncome": 146313,
+    "medianAge": 44
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009411",
+    "name": "Census Tract 94.11; Adams County; Colorado",
+    "population": 2919,
+    "medianHouseholdIncome": 103891,
+    "medianAge": 41.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009501",
+    "name": "Census Tract 95.01; Adams County; Colorado",
+    "population": 3040,
+    "medianHouseholdIncome": 75047,
+    "medianAge": 32.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009502",
+    "name": "Census Tract 95.02; Adams County; Colorado",
+    "population": 5214,
+    "medianHouseholdIncome": 101842,
+    "medianAge": 34.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009553",
+    "name": "Census Tract 95.53; Adams County; Colorado",
+    "population": 3453,
+    "medianHouseholdIncome": 86869,
+    "medianAge": 41
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009603",
+    "name": "Census Tract 96.03; Adams County; Colorado",
+    "population": 6243,
+    "medianHouseholdIncome": 52742,
+    "medianAge": 38.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009604",
+    "name": "Census Tract 96.04; Adams County; Colorado",
+    "population": 4454,
+    "medianHouseholdIncome": 55313,
+    "medianAge": 37.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009606",
+    "name": "Census Tract 96.06; Adams County; Colorado",
+    "population": 2885,
+    "medianHouseholdIncome": 71333,
+    "medianAge": 35.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009607",
+    "name": "Census Tract 96.07; Adams County; Colorado",
+    "population": 4597,
+    "medianHouseholdIncome": 57193,
+    "medianAge": 36.3
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009608",
+    "name": "Census Tract 96.08; Adams County; Colorado",
+    "population": 2889,
+    "medianHouseholdIncome": 96484,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009751",
+    "name": "Census Tract 97.51; Adams County; Colorado",
+    "population": 4063,
+    "medianHouseholdIncome": 64355,
+    "medianAge": 29.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "009752",
+    "name": "Census Tract 97.52; Adams County; Colorado",
+    "population": 3374,
+    "medianHouseholdIncome": 94135,
+    "medianAge": 33.5
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "015000",
+    "name": "Census Tract 150; Adams County; Colorado",
+    "population": 2710,
+    "medianHouseholdIncome": 46720,
+    "medianAge": 46.6
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "060001",
+    "name": "Census Tract 600.01; Adams County; Colorado",
+    "population": 2559,
+    "medianHouseholdIncome": 107717,
+    "medianAge": 33.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "060002",
+    "name": "Census Tract 600.02; Adams County; Colorado",
+    "population": 4206,
+    "medianHouseholdIncome": 134432,
+    "medianAge": 34.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "060100",
+    "name": "Census Tract 601; Adams County; Colorado",
+    "population": 7546,
+    "medianHouseholdIncome": 110183,
+    "medianAge": 38.7
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "060200",
+    "name": "Census Tract 602; Adams County; Colorado",
+    "population": 4626,
+    "medianHouseholdIncome": 71333,
+    "medianAge": 36.1
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "061200",
+    "name": "Census Tract 612; Adams County; Colorado",
+    "population": 3801,
+    "medianHouseholdIncome": 160962,
+    "medianAge": 38.4
+  },
+  {
+    "state": "08",
+    "county": "001",
+    "tract": "988700",
+    "name": "Census Tract 9887; Adams County; Colorado",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

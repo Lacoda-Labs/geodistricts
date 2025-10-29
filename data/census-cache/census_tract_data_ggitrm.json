@@ -1,0 +1,254 @@
+[
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960100",
+    "name": "Census Tract 9601; St. Landry Parish; Louisiana",
+    "population": 2246,
+    "medianHouseholdIncome": 34439,
+    "medianAge": 40.9
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960200",
+    "name": "Census Tract 9602; St. Landry Parish; Louisiana",
+    "population": 4196,
+    "medianHouseholdIncome": 45054,
+    "medianAge": 39.7
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960300",
+    "name": "Census Tract 9603; St. Landry Parish; Louisiana",
+    "population": 3482,
+    "medianHouseholdIncome": 43438,
+    "medianAge": 35.2
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960400",
+    "name": "Census Tract 9604; St. Landry Parish; Louisiana",
+    "population": 2039,
+    "medianHouseholdIncome": 37216,
+    "medianAge": 46.7
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960500",
+    "name": "Census Tract 9605; St. Landry Parish; Louisiana",
+    "population": 5170,
+    "medianHouseholdIncome": 48617,
+    "medianAge": 33
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960601",
+    "name": "Census Tract 9606.01; St. Landry Parish; Louisiana",
+    "population": 4366,
+    "medianHouseholdIncome": 25917,
+    "medianAge": 31.5
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960602",
+    "name": "Census Tract 9606.02; St. Landry Parish; Louisiana",
+    "population": 1411,
+    "medianHouseholdIncome": 43397,
+    "medianAge": 53.3
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960701",
+    "name": "Census Tract 9607.01; St. Landry Parish; Louisiana",
+    "population": 2465,
+    "medianHouseholdIncome": 57308,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960702",
+    "name": "Census Tract 9607.02; St. Landry Parish; Louisiana",
+    "population": 3710,
+    "medianHouseholdIncome": 37308,
+    "medianAge": 42
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960800",
+    "name": "Census Tract 9608; St. Landry Parish; Louisiana",
+    "population": 3413,
+    "medianHouseholdIncome": 59808,
+    "medianAge": 41.2
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960901",
+    "name": "Census Tract 9609.01; St. Landry Parish; Louisiana",
+    "population": 2159,
+    "medianHouseholdIncome": 39504,
+    "medianAge": 34.4
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "960902",
+    "name": "Census Tract 9609.02; St. Landry Parish; Louisiana",
+    "population": 2697,
+    "medianHouseholdIncome": 22500,
+    "medianAge": 30.7
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961000",
+    "name": "Census Tract 9610; St. Landry Parish; Louisiana",
+    "population": 2023,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 34.2
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961100",
+    "name": "Census Tract 9611; St. Landry Parish; Louisiana",
+    "population": 2734,
+    "medianHouseholdIncome": 40768,
+    "medianAge": 43.2
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961200",
+    "name": "Census Tract 9612; St. Landry Parish; Louisiana",
+    "population": 5118,
+    "medianHouseholdIncome": 74516,
+    "medianAge": 46.9
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961301",
+    "name": "Census Tract 9613.01; St. Landry Parish; Louisiana",
+    "population": 2530,
+    "medianHouseholdIncome": 29755,
+    "medianAge": 29.3
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961302",
+    "name": "Census Tract 9613.02; St. Landry Parish; Louisiana",
+    "population": 2705,
+    "medianHouseholdIncome": 30920,
+    "medianAge": 33.1
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961401",
+    "name": "Census Tract 9614.01; St. Landry Parish; Louisiana",
+    "population": 2296,
+    "medianHouseholdIncome": 28616,
+    "medianAge": 32.9
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961402",
+    "name": "Census Tract 9614.02; St. Landry Parish; Louisiana",
+    "population": 982,
+    "medianHouseholdIncome": 28750,
+    "medianAge": 33.9
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961501",
+    "name": "Census Tract 9615.01; St. Landry Parish; Louisiana",
+    "population": 1557,
+    "medianHouseholdIncome": 21231,
+    "medianAge": 38.2
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961502",
+    "name": "Census Tract 9615.02; St. Landry Parish; Louisiana",
+    "population": 3345,
+    "medianHouseholdIncome": 70034,
+    "medianAge": 34.9
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961601",
+    "name": "Census Tract 9616.01; St. Landry Parish; Louisiana",
+    "population": 2278,
+    "medianHouseholdIncome": 45625,
+    "medianAge": 29.7
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961602",
+    "name": "Census Tract 9616.02; St. Landry Parish; Louisiana",
+    "population": 1532,
+    "medianHouseholdIncome": 26042,
+    "medianAge": 21.3
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961701",
+    "name": "Census Tract 9617.01; St. Landry Parish; Louisiana",
+    "population": 5456,
+    "medianHouseholdIncome": 52819,
+    "medianAge": 33.7
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961702",
+    "name": "Census Tract 9617.02; St. Landry Parish; Louisiana",
+    "population": 2347,
+    "medianHouseholdIncome": 50086,
+    "medianAge": 47.5
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961801",
+    "name": "Census Tract 9618.01; St. Landry Parish; Louisiana",
+    "population": 4867,
+    "medianHouseholdIncome": 56141,
+    "medianAge": 35
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961802",
+    "name": "Census Tract 9618.02; St. Landry Parish; Louisiana",
+    "population": 2770,
+    "medianHouseholdIncome": 72523,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "097",
+    "tract": "961900",
+    "name": "Census Tract 9619; St. Landry Parish; Louisiana",
+    "population": 2680,
+    "medianHouseholdIncome": 47813,
+    "medianAge": 44.3
+  }
+]

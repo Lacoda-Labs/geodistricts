@@ -1,0 +1,425 @@
+[
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000100",
+    "name": "Census Tract 1; Ouachita Parish; Louisiana",
+    "population": 4591,
+    "medianHouseholdIncome": 53208,
+    "medianAge": 40.4
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000200",
+    "name": "Census Tract 2; Ouachita Parish; Louisiana",
+    "population": 6117,
+    "medianHouseholdIncome": 77292,
+    "medianAge": 35.4
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Ouachita Parish; Louisiana",
+    "population": 2937,
+    "medianHouseholdIncome": 33482,
+    "medianAge": 21.9
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Ouachita Parish; Louisiana",
+    "population": 2790,
+    "medianHouseholdIncome": 24000,
+    "medianAge": 22.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000500",
+    "name": "Census Tract 5; Ouachita Parish; Louisiana",
+    "population": 3428,
+    "medianHouseholdIncome": 19900,
+    "medianAge": 40.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000600",
+    "name": "Census Tract 6; Ouachita Parish; Louisiana",
+    "population": 3902,
+    "medianHouseholdIncome": 19706,
+    "medianAge": 31.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000700",
+    "name": "Census Tract 7; Ouachita Parish; Louisiana",
+    "population": 1836,
+    "medianHouseholdIncome": 28167,
+    "medianAge": 32
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "000900",
+    "name": "Census Tract 9; Ouachita Parish; Louisiana",
+    "population": 1514,
+    "medianHouseholdIncome": 22839,
+    "medianAge": 19.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "001100",
+    "name": "Census Tract 11; Ouachita Parish; Louisiana",
+    "population": 2958,
+    "medianHouseholdIncome": 21964,
+    "medianAge": 35.4
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "001400",
+    "name": "Census Tract 14; Ouachita Parish; Louisiana",
+    "population": 2203,
+    "medianHouseholdIncome": 48350,
+    "medianAge": 35.5
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "001500",
+    "name": "Census Tract 15; Ouachita Parish; Louisiana",
+    "population": 1305,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "001700",
+    "name": "Census Tract 17; Ouachita Parish; Louisiana",
+    "population": 3025,
+    "medianHouseholdIncome": 41661,
+    "medianAge": 50
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005100",
+    "name": "Census Tract 51; Ouachita Parish; Louisiana",
+    "population": 2219,
+    "medianHouseholdIncome": 64659,
+    "medianAge": 43.6
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005201",
+    "name": "Census Tract 52.01; Ouachita Parish; Louisiana",
+    "population": 3987,
+    "medianHouseholdIncome": 94590,
+    "medianAge": 49.5
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005203",
+    "name": "Census Tract 52.03; Ouachita Parish; Louisiana",
+    "population": 3335,
+    "medianHouseholdIncome": 54250,
+    "medianAge": 36.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005204",
+    "name": "Census Tract 52.04; Ouachita Parish; Louisiana",
+    "population": 6658,
+    "medianHouseholdIncome": 90000,
+    "medianAge": 31.7
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005303",
+    "name": "Census Tract 53.03; Ouachita Parish; Louisiana",
+    "population": 2585,
+    "medianHouseholdIncome": 60288,
+    "medianAge": 39.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005304",
+    "name": "Census Tract 53.04; Ouachita Parish; Louisiana",
+    "population": 3623,
+    "medianHouseholdIncome": 73696,
+    "medianAge": 37.5
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005305",
+    "name": "Census Tract 53.05; Ouachita Parish; Louisiana",
+    "population": 3422,
+    "medianHouseholdIncome": 59386,
+    "medianAge": 33.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005306",
+    "name": "Census Tract 53.06; Ouachita Parish; Louisiana",
+    "population": 2573,
+    "medianHouseholdIncome": 58750,
+    "medianAge": 48.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005400",
+    "name": "Census Tract 54; Ouachita Parish; Louisiana",
+    "population": 2010,
+    "medianHouseholdIncome": 59467,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005500",
+    "name": "Census Tract 55; Ouachita Parish; Louisiana",
+    "population": 3000,
+    "medianHouseholdIncome": 49837,
+    "medianAge": 34.2
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005800",
+    "name": "Census Tract 58; Ouachita Parish; Louisiana",
+    "population": 2397,
+    "medianHouseholdIncome": 41875,
+    "medianAge": 46.4
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "005900",
+    "name": "Census Tract 59; Ouachita Parish; Louisiana",
+    "population": 2248,
+    "medianHouseholdIncome": 24324,
+    "medianAge": 45.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010101",
+    "name": "Census Tract 101.01; Ouachita Parish; Louisiana",
+    "population": 4813,
+    "medianHouseholdIncome": 67559,
+    "medianAge": 41.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010103",
+    "name": "Census Tract 101.03; Ouachita Parish; Louisiana",
+    "population": 3058,
+    "medianHouseholdIncome": 33845,
+    "medianAge": 33.6
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010104",
+    "name": "Census Tract 101.04; Ouachita Parish; Louisiana",
+    "population": 3201,
+    "medianHouseholdIncome": 96364,
+    "medianAge": 30.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010202",
+    "name": "Census Tract 102.02; Ouachita Parish; Louisiana",
+    "population": 8653,
+    "medianHouseholdIncome": 108426,
+    "medianAge": 38.7
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010203",
+    "name": "Census Tract 102.03; Ouachita Parish; Louisiana",
+    "population": 3227,
+    "medianHouseholdIncome": 31282,
+    "medianAge": 28.6
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010204",
+    "name": "Census Tract 102.04; Ouachita Parish; Louisiana",
+    "population": 3789,
+    "medianHouseholdIncome": 59864,
+    "medianAge": 30
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010301",
+    "name": "Census Tract 103.01; Ouachita Parish; Louisiana",
+    "population": 4156,
+    "medianHouseholdIncome": 105338,
+    "medianAge": 32.2
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010302",
+    "name": "Census Tract 103.02; Ouachita Parish; Louisiana",
+    "population": 4346,
+    "medianHouseholdIncome": 51612,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010401",
+    "name": "Census Tract 104.01; Ouachita Parish; Louisiana",
+    "population": 5378,
+    "medianHouseholdIncome": 97321,
+    "medianAge": 39.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010402",
+    "name": "Census Tract 104.02; Ouachita Parish; Louisiana",
+    "population": 4757,
+    "medianHouseholdIncome": 54847,
+    "medianAge": 35.9
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010502",
+    "name": "Census Tract 105.02; Ouachita Parish; Louisiana",
+    "population": 4360,
+    "medianHouseholdIncome": 72300,
+    "medianAge": 42.5
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010503",
+    "name": "Census Tract 105.03; Ouachita Parish; Louisiana",
+    "population": 1866,
+    "medianHouseholdIncome": 75357,
+    "medianAge": 44.4
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010505",
+    "name": "Census Tract 105.05; Ouachita Parish; Louisiana",
+    "population": 5657,
+    "medianHouseholdIncome": 63801,
+    "medianAge": 39.2
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010506",
+    "name": "Census Tract 105.06; Ouachita Parish; Louisiana",
+    "population": 3760,
+    "medianHouseholdIncome": 52578,
+    "medianAge": 42.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010604",
+    "name": "Census Tract 106.04; Ouachita Parish; Louisiana",
+    "population": 1649,
+    "medianHouseholdIncome": 35337,
+    "medianAge": 49.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010605",
+    "name": "Census Tract 106.05; Ouachita Parish; Louisiana",
+    "population": 4615,
+    "medianHouseholdIncome": 32850,
+    "medianAge": 37.8
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010606",
+    "name": "Census Tract 106.06; Ouachita Parish; Louisiana",
+    "population": 747,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 56.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010700",
+    "name": "Census Tract 107; Ouachita Parish; Louisiana",
+    "population": 2661,
+    "medianHouseholdIncome": 17661,
+    "medianAge": 29.7
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010800",
+    "name": "Census Tract 108; Ouachita Parish; Louisiana",
+    "population": 1333,
+    "medianHouseholdIncome": 18603,
+    "medianAge": 57.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "010900",
+    "name": "Census Tract 109; Ouachita Parish; Louisiana",
+    "population": 4487,
+    "medianHouseholdIncome": 35068,
+    "medianAge": 39.1
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "011000",
+    "name": "Census Tract 110; Ouachita Parish; Louisiana",
+    "population": 4851,
+    "medianHouseholdIncome": 24115,
+    "medianAge": 24.3
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "011100",
+    "name": "Census Tract 111; Ouachita Parish; Louisiana",
+    "population": 3558,
+    "medianHouseholdIncome": 32763,
+    "medianAge": 30.2
+  },
+  {
+    "state": "22",
+    "county": "073",
+    "tract": "980000",
+    "name": "Census Tract 9800; Ouachita Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

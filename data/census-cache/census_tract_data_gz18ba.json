@@ -1,0 +1,155 @@
+[
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040100",
+    "name": "Census Tract 401; St. Mary Parish; Louisiana",
+    "population": 2411,
+    "medianHouseholdIncome": 46688,
+    "medianAge": 41.6
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040200",
+    "name": "Census Tract 402; St. Mary Parish; Louisiana",
+    "population": 4657,
+    "medianHouseholdIncome": 61707,
+    "medianAge": 43.2
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040300",
+    "name": "Census Tract 403; St. Mary Parish; Louisiana",
+    "population": 2486,
+    "medianHouseholdIncome": 32857,
+    "medianAge": 48.7
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040400",
+    "name": "Census Tract 404; St. Mary Parish; Louisiana",
+    "population": 4188,
+    "medianHouseholdIncome": 43032,
+    "medianAge": 38
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040500",
+    "name": "Census Tract 405; St. Mary Parish; Louisiana",
+    "population": 4786,
+    "medianHouseholdIncome": 52083,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040600",
+    "name": "Census Tract 406; St. Mary Parish; Louisiana",
+    "population": 3953,
+    "medianHouseholdIncome": 46399,
+    "medianAge": 37.5
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040700",
+    "name": "Census Tract 407; St. Mary Parish; Louisiana",
+    "population": 3410,
+    "medianHouseholdIncome": 32857,
+    "medianAge": 32.4
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040800",
+    "name": "Census Tract 408; St. Mary Parish; Louisiana",
+    "population": 4985,
+    "medianHouseholdIncome": 67692,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "040900",
+    "name": "Census Tract 409; St. Mary Parish; Louisiana",
+    "population": 3107,
+    "medianHouseholdIncome": 75338,
+    "medianAge": 48.3
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041000",
+    "name": "Census Tract 410; St. Mary Parish; Louisiana",
+    "population": 2937,
+    "medianHouseholdIncome": 55714,
+    "medianAge": 47.4
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041100",
+    "name": "Census Tract 411; St. Mary Parish; Louisiana",
+    "population": 1349,
+    "medianHouseholdIncome": 43191,
+    "medianAge": 50.2
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041200",
+    "name": "Census Tract 412; St. Mary Parish; Louisiana",
+    "population": 1917,
+    "medianHouseholdIncome": 29116,
+    "medianAge": 37.8
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041300",
+    "name": "Census Tract 413; St. Mary Parish; Louisiana",
+    "population": 2125,
+    "medianHouseholdIncome": 42083,
+    "medianAge": 41.7
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041400",
+    "name": "Census Tract 414; St. Mary Parish; Louisiana",
+    "population": 2708,
+    "medianHouseholdIncome": 41484,
+    "medianAge": 41.4
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041500",
+    "name": "Census Tract 415; St. Mary Parish; Louisiana",
+    "population": 1813,
+    "medianHouseholdIncome": 58750,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "041600",
+    "name": "Census Tract 416; St. Mary Parish; Louisiana",
+    "population": 2282,
+    "medianHouseholdIncome": 39302,
+    "medianAge": 38.2
+  },
+  {
+    "state": "22",
+    "county": "101",
+    "tract": "990000",
+    "name": "Census Tract 9900; St. Mary Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

@@ -1,0 +1,218 @@
+[
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030000",
+    "name": "Census Tract 300; Broomfield County; Colorado",
+    "population": 3405,
+    "medianHouseholdIncome": 79817,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030100",
+    "name": "Census Tract 301; Broomfield County; Colorado",
+    "population": 2425,
+    "medianHouseholdIncome": 98690,
+    "medianAge": 39.4
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030200",
+    "name": "Census Tract 302; Broomfield County; Colorado",
+    "population": 2180,
+    "medianHouseholdIncome": 97562,
+    "medianAge": 31.8
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030300",
+    "name": "Census Tract 303; Broomfield County; Colorado",
+    "population": 4210,
+    "medianHouseholdIncome": 74335,
+    "medianAge": 35.5
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030400",
+    "name": "Census Tract 304; Broomfield County; Colorado",
+    "population": 4098,
+    "medianHouseholdIncome": 145536,
+    "medianAge": 43
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030500",
+    "name": "Census Tract 305; Broomfield County; Colorado",
+    "population": 5938,
+    "medianHouseholdIncome": 183824,
+    "medianAge": 44
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030600",
+    "name": "Census Tract 306; Broomfield County; Colorado",
+    "population": 5508,
+    "medianHouseholdIncome": 134509,
+    "medianAge": 37.1
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030700",
+    "name": "Census Tract 307; Broomfield County; Colorado",
+    "population": 3269,
+    "medianHouseholdIncome": 127898,
+    "medianAge": 40.2
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030800",
+    "name": "Census Tract 308; Broomfield County; Colorado",
+    "population": 6162,
+    "medianHouseholdIncome": 134318,
+    "medianAge": 38.2
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "030900",
+    "name": "Census Tract 309; Broomfield County; Colorado",
+    "population": 6072,
+    "medianHouseholdIncome": 142569,
+    "medianAge": 46.5
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031000",
+    "name": "Census Tract 310; Broomfield County; Colorado",
+    "population": 5855,
+    "medianHouseholdIncome": 140375,
+    "medianAge": 43.6
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031101",
+    "name": "Census Tract 311.01; Broomfield County; Colorado",
+    "population": 2928,
+    "medianHouseholdIncome": 81674,
+    "medianAge": 29.3
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031102",
+    "name": "Census Tract 311.02; Broomfield County; Colorado",
+    "population": 1928,
+    "medianHouseholdIncome": 85054,
+    "medianAge": 42.3
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031103",
+    "name": "Census Tract 311.03; Broomfield County; Colorado",
+    "population": 2023,
+    "medianHouseholdIncome": 107765,
+    "medianAge": 55.4
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031104",
+    "name": "Census Tract 311.04; Broomfield County; Colorado",
+    "population": 1333,
+    "medianHouseholdIncome": 93945,
+    "medianAge": 29.1
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031201",
+    "name": "Census Tract 312.01; Broomfield County; Colorado",
+    "population": 2205,
+    "medianHouseholdIncome": 78750,
+    "medianAge": 31.2
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031202",
+    "name": "Census Tract 312.02; Broomfield County; Colorado",
+    "population": 2935,
+    "medianHouseholdIncome": 109844,
+    "medianAge": 38.5
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031300",
+    "name": "Census Tract 313; Broomfield County; Colorado",
+    "population": 2693,
+    "medianHouseholdIncome": 186875,
+    "medianAge": 44.7
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031401",
+    "name": "Census Tract 314.01; Broomfield County; Colorado",
+    "population": 1897,
+    "medianHouseholdIncome": 99828,
+    "medianAge": 71.4
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031402",
+    "name": "Census Tract 314.02; Broomfield County; Colorado",
+    "population": 1860,
+    "medianHouseholdIncome": 172222,
+    "medianAge": 33.4
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "031403",
+    "name": "Census Tract 314.03; Broomfield County; Colorado",
+    "population": 5022,
+    "medianHouseholdIncome": 215708,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "980100",
+    "name": "Census Tract 9801; Broomfield County; Colorado",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "980200",
+    "name": "Census Tract 9802; Broomfield County; Colorado",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "08",
+    "county": "014",
+    "tract": "980300",
+    "name": "Census Tract 9803; Broomfield County; Colorado",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

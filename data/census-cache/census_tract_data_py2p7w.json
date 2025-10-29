@@ -1,0 +1,47 @@
+[
+  {
+    "state": "08",
+    "county": "099",
+    "tract": "000100",
+    "name": "Census Tract 1; Prowers County; Colorado",
+    "population": 1413,
+    "medianHouseholdIncome": 79375,
+    "medianAge": 41.2
+  },
+  {
+    "state": "08",
+    "county": "099",
+    "tract": "000200",
+    "name": "Census Tract 2; Prowers County; Colorado",
+    "population": 2299,
+    "medianHouseholdIncome": 48952,
+    "medianAge": 37.3
+  },
+  {
+    "state": "08",
+    "county": "099",
+    "tract": "000300",
+    "name": "Census Tract 3; Prowers County; Colorado",
+    "population": 4914,
+    "medianHouseholdIncome": 50049,
+    "medianAge": 30.9
+  },
+  {
+    "state": "08",
+    "county": "099",
+    "tract": "000600",
+    "name": "Census Tract 6; Prowers County; Colorado",
+    "population": 1276,
+    "medianHouseholdIncome": 45625,
+    "medianAge": 53.5
+  },
+  {
+    "state": "08",
+    "county": "099",
+    "tract": "000700",
+    "name": "Census Tract 7; Prowers County; Colorado",
+    "population": 2066,
+    "medianHouseholdIncome": 45649,
+    "medianAge": 38.4
+  }
+]

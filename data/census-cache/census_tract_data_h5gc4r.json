@@ -1,0 +1,29 @@
+[
+  {
+    "state": "08",
+    "county": "065",
+    "tract": "961701",
+    "name": "Census Tract 9617.01; Lake County; Colorado",
+    "population": 2026,
+    "medianHouseholdIncome": 79738,
+    "medianAge": 38
+  },
+  {
+    "state": "08",
+    "county": "065",
+    "tract": "961702",
+    "name": "Census Tract 9617.02; Lake County; Colorado",
+    "population": 3197,
+    "medianHouseholdIncome": 82617,
+    "medianAge": 35
+  },
+  {
+    "state": "08",
+    "county": "065",
+    "tract": "961900",
+    "name": "Census Tract 9619; Lake County; Colorado",
+    "population": 2180,
+    "medianHouseholdIncome": 70272,
+    "medianAge": 36.9
+  }
+]

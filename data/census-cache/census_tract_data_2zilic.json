@@ -1,0 +1,29 @@
+[
+  {
+    "state": "22",
+    "county": "107",
+    "tract": "000100",
+    "name": "Census Tract 1; Tensas Parish; Louisiana",
+    "population": 1445,
+    "medianHouseholdIncome": 34853,
+    "medianAge": 57.3
+  },
+  {
+    "state": "22",
+    "county": "107",
+    "tract": "000200",
+    "name": "Census Tract 2; Tensas Parish; Louisiana",
+    "population": 1095,
+    "medianHouseholdIncome": 50417,
+    "medianAge": 38.9
+  },
+  {
+    "state": "22",
+    "county": "107",
+    "tract": "000300",
+    "name": "Census Tract 3; Tensas Parish; Louisiana",
+    "population": 1587,
+    "medianHouseholdIncome": 30781,
+    "medianAge": 44.3
+  }
+]

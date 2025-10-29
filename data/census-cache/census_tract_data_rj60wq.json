@@ -1,0 +1,47 @@
+[
+  {
+    "state": "22",
+    "county": "127",
+    "tract": "960100",
+    "name": "Census Tract 9601; Winn Parish; Louisiana",
+    "population": 3583,
+    "medianHouseholdIncome": 51488,
+    "medianAge": 37.8
+  },
+  {
+    "state": "22",
+    "county": "127",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; Winn Parish; Louisiana",
+    "population": 3247,
+    "medianHouseholdIncome": 53152,
+    "medianAge": 41.5
+  },
+  {
+    "state": "22",
+    "county": "127",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; Winn Parish; Louisiana",
+    "population": 2284,
+    "medianHouseholdIncome": 47796,
+    "medianAge": 53.8
+  },
+  {
+    "state": "22",
+    "county": "127",
+    "tract": "960300",
+    "name": "Census Tract 9603; Winn Parish; Louisiana",
+    "population": 2061,
+    "medianHouseholdIncome": 36019,
+    "medianAge": 32.7
+  },
+  {
+    "state": "22",
+    "county": "127",
+    "tract": "960400",
+    "name": "Census Tract 9604; Winn Parish; Louisiana",
+    "population": 2490,
+    "medianHouseholdIncome": 36707,
+    "medianAge": 36.8
+  }
+]

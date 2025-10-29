@@ -1,0 +1,137 @@
+[
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978100",
+    "name": "Census Tract 9781; Fremont County; Colorado",
+    "population": 4394,
+    "medianHouseholdIncome": 81361,
+    "medianAge": 41.6
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978200",
+    "name": "Census Tract 9782; Fremont County; Colorado",
+    "population": 3578,
+    "medianHouseholdIncome": 53305,
+    "medianAge": 44.8
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978300",
+    "name": "Census Tract 9783; Fremont County; Colorado",
+    "population": 6204,
+    "medianHouseholdIncome": 66131,
+    "medianAge": 45.9
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978400",
+    "name": "Census Tract 9784; Fremont County; Colorado",
+    "population": 2617,
+    "medianHouseholdIncome": 39250,
+    "medianAge": 44.6
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978500",
+    "name": "Census Tract 9785; Fremont County; Colorado",
+    "population": 5434,
+    "medianHouseholdIncome": 43517,
+    "medianAge": 49.4
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978600",
+    "name": "Census Tract 9786; Fremont County; Colorado",
+    "population": 3772,
+    "medianHouseholdIncome": 43269,
+    "medianAge": 38
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "978800",
+    "name": "Census Tract 9788; Fremont County; Colorado",
+    "population": 2627,
+    "medianHouseholdIncome": 64597,
+    "medianAge": 53.3
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "979001",
+    "name": "Census Tract 9790.01; Fremont County; Colorado",
+    "population": 2598,
+    "medianHouseholdIncome": 54491,
+    "medianAge": 55.5
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "979002",
+    "name": "Census Tract 9790.02; Fremont County; Colorado",
+    "population": 1541,
+    "medianHouseholdIncome": 43478,
+    "medianAge": 62.7
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "979100",
+    "name": "Census Tract 9791; Fremont County; Colorado",
+    "population": 3990,
+    "medianHouseholdIncome": 69375,
+    "medianAge": 47.4
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "979200",
+    "name": "Census Tract 9792; Fremont County; Colorado",
+    "population": 1855,
+    "medianHouseholdIncome": 86739,
+    "medianAge": 58.5
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "979400",
+    "name": "Census Tract 9794; Fremont County; Colorado",
+    "population": 2912,
+    "medianHouseholdIncome": 56795,
+    "medianAge": 43.9
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "980100",
+    "name": "Census Tract 9801; Fremont County; Colorado",
+    "population": 285,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 42.7
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "980200",
+    "name": "Census Tract 9802; Fremont County; Colorado",
+    "population": 2530,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 40.2
+  },
+  {
+    "state": "08",
+    "county": "043",
+    "tract": "980300",
+    "name": "Census Tract 9803; Fremont County; Colorado",
+    "population": 4770,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 39.2
+  }
+]

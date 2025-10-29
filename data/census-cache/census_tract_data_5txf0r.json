@@ -1,0 +1,209 @@
+[
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030101",
+    "name": "Census Tract 301.01; Iberia Parish; Louisiana",
+    "population": 4187,
+    "medianHouseholdIncome": 54348,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030102",
+    "name": "Census Tract 301.02; Iberia Parish; Louisiana",
+    "population": 2289,
+    "medianHouseholdIncome": 75370,
+    "medianAge": 31.7
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030201",
+    "name": "Census Tract 302.01; Iberia Parish; Louisiana",
+    "population": 2832,
+    "medianHouseholdIncome": 69453,
+    "medianAge": 48.1
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030202",
+    "name": "Census Tract 302.02; Iberia Parish; Louisiana",
+    "population": 4838,
+    "medianHouseholdIncome": 82411,
+    "medianAge": 40.3
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030301",
+    "name": "Census Tract 303.01; Iberia Parish; Louisiana",
+    "population": 3613,
+    "medianHouseholdIncome": 75240,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030303",
+    "name": "Census Tract 303.03; Iberia Parish; Louisiana",
+    "population": 3246,
+    "medianHouseholdIncome": 39868,
+    "medianAge": 36.6
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030304",
+    "name": "Census Tract 303.04; Iberia Parish; Louisiana",
+    "population": 2759,
+    "medianHouseholdIncome": 46481,
+    "medianAge": 42.1
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030401",
+    "name": "Census Tract 304.01; Iberia Parish; Louisiana",
+    "population": 3633,
+    "medianHouseholdIncome": 55246,
+    "medianAge": 37
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030402",
+    "name": "Census Tract 304.02; Iberia Parish; Louisiana",
+    "population": 3397,
+    "medianHouseholdIncome": 37769,
+    "medianAge": 22.8
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030500",
+    "name": "Census Tract 305; Iberia Parish; Louisiana",
+    "population": 3962,
+    "medianHouseholdIncome": 41202,
+    "medianAge": 34.3
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030601",
+    "name": "Census Tract 306.01; Iberia Parish; Louisiana",
+    "population": 1336,
+    "medianHouseholdIncome": 81406,
+    "medianAge": 50
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030602",
+    "name": "Census Tract 306.02; Iberia Parish; Louisiana",
+    "population": 4871,
+    "medianHouseholdIncome": 72683,
+    "medianAge": 46.5
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030700",
+    "name": "Census Tract 307; Iberia Parish; Louisiana",
+    "population": 4134,
+    "medianHouseholdIncome": 65011,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030800",
+    "name": "Census Tract 308; Iberia Parish; Louisiana",
+    "population": 1451,
+    "medianHouseholdIncome": 29786,
+    "medianAge": 36
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "030900",
+    "name": "Census Tract 309; Iberia Parish; Louisiana",
+    "population": 3798,
+    "medianHouseholdIncome": 24390,
+    "medianAge": 29.5
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031000",
+    "name": "Census Tract 310; Iberia Parish; Louisiana",
+    "population": 2306,
+    "medianHouseholdIncome": 34257,
+    "medianAge": 33.1
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031101",
+    "name": "Census Tract 311.01; Iberia Parish; Louisiana",
+    "population": 3612,
+    "medianHouseholdIncome": 40808,
+    "medianAge": 29.5
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031102",
+    "name": "Census Tract 311.02; Iberia Parish; Louisiana",
+    "population": 1790,
+    "medianHouseholdIncome": 68244,
+    "medianAge": 48.4
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031200",
+    "name": "Census Tract 312; Iberia Parish; Louisiana",
+    "population": 3364,
+    "medianHouseholdIncome": 50214,
+    "medianAge": 42.6
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031301",
+    "name": "Census Tract 313.01; Iberia Parish; Louisiana",
+    "population": 4165,
+    "medianHouseholdIncome": 57245,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031302",
+    "name": "Census Tract 313.02; Iberia Parish; Louisiana",
+    "population": 1839,
+    "medianHouseholdIncome": 82250,
+    "medianAge": 35
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "031600",
+    "name": "Census Tract 316; Iberia Parish; Louisiana",
+    "population": 2536,
+    "medianHouseholdIncome": 47449,
+    "medianAge": 40.8
+  },
+  {
+    "state": "22",
+    "county": "045",
+    "tract": "990000",
+    "name": "Census Tract 9900; Iberia Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "state": "22",
+    "county": "059",
+    "tract": "970100",
+    "name": "Census Tract 9701; LaSalle Parish; Louisiana",
+    "population": 4483,
+    "medianHouseholdIncome": 46397,
+    "medianAge": 37.6
+  },
+  {
+    "state": "22",
+    "county": "059",
+    "tract": "970200",
+    "name": "Census Tract 9702; LaSalle Parish; Louisiana",
+    "population": 6696,
+    "medianHouseholdIncome": 59554,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "059",
+    "tract": "970300",
+    "name": "Census Tract 9703; LaSalle Parish; Louisiana",
+    "population": 3585,
+    "medianHouseholdIncome": 64549,
+    "medianAge": 38.7
+  }
+]

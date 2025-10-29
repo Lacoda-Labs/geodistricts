@@ -1,0 +1,245 @@
+[
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020100",
+    "name": "Census Tract 201; Lafourche Parish; Louisiana",
+    "population": 2670,
+    "medianHouseholdIncome": 50000,
+    "medianAge": 47.8
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020202",
+    "name": "Census Tract 202.02; Lafourche Parish; Louisiana",
+    "population": 4707,
+    "medianHouseholdIncome": 86750,
+    "medianAge": 43.2
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020400",
+    "name": "Census Tract 204; Lafourche Parish; Louisiana",
+    "population": 2442,
+    "medianHouseholdIncome": 24534,
+    "medianAge": 39.2
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020500",
+    "name": "Census Tract 205; Lafourche Parish; Louisiana",
+    "population": 6556,
+    "medianHouseholdIncome": 75485,
+    "medianAge": 33
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020600",
+    "name": "Census Tract 206; Lafourche Parish; Louisiana",
+    "population": 2563,
+    "medianHouseholdIncome": 52683,
+    "medianAge": 36.1
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020702",
+    "name": "Census Tract 207.02; Lafourche Parish; Louisiana",
+    "population": 4891,
+    "medianHouseholdIncome": 59976,
+    "medianAge": 30.7
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020703",
+    "name": "Census Tract 207.03; Lafourche Parish; Louisiana",
+    "population": 5989,
+    "medianHouseholdIncome": 74747,
+    "medianAge": 36
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020704",
+    "name": "Census Tract 207.04; Lafourche Parish; Louisiana",
+    "population": 5902,
+    "medianHouseholdIncome": 73156,
+    "medianAge": 39.9
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020800",
+    "name": "Census Tract 208; Lafourche Parish; Louisiana",
+    "population": 3560,
+    "medianHouseholdIncome": 59643,
+    "medianAge": 45.3
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "020900",
+    "name": "Census Tract 209; Lafourche Parish; Louisiana",
+    "population": 2209,
+    "medianHouseholdIncome": 58672,
+    "medianAge": 38.7
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021000",
+    "name": "Census Tract 210; Lafourche Parish; Louisiana",
+    "population": 2890,
+    "medianHouseholdIncome": 50819,
+    "medianAge": 42.9
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021101",
+    "name": "Census Tract 211.01; Lafourche Parish; Louisiana",
+    "population": 1857,
+    "medianHouseholdIncome": 65165,
+    "medianAge": 36.3
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021102",
+    "name": "Census Tract 211.02; Lafourche Parish; Louisiana",
+    "population": 3909,
+    "medianHouseholdIncome": 76848,
+    "medianAge": 45
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021200",
+    "name": "Census Tract 212; Lafourche Parish; Louisiana",
+    "population": 4174,
+    "medianHouseholdIncome": 44859,
+    "medianAge": 44.5
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021300",
+    "name": "Census Tract 213; Lafourche Parish; Louisiana",
+    "population": 2281,
+    "medianHouseholdIncome": 54464,
+    "medianAge": 45.6
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021400",
+    "name": "Census Tract 214; Lafourche Parish; Louisiana",
+    "population": 4214,
+    "medianHouseholdIncome": 73351,
+    "medianAge": 41.4
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021500",
+    "name": "Census Tract 215; Lafourche Parish; Louisiana",
+    "population": 4448,
+    "medianHouseholdIncome": 57047,
+    "medianAge": 37.9
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021602",
+    "name": "Census Tract 216.02; Lafourche Parish; Louisiana",
+    "population": 3523,
+    "medianHouseholdIncome": 66806,
+    "medianAge": 47.4
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021603",
+    "name": "Census Tract 216.03; Lafourche Parish; Louisiana",
+    "population": 2236,
+    "medianHouseholdIncome": 75471,
+    "medianAge": 37.8
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021604",
+    "name": "Census Tract 216.04; Lafourche Parish; Louisiana",
+    "population": 3565,
+    "medianHouseholdIncome": 63313,
+    "medianAge": 43.1
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021700",
+    "name": "Census Tract 217; Lafourche Parish; Louisiana",
+    "population": 3948,
+    "medianHouseholdIncome": 46625,
+    "medianAge": 39
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021800",
+    "name": "Census Tract 218; Lafourche Parish; Louisiana",
+    "population": 4990,
+    "medianHouseholdIncome": 40566,
+    "medianAge": 46.8
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021902",
+    "name": "Census Tract 219.02; Lafourche Parish; Louisiana",
+    "population": 4245,
+    "medianHouseholdIncome": 63934,
+    "medianAge": 39.1
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021903",
+    "name": "Census Tract 219.03; Lafourche Parish; Louisiana",
+    "population": 4728,
+    "medianHouseholdIncome": 58340,
+    "medianAge": 31.5
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "021904",
+    "name": "Census Tract 219.04; Lafourche Parish; Louisiana",
+    "population": 1980,
+    "medianHouseholdIncome": 86845,
+    "medianAge": 30.7
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "022000",
+    "name": "Census Tract 220; Lafourche Parish; Louisiana",
+    "population": 2743,
+    "medianHouseholdIncome": 59500,
+    "medianAge": 21.3
+  },
+  {
+    "state": "22",
+    "county": "057",
+    "tract": "990000",
+    "name": "Census Tract 9900; Lafourche Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010104",
+    "name": "Census Tract 101.04; Teller County; Colorado",
+    "population": 2121,
+    "medianHouseholdIncome": 74444,
+    "medianAge": 44.6
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010107",
+    "name": "Census Tract 101.07; Teller County; Colorado",
+    "population": 3574,
+    "medianHouseholdIncome": 83260,
+    "medianAge": 47.8
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010108",
+    "name": "Census Tract 101.08; Teller County; Colorado",
+    "population": 4689,
+    "medianHouseholdIncome": 98966,
+    "medianAge": 42.8
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010109",
+    "name": "Census Tract 101.09; Teller County; Colorado",
+    "population": 2461,
+    "medianHouseholdIncome": 68984,
+    "medianAge": 53.7
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010110",
+    "name": "Census Tract 101.10; Teller County; Colorado",
+    "population": 2154,
+    "medianHouseholdIncome": 59125,
+    "medianAge": 49.3
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010111",
+    "name": "Census Tract 101.11; Teller County; Colorado",
+    "population": 2717,
+    "medianHouseholdIncome": 64708,
+    "medianAge": 52.3
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010112",
+    "name": "Census Tract 101.12; Teller County; Colorado",
+    "population": 3854,
+    "medianHouseholdIncome": 68977,
+    "medianAge": 55.2
+  },
+  {
+    "state": "08",
+    "county": "119",
+    "tract": "010203",
+    "name": "Census Tract 102.03; Teller County; Colorado",
+    "population": 3188,
+    "medianHouseholdIncome": 45909,
+    "medianAge": 52.7
+  }
+]

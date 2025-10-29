@@ -1,0 +1,524 @@
+[
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000100",
+    "name": "Census Tract 1; Lafayette Parish; Louisiana",
+    "population": 2830,
+    "medianHouseholdIncome": 27209,
+    "medianAge": 37
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000200",
+    "name": "Census Tract 2; Lafayette Parish; Louisiana",
+    "population": 1926,
+    "medianHouseholdIncome": 31184,
+    "medianAge": 52
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000500",
+    "name": "Census Tract 5; Lafayette Parish; Louisiana",
+    "population": 2830,
+    "medianHouseholdIncome": 62386,
+    "medianAge": 31.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Lafayette Parish; Louisiana",
+    "population": 4838,
+    "medianHouseholdIncome": 65160,
+    "medianAge": 32.6
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000603",
+    "name": "Census Tract 6.03; Lafayette Parish; Louisiana",
+    "population": 2377,
+    "medianHouseholdIncome": 41984,
+    "medianAge": 31.6
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000605",
+    "name": "Census Tract 6.05; Lafayette Parish; Louisiana",
+    "population": 2440,
+    "medianHouseholdIncome": 57759,
+    "medianAge": 29
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000606",
+    "name": "Census Tract 6.06; Lafayette Parish; Louisiana",
+    "population": 3615,
+    "medianHouseholdIncome": 53333,
+    "medianAge": 44.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000700",
+    "name": "Census Tract 7; Lafayette Parish; Louisiana",
+    "population": 2480,
+    "medianHouseholdIncome": 23030,
+    "medianAge": 39.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000800",
+    "name": "Census Tract 8; Lafayette Parish; Louisiana",
+    "population": 2590,
+    "medianHouseholdIncome": 26554,
+    "medianAge": 40.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "000900",
+    "name": "Census Tract 9; Lafayette Parish; Louisiana",
+    "population": 1813,
+    "medianHouseholdIncome": 22361,
+    "medianAge": 35.5
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001001",
+    "name": "Census Tract 10.01; Lafayette Parish; Louisiana",
+    "population": 5037,
+    "medianHouseholdIncome": 59342,
+    "medianAge": 32.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001002",
+    "name": "Census Tract 10.02; Lafayette Parish; Louisiana",
+    "population": 4024,
+    "medianHouseholdIncome": 45302,
+    "medianAge": 35.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001003",
+    "name": "Census Tract 10.03; Lafayette Parish; Louisiana",
+    "population": 3589,
+    "medianHouseholdIncome": 76333,
+    "medianAge": 49.4
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001100",
+    "name": "Census Tract 11; Lafayette Parish; Louisiana",
+    "population": 5816,
+    "medianHouseholdIncome": 30152,
+    "medianAge": 39.6
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001201",
+    "name": "Census Tract 12.01; Lafayette Parish; Louisiana",
+    "population": 3067,
+    "medianHouseholdIncome": 20781,
+    "medianAge": 35
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001202",
+    "name": "Census Tract 12.02; Lafayette Parish; Louisiana",
+    "population": 4161,
+    "medianHouseholdIncome": 48662,
+    "medianAge": 35.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001301",
+    "name": "Census Tract 13.01; Lafayette Parish; Louisiana",
+    "population": 1851,
+    "medianHouseholdIncome": 65852,
+    "medianAge": 34
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001302",
+    "name": "Census Tract 13.02; Lafayette Parish; Louisiana",
+    "population": 2488,
+    "medianHouseholdIncome": 20586,
+    "medianAge": 40.5
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001403",
+    "name": "Census Tract 14.03; Lafayette Parish; Louisiana",
+    "population": 7100,
+    "medianHouseholdIncome": 77829,
+    "medianAge": 34.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001408",
+    "name": "Census Tract 14.08; Lafayette Parish; Louisiana",
+    "population": 2325,
+    "medianHouseholdIncome": 84948,
+    "medianAge": 39.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001412",
+    "name": "Census Tract 14.12; Lafayette Parish; Louisiana",
+    "population": 5357,
+    "medianHouseholdIncome": 87676,
+    "medianAge": 39.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001413",
+    "name": "Census Tract 14.13; Lafayette Parish; Louisiana",
+    "population": 4134,
+    "medianHouseholdIncome": 101703,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001414",
+    "name": "Census Tract 14.14; Lafayette Parish; Louisiana",
+    "population": 6238,
+    "medianHouseholdIncome": 102250,
+    "medianAge": 33.4
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001415",
+    "name": "Census Tract 14.15; Lafayette Parish; Louisiana",
+    "population": 3854,
+    "medianHouseholdIncome": 98330,
+    "medianAge": 35.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001416",
+    "name": "Census Tract 14.16; Lafayette Parish; Louisiana",
+    "population": 3227,
+    "medianHouseholdIncome": 112738,
+    "medianAge": 45.7
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001417",
+    "name": "Census Tract 14.17; Lafayette Parish; Louisiana",
+    "population": 6153,
+    "medianHouseholdIncome": 104500,
+    "medianAge": 35.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001418",
+    "name": "Census Tract 14.18; Lafayette Parish; Louisiana",
+    "population": 3541,
+    "medianHouseholdIncome": 91731,
+    "medianAge": 39.6
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001419",
+    "name": "Census Tract 14.19; Lafayette Parish; Louisiana",
+    "population": 4562,
+    "medianHouseholdIncome": 82083,
+    "medianAge": 34.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001420",
+    "name": "Census Tract 14.20; Lafayette Parish; Louisiana",
+    "population": 3437,
+    "medianHouseholdIncome": 51987,
+    "medianAge": 29.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001421",
+    "name": "Census Tract 14.21; Lafayette Parish; Louisiana",
+    "population": 2798,
+    "medianHouseholdIncome": 66512,
+    "medianAge": 34.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001422",
+    "name": "Census Tract 14.22; Lafayette Parish; Louisiana",
+    "population": 2048,
+    "medianHouseholdIncome": 92019,
+    "medianAge": 51.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001423",
+    "name": "Census Tract 14.23; Lafayette Parish; Louisiana",
+    "population": 3478,
+    "medianHouseholdIncome": 129309,
+    "medianAge": 46
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001424",
+    "name": "Census Tract 14.24; Lafayette Parish; Louisiana",
+    "population": 6611,
+    "medianHouseholdIncome": 85920,
+    "medianAge": 35
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001425",
+    "name": "Census Tract 14.25; Lafayette Parish; Louisiana",
+    "population": 3773,
+    "medianHouseholdIncome": 49125,
+    "medianAge": 30.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001426",
+    "name": "Census Tract 14.26; Lafayette Parish; Louisiana",
+    "population": 6531,
+    "medianHouseholdIncome": 118194,
+    "medianAge": 35
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001427",
+    "name": "Census Tract 14.27; Lafayette Parish; Louisiana",
+    "population": 8163,
+    "medianHouseholdIncome": 101301,
+    "medianAge": 32.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001428",
+    "name": "Census Tract 14.28; Lafayette Parish; Louisiana",
+    "population": 7246,
+    "medianHouseholdIncome": 109949,
+    "medianAge": 33.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001500",
+    "name": "Census Tract 15; Lafayette Parish; Louisiana",
+    "population": 5407,
+    "medianHouseholdIncome": 95725,
+    "medianAge": 47
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001600",
+    "name": "Census Tract 16; Lafayette Parish; Louisiana",
+    "population": 3445,
+    "medianHouseholdIncome": 113477,
+    "medianAge": 37.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001700",
+    "name": "Census Tract 17; Lafayette Parish; Louisiana",
+    "population": 6210,
+    "medianHouseholdIncome": 80307,
+    "medianAge": 41.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001801",
+    "name": "Census Tract 18.01; Lafayette Parish; Louisiana",
+    "population": 3158,
+    "medianHouseholdIncome": 47563,
+    "medianAge": 39.4
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001802",
+    "name": "Census Tract 18.02; Lafayette Parish; Louisiana",
+    "population": 4145,
+    "medianHouseholdIncome": 47463,
+    "medianAge": 30.7
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001903",
+    "name": "Census Tract 19.03; Lafayette Parish; Louisiana",
+    "population": 6308,
+    "medianHouseholdIncome": 39649,
+    "medianAge": 35.1
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001904",
+    "name": "Census Tract 19.04; Lafayette Parish; Louisiana",
+    "population": 5085,
+    "medianHouseholdIncome": 69432,
+    "medianAge": 44.4
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001905",
+    "name": "Census Tract 19.05; Lafayette Parish; Louisiana",
+    "population": 5982,
+    "medianHouseholdIncome": 79147,
+    "medianAge": 38.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001906",
+    "name": "Census Tract 19.06; Lafayette Parish; Louisiana",
+    "population": 5880,
+    "medianHouseholdIncome": 90406,
+    "medianAge": 37.5
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001907",
+    "name": "Census Tract 19.07; Lafayette Parish; Louisiana",
+    "population": 3651,
+    "medianHouseholdIncome": 92061,
+    "medianAge": 35.2
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001908",
+    "name": "Census Tract 19.08; Lafayette Parish; Louisiana",
+    "population": 3361,
+    "medianHouseholdIncome": 38250,
+    "medianAge": 44.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "001909",
+    "name": "Census Tract 19.09; Lafayette Parish; Louisiana",
+    "population": 2028,
+    "medianHouseholdIncome": 45238,
+    "medianAge": 37
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002001",
+    "name": "Census Tract 20.01; Lafayette Parish; Louisiana",
+    "population": 5210,
+    "medianHouseholdIncome": 41442,
+    "medianAge": 37.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002003",
+    "name": "Census Tract 20.03; Lafayette Parish; Louisiana",
+    "population": 3477,
+    "medianHouseholdIncome": 51903,
+    "medianAge": 45.2
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002004",
+    "name": "Census Tract 20.04; Lafayette Parish; Louisiana",
+    "population": 3436,
+    "medianHouseholdIncome": 72852,
+    "medianAge": 33.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002101",
+    "name": "Census Tract 21.01; Lafayette Parish; Louisiana",
+    "population": 6498,
+    "medianHouseholdIncome": 62519,
+    "medianAge": 32.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002102",
+    "name": "Census Tract 21.02; Lafayette Parish; Louisiana",
+    "population": 5063,
+    "medianHouseholdIncome": 70598,
+    "medianAge": 40.8
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002103",
+    "name": "Census Tract 21.03; Lafayette Parish; Louisiana",
+    "population": 6240,
+    "medianHouseholdIncome": 50000,
+    "medianAge": 34.3
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002105",
+    "name": "Census Tract 21.05; Lafayette Parish; Louisiana",
+    "population": 2100,
+    "medianHouseholdIncome": 60568,
+    "medianAge": 37.9
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002106",
+    "name": "Census Tract 21.06; Lafayette Parish; Louisiana",
+    "population": 2900,
+    "medianHouseholdIncome": 60383,
+    "medianAge": 39.4
+  },
+  {
+    "state": "22",
+    "county": "055",
+    "tract": "002200",
+    "name": "Census Tract 22; Lafayette Parish; Louisiana",
+    "population": 5243,
+    "medianHouseholdIncome": 50060,
+    "medianAge": 21.3
+  }
+]

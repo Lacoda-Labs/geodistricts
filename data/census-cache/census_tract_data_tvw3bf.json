@@ -1,0 +1,191 @@
+[
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960101",
+    "name": "Census Tract 9601.01; Acadia Parish; Louisiana",
+    "population": 3354,
+    "medianHouseholdIncome": 50162,
+    "medianAge": 36.7
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960102",
+    "name": "Census Tract 9601.02; Acadia Parish; Louisiana",
+    "population": 2232,
+    "medianHouseholdIncome": 39905,
+    "medianAge": 35.4
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; Acadia Parish; Louisiana",
+    "population": 3064,
+    "medianHouseholdIncome": 59393,
+    "medianAge": 40.1
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; Acadia Parish; Louisiana",
+    "population": 2056,
+    "medianHouseholdIncome": 92019,
+    "medianAge": 43.1
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960300",
+    "name": "Census Tract 9603; Acadia Parish; Louisiana",
+    "population": 3392,
+    "medianHouseholdIncome": 79728,
+    "medianAge": 40.7
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960401",
+    "name": "Census Tract 9604.01; Acadia Parish; Louisiana",
+    "population": 2455,
+    "medianHouseholdIncome": 69861,
+    "medianAge": 37.7
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960402",
+    "name": "Census Tract 9604.02; Acadia Parish; Louisiana",
+    "population": 2175,
+    "medianHouseholdIncome": 58661,
+    "medianAge": 30.6
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960403",
+    "name": "Census Tract 9604.03; Acadia Parish; Louisiana",
+    "population": 2437,
+    "medianHouseholdIncome": 80750,
+    "medianAge": 36.4
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960501",
+    "name": "Census Tract 9605.01; Acadia Parish; Louisiana",
+    "population": 2494,
+    "medianHouseholdIncome": 60921,
+    "medianAge": 48.3
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960502",
+    "name": "Census Tract 9605.02; Acadia Parish; Louisiana",
+    "population": 2747,
+    "medianHouseholdIncome": 55197,
+    "medianAge": 28.4
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960503",
+    "name": "Census Tract 9605.03; Acadia Parish; Louisiana",
+    "population": 1305,
+    "medianHouseholdIncome": 76364,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960601",
+    "name": "Census Tract 9606.01; Acadia Parish; Louisiana",
+    "population": 1721,
+    "medianHouseholdIncome": 42303,
+    "medianAge": 30.8
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960602",
+    "name": "Census Tract 9606.02; Acadia Parish; Louisiana",
+    "population": 4179,
+    "medianHouseholdIncome": 46875,
+    "medianAge": 35.2
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960700",
+    "name": "Census Tract 9607; Acadia Parish; Louisiana",
+    "population": 3633,
+    "medianHouseholdIncome": 26042,
+    "medianAge": 34
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960801",
+    "name": "Census Tract 9608.01; Acadia Parish; Louisiana",
+    "population": 3446,
+    "medianHouseholdIncome": 35942,
+    "medianAge": 46.3
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960802",
+    "name": "Census Tract 9608.02; Acadia Parish; Louisiana",
+    "population": 1055,
+    "medianHouseholdIncome": 195085,
+    "medianAge": 38.7
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960901",
+    "name": "Census Tract 9609.01; Acadia Parish; Louisiana",
+    "population": 3234,
+    "medianHouseholdIncome": 30909,
+    "medianAge": 45.6
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "960902",
+    "name": "Census Tract 9609.02; Acadia Parish; Louisiana",
+    "population": 1031,
+    "medianHouseholdIncome": 15610,
+    "medianAge": 33.2
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "961000",
+    "name": "Census Tract 9610; Acadia Parish; Louisiana",
+    "population": 4686,
+    "medianHouseholdIncome": 25121,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "961100",
+    "name": "Census Tract 9611; Acadia Parish; Louisiana",
+    "population": 3825,
+    "medianHouseholdIncome": 63194,
+    "medianAge": 32.5
+  },
+  {
+    "state": "22",
+    "county": "001",
+    "tract": "961200",
+    "name": "Census Tract 9612; Acadia Parish; Louisiana",
+    "population": 3153,
+    "medianHouseholdIncome": 50580,
+    "medianAge": 33.6
+  }
+]

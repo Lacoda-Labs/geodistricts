@@ -1,0 +1,101 @@
+[
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000100",
+    "name": "Census Tract 1; Natchitoches Parish; Louisiana",
+    "population": 1819,
+    "medianHouseholdIncome": 38417,
+    "medianAge": 50.3
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000200",
+    "name": "Census Tract 2; Natchitoches Parish; Louisiana",
+    "population": 3089,
+    "medianHouseholdIncome": 31321,
+    "medianAge": 44.7
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000300",
+    "name": "Census Tract 3; Natchitoches Parish; Louisiana",
+    "population": 4459,
+    "medianHouseholdIncome": 52879,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000400",
+    "name": "Census Tract 4; Natchitoches Parish; Louisiana",
+    "population": 3813,
+    "medianHouseholdIncome": 32600,
+    "medianAge": 28.8
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000500",
+    "name": "Census Tract 5; Natchitoches Parish; Louisiana",
+    "population": 3832,
+    "medianHouseholdIncome": 58750,
+    "medianAge": 44
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000601",
+    "name": "Census Tract 6.01; Natchitoches Parish; Louisiana",
+    "population": 4268,
+    "medianHouseholdIncome": 15683,
+    "medianAge": 20.9
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000602",
+    "name": "Census Tract 6.02; Natchitoches Parish; Louisiana",
+    "population": 4152,
+    "medianHouseholdIncome": 33482,
+    "medianAge": 30.8
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000700",
+    "name": "Census Tract 7; Natchitoches Parish; Louisiana",
+    "population": 3397,
+    "medianHouseholdIncome": 27470,
+    "medianAge": 23.6
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000800",
+    "name": "Census Tract 8; Natchitoches Parish; Louisiana",
+    "population": 3827,
+    "medianHouseholdIncome": 47833,
+    "medianAge": 40.3
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000901",
+    "name": "Census Tract 9.01; Natchitoches Parish; Louisiana",
+    "population": 2395,
+    "medianHouseholdIncome": 59974,
+    "medianAge": 49
+  },
+  {
+    "state": "22",
+    "county": "069",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Natchitoches Parish; Louisiana",
+    "population": 2427,
+    "medianHouseholdIncome": 56579,
+    "medianAge": 45.3
+  }
+]

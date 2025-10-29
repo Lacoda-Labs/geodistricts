@@ -1,0 +1,92 @@
+[
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050100",
+    "name": "Census Tract 501; Plaquemines Parish; Louisiana",
+    "population": 1174,
+    "medianHouseholdIncome": 34154,
+    "medianAge": 54.1
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050201",
+    "name": "Census Tract 502.01; Plaquemines Parish; Louisiana",
+    "population": 4350,
+    "medianHouseholdIncome": 102083,
+    "medianAge": 37.3
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050202",
+    "name": "Census Tract 502.02; Plaquemines Parish; Louisiana",
+    "population": 4271,
+    "medianHouseholdIncome": 101250,
+    "medianAge": 40.9
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050300",
+    "name": "Census Tract 503; Plaquemines Parish; Louisiana",
+    "population": 5778,
+    "medianHouseholdIncome": 74300,
+    "medianAge": 32.2
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050400",
+    "name": "Census Tract 504; Plaquemines Parish; Louisiana",
+    "population": 3190,
+    "medianHouseholdIncome": 83922,
+    "medianAge": 40.7
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050500",
+    "name": "Census Tract 505; Plaquemines Parish; Louisiana",
+    "population": 1518,
+    "medianHouseholdIncome": 31026,
+    "medianAge": 27.2
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050600",
+    "name": "Census Tract 506; Plaquemines Parish; Louisiana",
+    "population": 999,
+    "medianHouseholdIncome": 25950,
+    "medianAge": 33.9
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050700",
+    "name": "Census Tract 507; Plaquemines Parish; Louisiana",
+    "population": 1141,
+    "medianHouseholdIncome": 34596,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "050800",
+    "name": "Census Tract 508; Plaquemines Parish; Louisiana",
+    "population": 884,
+    "medianHouseholdIncome": 25547,
+    "medianAge": 33.5
+  },
+  {
+    "state": "22",
+    "county": "075",
+    "tract": "990000",
+    "name": "Census Tract 9900; Plaquemines Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

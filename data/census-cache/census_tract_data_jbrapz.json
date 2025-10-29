@@ -1,0 +1,56 @@
+[
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950100",
+    "name": "Census Tract 9501; Claiborne Parish; Louisiana",
+    "population": 2448,
+    "medianHouseholdIncome": 37658,
+    "medianAge": 58.7
+  },
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950201",
+    "name": "Census Tract 9502.01; Claiborne Parish; Louisiana",
+    "population": 2541,
+    "medianHouseholdIncome": 33958,
+    "medianAge": 41
+  },
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950202",
+    "name": "Census Tract 9502.02; Claiborne Parish; Louisiana",
+    "population": 1190,
+    "medianHouseholdIncome": 34290,
+    "medianAge": 54.2
+  },
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950300",
+    "name": "Census Tract 9503; Claiborne Parish; Louisiana",
+    "population": 2419,
+    "medianHouseholdIncome": 26401,
+    "medianAge": 46.8
+  },
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950400",
+    "name": "Census Tract 9504; Claiborne Parish; Louisiana",
+    "population": 2837,
+    "medianHouseholdIncome": 20840,
+    "medianAge": 31.1
+  },
+  {
+    "state": "22",
+    "county": "027",
+    "tract": "950500",
+    "name": "Census Tract 9505; Claiborne Parish; Louisiana",
+    "population": 2768,
+    "medianHouseholdIncome": 37841,
+    "medianAge": 39.1
+  }
+]

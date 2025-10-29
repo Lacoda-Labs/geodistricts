@@ -1,0 +1,65 @@
+[
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951703",
+    "name": "Census Tract 9517.03; West Feliciana Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951704",
+    "name": "Census Tract 9517.04; West Feliciana Parish; Louisiana",
+    "population": 1365,
+    "medianHouseholdIncome": 116063,
+    "medianAge": 44.7
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951705",
+    "name": "Census Tract 9517.05; West Feliciana Parish; Louisiana",
+    "population": 2518,
+    "medianHouseholdIncome": 76528,
+    "medianAge": 36.6
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951801",
+    "name": "Census Tract 9518.01; West Feliciana Parish; Louisiana",
+    "population": 2385,
+    "medianHouseholdIncome": 50395,
+    "medianAge": 31.6
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951802",
+    "name": "Census Tract 9518.02; West Feliciana Parish; Louisiana",
+    "population": 2289,
+    "medianHouseholdIncome": 59846,
+    "medianAge": 42.6
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "951803",
+    "name": "Census Tract 9518.03; West Feliciana Parish; Louisiana",
+    "population": 2827,
+    "medianHouseholdIncome": 73094,
+    "medianAge": 46.3
+  },
+  {
+    "state": "22",
+    "county": "125",
+    "tract": "980000",
+    "name": "Census Tract 9800; West Feliciana Parish; Louisiana",
+    "population": 3974,
+    "medianHouseholdIncome": 82019,
+    "medianAge": 49.1
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "state": "08",
+    "county": "055",
+    "tract": "960600",
+    "name": "Census Tract 9606; Huerfano County; Colorado",
+    "population": 3309,
+    "medianHouseholdIncome": 38596,
+    "medianAge": 44.5
+  },
+  {
+    "state": "08",
+    "county": "055",
+    "tract": "960901",
+    "name": "Census Tract 9609.01; Huerfano County; Colorado",
+    "population": 1710,
+    "medianHouseholdIncome": 66378,
+    "medianAge": 55.3
+  },
+  {
+    "state": "08",
+    "county": "055",
+    "tract": "960902",
+    "name": "Census Tract 9609.02; Huerfano County; Colorado",
+    "population": 1877,
+    "medianHouseholdIncome": 55104,
+    "medianAge": 65.8
+  }
+]

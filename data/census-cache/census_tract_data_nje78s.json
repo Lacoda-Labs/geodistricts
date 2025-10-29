@@ -1,0 +1,56 @@
+[
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020100",
+    "name": "Census Tract 201; West Baton Rouge Parish; Louisiana",
+    "population": 4023,
+    "medianHouseholdIncome": 47092,
+    "medianAge": 46.3
+  },
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020200",
+    "name": "Census Tract 202; West Baton Rouge Parish; Louisiana",
+    "population": 3751,
+    "medianHouseholdIncome": 62015,
+    "medianAge": 39.4
+  },
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020301",
+    "name": "Census Tract 203.01; West Baton Rouge Parish; Louisiana",
+    "population": 4307,
+    "medianHouseholdIncome": 98566,
+    "medianAge": 32.6
+  },
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020302",
+    "name": "Census Tract 203.02; West Baton Rouge Parish; Louisiana",
+    "population": 2451,
+    "medianHouseholdIncome": 76833,
+    "medianAge": 38
+  },
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020401",
+    "name": "Census Tract 204.01; West Baton Rouge Parish; Louisiana",
+    "population": 4346,
+    "medianHouseholdIncome": 86068,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "121",
+    "tract": "020402",
+    "name": "Census Tract 204.02; West Baton Rouge Parish; Louisiana",
+    "population": 8499,
+    "medianHouseholdIncome": 106634,
+    "medianAge": 32.9
+  }
+]

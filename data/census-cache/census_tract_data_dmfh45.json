@@ -1,0 +1,38 @@
+[
+  {
+    "state": "08",
+    "county": "081",
+    "tract": "000300",
+    "name": "Census Tract 3; Moffat County; Colorado",
+    "population": 3247,
+    "medianHouseholdIncome": 99300,
+    "medianAge": 43.2
+  },
+  {
+    "state": "08",
+    "county": "081",
+    "tract": "000400",
+    "name": "Census Tract 4; Moffat County; Colorado",
+    "population": 4387,
+    "medianHouseholdIncome": 41938,
+    "medianAge": 34
+  },
+  {
+    "state": "08",
+    "county": "081",
+    "tract": "000500",
+    "name": "Census Tract 5; Moffat County; Colorado",
+    "population": 4261,
+    "medianHouseholdIncome": 65865,
+    "medianAge": 38.1
+  },
+  {
+    "state": "08",
+    "county": "081",
+    "tract": "000600",
+    "name": "Census Tract 6; Moffat County; Colorado",
+    "population": 1337,
+    "medianHouseholdIncome": 52188,
+    "medianAge": 37.3
+  }
+]

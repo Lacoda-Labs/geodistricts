@@ -1,0 +1,56 @@
+[
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963601",
+    "name": "Census Tract 9636.01; Gunnison County; Colorado",
+    "population": 1677,
+    "medianHouseholdIncome": 85109,
+    "medianAge": 45.7
+  },
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963602",
+    "name": "Census Tract 9636.02; Gunnison County; Colorado",
+    "population": 2604,
+    "medianHouseholdIncome": 82740,
+    "medianAge": 42.6
+  },
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963701",
+    "name": "Census Tract 9637.01; Gunnison County; Colorado",
+    "population": 3435,
+    "medianHouseholdIncome": 59154,
+    "medianAge": 28.3
+  },
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963702",
+    "name": "Census Tract 9637.02; Gunnison County; Colorado",
+    "population": 3408,
+    "medianHouseholdIncome": 75787,
+    "medianAge": 23
+  },
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963800",
+    "name": "Census Tract 9638; Gunnison County; Colorado",
+    "population": 4526,
+    "medianHouseholdIncome": 87614,
+    "medianAge": 42.8
+  },
+  {
+    "state": "08",
+    "county": "051",
+    "tract": "963900",
+    "name": "Census Tract 9639; Gunnison County; Colorado",
+    "population": 1368,
+    "medianHouseholdIncome": 101563,
+    "medianAge": 54.4
+  }
+]

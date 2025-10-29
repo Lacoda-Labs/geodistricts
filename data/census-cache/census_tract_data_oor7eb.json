@@ -1,0 +1,47 @@
+[
+  {
+    "state": "22",
+    "county": "065",
+    "tract": "960100",
+    "name": "Census Tract 9601; Madison Parish; Louisiana",
+    "population": 1669,
+    "medianHouseholdIncome": 68021,
+    "medianAge": 43.9
+  },
+  {
+    "state": "22",
+    "county": "065",
+    "tract": "960200",
+    "name": "Census Tract 9602; Madison Parish; Louisiana",
+    "population": 2604,
+    "medianHouseholdIncome": 51974,
+    "medianAge": 35.9
+  },
+  {
+    "state": "22",
+    "county": "065",
+    "tract": "960300",
+    "name": "Census Tract 9603; Madison Parish; Louisiana",
+    "population": 2298,
+    "medianHouseholdIncome": 31114,
+    "medianAge": 39.5
+  },
+  {
+    "state": "22",
+    "county": "065",
+    "tract": "960400",
+    "name": "Census Tract 9604; Madison Parish; Louisiana",
+    "population": 1500,
+    "medianHouseholdIncome": 13571,
+    "medianAge": 19.1
+  },
+  {
+    "state": "22",
+    "county": "065",
+    "tract": "960500",
+    "name": "Census Tract 9605; Madison Parish; Louisiana",
+    "population": 1957,
+    "medianHouseholdIncome": 37583,
+    "medianAge": 36.1
+  }
+]

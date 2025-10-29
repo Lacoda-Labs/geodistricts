@@ -1,0 +1,29 @@
+[
+  {
+    "state": "22",
+    "county": "091",
+    "tract": "951100",
+    "name": "Census Tract 9511; St. Helena Parish; Louisiana",
+    "population": 4374,
+    "medianHouseholdIncome": 42464,
+    "medianAge": 46.3
+  },
+  {
+    "state": "22",
+    "county": "091",
+    "tract": "951201",
+    "name": "Census Tract 9512.01; St. Helena Parish; Louisiana",
+    "population": 4395,
+    "medianHouseholdIncome": 63098,
+    "medianAge": 44
+  },
+  {
+    "state": "22",
+    "county": "091",
+    "tract": "951202",
+    "name": "Census Tract 9512.02; St. Helena Parish; Louisiana",
+    "population": 2103,
+    "medianHouseholdIncome": 27563,
+    "medianAge": 37.5
+  }
+]

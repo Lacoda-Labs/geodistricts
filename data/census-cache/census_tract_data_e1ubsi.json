@@ -1,0 +1,749 @@
+[
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000100",
+    "name": "Census Tract 1; Weld County; Colorado",
+    "population": 2780,
+    "medianHouseholdIncome": 22948,
+    "medianAge": 29.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000200",
+    "name": "Census Tract 2; Weld County; Colorado",
+    "population": 3477,
+    "medianHouseholdIncome": 39673,
+    "medianAge": 21.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000300",
+    "name": "Census Tract 3; Weld County; Colorado",
+    "population": 1995,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 19.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000401",
+    "name": "Census Tract 4.01; Weld County; Colorado",
+    "population": 3112,
+    "medianHouseholdIncome": 76089,
+    "medianAge": 31.8
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000402",
+    "name": "Census Tract 4.02; Weld County; Colorado",
+    "population": 3866,
+    "medianHouseholdIncome": 54107,
+    "medianAge": 30.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000501",
+    "name": "Census Tract 5.01; Weld County; Colorado",
+    "population": 3508,
+    "medianHouseholdIncome": 40127,
+    "medianAge": 29
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000502",
+    "name": "Census Tract 5.02; Weld County; Colorado",
+    "population": 3826,
+    "medianHouseholdIncome": 45852,
+    "medianAge": 30.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000600",
+    "name": "Census Tract 6; Weld County; Colorado",
+    "population": 1886,
+    "medianHouseholdIncome": 50865,
+    "medianAge": 32.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000701",
+    "name": "Census Tract 7.01; Weld County; Colorado",
+    "population": 1821,
+    "medianHouseholdIncome": 54700,
+    "medianAge": 30.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000703",
+    "name": "Census Tract 7.03; Weld County; Colorado",
+    "population": 6998,
+    "medianHouseholdIncome": 44338,
+    "medianAge": 27.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000704",
+    "name": "Census Tract 7.04; Weld County; Colorado",
+    "population": 1229,
+    "medianHouseholdIncome": 63750,
+    "medianAge": 26.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000705",
+    "name": "Census Tract 7.05; Weld County; Colorado",
+    "population": 1391,
+    "medianHouseholdIncome": 66000,
+    "medianAge": 46.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000800",
+    "name": "Census Tract 8; Weld County; Colorado",
+    "population": 3481,
+    "medianHouseholdIncome": 44792,
+    "medianAge": 25.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "000900",
+    "name": "Census Tract 9; Weld County; Colorado",
+    "population": 2922,
+    "medianHouseholdIncome": 72125,
+    "medianAge": 34.8
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001003",
+    "name": "Census Tract 10.03; Weld County; Colorado",
+    "population": 4369,
+    "medianHouseholdIncome": 42639,
+    "medianAge": 27.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001004",
+    "name": "Census Tract 10.04; Weld County; Colorado",
+    "population": 3977,
+    "medianHouseholdIncome": 57429,
+    "medianAge": 28.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001005",
+    "name": "Census Tract 10.05; Weld County; Colorado",
+    "population": 8414,
+    "medianHouseholdIncome": 79315,
+    "medianAge": 28.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001006",
+    "name": "Census Tract 10.06; Weld County; Colorado",
+    "population": 5206,
+    "medianHouseholdIncome": 57218,
+    "medianAge": 30.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001100",
+    "name": "Census Tract 11; Weld County; Colorado",
+    "population": 5094,
+    "medianHouseholdIncome": 54592,
+    "medianAge": 38
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001201",
+    "name": "Census Tract 12.01; Weld County; Colorado",
+    "population": 4681,
+    "medianHouseholdIncome": 60774,
+    "medianAge": 31
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001202",
+    "name": "Census Tract 12.02; Weld County; Colorado",
+    "population": 2896,
+    "medianHouseholdIncome": 74605,
+    "medianAge": 47.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001300",
+    "name": "Census Tract 13; Weld County; Colorado",
+    "population": 7208,
+    "medianHouseholdIncome": 47165,
+    "medianAge": 33.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001404",
+    "name": "Census Tract 14.04; Weld County; Colorado",
+    "population": 2793,
+    "medianHouseholdIncome": 54375,
+    "medianAge": 40.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001405",
+    "name": "Census Tract 14.05; Weld County; Colorado",
+    "population": 4816,
+    "medianHouseholdIncome": 89505,
+    "medianAge": 31
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001406",
+    "name": "Census Tract 14.06; Weld County; Colorado",
+    "population": 5882,
+    "medianHouseholdIncome": 65417,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001407",
+    "name": "Census Tract 14.07; Weld County; Colorado",
+    "population": 4370,
+    "medianHouseholdIncome": 114770,
+    "medianAge": 32.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001408",
+    "name": "Census Tract 14.08; Weld County; Colorado",
+    "population": 1882,
+    "medianHouseholdIncome": 104792,
+    "medianAge": 52.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001409",
+    "name": "Census Tract 14.09; Weld County; Colorado",
+    "population": 3891,
+    "medianHouseholdIncome": 75903,
+    "medianAge": 28.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001410",
+    "name": "Census Tract 14.10; Weld County; Colorado",
+    "population": 3273,
+    "medianHouseholdIncome": 107500,
+    "medianAge": 56.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001411",
+    "name": "Census Tract 14.11; Weld County; Colorado",
+    "population": 2658,
+    "medianHouseholdIncome": 67379,
+    "medianAge": 48.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001412",
+    "name": "Census Tract 14.12; Weld County; Colorado",
+    "population": 3547,
+    "medianHouseholdIncome": 101318,
+    "medianAge": 40.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001413",
+    "name": "Census Tract 14.13; Weld County; Colorado",
+    "population": 2318,
+    "medianHouseholdIncome": 58639,
+    "medianAge": 43.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001414",
+    "name": "Census Tract 14.14; Weld County; Colorado",
+    "population": 2410,
+    "medianHouseholdIncome": 95603,
+    "medianAge": 37.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001415",
+    "name": "Census Tract 14.15; Weld County; Colorado",
+    "population": 3622,
+    "medianHouseholdIncome": 120580,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001416",
+    "name": "Census Tract 14.16; Weld County; Colorado",
+    "population": 3585,
+    "medianHouseholdIncome": 105254,
+    "medianAge": 43.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001417",
+    "name": "Census Tract 14.17; Weld County; Colorado",
+    "population": 3518,
+    "medianHouseholdIncome": 88154,
+    "medianAge": 31
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001500",
+    "name": "Census Tract 15; Weld County; Colorado",
+    "population": 7595,
+    "medianHouseholdIncome": 100430,
+    "medianAge": 38.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001600",
+    "name": "Census Tract 16; Weld County; Colorado",
+    "population": 3708,
+    "medianHouseholdIncome": 82111,
+    "medianAge": 46.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001700",
+    "name": "Census Tract 17; Weld County; Colorado",
+    "population": 5644,
+    "medianHouseholdIncome": 82829,
+    "medianAge": 34
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001800",
+    "name": "Census Tract 18; Weld County; Colorado",
+    "population": 4856,
+    "medianHouseholdIncome": 87700,
+    "medianAge": 40.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001905",
+    "name": "Census Tract 19.05; Weld County; Colorado",
+    "population": 5106,
+    "medianHouseholdIncome": 72382,
+    "medianAge": 33.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001906",
+    "name": "Census Tract 19.06; Weld County; Colorado",
+    "population": 1751,
+    "medianHouseholdIncome": 69167,
+    "medianAge": 38.8
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001909",
+    "name": "Census Tract 19.09; Weld County; Colorado",
+    "population": 427,
+    "medianHouseholdIncome": 46705,
+    "medianAge": 38.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001910",
+    "name": "Census Tract 19.10; Weld County; Colorado",
+    "population": 1910,
+    "medianHouseholdIncome": 45000,
+    "medianAge": 38.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001911",
+    "name": "Census Tract 19.11; Weld County; Colorado",
+    "population": 1134,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 47.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001912",
+    "name": "Census Tract 19.12; Weld County; Colorado",
+    "population": 1591,
+    "medianHouseholdIncome": 96042,
+    "medianAge": 40.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001913",
+    "name": "Census Tract 19.13; Weld County; Colorado",
+    "population": 8595,
+    "medianHouseholdIncome": 84548,
+    "medianAge": 33.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "001914",
+    "name": "Census Tract 19.14; Weld County; Colorado",
+    "population": 2529,
+    "medianHouseholdIncome": 127725,
+    "medianAge": 42.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002004",
+    "name": "Census Tract 20.04; Weld County; Colorado",
+    "population": 4928,
+    "medianHouseholdIncome": 85150,
+    "medianAge": 31.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002005",
+    "name": "Census Tract 20.05; Weld County; Colorado",
+    "population": 1398,
+    "medianHouseholdIncome": 137059,
+    "medianAge": 38.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002006",
+    "name": "Census Tract 20.06; Weld County; Colorado",
+    "population": 462,
+    "medianHouseholdIncome": 205333,
+    "medianAge": 47.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002007",
+    "name": "Census Tract 20.07; Weld County; Colorado",
+    "population": 6860,
+    "medianHouseholdIncome": 125813,
+    "medianAge": 40.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002008",
+    "name": "Census Tract 20.08; Weld County; Colorado",
+    "population": 6126,
+    "medianHouseholdIncome": 156583,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002009",
+    "name": "Census Tract 20.09; Weld County; Colorado",
+    "population": 6002,
+    "medianHouseholdIncome": 178750,
+    "medianAge": 36.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002010",
+    "name": "Census Tract 20.10; Weld County; Colorado",
+    "population": 2436,
+    "medianHouseholdIncome": 79041,
+    "medianAge": 32.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002011",
+    "name": "Census Tract 20.11; Weld County; Colorado",
+    "population": 2238,
+    "medianHouseholdIncome": 142813,
+    "medianAge": 36.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002012",
+    "name": "Census Tract 20.12; Weld County; Colorado",
+    "population": 1249,
+    "medianHouseholdIncome": 142188,
+    "medianAge": 44.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002013",
+    "name": "Census Tract 20.13; Weld County; Colorado",
+    "population": 4045,
+    "medianHouseholdIncome": 132946,
+    "medianAge": 33.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002014",
+    "name": "Census Tract 20.14; Weld County; Colorado",
+    "population": 2998,
+    "medianHouseholdIncome": 94861,
+    "medianAge": 34.8
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002015",
+    "name": "Census Tract 20.15; Weld County; Colorado",
+    "population": 1318,
+    "medianHouseholdIncome": 117266,
+    "medianAge": 34.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002016",
+    "name": "Census Tract 20.16; Weld County; Colorado",
+    "population": 3429,
+    "medianHouseholdIncome": 91262,
+    "medianAge": 39.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002017",
+    "name": "Census Tract 20.17; Weld County; Colorado",
+    "population": 648,
+    "medianHouseholdIncome": 132279,
+    "medianAge": 48.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002018",
+    "name": "Census Tract 20.18; Weld County; Colorado",
+    "population": 2038,
+    "medianHouseholdIncome": 135671,
+    "medianAge": 38.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002019",
+    "name": "Census Tract 20.19; Weld County; Colorado",
+    "population": 7835,
+    "medianHouseholdIncome": 99730,
+    "medianAge": 36.7
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002020",
+    "name": "Census Tract 20.20; Weld County; Colorado",
+    "population": 6182,
+    "medianHouseholdIncome": 126178,
+    "medianAge": 33.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002021",
+    "name": "Census Tract 20.21; Weld County; Colorado",
+    "population": 685,
+    "medianHouseholdIncome": 121842,
+    "medianAge": 49.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002101",
+    "name": "Census Tract 21.01; Weld County; Colorado",
+    "population": 12384,
+    "medianHouseholdIncome": 96772,
+    "medianAge": 32.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002104",
+    "name": "Census Tract 21.04; Weld County; Colorado",
+    "population": 1721,
+    "medianHouseholdIncome": 140417,
+    "medianAge": 42.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002105",
+    "name": "Census Tract 21.05; Weld County; Colorado",
+    "population": 5402,
+    "medianHouseholdIncome": 102482,
+    "medianAge": 36.4
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002106",
+    "name": "Census Tract 21.06; Weld County; Colorado",
+    "population": 4445,
+    "medianHouseholdIncome": 101386,
+    "medianAge": 40.9
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002107",
+    "name": "Census Tract 21.07; Weld County; Colorado",
+    "population": 6050,
+    "medianHouseholdIncome": 126575,
+    "medianAge": 36.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002108",
+    "name": "Census Tract 21.08; Weld County; Colorado",
+    "population": 7783,
+    "medianHouseholdIncome": 119099,
+    "medianAge": 35.8
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002203",
+    "name": "Census Tract 22.03; Weld County; Colorado",
+    "population": 3538,
+    "medianHouseholdIncome": 114730,
+    "medianAge": 35.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002204",
+    "name": "Census Tract 22.04; Weld County; Colorado",
+    "population": 2050,
+    "medianHouseholdIncome": 97000,
+    "medianAge": 45.2
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002205",
+    "name": "Census Tract 22.05; Weld County; Colorado",
+    "population": 5273,
+    "medianHouseholdIncome": 85486,
+    "medianAge": 37.5
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002206",
+    "name": "Census Tract 22.06; Weld County; Colorado",
+    "population": 3342,
+    "medianHouseholdIncome": 86974,
+    "medianAge": 45
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002207",
+    "name": "Census Tract 22.07; Weld County; Colorado",
+    "population": 4500,
+    "medianHouseholdIncome": 94922,
+    "medianAge": 35
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002208",
+    "name": "Census Tract 22.08; Weld County; Colorado",
+    "population": 11140,
+    "medianHouseholdIncome": 121090,
+    "medianAge": 35.3
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002209",
+    "name": "Census Tract 22.09; Weld County; Colorado",
+    "population": 3685,
+    "medianHouseholdIncome": 119537,
+    "medianAge": 46
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002210",
+    "name": "Census Tract 22.10; Weld County; Colorado",
+    "population": 3012,
+    "medianHouseholdIncome": 132902,
+    "medianAge": 39.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002300",
+    "name": "Census Tract 23; Weld County; Colorado",
+    "population": 5470,
+    "medianHouseholdIncome": 80395,
+    "medianAge": 41.1
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002501",
+    "name": "Census Tract 25.01; Weld County; Colorado",
+    "population": 5794,
+    "medianHouseholdIncome": 73939,
+    "medianAge": 38.6
+  },
+  {
+    "state": "08",
+    "county": "123",
+    "tract": "002502",
+    "name": "Census Tract 25.02; Weld County; Colorado",
+    "population": 7452,
+    "medianHouseholdIncome": 92355,
+    "medianAge": 35.2
+  }
+]

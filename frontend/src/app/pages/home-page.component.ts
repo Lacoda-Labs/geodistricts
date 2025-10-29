@@ -12,7 +12,7 @@ import * as L from 'leaflet';
     <div class="app-container">
       <header class="app-header">
         <h1>{{ title }}</h1>
-        <p>A revolutionary solution to U.S. Congressional district gerrymandering through objective, algorithmic district boundary creation.</p>
+        <p>Eliminates U.S. Congressional district gerrymandering through objective, algorithmic district boundary creation.</p>
       </header>
 
       <nav class="app-navigation">

@@ -1,0 +1,74 @@
+[
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "941100",
+    "name": "Census Tract 9411; Montezuma County; Colorado",
+    "population": 1985,
+    "medianHouseholdIncome": 49712,
+    "medianAge": 31.1
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969000",
+    "name": "Census Tract 9690; Montezuma County; Colorado",
+    "population": 3627,
+    "medianHouseholdIncome": 54815,
+    "medianAge": 43.6
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969100",
+    "name": "Census Tract 9691; Montezuma County; Colorado",
+    "population": 3180,
+    "medianHouseholdIncome": 70125,
+    "medianAge": 52.5
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969200",
+    "name": "Census Tract 9692; Montezuma County; Colorado",
+    "population": 2522,
+    "medianHouseholdIncome": 77754,
+    "medianAge": 55.1
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969301",
+    "name": "Census Tract 9693.01; Montezuma County; Colorado",
+    "population": 3611,
+    "medianHouseholdIncome": 67561,
+    "medianAge": 40.7
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969302",
+    "name": "Census Tract 9693.02; Montezuma County; Colorado",
+    "population": 3391,
+    "medianHouseholdIncome": 87219,
+    "medianAge": 43.6
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969400",
+    "name": "Census Tract 9694; Montezuma County; Colorado",
+    "population": 3877,
+    "medianHouseholdIncome": 40329,
+    "medianAge": 33.5
+  },
+  {
+    "state": "08",
+    "county": "083",
+    "tract": "969600",
+    "name": "Census Tract 9696; Montezuma County; Colorado",
+    "population": 3877,
+    "medianHouseholdIncome": 57033,
+    "medianAge": 52.1
+  }
+]

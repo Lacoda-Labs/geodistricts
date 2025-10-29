@@ -1,0 +1,65 @@
+[
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961100",
+    "name": "Census Tract 9611; Elbert County; Colorado",
+    "population": 1963,
+    "medianHouseholdIncome": 70536,
+    "medianAge": 43.5
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961204",
+    "name": "Census Tract 9612.04; Elbert County; Colorado",
+    "population": 8332,
+    "medianHouseholdIncome": 168160,
+    "medianAge": 43.1
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961205",
+    "name": "Census Tract 9612.05; Elbert County; Colorado",
+    "population": 2187,
+    "medianHouseholdIncome": 79070,
+    "medianAge": 51.3
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961206",
+    "name": "Census Tract 9612.06; Elbert County; Colorado",
+    "population": 3672,
+    "medianHouseholdIncome": 127594,
+    "medianAge": 45.9
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961207",
+    "name": "Census Tract 9612.07; Elbert County; Colorado",
+    "population": 4116,
+    "medianHouseholdIncome": 132899,
+    "medianAge": 47
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961208",
+    "name": "Census Tract 9612.08; Elbert County; Colorado",
+    "population": 3997,
+    "medianHouseholdIncome": 115577,
+    "medianAge": 46.2
+  },
+  {
+    "state": "08",
+    "county": "039",
+    "tract": "961209",
+    "name": "Census Tract 9612.09; Elbert County; Colorado",
+    "population": 2190,
+    "medianHouseholdIncome": 99637,
+    "medianAge": 45.2
+  }
+]

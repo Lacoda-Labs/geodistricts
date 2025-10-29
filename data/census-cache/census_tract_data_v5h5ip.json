@@ -1,0 +1,56 @@
+[
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950100",
+    "name": "Census Tract 9501; Franklin Parish; Louisiana",
+    "population": 3389,
+    "medianHouseholdIncome": 46941,
+    "medianAge": 39.7
+  },
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950200",
+    "name": "Census Tract 9502; Franklin Parish; Louisiana",
+    "population": 4663,
+    "medianHouseholdIncome": 42157,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950300",
+    "name": "Census Tract 9503; Franklin Parish; Louisiana",
+    "population": 5042,
+    "medianHouseholdIncome": 31835,
+    "medianAge": 33.9
+  },
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950400",
+    "name": "Census Tract 9504; Franklin Parish; Louisiana",
+    "population": 2896,
+    "medianHouseholdIncome": 45474,
+    "medianAge": 50.2
+  },
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950500",
+    "name": "Census Tract 9505; Franklin Parish; Louisiana",
+    "population": 1675,
+    "medianHouseholdIncome": 52246,
+    "medianAge": 49.1
+  },
+  {
+    "state": "22",
+    "county": "041",
+    "tract": "950600",
+    "name": "Census Tract 9506; Franklin Parish; Louisiana",
+    "population": 2087,
+    "medianHouseholdIncome": 36440,
+    "medianAge": 45.4
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "state": "08",
+    "county": "025",
+    "tract": "969601",
+    "name": "Census Tract 9696.01; Crowley County; Colorado",
+    "population": 2205,
+    "medianHouseholdIncome": 40481,
+    "medianAge": 42.9
+  },
+  {
+    "state": "08",
+    "county": "025",
+    "tract": "969602",
+    "name": "Census Tract 9696.02; Crowley County; Colorado",
+    "population": 3577,
+    "medianHouseholdIncome": 40833,
+    "medianAge": 38.5
+  }
+]

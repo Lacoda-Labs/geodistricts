@@ -1,0 +1,119 @@
+[
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "060100",
+    "name": "Census Tract 601; St. Charles Parish; Louisiana",
+    "population": 2074,
+    "medianHouseholdIncome": 110417,
+    "medianAge": 40
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062100",
+    "name": "Census Tract 621; St. Charles Parish; Louisiana",
+    "population": 5381,
+    "medianHouseholdIncome": 63444,
+    "medianAge": 37.1
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062200",
+    "name": "Census Tract 622; St. Charles Parish; Louisiana",
+    "population": 2398,
+    "medianHouseholdIncome": 53194,
+    "medianAge": 42
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062301",
+    "name": "Census Tract 623.01; St. Charles Parish; Louisiana",
+    "population": 7195,
+    "medianHouseholdIncome": 127989,
+    "medianAge": 40.2
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062302",
+    "name": "Census Tract 623.02; St. Charles Parish; Louisiana",
+    "population": 4552,
+    "medianHouseholdIncome": 73094,
+    "medianAge": 38.1
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062400",
+    "name": "Census Tract 624; St. Charles Parish; Louisiana",
+    "population": 1179,
+    "medianHouseholdIncome": 54761,
+    "medianAge": 37.9
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062500",
+    "name": "Census Tract 625; St. Charles Parish; Louisiana",
+    "population": 2809,
+    "medianHouseholdIncome": 70717,
+    "medianAge": 38.9
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062700",
+    "name": "Census Tract 627; St. Charles Parish; Louisiana",
+    "population": 4564,
+    "medianHouseholdIncome": 58965,
+    "medianAge": 43.1
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062800",
+    "name": "Census Tract 628; St. Charles Parish; Louisiana",
+    "population": 5809,
+    "medianHouseholdIncome": 72444,
+    "medianAge": 34.3
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "062900",
+    "name": "Census Tract 629; St. Charles Parish; Louisiana",
+    "population": 2569,
+    "medianHouseholdIncome": 56295,
+    "medianAge": 43.7
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "063000",
+    "name": "Census Tract 630; St. Charles Parish; Louisiana",
+    "population": 1392,
+    "medianHouseholdIncome": 49453,
+    "medianAge": 43.9
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "063100",
+    "name": "Census Tract 631; St. Charles Parish; Louisiana",
+    "population": 7972,
+    "medianHouseholdIncome": 104808,
+    "medianAge": 37.9
+  },
+  {
+    "state": "22",
+    "county": "089",
+    "tract": "063200",
+    "name": "Census Tract 632; St. Charles Parish; Louisiana",
+    "population": 4297,
+    "medianHouseholdIncome": 100078,
+    "medianAge": 38.7
+  }
+]

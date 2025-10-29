@@ -1,0 +1,56 @@
+[
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000100",
+    "name": "Census Tract 1; Las Animas County; Colorado",
+    "population": 3696,
+    "medianHouseholdIncome": 32962,
+    "medianAge": 47.7
+  },
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000200",
+    "name": "Census Tract 2; Las Animas County; Colorado",
+    "population": 2285,
+    "medianHouseholdIncome": 58469,
+    "medianAge": 35.5
+  },
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000300",
+    "name": "Census Tract 3; Las Animas County; Colorado",
+    "population": 2460,
+    "medianHouseholdIncome": 51225,
+    "medianAge": 49.8
+  },
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000400",
+    "name": "Census Tract 4; Las Animas County; Colorado",
+    "population": 2069,
+    "medianHouseholdIncome": 51349,
+    "medianAge": 49
+  },
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000500",
+    "name": "Census Tract 5; Las Animas County; Colorado",
+    "population": 1762,
+    "medianHouseholdIncome": 50066,
+    "medianAge": 55.8
+  },
+  {
+    "state": "08",
+    "county": "071",
+    "tract": "000800",
+    "name": "Census Tract 8; Las Animas County; Colorado",
+    "population": 2150,
+    "medianHouseholdIncome": 65426,
+    "medianAge": 45
+  }
+]

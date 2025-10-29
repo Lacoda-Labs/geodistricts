@@ -1,0 +1,56 @@
+[
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000100",
+    "name": "Census Tract 1; Grand County; Colorado",
+    "population": 3892,
+    "medianHouseholdIncome": 82943,
+    "medianAge": 37.9
+  },
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000203",
+    "name": "Census Tract 2.03; Grand County; Colorado",
+    "population": 1710,
+    "medianHouseholdIncome": 42313,
+    "medianAge": 31.5
+  },
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000204",
+    "name": "Census Tract 2.04; Grand County; Colorado",
+    "population": 1252,
+    "medianHouseholdIncome": 80354,
+    "medianAge": 45.1
+  },
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000205",
+    "name": "Census Tract 2.05; Grand County; Colorado",
+    "population": 3658,
+    "medianHouseholdIncome": 97254,
+    "medianAge": 45
+  },
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000206",
+    "name": "Census Tract 2.06; Grand County; Colorado",
+    "population": 1811,
+    "medianHouseholdIncome": 83039,
+    "medianAge": 48.4
+  },
+  {
+    "state": "08",
+    "county": "049",
+    "tract": "000207",
+    "name": "Census Tract 2.07; Grand County; Colorado",
+    "population": 3401,
+    "medianHouseholdIncome": 59357,
+    "medianAge": 57.6
+  }
+]

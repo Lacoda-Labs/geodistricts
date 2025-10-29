@@ -1,0 +1,101 @@
+[
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950101",
+    "name": "Census Tract 9501.01; Evangeline Parish; Louisiana",
+    "population": 1958,
+    "medianHouseholdIncome": 56228,
+    "medianAge": 48
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950102",
+    "name": "Census Tract 9501.02; Evangeline Parish; Louisiana",
+    "population": 3942,
+    "medianHouseholdIncome": 51944,
+    "medianAge": 32.8
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950200",
+    "name": "Census Tract 9502; Evangeline Parish; Louisiana",
+    "population": 1780,
+    "medianHouseholdIncome": 44219,
+    "medianAge": 42.1
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Evangeline Parish; Louisiana",
+    "population": 952,
+    "medianHouseholdIncome": 40288,
+    "medianAge": 38.4
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Evangeline Parish; Louisiana",
+    "population": 3971,
+    "medianHouseholdIncome": 36531,
+    "medianAge": 33.5
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950401",
+    "name": "Census Tract 9504.01; Evangeline Parish; Louisiana",
+    "population": 3145,
+    "medianHouseholdIncome": 22426,
+    "medianAge": 34.8
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950402",
+    "name": "Census Tract 9504.02; Evangeline Parish; Louisiana",
+    "population": 3106,
+    "medianHouseholdIncome": 55165,
+    "medianAge": 34.2
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950500",
+    "name": "Census Tract 9505; Evangeline Parish; Louisiana",
+    "population": 2428,
+    "medianHouseholdIncome": 27052,
+    "medianAge": 30.1
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950600",
+    "name": "Census Tract 9506; Evangeline Parish; Louisiana",
+    "population": 3692,
+    "medianHouseholdIncome": 17818,
+    "medianAge": 39
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950700",
+    "name": "Census Tract 9507; Evangeline Parish; Louisiana",
+    "population": 3680,
+    "medianHouseholdIncome": 65337,
+    "medianAge": 38
+  },
+  {
+    "state": "22",
+    "county": "039",
+    "tract": "950800",
+    "name": "Census Tract 9508; Evangeline Parish; Louisiana",
+    "population": 3681,
+    "medianHouseholdIncome": 36832,
+    "medianAge": 49.7
+  }
+]

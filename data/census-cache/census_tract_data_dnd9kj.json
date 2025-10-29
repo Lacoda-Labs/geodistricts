@@ -1,0 +1,47 @@
+[
+  {
+    "state": "08",
+    "county": "007",
+    "tract": "940400",
+    "name": "Census Tract 9404; Archuleta County; Colorado",
+    "population": 1554,
+    "medianHouseholdIncome": 56845,
+    "medianAge": 51.3
+  },
+  {
+    "state": "08",
+    "county": "007",
+    "tract": "974201",
+    "name": "Census Tract 9742.01; Archuleta County; Colorado",
+    "population": 1736,
+    "medianHouseholdIncome": 79527,
+    "medianAge": 51.9
+  },
+  {
+    "state": "08",
+    "county": "007",
+    "tract": "974202",
+    "name": "Census Tract 9742.02; Archuleta County; Colorado",
+    "population": 4124,
+    "medianHouseholdIncome": 62262,
+    "medianAge": 48.2
+  },
+  {
+    "state": "08",
+    "county": "007",
+    "tract": "974300",
+    "name": "Census Tract 9743; Archuleta County; Colorado",
+    "population": 3801,
+    "medianHouseholdIncome": 60000,
+    "medianAge": 56.2
+  },
+  {
+    "state": "08",
+    "county": "007",
+    "tract": "974400",
+    "name": "Census Tract 9744; Archuleta County; Colorado",
+    "population": 2294,
+    "medianHouseholdIncome": 59233,
+    "medianAge": 45.5
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "state": "08",
+    "county": "021",
+    "tract": "974800",
+    "name": "Census Tract 9748; Conejos County; Colorado",
+    "population": 3124,
+    "medianHouseholdIncome": 39556,
+    "medianAge": 41.8
+  },
+  {
+    "state": "08",
+    "county": "021",
+    "tract": "974900",
+    "name": "Census Tract 9749; Conejos County; Colorado",
+    "population": 4429,
+    "medianHouseholdIncome": 46979,
+    "medianAge": 37.2
+  }
+]

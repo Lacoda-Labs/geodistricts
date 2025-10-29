@@ -1,0 +1,281 @@
+[
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953200",
+    "name": "Census Tract 9532; Tangipahoa Parish; Louisiana",
+    "population": 2987,
+    "medianHouseholdIncome": 76141,
+    "medianAge": 42.5
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953300",
+    "name": "Census Tract 9533; Tangipahoa Parish; Louisiana",
+    "population": 3821,
+    "medianHouseholdIncome": 35833,
+    "medianAge": 40.4
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953401",
+    "name": "Census Tract 9534.01; Tangipahoa Parish; Louisiana",
+    "population": 2809,
+    "medianHouseholdIncome": 48571,
+    "medianAge": 39.2
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953402",
+    "name": "Census Tract 9534.02; Tangipahoa Parish; Louisiana",
+    "population": 2436,
+    "medianHouseholdIncome": 42300,
+    "medianAge": 52.9
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953501",
+    "name": "Census Tract 9535.01; Tangipahoa Parish; Louisiana",
+    "population": 3557,
+    "medianHouseholdIncome": 74911,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953502",
+    "name": "Census Tract 9535.02; Tangipahoa Parish; Louisiana",
+    "population": 3299,
+    "medianHouseholdIncome": 59432,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953601",
+    "name": "Census Tract 9536.01; Tangipahoa Parish; Louisiana",
+    "population": 2412,
+    "medianHouseholdIncome": 45918,
+    "medianAge": 37.8
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953602",
+    "name": "Census Tract 9536.02; Tangipahoa Parish; Louisiana",
+    "population": 3455,
+    "medianHouseholdIncome": 38438,
+    "medianAge": 26.7
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953701",
+    "name": "Census Tract 9537.01; Tangipahoa Parish; Louisiana",
+    "population": 4949,
+    "medianHouseholdIncome": 101528,
+    "medianAge": 40
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953702",
+    "name": "Census Tract 9537.02; Tangipahoa Parish; Louisiana",
+    "population": 5348,
+    "medianHouseholdIncome": 79404,
+    "medianAge": 41.2
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953800",
+    "name": "Census Tract 9538; Tangipahoa Parish; Louisiana",
+    "population": 4891,
+    "medianHouseholdIncome": 53113,
+    "medianAge": 38.4
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953901",
+    "name": "Census Tract 9539.01; Tangipahoa Parish; Louisiana",
+    "population": 4922,
+    "medianHouseholdIncome": 57819,
+    "medianAge": 35.8
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "953902",
+    "name": "Census Tract 9539.02; Tangipahoa Parish; Louisiana",
+    "population": 4803,
+    "medianHouseholdIncome": 64583,
+    "medianAge": 30.7
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954001",
+    "name": "Census Tract 9540.01; Tangipahoa Parish; Louisiana",
+    "population": 4986,
+    "medianHouseholdIncome": 31234,
+    "medianAge": 23
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954003",
+    "name": "Census Tract 9540.03; Tangipahoa Parish; Louisiana",
+    "population": 3641,
+    "medianHouseholdIncome": 68594,
+    "medianAge": 34.9
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954004",
+    "name": "Census Tract 9540.04; Tangipahoa Parish; Louisiana",
+    "population": 3723,
+    "medianHouseholdIncome": 38775,
+    "medianAge": 27.2
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954103",
+    "name": "Census Tract 9541.03; Tangipahoa Parish; Louisiana",
+    "population": 4474,
+    "medianHouseholdIncome": 32447,
+    "medianAge": 36
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954104",
+    "name": "Census Tract 9541.04; Tangipahoa Parish; Louisiana",
+    "population": 1787,
+    "medianHouseholdIncome": 51083,
+    "medianAge": 26.7
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954105",
+    "name": "Census Tract 9541.05; Tangipahoa Parish; Louisiana",
+    "population": 5974,
+    "medianHouseholdIncome": 55294,
+    "medianAge": 33
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954106",
+    "name": "Census Tract 9541.06; Tangipahoa Parish; Louisiana",
+    "population": 5610,
+    "medianHouseholdIncome": 71976,
+    "medianAge": 40.6
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954200",
+    "name": "Census Tract 9542; Tangipahoa Parish; Louisiana",
+    "population": 4878,
+    "medianHouseholdIncome": 54167,
+    "medianAge": 21.2
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954300",
+    "name": "Census Tract 9543; Tangipahoa Parish; Louisiana",
+    "population": 4369,
+    "medianHouseholdIncome": 29820,
+    "medianAge": 30.4
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954400",
+    "name": "Census Tract 9544; Tangipahoa Parish; Louisiana",
+    "population": 3410,
+    "medianHouseholdIncome": 37909,
+    "medianAge": 33.5
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954503",
+    "name": "Census Tract 9545.03; Tangipahoa Parish; Louisiana",
+    "population": 3988,
+    "medianHouseholdIncome": 36266,
+    "medianAge": 38.7
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954504",
+    "name": "Census Tract 9545.04; Tangipahoa Parish; Louisiana",
+    "population": 2339,
+    "medianHouseholdIncome": 70580,
+    "medianAge": 44.7
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954505",
+    "name": "Census Tract 9545.05; Tangipahoa Parish; Louisiana",
+    "population": 6191,
+    "medianHouseholdIncome": 47330,
+    "medianAge": 39.1
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954506",
+    "name": "Census Tract 9545.06; Tangipahoa Parish; Louisiana",
+    "population": 1687,
+    "medianHouseholdIncome": 61300,
+    "medianAge": 30.3
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954601",
+    "name": "Census Tract 9546.01; Tangipahoa Parish; Louisiana",
+    "population": 8584,
+    "medianHouseholdIncome": 67539,
+    "medianAge": 34.3
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954602",
+    "name": "Census Tract 9546.02; Tangipahoa Parish; Louisiana",
+    "population": 7241,
+    "medianHouseholdIncome": 59093,
+    "medianAge": 38.4
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954700",
+    "name": "Census Tract 9547; Tangipahoa Parish; Louisiana",
+    "population": 4982,
+    "medianHouseholdIncome": 60865,
+    "medianAge": 45
+  },
+  {
+    "state": "22",
+    "county": "105",
+    "tract": "954800",
+    "name": "Census Tract 9548; Tangipahoa Parish; Louisiana",
+    "population": 6400,
+    "medianHouseholdIncome": 55543,
+    "medianAge": 35.8
+  }
+]

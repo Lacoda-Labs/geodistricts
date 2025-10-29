@@ -1,0 +1,20 @@
+[
+  {
+    "state": "08",
+    "county": "125",
+    "tract": "963100",
+    "name": "Census Tract 9631; Yuma County; Colorado",
+    "population": 4370,
+    "medianHouseholdIncome": 72500,
+    "medianAge": 41.4
+  },
+  {
+    "state": "08",
+    "county": "125",
+    "tract": "963200",
+    "name": "Census Tract 9632; Yuma County; Colorado",
+    "population": 5568,
+    "medianHouseholdIncome": 55566,
+    "medianAge": 37.6
+  }
+]

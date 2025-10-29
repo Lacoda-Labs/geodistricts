@@ -1,0 +1,56 @@
+[
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000101",
+    "name": "Census Tract 1.01; Park County; Colorado",
+    "population": 1311,
+    "medianHouseholdIncome": 101667,
+    "medianAge": 50.8
+  },
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000102",
+    "name": "Census Tract 1.02; Park County; Colorado",
+    "population": 5063,
+    "medianHouseholdIncome": 105872,
+    "medianAge": 49.1
+  },
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000200",
+    "name": "Census Tract 2; Park County; Colorado",
+    "population": 4197,
+    "medianHouseholdIncome": 103500,
+    "medianAge": 43.8
+  },
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000300",
+    "name": "Census Tract 3; Park County; Colorado",
+    "population": 2889,
+    "medianHouseholdIncome": 79125,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000400",
+    "name": "Census Tract 4; Park County; Colorado",
+    "population": 1364,
+    "medianHouseholdIncome": 93589,
+    "medianAge": 58.6
+  },
+  {
+    "state": "08",
+    "county": "093",
+    "tract": "000500",
+    "name": "Census Tract 5; Park County; Colorado",
+    "population": 2773,
+    "medianHouseholdIncome": 56319,
+    "medianAge": 60.7
+  }
+]

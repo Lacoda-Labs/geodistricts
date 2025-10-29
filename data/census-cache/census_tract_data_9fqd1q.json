@@ -1,0 +1,524 @@
+[
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000100",
+    "name": "Census Tract 1; Pueblo County; Colorado",
+    "population": 2795,
+    "medianHouseholdIncome": 58750,
+    "medianAge": 39
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000200",
+    "name": "Census Tract 2; Pueblo County; Colorado",
+    "population": 1955,
+    "medianHouseholdIncome": 46639,
+    "medianAge": 31.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000300",
+    "name": "Census Tract 3; Pueblo County; Colorado",
+    "population": 2163,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 38.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000400",
+    "name": "Census Tract 4; Pueblo County; Colorado",
+    "population": 2432,
+    "medianHouseholdIncome": 49741,
+    "medianAge": 40.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000500",
+    "name": "Census Tract 5; Pueblo County; Colorado",
+    "population": 2128,
+    "medianHouseholdIncome": 45556,
+    "medianAge": 38.2
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000600",
+    "name": "Census Tract 6; Pueblo County; Colorado",
+    "population": 1866,
+    "medianHouseholdIncome": 42120,
+    "medianAge": 33.9
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000800",
+    "name": "Census Tract 8; Pueblo County; Colorado",
+    "population": 3238,
+    "medianHouseholdIncome": 33082,
+    "medianAge": 33.6
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000902",
+    "name": "Census Tract 9.02; Pueblo County; Colorado",
+    "population": 6077,
+    "medianHouseholdIncome": 55225,
+    "medianAge": 37.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000903",
+    "name": "Census Tract 9.03; Pueblo County; Colorado",
+    "population": 516,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 19.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000904",
+    "name": "Census Tract 9.04; Pueblo County; Colorado",
+    "population": 4306,
+    "medianHouseholdIncome": 56182,
+    "medianAge": 45.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "000905",
+    "name": "Census Tract 9.05; Pueblo County; Colorado",
+    "population": 2207,
+    "medianHouseholdIncome": 39231,
+    "medianAge": 31.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001000",
+    "name": "Census Tract 10; Pueblo County; Colorado",
+    "population": 4811,
+    "medianHouseholdIncome": 45077,
+    "medianAge": 31.6
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001100",
+    "name": "Census Tract 11; Pueblo County; Colorado",
+    "population": 3300,
+    "medianHouseholdIncome": 32633,
+    "medianAge": 29.4
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001200",
+    "name": "Census Tract 12; Pueblo County; Colorado",
+    "population": 1932,
+    "medianHouseholdIncome": 28125,
+    "medianAge": 41.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001400",
+    "name": "Census Tract 14; Pueblo County; Colorado",
+    "population": 1496,
+    "medianHouseholdIncome": 36250,
+    "medianAge": 45.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001500",
+    "name": "Census Tract 15; Pueblo County; Colorado",
+    "population": 2243,
+    "medianHouseholdIncome": 56583,
+    "medianAge": 41.3
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001600",
+    "name": "Census Tract 16; Pueblo County; Colorado",
+    "population": 1676,
+    "medianHouseholdIncome": 75294,
+    "medianAge": 55.4
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001700",
+    "name": "Census Tract 17; Pueblo County; Colorado",
+    "population": 4518,
+    "medianHouseholdIncome": 68049,
+    "medianAge": 42.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001800",
+    "name": "Census Tract 18; Pueblo County; Colorado",
+    "population": 2471,
+    "medianHouseholdIncome": 55781,
+    "medianAge": 34.4
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "001900",
+    "name": "Census Tract 19; Pueblo County; Colorado",
+    "population": 1689,
+    "medianHouseholdIncome": 42895,
+    "medianAge": 33.2
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002000",
+    "name": "Census Tract 20; Pueblo County; Colorado",
+    "population": 3339,
+    "medianHouseholdIncome": 43684,
+    "medianAge": 34.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002100",
+    "name": "Census Tract 21; Pueblo County; Colorado",
+    "population": 1579,
+    "medianHouseholdIncome": 49352,
+    "medianAge": 38.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002200",
+    "name": "Census Tract 22; Pueblo County; Colorado",
+    "population": 1775,
+    "medianHouseholdIncome": 49028,
+    "medianAge": 31.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002300",
+    "name": "Census Tract 23; Pueblo County; Colorado",
+    "population": 3623,
+    "medianHouseholdIncome": 52529,
+    "medianAge": 35.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002400",
+    "name": "Census Tract 24; Pueblo County; Colorado",
+    "population": 2114,
+    "medianHouseholdIncome": 43141,
+    "medianAge": 39.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002500",
+    "name": "Census Tract 25; Pueblo County; Colorado",
+    "population": 2420,
+    "medianHouseholdIncome": 42500,
+    "medianAge": 40.3
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002600",
+    "name": "Census Tract 26; Pueblo County; Colorado",
+    "population": 3836,
+    "medianHouseholdIncome": 33161,
+    "medianAge": 34.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002700",
+    "name": "Census Tract 27; Pueblo County; Colorado",
+    "population": 6271,
+    "medianHouseholdIncome": 54713,
+    "medianAge": 33.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002801",
+    "name": "Census Tract 28.01; Pueblo County; Colorado",
+    "population": 5032,
+    "medianHouseholdIncome": 53939,
+    "medianAge": 43.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002802",
+    "name": "Census Tract 28.02; Pueblo County; Colorado",
+    "population": 3905,
+    "medianHouseholdIncome": 68755,
+    "medianAge": 55
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002804",
+    "name": "Census Tract 28.04; Pueblo County; Colorado",
+    "population": 4494,
+    "medianHouseholdIncome": 62260,
+    "medianAge": 50.6
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002806",
+    "name": "Census Tract 28.06; Pueblo County; Colorado",
+    "population": 3546,
+    "medianHouseholdIncome": 73092,
+    "medianAge": 45.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002807",
+    "name": "Census Tract 28.07; Pueblo County; Colorado",
+    "population": 4519,
+    "medianHouseholdIncome": 73750,
+    "medianAge": 47.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002808",
+    "name": "Census Tract 28.08; Pueblo County; Colorado",
+    "population": 3061,
+    "medianHouseholdIncome": 105556,
+    "medianAge": 48.2
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002901",
+    "name": "Census Tract 29.01; Pueblo County; Colorado",
+    "population": 3191,
+    "medianHouseholdIncome": 44950,
+    "medianAge": 34.2
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002906",
+    "name": "Census Tract 29.06; Pueblo County; Colorado",
+    "population": 4371,
+    "medianHouseholdIncome": 90424,
+    "medianAge": 47.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002911",
+    "name": "Census Tract 29.11; Pueblo County; Colorado",
+    "population": 2559,
+    "medianHouseholdIncome": 94697,
+    "medianAge": 49.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002912",
+    "name": "Census Tract 29.12; Pueblo County; Colorado",
+    "population": 1968,
+    "medianHouseholdIncome": 72955,
+    "medianAge": 40.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002913",
+    "name": "Census Tract 29.13; Pueblo County; Colorado",
+    "population": 3293,
+    "medianHouseholdIncome": 93594,
+    "medianAge": 52.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002914",
+    "name": "Census Tract 29.14; Pueblo County; Colorado",
+    "population": 3626,
+    "medianHouseholdIncome": 76756,
+    "medianAge": 32.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002915",
+    "name": "Census Tract 29.15; Pueblo County; Colorado",
+    "population": 2837,
+    "medianHouseholdIncome": 82813,
+    "medianAge": 31
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002916",
+    "name": "Census Tract 29.16; Pueblo County; Colorado",
+    "population": 2826,
+    "medianHouseholdIncome": 48766,
+    "medianAge": 38.6
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002917",
+    "name": "Census Tract 29.17; Pueblo County; Colorado",
+    "population": 3310,
+    "medianHouseholdIncome": 118013,
+    "medianAge": 39.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002919",
+    "name": "Census Tract 29.19; Pueblo County; Colorado",
+    "population": 4366,
+    "medianHouseholdIncome": 67287,
+    "medianAge": 38.3
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002920",
+    "name": "Census Tract 29.20; Pueblo County; Colorado",
+    "population": 2658,
+    "medianHouseholdIncome": 63733,
+    "medianAge": 36
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002921",
+    "name": "Census Tract 29.21; Pueblo County; Colorado",
+    "population": 4497,
+    "medianHouseholdIncome": 107804,
+    "medianAge": 33.8
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002922",
+    "name": "Census Tract 29.22; Pueblo County; Colorado",
+    "population": 3012,
+    "medianHouseholdIncome": 93984,
+    "medianAge": 43.1
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "002923",
+    "name": "Census Tract 29.23; Pueblo County; Colorado",
+    "population": 2131,
+    "medianHouseholdIncome": 122725,
+    "medianAge": 42
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003001",
+    "name": "Census Tract 30.01; Pueblo County; Colorado",
+    "population": 1631,
+    "medianHouseholdIncome": 42663,
+    "medianAge": 41.3
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003004",
+    "name": "Census Tract 30.04; Pueblo County; Colorado",
+    "population": 2642,
+    "medianHouseholdIncome": 106765,
+    "medianAge": 49.7
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003103",
+    "name": "Census Tract 31.03; Pueblo County; Colorado",
+    "population": 1747,
+    "medianHouseholdIncome": 58553,
+    "medianAge": 45.3
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003104",
+    "name": "Census Tract 31.04; Pueblo County; Colorado",
+    "population": 2090,
+    "medianHouseholdIncome": 79643,
+    "medianAge": 46
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003105",
+    "name": "Census Tract 31.05; Pueblo County; Colorado",
+    "population": 2952,
+    "medianHouseholdIncome": 80625,
+    "medianAge": 49.4
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003106",
+    "name": "Census Tract 31.06; Pueblo County; Colorado",
+    "population": 1595,
+    "medianHouseholdIncome": 73472,
+    "medianAge": 45.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003200",
+    "name": "Census Tract 32; Pueblo County; Colorado",
+    "population": 3388,
+    "medianHouseholdIncome": 67917,
+    "medianAge": 44.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003500",
+    "name": "Census Tract 35; Pueblo County; Colorado",
+    "population": 2145,
+    "medianHouseholdIncome": 22151,
+    "medianAge": 40.5
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "003600",
+    "name": "Census Tract 36; Pueblo County; Colorado",
+    "population": 1967,
+    "medianHouseholdIncome": 35846,
+    "medianAge": 46.6
+  },
+  {
+    "state": "08",
+    "county": "101",
+    "tract": "980100",
+    "name": "Census Tract 9801; Pueblo County; Colorado",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

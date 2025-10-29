@@ -1,0 +1,74 @@
+[
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000100",
+    "name": "Census Tract 1; Morgan County; Colorado",
+    "population": 2830,
+    "medianHouseholdIncome": 76762,
+    "medianAge": 49
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000200",
+    "name": "Census Tract 2; Morgan County; Colorado",
+    "population": 3501,
+    "medianHouseholdIncome": 98239,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000300",
+    "name": "Census Tract 3; Morgan County; Colorado",
+    "population": 1797,
+    "medianHouseholdIncome": 68750,
+    "medianAge": 40.5
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000400",
+    "name": "Census Tract 4; Morgan County; Colorado",
+    "population": 4592,
+    "medianHouseholdIncome": 52730,
+    "medianAge": 42.1
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000500",
+    "name": "Census Tract 5; Morgan County; Colorado",
+    "population": 2916,
+    "medianHouseholdIncome": 65536,
+    "medianAge": 30
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000600",
+    "name": "Census Tract 6; Morgan County; Colorado",
+    "population": 6203,
+    "medianHouseholdIncome": 71976,
+    "medianAge": 30.4
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000700",
+    "name": "Census Tract 7; Morgan County; Colorado",
+    "population": 5764,
+    "medianHouseholdIncome": 64018,
+    "medianAge": 31.7
+  },
+  {
+    "state": "08",
+    "county": "087",
+    "tract": "000800",
+    "name": "Census Tract 8; Morgan County; Colorado",
+    "population": 1442,
+    "medianHouseholdIncome": 82772,
+    "medianAge": 51.1
+  }
+]

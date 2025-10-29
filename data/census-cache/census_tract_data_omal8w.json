@@ -1,0 +1,1154 @@
+[
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020204",
+    "name": "Census Tract 202.04; Jefferson Parish; Louisiana",
+    "population": 2556,
+    "medianHouseholdIncome": 164167,
+    "medianAge": 57.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020205",
+    "name": "Census Tract 202.05; Jefferson Parish; Louisiana",
+    "population": 3157,
+    "medianHouseholdIncome": 27224,
+    "medianAge": 32
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020206",
+    "name": "Census Tract 202.06; Jefferson Parish; Louisiana",
+    "population": 4299,
+    "medianHouseholdIncome": 96563,
+    "medianAge": 38.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020304",
+    "name": "Census Tract 203.04; Jefferson Parish; Louisiana",
+    "population": 4655,
+    "medianHouseholdIncome": 168021,
+    "medianAge": 50.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020305",
+    "name": "Census Tract 203.05; Jefferson Parish; Louisiana",
+    "population": 4197,
+    "medianHouseholdIncome": 72277,
+    "medianAge": 48
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020400",
+    "name": "Census Tract 204; Jefferson Parish; Louisiana",
+    "population": 3086,
+    "medianHouseholdIncome": 122545,
+    "medianAge": 50.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020502",
+    "name": "Census Tract 205.02; Jefferson Parish; Louisiana",
+    "population": 5816,
+    "medianHouseholdIncome": 44258,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020505",
+    "name": "Census Tract 205.05; Jefferson Parish; Louisiana",
+    "population": 1771,
+    "medianHouseholdIncome": 29597,
+    "medianAge": 36.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020506",
+    "name": "Census Tract 205.06; Jefferson Parish; Louisiana",
+    "population": 4361,
+    "medianHouseholdIncome": 85852,
+    "medianAge": 36.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020507",
+    "name": "Census Tract 205.07; Jefferson Parish; Louisiana",
+    "population": 3965,
+    "medianHouseholdIncome": 51213,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020511",
+    "name": "Census Tract 205.11; Jefferson Parish; Louisiana",
+    "population": 3862,
+    "medianHouseholdIncome": 65560,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020512",
+    "name": "Census Tract 205.12; Jefferson Parish; Louisiana",
+    "population": 2334,
+    "medianHouseholdIncome": 59311,
+    "medianAge": 51.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020513",
+    "name": "Census Tract 205.13; Jefferson Parish; Louisiana",
+    "population": 5423,
+    "medianHouseholdIncome": 60976,
+    "medianAge": 31.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020514",
+    "name": "Census Tract 205.14; Jefferson Parish; Louisiana",
+    "population": 3668,
+    "medianHouseholdIncome": 132300,
+    "medianAge": 47.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020515",
+    "name": "Census Tract 205.15; Jefferson Parish; Louisiana",
+    "population": 3628,
+    "medianHouseholdIncome": 83750,
+    "medianAge": 45.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020516",
+    "name": "Census Tract 205.16; Jefferson Parish; Louisiana",
+    "population": 4726,
+    "medianHouseholdIncome": 53194,
+    "medianAge": 35.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020517",
+    "name": "Census Tract 205.17; Jefferson Parish; Louisiana",
+    "population": 4091,
+    "medianHouseholdIncome": 85536,
+    "medianAge": 45.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020518",
+    "name": "Census Tract 205.18; Jefferson Parish; Louisiana",
+    "population": 3149,
+    "medianHouseholdIncome": 62871,
+    "medianAge": 40.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020519",
+    "name": "Census Tract 205.19; Jefferson Parish; Louisiana",
+    "population": 4156,
+    "medianHouseholdIncome": 67755,
+    "medianAge": 38.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "020600",
+    "name": "Census Tract 206; Jefferson Parish; Louisiana",
+    "population": 4516,
+    "medianHouseholdIncome": 46806,
+    "medianAge": 31.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021000",
+    "name": "Census Tract 210; Jefferson Parish; Louisiana",
+    "population": 2260,
+    "medianHouseholdIncome": 44653,
+    "medianAge": 37.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021100",
+    "name": "Census Tract 211; Jefferson Parish; Louisiana",
+    "population": 2180,
+    "medianHouseholdIncome": 74750,
+    "medianAge": 38.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021200",
+    "name": "Census Tract 212; Jefferson Parish; Louisiana",
+    "population": 2635,
+    "medianHouseholdIncome": 49416,
+    "medianAge": 46
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021300",
+    "name": "Census Tract 213; Jefferson Parish; Louisiana",
+    "population": 3112,
+    "medianHouseholdIncome": 81331,
+    "medianAge": 46.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021400",
+    "name": "Census Tract 214; Jefferson Parish; Louisiana",
+    "population": 2106,
+    "medianHouseholdIncome": 97019,
+    "medianAge": 42.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021500",
+    "name": "Census Tract 215; Jefferson Parish; Louisiana",
+    "population": 3105,
+    "medianHouseholdIncome": 36905,
+    "medianAge": 33.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021601",
+    "name": "Census Tract 216.01; Jefferson Parish; Louisiana",
+    "population": 3068,
+    "medianHouseholdIncome": 58193,
+    "medianAge": 39.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "021602",
+    "name": "Census Tract 216.02; Jefferson Parish; Louisiana",
+    "population": 1218,
+    "medianHouseholdIncome": 78144,
+    "medianAge": 54.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "022601",
+    "name": "Census Tract 226.01; Jefferson Parish; Louisiana",
+    "population": 2905,
+    "medianHouseholdIncome": 122219,
+    "medianAge": 45.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023003",
+    "name": "Census Tract 230.03; Jefferson Parish; Louisiana",
+    "population": 2921,
+    "medianHouseholdIncome": 111932,
+    "medianAge": 44.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023004",
+    "name": "Census Tract 230.04; Jefferson Parish; Louisiana",
+    "population": 4595,
+    "medianHouseholdIncome": 88313,
+    "medianAge": 46.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023300",
+    "name": "Census Tract 233; Jefferson Parish; Louisiana",
+    "population": 1906,
+    "medianHouseholdIncome": 75000,
+    "medianAge": 44.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023400",
+    "name": "Census Tract 234; Jefferson Parish; Louisiana",
+    "population": 3141,
+    "medianHouseholdIncome": 82115,
+    "medianAge": 46
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023500",
+    "name": "Census Tract 235; Jefferson Parish; Louisiana",
+    "population": 4694,
+    "medianHouseholdIncome": 78158,
+    "medianAge": 43.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023600",
+    "name": "Census Tract 236; Jefferson Parish; Louisiana",
+    "population": 4399,
+    "medianHouseholdIncome": 60613,
+    "medianAge": 49.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023700",
+    "name": "Census Tract 237; Jefferson Parish; Louisiana",
+    "population": 1897,
+    "medianHouseholdIncome": 35900,
+    "medianAge": 42.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023800",
+    "name": "Census Tract 238; Jefferson Parish; Louisiana",
+    "population": 3429,
+    "medianHouseholdIncome": 52261,
+    "medianAge": 49.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023901",
+    "name": "Census Tract 239.01; Jefferson Parish; Louisiana",
+    "population": 2446,
+    "medianHouseholdIncome": 81894,
+    "medianAge": 54.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023902",
+    "name": "Census Tract 239.02; Jefferson Parish; Louisiana",
+    "population": 2417,
+    "medianHouseholdIncome": 123101,
+    "medianAge": 45.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023903",
+    "name": "Census Tract 239.03; Jefferson Parish; Louisiana",
+    "population": 2192,
+    "medianHouseholdIncome": 114667,
+    "medianAge": 44.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "023904",
+    "name": "Census Tract 239.04; Jefferson Parish; Louisiana",
+    "population": 2878,
+    "medianHouseholdIncome": 77857,
+    "medianAge": 43.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024001",
+    "name": "Census Tract 240.01; Jefferson Parish; Louisiana",
+    "population": 2656,
+    "medianHouseholdIncome": 75856,
+    "medianAge": 49.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024002",
+    "name": "Census Tract 240.02; Jefferson Parish; Louisiana",
+    "population": 2851,
+    "medianHouseholdIncome": 108917,
+    "medianAge": 55
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024100",
+    "name": "Census Tract 241; Jefferson Parish; Louisiana",
+    "population": 3536,
+    "medianHouseholdIncome": 63750,
+    "medianAge": 38.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024202",
+    "name": "Census Tract 242.02; Jefferson Parish; Louisiana",
+    "population": 5266,
+    "medianHouseholdIncome": 80146,
+    "medianAge": 31.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024300",
+    "name": "Census Tract 243; Jefferson Parish; Louisiana",
+    "population": 2530,
+    "medianHouseholdIncome": 57306,
+    "medianAge": 42.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024400",
+    "name": "Census Tract 244; Jefferson Parish; Louisiana",
+    "population": 2826,
+    "medianHouseholdIncome": 78139,
+    "medianAge": 40.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024500",
+    "name": "Census Tract 245; Jefferson Parish; Louisiana",
+    "population": 1542,
+    "medianHouseholdIncome": 48087,
+    "medianAge": 52.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024601",
+    "name": "Census Tract 246.01; Jefferson Parish; Louisiana",
+    "population": 931,
+    "medianHouseholdIncome": 39507,
+    "medianAge": 41.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024700",
+    "name": "Census Tract 247; Jefferson Parish; Louisiana",
+    "population": 1581,
+    "medianHouseholdIncome": 81155,
+    "medianAge": 45.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024801",
+    "name": "Census Tract 248.01; Jefferson Parish; Louisiana",
+    "population": 2816,
+    "medianHouseholdIncome": 121500,
+    "medianAge": 43.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "024900",
+    "name": "Census Tract 249; Jefferson Parish; Louisiana",
+    "population": 1546,
+    "medianHouseholdIncome": 52550,
+    "medianAge": 46.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025002",
+    "name": "Census Tract 250.02; Jefferson Parish; Louisiana",
+    "population": 3437,
+    "medianHouseholdIncome": 57167,
+    "medianAge": 42.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025003",
+    "name": "Census Tract 250.03; Jefferson Parish; Louisiana",
+    "population": 3420,
+    "medianHouseholdIncome": 65694,
+    "medianAge": 38.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025004",
+    "name": "Census Tract 250.04; Jefferson Parish; Louisiana",
+    "population": 4076,
+    "medianHouseholdIncome": 53875,
+    "medianAge": 32.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025005",
+    "name": "Census Tract 250.05; Jefferson Parish; Louisiana",
+    "population": 5721,
+    "medianHouseholdIncome": 91423,
+    "medianAge": 34.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025102",
+    "name": "Census Tract 251.02; Jefferson Parish; Louisiana",
+    "population": 4606,
+    "medianHouseholdIncome": 90244,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025103",
+    "name": "Census Tract 251.03; Jefferson Parish; Louisiana",
+    "population": 3406,
+    "medianHouseholdIncome": 68945,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025104",
+    "name": "Census Tract 251.04; Jefferson Parish; Louisiana",
+    "population": 3824,
+    "medianHouseholdIncome": 57193,
+    "medianAge": 32.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025201",
+    "name": "Census Tract 252.01; Jefferson Parish; Louisiana",
+    "population": 3149,
+    "medianHouseholdIncome": 39190,
+    "medianAge": 32
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025202",
+    "name": "Census Tract 252.02; Jefferson Parish; Louisiana",
+    "population": 6275,
+    "medianHouseholdIncome": 39603,
+    "medianAge": 29.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025300",
+    "name": "Census Tract 253; Jefferson Parish; Louisiana",
+    "population": 2069,
+    "medianHouseholdIncome": 68587,
+    "medianAge": 43.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025400",
+    "name": "Census Tract 254; Jefferson Parish; Louisiana",
+    "population": 4131,
+    "medianHouseholdIncome": 35938,
+    "medianAge": 37.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025500",
+    "name": "Census Tract 255; Jefferson Parish; Louisiana",
+    "population": 3088,
+    "medianHouseholdIncome": 34395,
+    "medianAge": 28.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025600",
+    "name": "Census Tract 256; Jefferson Parish; Louisiana",
+    "population": 1565,
+    "medianHouseholdIncome": 60761,
+    "medianAge": 43
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025700",
+    "name": "Census Tract 257; Jefferson Parish; Louisiana",
+    "population": 1411,
+    "medianHouseholdIncome": 21167,
+    "medianAge": 44.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025800",
+    "name": "Census Tract 258; Jefferson Parish; Louisiana",
+    "population": 1950,
+    "medianHouseholdIncome": 33958,
+    "medianAge": 43.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "025900",
+    "name": "Census Tract 259; Jefferson Parish; Louisiana",
+    "population": 3606,
+    "medianHouseholdIncome": 46891,
+    "medianAge": 32.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026000",
+    "name": "Census Tract 260; Jefferson Parish; Louisiana",
+    "population": 1985,
+    "medianHouseholdIncome": 42070,
+    "medianAge": 49.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026100",
+    "name": "Census Tract 261; Jefferson Parish; Louisiana",
+    "population": 4750,
+    "medianHouseholdIncome": 27489,
+    "medianAge": 32.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026200",
+    "name": "Census Tract 262; Jefferson Parish; Louisiana",
+    "population": 1608,
+    "medianHouseholdIncome": 20698,
+    "medianAge": 42.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026300",
+    "name": "Census Tract 263; Jefferson Parish; Louisiana",
+    "population": 2286,
+    "medianHouseholdIncome": 67756,
+    "medianAge": 48.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026400",
+    "name": "Census Tract 264; Jefferson Parish; Louisiana",
+    "population": 1764,
+    "medianHouseholdIncome": 44919,
+    "medianAge": 42.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026500",
+    "name": "Census Tract 265; Jefferson Parish; Louisiana",
+    "population": 1750,
+    "medianHouseholdIncome": 38971,
+    "medianAge": 61
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026600",
+    "name": "Census Tract 266; Jefferson Parish; Louisiana",
+    "population": 1977,
+    "medianHouseholdIncome": 31973,
+    "medianAge": 49.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026700",
+    "name": "Census Tract 267; Jefferson Parish; Louisiana",
+    "population": 1934,
+    "medianHouseholdIncome": 44322,
+    "medianAge": 44.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026800",
+    "name": "Census Tract 268; Jefferson Parish; Louisiana",
+    "population": 2537,
+    "medianHouseholdIncome": 31347,
+    "medianAge": 45.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "026900",
+    "name": "Census Tract 269; Jefferson Parish; Louisiana",
+    "population": 2981,
+    "medianHouseholdIncome": 40144,
+    "medianAge": 50.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027000",
+    "name": "Census Tract 270; Jefferson Parish; Louisiana",
+    "population": 6395,
+    "medianHouseholdIncome": 50873,
+    "medianAge": 38
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027100",
+    "name": "Census Tract 271; Jefferson Parish; Louisiana",
+    "population": 3387,
+    "medianHouseholdIncome": 48342,
+    "medianAge": 47.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027200",
+    "name": "Census Tract 272; Jefferson Parish; Louisiana",
+    "population": 4516,
+    "medianHouseholdIncome": 43395,
+    "medianAge": 46
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027501",
+    "name": "Census Tract 275.01; Jefferson Parish; Louisiana",
+    "population": 6507,
+    "medianHouseholdIncome": 46921,
+    "medianAge": 40.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027502",
+    "name": "Census Tract 275.02; Jefferson Parish; Louisiana",
+    "population": 4391,
+    "medianHouseholdIncome": 41326,
+    "medianAge": 32.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027601",
+    "name": "Census Tract 276.01; Jefferson Parish; Louisiana",
+    "population": 5125,
+    "medianHouseholdIncome": 53827,
+    "medianAge": 38.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027602",
+    "name": "Census Tract 276.02; Jefferson Parish; Louisiana",
+    "population": 2857,
+    "medianHouseholdIncome": 34447,
+    "medianAge": 39.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027701",
+    "name": "Census Tract 277.01; Jefferson Parish; Louisiana",
+    "population": 5994,
+    "medianHouseholdIncome": 54750,
+    "medianAge": 32.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027703",
+    "name": "Census Tract 277.03; Jefferson Parish; Louisiana",
+    "population": 3623,
+    "medianHouseholdIncome": 33942,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027803",
+    "name": "Census Tract 278.03; Jefferson Parish; Louisiana",
+    "population": 3489,
+    "medianHouseholdIncome": 34782,
+    "medianAge": 28.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027806",
+    "name": "Census Tract 278.06; Jefferson Parish; Louisiana",
+    "population": 6308,
+    "medianHouseholdIncome": 66278,
+    "medianAge": 43.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027810",
+    "name": "Census Tract 278.10; Jefferson Parish; Louisiana",
+    "population": 3371,
+    "medianHouseholdIncome": 63043,
+    "medianAge": 42.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027811",
+    "name": "Census Tract 278.11; Jefferson Parish; Louisiana",
+    "population": 3980,
+    "medianHouseholdIncome": 73657,
+    "medianAge": 35.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027812",
+    "name": "Census Tract 278.12; Jefferson Parish; Louisiana",
+    "population": 4310,
+    "medianHouseholdIncome": 70708,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027813",
+    "name": "Census Tract 278.13; Jefferson Parish; Louisiana",
+    "population": 4713,
+    "medianHouseholdIncome": 92996,
+    "medianAge": 41.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027814",
+    "name": "Census Tract 278.14; Jefferson Parish; Louisiana",
+    "population": 3425,
+    "medianHouseholdIncome": 81133,
+    "medianAge": 45
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027815",
+    "name": "Census Tract 278.15; Jefferson Parish; Louisiana",
+    "population": 2366,
+    "medianHouseholdIncome": 105971,
+    "medianAge": 41
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027816",
+    "name": "Census Tract 278.16; Jefferson Parish; Louisiana",
+    "population": 6791,
+    "medianHouseholdIncome": 87296,
+    "medianAge": 39
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027817",
+    "name": "Census Tract 278.17; Jefferson Parish; Louisiana",
+    "population": 5071,
+    "medianHouseholdIncome": 100505,
+    "medianAge": 39.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027818",
+    "name": "Census Tract 278.18; Jefferson Parish; Louisiana",
+    "population": 3826,
+    "medianHouseholdIncome": 150728,
+    "medianAge": 45.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027819",
+    "name": "Census Tract 278.19; Jefferson Parish; Louisiana",
+    "population": 2942,
+    "medianHouseholdIncome": 71741,
+    "medianAge": 31.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027820",
+    "name": "Census Tract 278.20; Jefferson Parish; Louisiana",
+    "population": 4667,
+    "medianHouseholdIncome": 62054,
+    "medianAge": 38.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027903",
+    "name": "Census Tract 279.03; Jefferson Parish; Louisiana",
+    "population": 903,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 51
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "027904",
+    "name": "Census Tract 279.04; Jefferson Parish; Louisiana",
+    "population": 3847,
+    "medianHouseholdIncome": 59202,
+    "medianAge": 38.3
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028000",
+    "name": "Census Tract 280; Jefferson Parish; Louisiana",
+    "population": 4981,
+    "medianHouseholdIncome": 83526,
+    "medianAge": 40.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028200",
+    "name": "Census Tract 282; Jefferson Parish; Louisiana",
+    "population": 4622,
+    "medianHouseholdIncome": 49727,
+    "medianAge": 31.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028300",
+    "name": "Census Tract 283; Jefferson Parish; Louisiana",
+    "population": 3244,
+    "medianHouseholdIncome": 37813,
+    "medianAge": 45.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028400",
+    "name": "Census Tract 284; Jefferson Parish; Louisiana",
+    "population": 5177,
+    "medianHouseholdIncome": 91033,
+    "medianAge": 46.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028500",
+    "name": "Census Tract 285; Jefferson Parish; Louisiana",
+    "population": 4031,
+    "medianHouseholdIncome": 93777,
+    "medianAge": 48.1
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028600",
+    "name": "Census Tract 286; Jefferson Parish; Louisiana",
+    "population": 2463,
+    "medianHouseholdIncome": 77778,
+    "medianAge": 45.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028700",
+    "name": "Census Tract 287; Jefferson Parish; Louisiana",
+    "population": 3635,
+    "medianHouseholdIncome": 46056,
+    "medianAge": 34
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028800",
+    "name": "Census Tract 288; Jefferson Parish; Louisiana",
+    "population": 4401,
+    "medianHouseholdIncome": 57047,
+    "medianAge": 38.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "028900",
+    "name": "Census Tract 289; Jefferson Parish; Louisiana",
+    "population": 3386,
+    "medianHouseholdIncome": 68879,
+    "medianAge": 47.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029000",
+    "name": "Census Tract 290; Jefferson Parish; Louisiana",
+    "population": 2663,
+    "medianHouseholdIncome": 62910,
+    "medianAge": 44.8
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029100",
+    "name": "Census Tract 291; Jefferson Parish; Louisiana",
+    "population": 3201,
+    "medianHouseholdIncome": 54267,
+    "medianAge": 54.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029200",
+    "name": "Census Tract 292; Jefferson Parish; Louisiana",
+    "population": 3802,
+    "medianHouseholdIncome": 79605,
+    "medianAge": 52.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029300",
+    "name": "Census Tract 293; Jefferson Parish; Louisiana",
+    "population": 3804,
+    "medianHouseholdIncome": 83453,
+    "medianAge": 54.7
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029400",
+    "name": "Census Tract 294; Jefferson Parish; Louisiana",
+    "population": 3830,
+    "medianHouseholdIncome": 96583,
+    "medianAge": 45.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029500",
+    "name": "Census Tract 295; Jefferson Parish; Louisiana",
+    "population": 3984,
+    "medianHouseholdIncome": 95536,
+    "medianAge": 44.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029600",
+    "name": "Census Tract 296; Jefferson Parish; Louisiana",
+    "population": 6779,
+    "medianHouseholdIncome": 48543,
+    "medianAge": 30.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029700",
+    "name": "Census Tract 297; Jefferson Parish; Louisiana",
+    "population": 2590,
+    "medianHouseholdIncome": 56084,
+    "medianAge": 30.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029800",
+    "name": "Census Tract 298; Jefferson Parish; Louisiana",
+    "population": 3763,
+    "medianHouseholdIncome": 50924,
+    "medianAge": 36.5
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "029900",
+    "name": "Census Tract 299; Jefferson Parish; Louisiana",
+    "population": 4715,
+    "medianHouseholdIncome": 46866,
+    "medianAge": 39.4
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "030000",
+    "name": "Census Tract 300; Jefferson Parish; Louisiana",
+    "population": 2392,
+    "medianHouseholdIncome": 73125,
+    "medianAge": 38.6
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "030100",
+    "name": "Census Tract 301; Jefferson Parish; Louisiana",
+    "population": 3817,
+    "medianHouseholdIncome": 64884,
+    "medianAge": 50.9
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "030200",
+    "name": "Census Tract 302; Jefferson Parish; Louisiana",
+    "population": 4726,
+    "medianHouseholdIncome": 59975,
+    "medianAge": 50.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "030300",
+    "name": "Census Tract 303; Jefferson Parish; Louisiana",
+    "population": 3054,
+    "medianHouseholdIncome": 52971,
+    "medianAge": 33.2
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "980000",
+    "name": "Census Tract 9800; Jefferson Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "990000",
+    "name": "Census Tract 9900; Jefferson Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  },
+  {
+    "state": "22",
+    "county": "051",
+    "tract": "990100",
+    "name": "Census Tract 9901; Jefferson Parish; Louisiana",
+    "population": 0,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": -666666666
+  }
+]

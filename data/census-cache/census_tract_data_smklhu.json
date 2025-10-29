@@ -1,0 +1,650 @@
+[
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013904",
+    "name": "Census Tract 139.04; Douglas County; Colorado",
+    "population": 4405,
+    "medianHouseholdIncome": 81875,
+    "medianAge": 33.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013905",
+    "name": "Census Tract 139.05; Douglas County; Colorado",
+    "population": 4903,
+    "medianHouseholdIncome": 82470,
+    "medianAge": 37.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013907",
+    "name": "Census Tract 139.07; Douglas County; Colorado",
+    "population": 6193,
+    "medianHouseholdIncome": 125068,
+    "medianAge": 39.4
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013909",
+    "name": "Census Tract 139.09; Douglas County; Colorado",
+    "population": 6907,
+    "medianHouseholdIncome": 132742,
+    "medianAge": 47.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013910",
+    "name": "Census Tract 139.10; Douglas County; Colorado",
+    "population": 8070,
+    "medianHouseholdIncome": 173036,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013911",
+    "name": "Census Tract 139.11; Douglas County; Colorado",
+    "population": 7436,
+    "medianHouseholdIncome": 166098,
+    "medianAge": 39.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013912",
+    "name": "Census Tract 139.12; Douglas County; Colorado",
+    "population": 7862,
+    "medianHouseholdIncome": 111829,
+    "medianAge": 40
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013913",
+    "name": "Census Tract 139.13; Douglas County; Colorado",
+    "population": 3360,
+    "medianHouseholdIncome": 142297,
+    "medianAge": 45.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013914",
+    "name": "Census Tract 139.14; Douglas County; Colorado",
+    "population": 3869,
+    "medianHouseholdIncome": 154419,
+    "medianAge": 51.4
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "013915",
+    "name": "Census Tract 139.15; Douglas County; Colorado",
+    "population": 2743,
+    "medianHouseholdIncome": 144712,
+    "medianAge": 50.6
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014005",
+    "name": "Census Tract 140.05; Douglas County; Colorado",
+    "population": 4929,
+    "medianHouseholdIncome": 139902,
+    "medianAge": 38.7
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014006",
+    "name": "Census Tract 140.06; Douglas County; Colorado",
+    "population": 7150,
+    "medianHouseholdIncome": 141979,
+    "medianAge": 37.4
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014007",
+    "name": "Census Tract 140.07; Douglas County; Colorado",
+    "population": 3932,
+    "medianHouseholdIncome": 88155,
+    "medianAge": 29.5
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014008",
+    "name": "Census Tract 140.08; Douglas County; Colorado",
+    "population": 10560,
+    "medianHouseholdIncome": 149398,
+    "medianAge": 36
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014009",
+    "name": "Census Tract 140.09; Douglas County; Colorado",
+    "population": 4912,
+    "medianHouseholdIncome": 152675,
+    "medianAge": 34.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014010",
+    "name": "Census Tract 140.10; Douglas County; Colorado",
+    "population": 6791,
+    "medianHouseholdIncome": 105294,
+    "medianAge": 29.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014011",
+    "name": "Census Tract 140.11; Douglas County; Colorado",
+    "population": 6898,
+    "medianHouseholdIncome": 177163,
+    "medianAge": 36.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014013",
+    "name": "Census Tract 140.13; Douglas County; Colorado",
+    "population": 11403,
+    "medianHouseholdIncome": 170901,
+    "medianAge": 36.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014014",
+    "name": "Census Tract 140.14; Douglas County; Colorado",
+    "population": 5303,
+    "medianHouseholdIncome": 112039,
+    "medianAge": 34.6
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014015",
+    "name": "Census Tract 140.15; Douglas County; Colorado",
+    "population": 3717,
+    "medianHouseholdIncome": 76239,
+    "medianAge": 34.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014016",
+    "name": "Census Tract 140.16; Douglas County; Colorado",
+    "population": 6177,
+    "medianHouseholdIncome": 149300,
+    "medianAge": 36.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014017",
+    "name": "Census Tract 140.17; Douglas County; Colorado",
+    "population": 2929,
+    "medianHouseholdIncome": 181944,
+    "medianAge": 46.6
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014107",
+    "name": "Census Tract 141.07; Douglas County; Colorado",
+    "population": 3996,
+    "medianHouseholdIncome": 151138,
+    "medianAge": 43.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014108",
+    "name": "Census Tract 141.08; Douglas County; Colorado",
+    "population": 4901,
+    "medianHouseholdIncome": 155090,
+    "medianAge": 45.6
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014109",
+    "name": "Census Tract 141.09; Douglas County; Colorado",
+    "population": 3092,
+    "medianHouseholdIncome": 170303,
+    "medianAge": 51.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014110",
+    "name": "Census Tract 141.10; Douglas County; Colorado",
+    "population": 4837,
+    "medianHouseholdIncome": 97179,
+    "medianAge": 39.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014112",
+    "name": "Census Tract 141.12; Douglas County; Colorado",
+    "population": 3513,
+    "medianHouseholdIncome": 150841,
+    "medianAge": 41.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014113",
+    "name": "Census Tract 141.13; Douglas County; Colorado",
+    "population": 3121,
+    "medianHouseholdIncome": 144167,
+    "medianAge": 38.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014114",
+    "name": "Census Tract 141.14; Douglas County; Colorado",
+    "population": 3232,
+    "medianHouseholdIncome": 116346,
+    "medianAge": 38
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014115",
+    "name": "Census Tract 141.15; Douglas County; Colorado",
+    "population": 4436,
+    "medianHouseholdIncome": 136250,
+    "medianAge": 44.7
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014116",
+    "name": "Census Tract 141.16; Douglas County; Colorado",
+    "population": 5470,
+    "medianHouseholdIncome": 105469,
+    "medianAge": 32
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014123",
+    "name": "Census Tract 141.23; Douglas County; Colorado",
+    "population": 4256,
+    "medianHouseholdIncome": 112875,
+    "medianAge": 40.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014124",
+    "name": "Census Tract 141.24; Douglas County; Colorado",
+    "population": 5419,
+    "medianHouseholdIncome": 150198,
+    "medianAge": 40.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014125",
+    "name": "Census Tract 141.25; Douglas County; Colorado",
+    "population": 5982,
+    "medianHouseholdIncome": 121193,
+    "medianAge": 40.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014126",
+    "name": "Census Tract 141.26; Douglas County; Colorado",
+    "population": 2115,
+    "medianHouseholdIncome": 107660,
+    "medianAge": 45.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014127",
+    "name": "Census Tract 141.27; Douglas County; Colorado",
+    "population": 5250,
+    "medianHouseholdIncome": 192184,
+    "medianAge": 47.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014128",
+    "name": "Census Tract 141.28; Douglas County; Colorado",
+    "population": 4910,
+    "medianHouseholdIncome": 138409,
+    "medianAge": 42.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014129",
+    "name": "Census Tract 141.29; Douglas County; Colorado",
+    "population": 3250,
+    "medianHouseholdIncome": 164500,
+    "medianAge": 42.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014130",
+    "name": "Census Tract 141.30; Douglas County; Colorado",
+    "population": 7158,
+    "medianHouseholdIncome": 154116,
+    "medianAge": 37.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014131",
+    "name": "Census Tract 141.31; Douglas County; Colorado",
+    "population": 6122,
+    "medianHouseholdIncome": 94175,
+    "medianAge": 44.6
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014132",
+    "name": "Census Tract 141.32; Douglas County; Colorado",
+    "population": 6034,
+    "medianHouseholdIncome": 170048,
+    "medianAge": 42.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014133",
+    "name": "Census Tract 141.33; Douglas County; Colorado",
+    "population": 5940,
+    "medianHouseholdIncome": 175040,
+    "medianAge": 40.7
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014134",
+    "name": "Census Tract 141.34; Douglas County; Colorado",
+    "population": 6244,
+    "medianHouseholdIncome": 197361,
+    "medianAge": 36.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014135",
+    "name": "Census Tract 141.35; Douglas County; Colorado",
+    "population": 5770,
+    "medianHouseholdIncome": 242813,
+    "medianAge": 44.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014138",
+    "name": "Census Tract 141.38; Douglas County; Colorado",
+    "population": 2931,
+    "medianHouseholdIncome": 98468,
+    "medianAge": 39.5
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014139",
+    "name": "Census Tract 141.39; Douglas County; Colorado",
+    "population": 3883,
+    "medianHouseholdIncome": 150213,
+    "medianAge": 45.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014140",
+    "name": "Census Tract 141.40; Douglas County; Colorado",
+    "population": 5550,
+    "medianHouseholdIncome": 190221,
+    "medianAge": 43.4
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014141",
+    "name": "Census Tract 141.41; Douglas County; Colorado",
+    "population": 6266,
+    "medianHouseholdIncome": 180737,
+    "medianAge": 41.7
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014142",
+    "name": "Census Tract 141.42; Douglas County; Colorado",
+    "population": 1815,
+    "medianHouseholdIncome": 250001,
+    "medianAge": 53.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014143",
+    "name": "Census Tract 141.43; Douglas County; Colorado",
+    "population": 3904,
+    "medianHouseholdIncome": 181891,
+    "medianAge": 33.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014144",
+    "name": "Census Tract 141.44; Douglas County; Colorado",
+    "population": 5534,
+    "medianHouseholdIncome": 194940,
+    "medianAge": 39.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014145",
+    "name": "Census Tract 141.45; Douglas County; Colorado",
+    "population": 3553,
+    "medianHouseholdIncome": 109879,
+    "medianAge": 36.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014146",
+    "name": "Census Tract 141.46; Douglas County; Colorado",
+    "population": 4447,
+    "medianHouseholdIncome": 139393,
+    "medianAge": 33.5
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014203",
+    "name": "Census Tract 142.03; Douglas County; Colorado",
+    "population": 6056,
+    "medianHouseholdIncome": 163166,
+    "medianAge": 44.7
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014205",
+    "name": "Census Tract 142.05; Douglas County; Colorado",
+    "population": 2978,
+    "medianHouseholdIncome": 172120,
+    "medianAge": 39.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014206",
+    "name": "Census Tract 142.06; Douglas County; Colorado",
+    "population": 989,
+    "medianHouseholdIncome": 140750,
+    "medianAge": 46.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014207",
+    "name": "Census Tract 142.07; Douglas County; Colorado",
+    "population": 2173,
+    "medianHouseholdIncome": 148214,
+    "medianAge": 32.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014208",
+    "name": "Census Tract 142.08; Douglas County; Colorado",
+    "population": 1323,
+    "medianHouseholdIncome": 135000,
+    "medianAge": 39.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014300",
+    "name": "Census Tract 143; Douglas County; Colorado",
+    "population": 959,
+    "medianHouseholdIncome": 136763,
+    "medianAge": 49
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014404",
+    "name": "Census Tract 144.04; Douglas County; Colorado",
+    "population": 2372,
+    "medianHouseholdIncome": 144904,
+    "medianAge": 54.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014405",
+    "name": "Census Tract 144.05; Douglas County; Colorado",
+    "population": 7769,
+    "medianHouseholdIncome": 141926,
+    "medianAge": 33.8
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014407",
+    "name": "Census Tract 144.07; Douglas County; Colorado",
+    "population": 4160,
+    "medianHouseholdIncome": 84122,
+    "medianAge": 42.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014408",
+    "name": "Census Tract 144.08; Douglas County; Colorado",
+    "population": 2612,
+    "medianHouseholdIncome": 164764,
+    "medianAge": 53.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014409",
+    "name": "Census Tract 144.09; Douglas County; Colorado",
+    "population": 3857,
+    "medianHouseholdIncome": 171928,
+    "medianAge": 34.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014410",
+    "name": "Census Tract 144.10; Douglas County; Colorado",
+    "population": 12659,
+    "medianHouseholdIncome": 145341,
+    "medianAge": 35.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014503",
+    "name": "Census Tract 145.03; Douglas County; Colorado",
+    "population": 5975,
+    "medianHouseholdIncome": 100298,
+    "medianAge": 41
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014504",
+    "name": "Census Tract 145.04; Douglas County; Colorado",
+    "population": 5157,
+    "medianHouseholdIncome": 76533,
+    "medianAge": 36.5
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014505",
+    "name": "Census Tract 145.05; Douglas County; Colorado",
+    "population": 6200,
+    "medianHouseholdIncome": 108350,
+    "medianAge": 39.2
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014506",
+    "name": "Census Tract 145.06; Douglas County; Colorado",
+    "population": 6980,
+    "medianHouseholdIncome": 161071,
+    "medianAge": 42.9
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014602",
+    "name": "Census Tract 146.02; Douglas County; Colorado",
+    "population": 2452,
+    "medianHouseholdIncome": 163500,
+    "medianAge": 53.1
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014603",
+    "name": "Census Tract 146.03; Douglas County; Colorado",
+    "population": 7629,
+    "medianHouseholdIncome": 140264,
+    "medianAge": 33.3
+  },
+  {
+    "state": "08",
+    "county": "035",
+    "tract": "014604",
+    "name": "Census Tract 146.04; Douglas County; Colorado",
+    "population": 4526,
+    "medianHouseholdIncome": 147404,
+    "medianAge": 36
+  }
+]

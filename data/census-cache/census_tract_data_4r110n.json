@@ -1,0 +1,146 @@
+[
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950100",
+    "name": "Census Tract 9501; Vernon Parish; Louisiana",
+    "population": 5133,
+    "medianHouseholdIncome": 59406,
+    "medianAge": 42.8
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950200",
+    "name": "Census Tract 9502; Vernon Parish; Louisiana",
+    "population": 4801,
+    "medianHouseholdIncome": 65026,
+    "medianAge": 40.4
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Vernon Parish; Louisiana",
+    "population": 3438,
+    "medianHouseholdIncome": 63576,
+    "medianAge": 40.9
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Vernon Parish; Louisiana",
+    "population": 1083,
+    "medianHouseholdIncome": 60556,
+    "medianAge": 44.3
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950400",
+    "name": "Census Tract 9504; Vernon Parish; Louisiana",
+    "population": 3486,
+    "medianHouseholdIncome": 32417,
+    "medianAge": 33
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950501",
+    "name": "Census Tract 9505.01; Vernon Parish; Louisiana",
+    "population": 2989,
+    "medianHouseholdIncome": 43971,
+    "medianAge": 34.6
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950502",
+    "name": "Census Tract 9505.02; Vernon Parish; Louisiana",
+    "population": 2357,
+    "medianHouseholdIncome": 50568,
+    "medianAge": 35.7
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950600",
+    "name": "Census Tract 9506; Vernon Parish; Louisiana",
+    "population": 3183,
+    "medianHouseholdIncome": 59833,
+    "medianAge": 34.4
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950701",
+    "name": "Census Tract 9507.01; Vernon Parish; Louisiana",
+    "population": 1932,
+    "medianHouseholdIncome": 84620,
+    "medianAge": 21.8
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950702",
+    "name": "Census Tract 9507.02; Vernon Parish; Louisiana",
+    "population": 2669,
+    "medianHouseholdIncome": 55793,
+    "medianAge": 23.1
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950703",
+    "name": "Census Tract 9507.03; Vernon Parish; Louisiana",
+    "population": 2064,
+    "medianHouseholdIncome": 39771,
+    "medianAge": 23.7
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950704",
+    "name": "Census Tract 9507.04; Vernon Parish; Louisiana",
+    "population": 4111,
+    "medianHouseholdIncome": 62703,
+    "medianAge": 23.7
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950801",
+    "name": "Census Tract 9508.01; Vernon Parish; Louisiana",
+    "population": 2487,
+    "medianHouseholdIncome": 52054,
+    "medianAge": 41.6
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950802",
+    "name": "Census Tract 9508.02; Vernon Parish; Louisiana",
+    "population": 1353,
+    "medianHouseholdIncome": 83333,
+    "medianAge": 41.2
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950901",
+    "name": "Census Tract 9509.01; Vernon Parish; Louisiana",
+    "population": 2653,
+    "medianHouseholdIncome": 60066,
+    "medianAge": 35.6
+  },
+  {
+    "state": "22",
+    "county": "115",
+    "tract": "950902",
+    "name": "Census Tract 9509.02; Vernon Parish; Louisiana",
+    "population": 4713,
+    "medianHouseholdIncome": 74130,
+    "medianAge": 33.1
+  }
+]

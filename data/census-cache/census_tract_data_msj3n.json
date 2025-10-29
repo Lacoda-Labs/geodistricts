@@ -1,0 +1,29 @@
+[
+  {
+    "state": "22",
+    "county": "021",
+    "tract": "000100",
+    "name": "Census Tract 1; Caldwell Parish; Louisiana",
+    "population": 2192,
+    "medianHouseholdIncome": 29628,
+    "medianAge": 34.4
+  },
+  {
+    "state": "22",
+    "county": "021",
+    "tract": "000200",
+    "name": "Census Tract 2; Caldwell Parish; Louisiana",
+    "population": 3324,
+    "medianHouseholdIncome": 41563,
+    "medianAge": 36.7
+  },
+  {
+    "state": "22",
+    "county": "021",
+    "tract": "000300",
+    "name": "Census Tract 3; Caldwell Parish; Louisiana",
+    "population": 4142,
+    "medianHouseholdIncome": 70066,
+    "medianAge": 43.1
+  }
+]

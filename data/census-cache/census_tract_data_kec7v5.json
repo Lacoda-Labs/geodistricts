@@ -1,0 +1,47 @@
+[
+  {
+    "state": "08",
+    "county": "003",
+    "tract": "960000",
+    "name": "Census Tract 9600; Alamosa County; Colorado",
+    "population": 1939,
+    "medianHouseholdIncome": 57672,
+    "medianAge": 35.9
+  },
+  {
+    "state": "08",
+    "county": "003",
+    "tract": "960100",
+    "name": "Census Tract 9601; Alamosa County; Colorado",
+    "population": 2829,
+    "medianHouseholdIncome": 63869,
+    "medianAge": 38.5
+  },
+  {
+    "state": "08",
+    "county": "003",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; Alamosa County; Colorado",
+    "population": 2464,
+    "medianHouseholdIncome": 46523,
+    "medianAge": 37.6
+  },
+  {
+    "state": "08",
+    "county": "003",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; Alamosa County; Colorado",
+    "population": 3990,
+    "medianHouseholdIncome": 56146,
+    "medianAge": 22.9
+  },
+  {
+    "state": "08",
+    "county": "003",
+    "tract": "960300",
+    "name": "Census Tract 9603; Alamosa County; Colorado",
+    "population": 5238,
+    "medianHouseholdIncome": 50225,
+    "medianAge": 31.1
+  }
+]

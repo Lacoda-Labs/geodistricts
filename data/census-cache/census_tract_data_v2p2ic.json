@@ -1,0 +1,20 @@
+[
+  {
+    "state": "08",
+    "county": "121",
+    "tract": "924100",
+    "name": "Census Tract 9241; Washington County; Colorado",
+    "population": 2115,
+    "medianHouseholdIncome": 57174,
+    "medianAge": 39.9
+  },
+  {
+    "state": "08",
+    "county": "121",
+    "tract": "924200",
+    "name": "Census Tract 9242; Washington County; Colorado",
+    "population": 2702,
+    "medianHouseholdIncome": 60294,
+    "medianAge": 40.3
+  }
+]
