@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from '../services/census.service';
 import { GeodistrictAlgorithmService, GeoGraphStepResult } from '../services/geodistrict-algorithm.service';
+import { GeoGraphTraversalService } from '../services/geo-graph-traversal.service';
 import { VERSION_INFO } from '../../version';
 
 declare var L: any;
@@ -11,580 +12,12 @@ declare var L: any;
   selector: 'app-tract-debug-page',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <div class="tract-debug-page">
-      <div class="header">
-        <h1>Census Tract Adjacency Debugger</h1>
-        <p>Debug census tract adjacency and sorting algorithms</p>
-      </div>
-
-      <div class="controls">
-        <div class="control-group">
-          <label for="stateSelect">State:</label>
-          <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
-            <option value="">Select State</option>
-            <option *ngFor="let state of states" [value]="state.code">
-              {{ state.name }} ({{ state.districts }} districts)
-            </option>
-          </select>
-        </div>
-
-        <div class="control-group">
-          <label for="algorithmSelect">Sorting Algorithm:</label>
-          <select id="algorithmSelect" [(ngModel)]="selectedAlgorithm" (change)="onAlgorithmChange()">
-            <option *ngFor="let option of algorithmOptions" [value]="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-          <div class="algorithm-description">
-            {{ getSelectedAlgorithmDescription() }}
-          </div>
-        </div>
-
-        <div class="control-group">
-          <label>
-            <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
-            Use Direct Census API (development only)
-          </label>
-        </div>
-
-        <div class="control-group" *ngIf="selectedAlgorithm === 'geo-graph'">
-          <label>Geo-Graph Execution Mode:</label>
-          <div class="step-controls">
-            <button (click)="executeStep()" [disabled]="isExecuting">
-              {{ currentStep === 0 ? 'Execute Phase 1' : 'Next Step' }}
-            </button>
-            <button (click)="resetSteps()" [disabled]="isExecuting">
-              Reset
-            </button>
-            <div class="step-info" *ngIf="stepResult">
-              <strong>{{ stepResult.phase === 'phase1' ? 'Phase 1' : 'Phase 2' }}</strong>
-              Step {{ stepResult.step }}/{{ stepResult.totalSteps }}
-              <br>
-              <small>{{ stepResult.message }}</small>
-              <div *ngIf="stepResult.currentDistricts && stepResult.currentDistricts.length > 0" class="district-info">
-                <strong>Current Districts:</strong>
-                <div *ngFor="let district of stepResult.currentDistricts; let i = index" class="district-group">
-                  District {{ i + 1 }}: {{ district.length }} tracts
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <button (click)="loadStateData()" [disabled]="isLoading || !selectedState">
-            {{ isLoading ? 'Loading...' : 'Load State Data' }}
-          </button>
-        </div>
-      </div>
-
-      <div class="results" *ngIf="stateData">
-        <div class="summary">
-          <h2>State Data Summary</h2>
-          <div class="stats">
-            <div class="stat">
-              <span class="label">Total Tracts:</span>
-              <span class="value">{{ stateData.features.length }}</span>
-            </div>
-            <div class="stat">
-              <span class="label">Total Population:</span>
-              <span class="value">{{ getTotalPopulation().toLocaleString() }}</span>
-            </div>
-            <div class="stat">
-              <span class="label">Average Population per Tract:</span>
-              <span class="value">{{ getAveragePopulation().toLocaleString() }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="map-section">
-          <h3>State Map with Census Tracts</h3>
-          <div class="map-container">
-            <div id="stateMap" class="state-map"></div>
-          </div>
-        </div>
-
-        <div class="tract-navigation" *ngIf="sortedTracts.length > 0">
-          <h3>Tract Navigation ({{ selectedAlgorithm }} Algorithm)</h3>
-          
-          <div class="tract-visualization">
-            <div class="tract-dots-container">
-              <div *ngFor="let tract of sortedTracts; let i = index" 
-                   class="tract-dot"
-                   [class.selected]="i === currentTractIndex"
-                   [class.adjacent]="isAdjacentTract(i)"
-                   [title]="'Tract ' + (i + 1) + ': ' + getTractId(tract) + ' (Pop: ' + getTractPopulation(tract).toLocaleString() + ')'"
-                   (click)="selectTract(i)">
-              </div>
-            </div>
-          </div>
-
-          <div class="tract-navigation-controls">
-            <button (click)="previousTract()" [disabled]="currentTractIndex <= 0">
-              ← Previous Tract
-            </button>
-            <span class="tract-info">
-              Tract {{ currentTractIndex + 1 }} of {{ sortedTracts.length }}
-            </span>
-            <button (click)="nextTract()" [disabled]="currentTractIndex >= sortedTracts.length - 1">
-              Next Tract →
-            </button>
-          </div>
-
-          <div class="current-tract-info" *ngIf="getCurrentTract()">
-            <h4>Selected Tract Details</h4>
-            <div class="tract-details">
-              <div class="tract-detail">
-                <span class="label">Tract ID:</span> {{ getCurrentTract() ? getTractId(getCurrentTract()!) : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">Population:</span> {{ getCurrentTract() ? getTractPopulation(getCurrentTract()!).toLocaleString() : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">Centroid:</span>
-                {{ getCurrentTract() ? '(' + getTractCentroid(getCurrentTract()!).lat.toFixed(4) + ', ' + getTractCentroid(getCurrentTract()!).lng.toFixed(4) + ')' : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">Name:</span> {{ getCurrentTract() ? getTractName(getCurrentTract()!) : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">North Boundary:</span> {{ getCurrentTract() ? getTractBounds(getCurrentTract()!).north.toFixed(4) : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">South Boundary:</span> {{ getCurrentTract() ? getTractBounds(getCurrentTract()!).south.toFixed(4) : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">East Boundary:</span> {{ getCurrentTract() ? getTractBounds(getCurrentTract()!).east.toFixed(4) : 'N/A' }}
-              </div>
-              <div class="tract-detail">
-                <span class="label">West Boundary:</span> {{ getCurrentTract() ? getTractBounds(getCurrentTract()!).west.toFixed(4) : 'N/A' }}
-              </div>
-            </div>
-
-            <div class="adjacent-tracts" *ngIf="getAdjacentTracts().length > 0">
-              <h5>Adjacent Tracts ({{ getAdjacentTracts().length }})</h5>
-              <div class="adjacent-list">
-                <div *ngFor="let adjacent of getAdjacentTracts(); let i = index" class="adjacent-item">
-                  <span class="adjacent-id">{{ getTractId(adjacent) }}</span>
-                  <span class="adjacent-pop">{{ getTractPopulation(adjacent).toLocaleString() }}</span>
-                  <span class="adjacent-centroid">
-                    ({{ getTractCentroid(adjacent).lat.toFixed(4) }}, {{ getTractCentroid(adjacent).lng.toFixed(4) }})
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="error" *ngIf="errorMessage">
-        <h3>Error</h3>
-        <p>{{ errorMessage }}</p>
-        <button (click)="clearError()">Dismiss</button>
-      </div>
-
-      <div class="loading" *ngIf="isLoading">
-        <div class="spinner"></div>
-        <p>Loading state data...</p>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .tract-debug-page {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 20px;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      color: white;
-    }
-
-    .header h1 {
-      font-size: 2.5rem;
-      margin-bottom: 10px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-
-    .header p {
-      font-size: 1.2rem;
-      opacity: 0.9;
-    }
-
-    .controls {
-      background: rgba(255, 255, 255, 0.95);
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .control-group {
-      margin-bottom: 15px;
-    }
-
-    .control-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .control-group select, .control-group input[type="checkbox"] {
-      margin-right: 10px;
-    }
-
-    .control-group select {
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    .step-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .step-controls button {
-      padding: 10px 15px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: background-color 0.3s;
-    }
-
-    .step-controls button:hover:not(:disabled) {
-      background: #45a049;
-    }
-
-    .step-controls button:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-    }
-
-    .step-info {
-      background: #f0f8ff;
-      padding: 10px;
-      border-radius: 5px;
-      border-left: 4px solid #2196F3;
-      font-size: 13px;
-    }
-
-    .step-info strong {
-      color: #1976D2;
-    }
-
-    .district-info {
-      margin-top: 8px;
-      padding: 8px;
-      background: #e8f5e8;
-      border-radius: 4px;
-      border-left: 3px solid #4CAF50;
-    }
-
-    .district-group {
-      font-size: 12px;
-      margin: 2px 0;
-      color: #2e7d32;
-    }
-
-    .control-group button {
-      background: #667eea;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-      margin-right: 10px;
-    }
-
-    .control-group button:hover:not(:disabled) {
-      background: #5a6fd8;
-    }
-
-    .control-group button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .algorithm-description {
-      font-size: 12px;
-      color: #666;
-      margin-top: 5px;
-      font-style: italic;
-    }
-
-    .results {
-      background: rgba(255, 255, 255, 0.95);
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .summary h2 {
-      color: #333;
-      margin-bottom: 15px;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-    }
-
-    .stat {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px;
-      background: #f8f9fa;
-      border-radius: 5px;
-    }
-
-    .stat .label {
-      font-weight: 600;
-      color: #555;
-    }
-
-    .stat .value {
-      color: #333;
-      font-weight: 500;
-    }
-
-    .map-section {
-      margin: 30px 0;
-    }
-
-    .map-section h3 {
-      color: #333;
-      margin-bottom: 15px;
-    }
-
-    .map-container {
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .state-map {
-      height: 500px;
-      width: 100%;
-    }
-
-    .tract-navigation {
-      margin-top: 30px;
-    }
-
-    .tract-navigation h3 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-
-    .tract-visualization {
-      margin-bottom: 20px;
-    }
-
-    .tract-dots-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px;
-      padding: 10px;
-      background: #f8f9fa;
-      border-radius: 5px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .tract-dot {
-      width: 12px;
-      height: 12px;
-      background: #6c757d;
-      border-radius: 50%;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: 1px solid #fff;
-    }
-
-    .tract-dot:hover {
-      transform: scale(1.2);
-      border: 2px solid #333;
-    }
-
-    .tract-dot.selected {
-      background: #dc3545 !important;
-      transform: scale(1.3);
-      border: 2px solid #fff;
-      box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
-    }
-
-    .tract-dot.adjacent {
-      background: #ffc107 !important;
-      border: 1px solid #333;
-    }
-
-    .tract-navigation-controls {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-
-    .tract-navigation-controls button {
-      background: #28a745;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .tract-navigation-controls button:hover:not(:disabled) {
-      background: #218838;
-    }
-
-    .tract-navigation-controls button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .tract-info {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .current-tract-info {
-      background: #f8f9fa;
-      padding: 20px;
-      border-radius: 8px;
-      border-left: 4px solid #667eea;
-    }
-
-    .current-tract-info h4 {
-      color: #333;
-      margin-bottom: 15px;
-    }
-
-    .tract-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .tract-detail {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px;
-      background: white;
-      border-radius: 4px;
-      border: 1px solid #e9ecef;
-    }
-
-    .tract-detail .label {
-      font-weight: 600;
-      color: #555;
-    }
-
-    .adjacent-tracts {
-      margin-top: 20px;
-    }
-
-    .adjacent-tracts h5 {
-      color: #333;
-      margin-bottom: 10px;
-    }
-
-    .adjacent-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 8px;
-    }
-
-    .adjacent-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px;
-      background: #fff3cd;
-      border: 1px solid #ffeaa7;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
-    .adjacent-id {
-      font-weight: 600;
-      color: #856404;
-    }
-
-    .adjacent-pop {
-      color: #856404;
-    }
-
-    .adjacent-centroid {
-      color: #856404;
-      font-family: monospace;
-    }
-
-    .error {
-      background: #f8d7da;
-      color: #721c24;
-      padding: 20px;
-      border-radius: 8px;
-      border: 1px solid #f5c6cb;
-      margin-bottom: 20px;
-    }
-
-    .error h3 {
-      margin-top: 0;
-    }
-
-    .error button {
-      background: #dc3545;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: white;
-    }
-
-    .spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid white;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `]
+  templateUrl: './tract-debug-page.component.html',
+  styleUrl: './tract-debug-page.component.scss'
 })
 export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit {
-  selectedState: string = '';
-  selectedAlgorithm: string = 'geographic';
+  selectedState: string = 'AZ';
+  selectedAlgorithm: string = 'geo-graph';
   useDirectAPI: boolean = false;
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -596,6 +29,10 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
 
   // S4 adjacency data for accurate adjacency checking
   private s4AdjacencyData: Map<string, string[]> | null = null;
+
+  // Debug properties for extreme adjacent tract finding
+  extremeAdjacentTractResult: GeoJsonFeature | null = null;
+  extremeAdjacentTractDirection: string = 'northeast';
 
   states = [
     { code: 'AL', name: 'Alabama', districts: 7 },
@@ -663,6 +100,8 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   currentTractIndex: number = 0;
   map: any = null;
   tractLayers: any[] = [];
+  sweepLineLayer: any = null; // Layer for drawing the sweep line visualization
+  sweepMarkers: any[] = []; // Markers for sweep line visualization (midpoint and intersection)
   
   // Performance optimization properties
   private previousSelectedIndex: number | undefined;
@@ -672,6 +111,7 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   constructor(
     private censusService: CensusService,
     private geodistrictAlgorithmService: GeodistrictAlgorithmService,
+    private geoGraphTraversalService: GeoGraphTraversalService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -685,6 +125,10 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   ngAfterViewInit() {
     // Ensure DOM is ready
     this.cdr.detectChanges();
+    // Auto-load state data if default state is set
+    if (this.selectedState) {
+      this.loadStateData();
+    }
   }
 
   ngOnDestroy() {
@@ -810,6 +254,10 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
         // Use setTimeout to ensure DOM is ready
         setTimeout(() => {
           this.initializeMap();
+          // Auto-select the first tract after sorting
+          if (this.sortedTracts.length > 0) {
+            this.selectTract(0);
+          }
         }, 100);
       });
       this.isLoading = false;
@@ -953,6 +401,16 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map);
 
+    // Add map click handler to show coordinates
+    this.map.on('click', (e: any) => {
+      const latlng = e.latlng;
+      const popupContent = `Click Location<br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`;
+      L.popup()
+        .setLatLng(latlng)
+        .setContent(popupContent)
+        .openOn(this.map);
+    });
+
     // Add tract layers
     this.addTractLayers();
 
@@ -967,6 +425,9 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     // Clear existing layers
     this.tractLayers.forEach(layer => this.map.removeLayer(layer));
     this.tractLayers = [];
+    
+    // Clear sweep line visualization
+    this.clearSweepLine();
 
     // Add each tract as a layer (in sorted order for debugging)
     this.sortedTracts.forEach((tract, index) => {
@@ -977,12 +438,18 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
           fillColor: '#6c757d',
           fillOpacity: 1
         }
-      }).bindPopup(`Tract: ${tract.properties?.['TRACTCE'] || tract.properties?.['TRACT_FIPS'] || 'unknown'} (${this.getTractId(tract)})`).addTo(this.map);
+      }).addTo(this.map);
 
-      // Add click handler
-      layer.on('click', () => {
+      // Bind popup with click coordinates
+      layer.on('click', (e: any) => {
+        const latlng = e.latlng;
+        const tractInfo = `Tract: ${tract.properties?.['TRACTCE'] || tract.properties?.['TRACT_FIPS'] || 'unknown'} (${this.getTractId(tract)})<br>Click: (${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)})`;
+        layer.bindPopup(tractInfo).openPopup();
         this.selectTract(index);
       });
+
+      // Set default popup (will be updated on click with coordinates)
+      layer.bindPopup(`Tract: ${tract.properties?.['TRACTCE'] || tract.properties?.['TRACT_FIPS'] || 'unknown'} (${this.getTractId(tract)})`);
 
       this.tractLayers.push(layer);
     });
@@ -1056,6 +523,8 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     if (index >= 0 && index < this.sortedTracts.length) {
       this.currentTractIndex = index;
       this.updateMapHighlighting();
+      // Clear sweep line when selecting a different tract
+      this.clearSweepLine();
       const currentTract = this.getCurrentTract();
       if (currentTract) {
         console.log(`Selected tract ${index + 1}: ${this.getTractId(currentTract)}`);
@@ -1108,11 +577,36 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       const currentS4Id = this.convertToS4TractId(currentId);
       const otherS4Id = this.convertToS4TractId(otherId);
       
+      // Debug: Log the conversion
+      if (currentId !== currentS4Id || otherId !== otherS4Id) {
+        console.log(`🔄 ID Conversion: ${currentId} -> ${currentS4Id}, ${otherId} -> ${otherS4Id}`);
+      }
+      
+      // Debug: Log some sample S4 data keys for the first check
+      if (currentId === this.getTractId(this.getCurrentTract()!) && this.s4AdjacencyData.size > 0) {
+        const sampleKeys = Array.from(this.s4AdjacencyData.keys()).slice(0, 5);
+        // console.log(`🔍 Sample S4 data keys:`, sampleKeys);
+        // console.log(`🔍 Original tract ID: ${currentId}`);
+        // console.log(`🔍 Converted to S4: ${currentS4Id}`);
+        // console.log(`🔍 Has key: ${this.s4AdjacencyData.has(currentS4Id)}`);
+        
+        // Try to find a similar key
+        const similarKeys = Array.from(this.s4AdjacencyData.keys()).filter(key => 
+          key.includes(currentId.substring(0, 3)) || key.includes(currentId.substring(3, 6))
+        ).slice(0, 3);
+        if (similarKeys.length > 0) {
+          // console.log(`🔍 Similar keys found:`, similarKeys);
+        }
+      }
+      
       // Check if the current tract has the other tract as a neighbor in S4 data
       const neighbors = this.s4AdjacencyData.get(currentS4Id);
       isAdjacent = neighbors ? neighbors.includes(otherS4Id) : false;
       
-      console.log(`🔍 S4 Adjacency Check: ${currentS4Id} -> ${otherS4Id}: ${isAdjacent ? 'YES' : 'NO'}`);
+      // Only log successful matches to reduce noise
+      if (isAdjacent) {
+        // console.log(`✅ S4 Adjacency Match: ${currentS4Id} -> ${otherS4Id}`);
+      }
     } else {
       // Fallback to geometric boundary intersection
       console.log(`⚠️ S4 adjacency data not available, using geometric boundary intersection`);
@@ -1126,14 +620,40 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   /**
-   * Convert tract ID from GeoJSON format to S4 format
-   * GeoJSON format: "04013950101" (state + county + tract)
-   * S4 format: "04013950101" (same format, but ensure it's the full FIPS code)
+   * Convert tract ID to S4 format
+   * If we're getting the full GEOID (11 digits), we can use it directly
+   * Otherwise, we need to construct it from the available parts
    */
   private convertToS4TractId(tractId: string): string {
-    // The tract ID should already be in the correct format (state + county + tract)
-    // But let's ensure it's properly formatted
-    return tractId.padStart(11, '0');
+    // If it's already 11 digits, it's likely the full GEOID
+    if (tractId.length === 11) {
+      // console.log(`✅ Using 11-digit GEOID directly: ${tractId}`);
+      return tractId;
+    }
+    
+    // If it's 8 digits, it might be state + county + tract (2+3+3)
+    if (tractId.length === 8) {
+      console.log(`✅ Using 8-digit ID directly: ${tractId}`);
+      return tractId;
+    }
+    
+    // For shorter IDs, we need to construct the full GEOID
+    // This is a fallback case - ideally we should be getting the full GEOID
+    const stateFips = this.getStateFipsCode(this.selectedState);
+    
+    if (tractId.length === 6) {
+      // Assume first 3 are county, last 3 are tract
+      const county = tractId.substring(0, 3);
+      const tract = tractId.substring(3, 6).padStart(6, '0');
+      const constructed = stateFips + county + tract;
+      console.log(`🔧 Constructed 11-digit GEOID: ${constructed} from ${tractId}`);
+      return constructed;
+    }
+    
+    // Fallback: pad to 11 digits
+    const padded = tractId.padStart(11, '0');
+    console.log(`⚠️ Padded to 11 digits: ${padded} from ${tractId}`);
+    return padded;
   }
 
   getAdjacentTracts(): GeoJsonFeature[] {
@@ -1142,6 +662,380 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     }
 
     return this.sortedTracts.filter((_, index) => this.isAdjacentTract(index));
+  }
+
+  /**
+   * Get adjacent tracts sorted in geographic clockwise order
+   * Order: Northeast > East > Southeast > South > Southwest > West > Northwest > North
+   */
+  getAdjacentTractsSorted(): GeoJsonFeature[] {
+    const adjacentTracts = this.getAdjacentTracts();
+    // console.log('🔍 getAdjacentTractsSorted called, found', adjacentTracts.length, 'adjacent tracts');
+    
+    if (adjacentTracts.length === 0) {
+      console.log('📭 No adjacent tracts found');
+      return [];
+    }
+
+    const currentTract = this.getCurrentTract()!;
+    const currentCentroid = this.getTractCentroid(currentTract);
+    // console.log('📍 Current tract centroid:', currentCentroid);
+
+    // Sort adjacent tracts by angle from current tract centroid
+    const sortedTracts = adjacentTracts.sort((a, b) => {
+      const aCentroid = this.getTractCentroid(a);
+      const bCentroid = this.getTractCentroid(b);
+
+      // Calculate angles from current centroid to each adjacent tract
+      const aAngle = Math.atan2(aCentroid.lat - currentCentroid.lat, aCentroid.lng - currentCentroid.lng);
+      const bAngle = Math.atan2(bCentroid.lat - currentCentroid.lat, bCentroid.lng - currentCentroid.lng);
+
+      // Convert angles to clockwise order starting from North (0°)
+      // North = 0°, East = 90°, South = 180°, West = 270°
+      // We want: Northeast > East > Southeast > South > Southwest > West > Northwest > North
+      // This means we need to adjust the angle calculation
+      
+      // Convert to clockwise from North (0°)
+      let aClockwise = (Math.PI / 2) - aAngle; // Rotate 90° counterclockwise
+      let bClockwise = (Math.PI / 2) - bAngle;
+      
+      // Normalize to 0-2π range
+      if (aClockwise < 0) aClockwise += 2 * Math.PI;
+      if (bClockwise < 0) bClockwise += 2 * Math.PI;
+
+      return aClockwise - bClockwise;
+    });
+
+    // console.log('🔄 Sorted adjacent tracts:', sortedTracts.map(t => ({
+    //   id: this.getTractId(t),
+    //   direction: this.getDirectionFromCenter(t),
+    //   centroid: this.getTractCentroid(t)
+    // })));
+
+    return sortedTracts;
+  }
+
+  /**
+   * Find the most extreme adjacent tract in a specific direction (debug function)
+   */
+  findExtremeAdjacentTract() {
+    const currentTract = this.getCurrentTract();
+    if (!currentTract) {
+      this.extremeAdjacentTractResult = null;
+      console.log('⚠️ No current tract selected');
+      return;
+    }
+
+    const adjacentTracts = this.getAdjacentTracts();
+    if (adjacentTracts.length === 0) {
+      this.extremeAdjacentTractResult = null;
+      console.log('⚠️ No adjacent tracts found for current tract');
+      return;
+    }
+
+    const direction = this.extremeAdjacentTractDirection as 'east' | 'west' | 'north' | 'south' | 'northeast' | 'northwest' | 'southeast' | 'southwest';
+    // Pass sort direction to determine starting sweep angle (latitude = north start, longitude = west start)
+    const sortDirection = this.selectedAlgorithm === 'geo-graph' ? 'latitude' : undefined;
+    const result = this.geoGraphTraversalService.findExtremeAdjacentTract(
+      currentTract,
+      adjacentTracts,
+      direction,
+      sortDirection
+    );
+
+    this.extremeAdjacentTractResult = result;
+    
+    if (result) {
+      const tractId = this.getTractId(result);
+      console.log(`✅ Found extreme ${direction} adjacent tract: ${tractId}`);
+      
+      // Find the index of this tract in sortedTracts and select it first
+      const index = this.sortedTracts.findIndex(t => this.getTractId(t) === tractId);
+      if (index >= 0) {
+        // Update tract index and highlighting without clearing sweep line
+        this.currentTractIndex = index;
+        this.updateMapHighlighting();
+      }
+      
+      // Draw visualization line from geometric midpoint to intersection point
+      // Use setTimeout to ensure map highlighting is done first
+      setTimeout(() => {
+        this.drawSweepLine(currentTract, result);
+      }, 100);
+    } else {
+      console.log(`⚠️ No extreme ${direction} adjacent tract found`);
+      // Clear any existing sweep line
+      this.clearSweepLine();
+    }
+  }
+
+  /**
+   * Draw a line from geometric midpoint through the first intersection with adjacent tract boundary
+   */
+  private drawSweepLine(currentTract: GeoJsonFeature, adjacentTract: GeoJsonFeature) {
+    if (!this.map) {
+      console.error('⚠️ Map not initialized, cannot draw sweep line');
+      return;
+    }
+
+    console.log('🎨 Drawing sweep line visualization...');
+
+    // Clear existing sweep line
+    this.clearSweepLine();
+
+    const currentMidpoint = this.getGeometricMidpoint(currentTract);
+    const adjacentMidpoint = this.getGeometricMidpoint(adjacentTract);
+
+    console.log(`📍 Current midpoint: (${currentMidpoint.lat.toFixed(6)}, ${currentMidpoint.lng.toFixed(6)})`);
+    console.log(`📍 Adjacent midpoint: (${adjacentMidpoint.lat.toFixed(6)}, ${adjacentMidpoint.lng.toFixed(6)})`);
+
+    // Calculate direction from current midpoint toward adjacent midpoint
+    const dx = adjacentMidpoint.lng - currentMidpoint.lng;
+    const dy = adjacentMidpoint.lat - currentMidpoint.lat;
+    
+    // Find the intersection point where the ray first hits the adjacent tract's boundary
+    const intersectionPoint = this.findLinePolygonIntersection(
+      currentMidpoint,
+      { lat: adjacentMidpoint.lat, lng: adjacentMidpoint.lng },
+      adjacentTract
+    );
+
+    if (intersectionPoint) {
+      console.log(`✅ Found intersection point: (${intersectionPoint.lat.toFixed(6)}, ${intersectionPoint.lng.toFixed(6)})`);
+      
+      // Draw line from current midpoint to intersection point
+      // Leaflet expects coordinates as [lat, lng] arrays
+      const lineCoordinates = [
+        [currentMidpoint.lat, currentMidpoint.lng],
+        [intersectionPoint.lat, intersectionPoint.lng]
+      ];
+
+      try {
+        this.sweepLineLayer = L.polyline(lineCoordinates, {
+          color: '#ff0000',
+          weight: 3,
+          opacity: 0.8,
+          dashArray: '10, 5'
+        }).addTo(this.map);
+        console.log('✅ Sweep line polyline added to map');
+
+        // Add a marker at the intersection point
+        const intersectionMarker = L.marker([intersectionPoint.lat, intersectionPoint.lng], {
+          icon: L.divIcon({
+            className: 'sweep-intersection-marker',
+            html: '<div style="background-color: red; width: 8px; height: 8px; border-radius: 50%; border: 2px solid white;"></div>',
+            iconSize: [8, 8],
+            iconAnchor: [4, 4]
+          })
+        }).addTo(this.map).bindPopup(`Intersection Point<br>(${intersectionPoint.lat.toFixed(6)}, ${intersectionPoint.lng.toFixed(6)})`);
+        this.sweepMarkers.push(intersectionMarker);
+        console.log('✅ Intersection marker added');
+
+        // Add a marker at the geometric midpoint
+        const midpointMarker = L.marker([currentMidpoint.lat, currentMidpoint.lng], {
+          icon: L.divIcon({
+            className: 'geometric-midpoint-marker',
+            html: '<div style="background-color: blue; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white;"></div>',
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
+          })
+        }).addTo(this.map).bindPopup(`Geometric Midpoint<br>(${currentMidpoint.lat.toFixed(6)}, ${currentMidpoint.lng.toFixed(6)})`);
+        this.sweepMarkers.push(midpointMarker);
+        console.log('✅ Midpoint marker added');
+      } catch (error) {
+        console.error('❌ Error adding sweep line to map:', error);
+      }
+    } else {
+      console.log(`⚠️ Could not find intersection point, drawing fallback line to adjacent midpoint`);
+      
+      // Fallback: draw line to adjacent midpoint if intersection calculation fails
+      const lineCoordinates = [
+        [currentMidpoint.lat, currentMidpoint.lng],
+        [adjacentMidpoint.lat, adjacentMidpoint.lng]
+      ];
+
+      try {
+        this.sweepLineLayer = L.polyline(lineCoordinates, {
+          color: '#ff0000',
+          weight: 2,
+          opacity: 0.6,
+          dashArray: '5, 5'
+        }).addTo(this.map);
+        console.log('✅ Fallback line added to map');
+
+        // Still add markers for visibility
+        const midpointMarker = L.marker([currentMidpoint.lat, currentMidpoint.lng], {
+          icon: L.divIcon({
+            className: 'geometric-midpoint-marker',
+            html: '<div style="background-color: blue; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white;"></div>',
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
+          })
+        }).addTo(this.map).bindPopup(`Geometric Midpoint<br>(${currentMidpoint.lat.toFixed(6)}, ${currentMidpoint.lng.toFixed(6)})`);
+        this.sweepMarkers.push(midpointMarker);
+
+        const adjacentMarker = L.marker([adjacentMidpoint.lat, adjacentMidpoint.lng], {
+          icon: L.divIcon({
+            className: 'adjacent-midpoint-marker',
+            html: '<div style="background-color: orange; width: 8px; height: 8px; border-radius: 50%; border: 2px solid white;"></div>',
+            iconSize: [8, 8],
+            iconAnchor: [4, 4]
+          })
+        }).addTo(this.map).bindPopup(`Adjacent Midpoint<br>(${adjacentMidpoint.lat.toFixed(6)}, ${adjacentMidpoint.lng.toFixed(6)})`);
+        this.sweepMarkers.push(adjacentMarker);
+      } catch (error) {
+        console.error('❌ Error adding fallback line to map:', error);
+      }
+    }
+  }
+
+  /**
+   * Clear the sweep line visualization
+   */
+  private clearSweepLine() {
+    if (this.map) {
+      // Remove sweep line layer
+      if (this.sweepLineLayer) {
+        this.map.removeLayer(this.sweepLineLayer);
+        this.sweepLineLayer = null;
+      }
+      
+      // Remove all sweep markers
+      this.sweepMarkers.forEach(marker => {
+        if (this.map.hasLayer(marker)) {
+          this.map.removeLayer(marker);
+        }
+      });
+      this.sweepMarkers = [];
+    }
+  }
+
+  /**
+   * Find the intersection point where a ray from start point toward end point
+   * first intersects with a polygon's boundary
+   */
+  private findLinePolygonIntersection(
+    start: { lat: number; lng: number },
+    end: { lat: number; lng: number },
+    polygon: GeoJsonFeature
+  ): { lat: number; lng: number } | null {
+    if (!polygon.geometry) {
+      console.log('⚠️ No geometry in polygon');
+      return null;
+    }
+
+    // Get the outer ring of the polygon (first ring for Polygon, first ring of first polygon for MultiPolygon)
+    let outerRing: number[][] = [];
+    
+    if (polygon.geometry.type === 'Polygon') {
+      // First ring is the outer boundary
+      if (polygon.geometry.coordinates && polygon.geometry.coordinates[0]) {
+        outerRing = polygon.geometry.coordinates[0];
+      }
+    } else if (polygon.geometry.type === 'MultiPolygon') {
+      // First ring of first polygon is the outer boundary
+      if (polygon.geometry.coordinates && polygon.geometry.coordinates[0] && polygon.geometry.coordinates[0][0]) {
+        outerRing = polygon.geometry.coordinates[0][0];
+      }
+    }
+
+    if (outerRing.length < 3) {
+      console.log(`⚠️ Outer ring has only ${outerRing.length} points, need at least 3`);
+      return null;
+    }
+
+    console.log(`🔍 Checking intersection with polygon outer ring (${outerRing.length} points)`);
+
+    // Convert ray to parametric form: P(t) = start + t * (end - start)
+    const rayDx = end.lng - start.lng;
+    const rayDy = end.lat - start.lat;
+    
+    let closestIntersection: { lat: number; lng: number; t: number } | null = null;
+
+    // Check intersection with each edge of the polygon outer ring
+    for (let i = 0; i < outerRing.length - 1; i++) {
+      const p1 = outerRing[i];
+      const p2 = outerRing[i + 1];
+      
+      // Skip if coordinates are invalid
+      if (!p1 || !p2 || p1.length < 2 || p2.length < 2) continue;
+      
+      // Edge from p1 to p2 (coordinates are [lng, lat] in GeoJSON)
+      const edgeDx = p2[0] - p1[0]; // lng difference
+      const edgeDy = p2[1] - p1[1]; // lat difference
+
+      // Solve for intersection: start + t * ray = p1 + s * edge
+      // Using parametric form: ray: (start.lng + t*rayDx, start.lat + t*rayDy)
+      //                        edge: (p1[0] + s*edgeDx, p1[1] + s*edgeDy)
+      const denominator = rayDx * edgeDy - rayDy * edgeDx;
+      
+      if (Math.abs(denominator) < 1e-10) {
+        // Lines are parallel, skip
+        continue;
+      }
+
+      const t = ((p1[0] - start.lng) * edgeDy - (p1[1] - start.lat) * edgeDx) / denominator;
+      const s = ((p1[0] - start.lng) * rayDy - (p1[1] - start.lat) * rayDx) / denominator;
+
+      // Check if intersection is on the ray (t >= 0) and on the edge segment (0 <= s <= 1)
+      if (t >= 0 && t <= 10 && s >= 0 && s <= 1) { // Limit t to reasonable range (within 10x distance)
+        const intersection = {
+          lat: start.lat + t * rayDy,
+          lng: start.lng + t * rayDx,
+          t: t
+        };
+
+        // Keep the closest intersection (smallest t, meaning earliest along the ray)
+        if (!closestIntersection || intersection.t < closestIntersection.t) {
+          closestIntersection = intersection;
+        }
+      }
+    }
+
+    if (closestIntersection) {
+      console.log(`✅ Found intersection at t=${closestIntersection.t.toFixed(6)}`);
+      return { lat: closestIntersection.lat, lng: closestIntersection.lng };
+    }
+
+    // If no intersection found with edges, return null (fallback to midpoint)
+    console.log('⚠️ No intersection found with polygon edges');
+    return null;
+  }
+
+  /**
+   * Get the cardinal direction of an adjacent tract relative to the current tract
+   */
+  getDirectionFromCenter(adjacentTract: GeoJsonFeature): string {
+    const currentTract = this.getCurrentTract();
+    if (!currentTract) {
+      console.log('⚠️ No current tract for direction calculation');
+      return 'Unknown';
+    }
+
+    const currentCentroid = this.getTractCentroid(currentTract);
+    const adjacentCentroid = this.getTractCentroid(adjacentTract);
+
+    // Calculate angle from current tract to adjacent tract
+    const angle = Math.atan2(adjacentCentroid.lat - currentCentroid.lat, adjacentCentroid.lng - currentCentroid.lng);
+    
+    // Convert to degrees and normalize to 0-360 range
+    let degrees = (angle * 180 / Math.PI);
+    if (degrees < 0) degrees += 360;
+
+    // Determine cardinal direction based on angle
+    // North = 0°, East = 90°, South = 180°, West = 270°
+    let direction = 'Unknown';
+    if (degrees >= 337.5 || degrees < 22.5) direction = 'North';
+    else if (degrees >= 22.5 && degrees < 67.5) direction = 'Northeast';
+    else if (degrees >= 67.5 && degrees < 112.5) direction = 'East';
+    else if (degrees >= 112.5 && degrees < 157.5) direction = 'Southeast';
+    else if (degrees >= 157.5 && degrees < 202.5) direction = 'South';
+    else if (degrees >= 202.5 && degrees < 247.5) direction = 'Southwest';
+    else if (degrees >= 247.5 && degrees < 292.5) direction = 'West';
+    else if (degrees >= 292.5 && degrees < 337.5) direction = 'Northwest';
+    
+    // console.log(`🧭 Direction calculation: ${this.getTractId(adjacentTract)} at ${degrees.toFixed(1)}° = ${direction}`);
+    return direction;
   }
 
   getTotalPopulation(): number {
@@ -1155,7 +1049,56 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   getTractId(tract: GeoJsonFeature): string {
-    return tract.properties?.TRACT_FIPS || tract.properties?.TRACT || 'Unknown';
+    // Debug: Log tract properties for the first few tracts
+    // if (Math.random() < 0.01) {
+    //   console.log('🔍 Tract properties:', Object.keys(tract.properties || {}));
+    //   console.log('🔍 Sample tract properties:', tract.properties);
+    // }
+
+    // Try GEOID first (should be the full 11-digit FIPS code)
+    if (tract.properties?.['GEOID']) {
+      // console.log(`✅ Found GEOID: ${tract.properties['GEOID']}`);
+      return tract.properties['GEOID'];
+    }
+
+    // Try other possible ID fields
+    if (tract.properties?.['geoid']) {
+      console.log(`✅ Found geoid: ${tract.properties['geoid']}`);
+      return tract.properties['geoid'];
+    }
+
+    if (tract.properties?.['id']) {
+      console.log(`✅ Found id: ${tract.properties['id']}`);
+      return tract.properties['id'];
+    }
+
+    // Try TRACT_FIPS or similar - but only if it's a full GEOID
+    if (tract.properties?.['TRACT_FIPS'] && tract.properties['TRACT_FIPS'].length >= 11) {
+      console.log(`✅ Found TRACT_FIPS (11+ digits): ${tract.properties['TRACT_FIPS']}`);
+      return tract.properties['TRACT_FIPS'];
+    }
+
+    if (tract.properties?.['TRACTID']) {
+      console.log(`✅ Found TRACTID: ${tract.properties['TRACTID']}`);
+      return tract.properties['TRACTID'];
+    }
+
+    // Try to construct GEOID from available fields
+    const stateFips = tract.properties?.['STATE_FIPS'] || tract.properties?.['STATE'];
+    const countyFips = tract.properties?.['COUNTY_FIPS'] || tract.properties?.['COUNTY'];
+    const tractFips = tract.properties?.['TRACT_FIPS'] || tract.properties?.['TRACT'];
+    
+    if (stateFips && countyFips && tractFips) {
+      // Construct full GEOID: state + county + tract (padded to 6 digits)
+      const fullGEOID = stateFips.padStart(2, '0') + countyFips.padStart(3, '0') + tractFips.padStart(6, '0');
+      // console.log(`🔧 Constructed GEOID: ${fullGEOID} from STATE=${stateFips}, COUNTY=${countyFips}, TRACT=${tractFips}`);
+      return fullGEOID;
+    }
+
+    // Fallback to original logic
+    const fallbackId = tract.properties?.TRACT_FIPS || tract.properties?.TRACT || 'Unknown';
+    console.log(`⚠️ Using fallback ID: ${fallbackId}`);
+    return fallbackId;
   }
 
   getTractPopulation(tract: GeoJsonFeature): number {
@@ -1172,6 +1115,18 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
 
   getTractBounds(tract: GeoJsonFeature): { north: number; south: number; east: number; west: number } {
     return this.calculateTractBounds(tract);
+  }
+
+  /**
+   * Get the geometric midpoint (center of bounding box)
+   * This gives the true center based on boundaries, not vertex distribution
+   */
+  getGeometricMidpoint(tract: GeoJsonFeature): { lat: number; lng: number } {
+    const bounds = this.getTractBounds(tract);
+    return {
+      lat: (bounds.north + bounds.south) / 2,
+      lng: (bounds.east + bounds.west) / 2
+    };
   }
 
   calculateTractCentroid(tract: GeoJsonFeature): { lat: number; lng: number } {
