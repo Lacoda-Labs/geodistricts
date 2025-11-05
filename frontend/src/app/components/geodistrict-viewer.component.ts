@@ -1,10 +1,19 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions, AlgorithmType } from '../services/geodistrict-algorithm.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
+
+// Interface for nested group hierarchy
+interface GroupNode {
+  group: DistrictGroup;
+  index: number;
+  direction: 'latitude' | 'longitude';
+  children: GroupNode[];
+  step: number;
+}
 
 @Component({
   selector: 'app-geodistrict-viewer',
@@ -14,10 +23,10 @@ import { CongressionalDistrictsService } from '../services/congressional-distric
   styleUrls: ['./geodistrict-viewer.component.scss']
 })
 export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewInit {
-  selectedState: string = '';
+  selectedState: string = 'AZ';
   useDirectAPI: boolean = false; // Use backend proxy
   forceInvalidate: boolean = false; // Force refresh census cache
-  selectedAlgorithm: AlgorithmType = 'brown-s4'; // Default to Brown S4 algorithm
+  selectedAlgorithm: AlgorithmType = 'geo-graph'; // Default to geo-graph algorithm
   isLoading: boolean = false;
   errorMessage: string = '';
   canRunNextStep: boolean = false;
@@ -28,6 +37,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   private stepOverviewMap: L.Map | null = null;
   private currentTractIndices: Map<number, number> = new Map(); // Track current tract index for each group
   private highlightedTractLayers: Map<number, L.Layer> = new Map(); // Track highlighted tract layers
+  private tractLayers: Map<number, Map<number, L.GeoJSON>> = new Map(); // Track tract layers by groupIndex -> tractIndex for click handling
 
   private subscriptions: Subscription[] = [];
 
@@ -96,14 +106,17 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
 
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
-    private congressionalDistrictsService: CongressionalDistrictsService
+    private congressionalDistrictsService: CongressionalDistrictsService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    console.log('🎯 GeodistrictViewerComponent initialized');
-    console.log(`🔧 Default algorithm: ${this.selectedAlgorithm}`);
-    console.log('📋 Available algorithms:', this.algorithmOptions.map(opt => opt.value));
-    // Component initialized - user must select a state to run algorithm
+    // Load last selected algorithm from localStorage
+    const savedAlgorithm = localStorage.getItem('geodistrict-selected-algorithm');
+    if (savedAlgorithm && this.algorithmOptions.some(opt => opt.value === savedAlgorithm)) {
+      this.selectedAlgorithm = savedAlgorithm as AlgorithmType;
+      console.log(`📋 Loaded saved algorithm: ${this.selectedAlgorithm}`);
+    }
   }
 
   ngAfterViewInit(): void {
@@ -123,79 +136,231 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     });
     this.groupMaps.clear();
     
+    // Clean up tract layers tracking
+    this.tractLayers.clear();
+    
     if (this.stepOverviewMap) {
       this.stepOverviewMap.remove();
       this.stepOverviewMap = null;
     }
   }
 
-  private createGroupMap(groupIndex: number, group: DistrictGroup, color: string): void {
+  private createGroupMap(groupIndex: number, group: DistrictGroup, color: string, retryCount: number = 0): void {
+    const MAX_RETRIES = 10; // Prevent infinite loops
     const mapId = `groupMap${groupIndex}`;
-    const mapElement = document.getElementById(mapId);
     
-    if (!mapElement) {
-      console.warn(`Map element with id ${mapId} not found`);
-      return;
-    }
-
-    // Clean up existing map if it exists
-    if (this.groupMaps.has(groupIndex)) {
-      this.groupMaps.get(groupIndex)?.remove();
-    }
-
-    // Create new map
-    const map = L.map(mapId, {
-      zoomControl: true,
-      attributionControl: false,
-      dragging: true,
-      touchZoom: true,
-      doubleClickZoom: true,
-      scrollWheelZoom: false,
-      boxZoom: false,
-      keyboard: false
-    }).setView([group.centroid.lat, group.centroid.lng], 8);
-
-    // Add tile layer with minimal styling
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      className: 'minimal-tiles'
-    }).addTo(map);
-
-    // Add individual tract geometries (keeping combineTractGeometries function but not using it)
-    if (group.censusTracts && group.censusTracts.length > 0) {
-      // Add each tract as a separate feature
-      group.censusTracts.forEach(tract => {
-        if (tract.geometry) {
-          L.geoJSON(tract.geometry, {
-            style: {
-              color: 'black',//color,
-              weight: 1,
-              opacity: 1,//0.8,
-              fillOpacity: 1,//0.6,
-              fillColor: color
-            }
-          }).addTo(map);
-        }
-      });
-
-      // Fit map to all tract bounds
-      const allBounds = L.latLngBounds([]);
-      group.censusTracts.forEach(tract => {
-        if (tract.geometry) {
-          const geoJson = L.geoJSON(tract.geometry);
-          const bounds = geoJson.getBounds();
-          if (bounds.isValid()) {
-            allBounds.extend(bounds);
-          }
-        }
-      });
+    try {
+      const mapElement = document.getElementById(mapId);
       
-      if (allBounds.isValid()) {
-        map.fitBounds(allBounds, { padding: [10, 10] });
+      if (!mapElement) {
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => this.createGroupMap(groupIndex, group, color, retryCount + 1), 200);
+        } else {
+          console.error(`❌ Map element with id ${mapId} not found in DOM after ${MAX_RETRIES} attempts`);
+        }
+        return;
       }
-    }
 
-    this.groupMaps.set(groupIndex, map);
+      // Ensure element is visible and has dimensions
+      // Retry if element has no dimensions (Angular might not have finished rendering)
+      if (mapElement.offsetWidth === 0 || mapElement.offsetHeight === 0) {
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => this.createGroupMap(groupIndex, group, color, retryCount + 1), 200);
+        } else {
+          console.error(`❌ Map element ${mapId} has no dimensions after ${MAX_RETRIES} attempts - creating map anyway`);
+        }
+        
+        // Only return if we haven't exceeded max retries
+        if (retryCount < MAX_RETRIES) {
+          return;
+        }
+      }
+
+      // Check if Leaflet is available
+      if (typeof L === 'undefined' || !L.map) {
+        console.error('❌ Leaflet library (L) is not loaded');
+        return;
+      }
+
+      // Clean up existing map if it exists
+      if (this.groupMaps.has(groupIndex)) {
+        try {
+          this.groupMaps.get(groupIndex)?.remove();
+        } catch (error) {
+          console.warn(`⚠️ Error removing existing map ${groupIndex}:`, error);
+        }
+      }
+
+      // Create new map
+      let map: L.Map;
+      try {
+        // Don't trigger change detection here - it causes infinite loops
+        // Just create the map if element exists, even if dimensions are 0
+        // Leaflet will handle it and we can invalidate size later
+        
+        map = L.map(mapId, {
+          zoomControl: true,
+          attributionControl: false,
+          dragging: true,
+          touchZoom: true,
+          doubleClickZoom: true,
+          scrollWheelZoom: false,
+          boxZoom: false,
+          keyboard: false
+        }).setView([group.centroid.lat, group.centroid.lng], 8);
+      } catch (error) {
+        console.error(`❌ Error creating Leaflet map ${mapId}:`, error);
+        return;
+      }
+      
+      // Invalidate size after a delay (to handle any layout changes)
+      // Use multiple attempts with increasing delays
+      const invalidateSizeDelayed = (attempt: number = 0) => {
+        const maxAttempts = 5;
+        if (attempt >= maxAttempts) {
+          return;
+        }
+        
+        setTimeout(() => {
+          try {
+            if (map && mapElement) {
+              const hasDimensions = mapElement.offsetWidth > 0 && mapElement.offsetHeight > 0;
+              
+              if (hasDimensions) {
+                map.invalidateSize();
+              } else {
+                // Try again with longer delay
+                invalidateSizeDelayed(attempt + 1);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Error in delayed invalidation for map ${mapId}:`, error);
+          }
+        }, attempt === 0 ? 100 : attempt * 200); // Increasing delays: 100ms, 200ms, 400ms, 600ms, 800ms
+      };
+      
+      // Start invalidation attempts
+      invalidateSizeDelayed();
+
+      // Add tile layer with minimal styling
+      try {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          className: 'minimal-tiles'
+        }).addTo(map);
+      } catch (error) {
+        console.error(`❌ Error adding tile layer to map ${mapId}:`, error);
+      }
+
+      // Add individual tract geometries
+      if (group.censusTracts && group.censusTracts.length > 0) {
+        let tractCount = 0;
+        let errorCount = 0;
+        
+        try {
+          // Track tract layers for this group
+          if (!this.tractLayers.has(groupIndex)) {
+            this.tractLayers.set(groupIndex, new Map());
+          }
+          const groupTractLayers = this.tractLayers.get(groupIndex)!;
+          
+          // Add each tract as a separate feature with click handlers
+          group.censusTracts.forEach((tract, tractIndex) => {
+            try {
+              if (tract.geometry) {
+                const tractLayer = L.geoJSON(tract.geometry, {
+                  style: {
+                    color: 'black',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 1,
+                    fillColor: color
+                  }
+                }).addTo(map);
+                
+                // Store tract layer for later reference
+                groupTractLayers.set(tractIndex, tractLayer);
+                
+                // Add interactive features (hover and click)
+                tractLayer.on('mouseover', () => {
+                  // Only apply hover effect if this isn't the currently selected tract
+                  const currentIndex = this.getCurrentTractIndex(groupIndex);
+                  if (tractIndex !== currentIndex) {
+                    tractLayer.setStyle({
+                      weight: 2,
+                      fillOpacity: 0.8
+                    });
+                  }
+                  map.getContainer().style.cursor = 'pointer';
+                });
+                
+                tractLayer.on('mouseout', () => {
+                  // Only reset style if this isn't the currently selected tract
+                  const currentIndex = this.getCurrentTractIndex(groupIndex);
+                  if (tractIndex !== currentIndex) {
+                    tractLayer.setStyle({
+                      weight: 1,
+                      fillOpacity: 1
+                    });
+                  }
+                  map.getContainer().style.cursor = '';
+                });
+                
+                // Add click handler to select the tract
+                tractLayer.on('click', () => {
+                  this.selectTract(groupIndex, tractIndex.toString());
+                });
+                
+                tractCount++;
+              }
+            } catch (error) {
+              errorCount++;
+              if (tractIndex < 5) { // Only log first 5 errors to avoid spam
+                console.error(`❌ Error adding tract ${tractIndex} to map ${mapId}:`, error);
+              }
+            }
+          });
+          
+          if (tractCount === 0) {
+            console.warn(`⚠️ No tracts added to map ${mapId} (all ${group.censusTracts.length} tracts failed)`);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing tracts for map ${mapId}:`, error);
+        }
+
+        // Fit map to all tract bounds
+        try {
+          const allBounds = L.latLngBounds([]);
+          group.censusTracts.forEach(tract => {
+            if (tract.geometry) {
+              try {
+                const geoJson = L.geoJSON(tract.geometry);
+                const bounds = geoJson.getBounds();
+                if (bounds.isValid()) {
+                  allBounds.extend(bounds);
+                }
+              } catch (error) {
+                // Silently skip invalid geometries
+              }
+            }
+          });
+          
+          if (allBounds.isValid()) {
+            map.fitBounds(allBounds, { padding: [10, 10] });
+          } else {
+            console.warn(`⚠️ Invalid bounds for map ${mapId}, using default view`);
+          }
+        } catch (error) {
+          console.error(`❌ Error fitting bounds for map ${mapId}:`, error);
+        }
+      } else {
+        console.warn(`⚠️ No census tracts to add to map ${mapId}`);
+      }
+
+      this.groupMaps.set(groupIndex, map);
+    } catch (error) {
+      console.error(`❌ Fatal error creating map ${mapId}:`, error);
+    }
   }
 
   private combineTractGeometries(tracts: any[]): any {
@@ -238,6 +403,10 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   onAlgorithmChange(): void {
+    // Save selected algorithm to localStorage
+    localStorage.setItem('geodistrict-selected-algorithm', this.selectedAlgorithm);
+    console.log(`💾 Saved algorithm selection: ${this.selectedAlgorithm}`);
+    
     // Algorithm changed - clear results if any
     this.clearResults();
   }
@@ -296,7 +465,22 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     // Create the step overview map first
     this.createStepOverviewMap();
     
-    // Then create individual group maps
+    // Wait for DOM to be ready - simple vertical list should render quickly
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.createAllGroupMaps();
+      });
+    });
+  }
+
+  private createAllGroupMaps(): void {
+    if (!this.currentStep) {
+      console.warn('⚠️ No current step available for map creation');
+      return;
+    }
+
+
+    // Create maps for all current step groups - simple vertical list now
     this.currentStep.districtGroups.forEach((group, index) => {
       const color = this.getGroupColor(index);
       this.createGroupMap(index, group, color);
@@ -320,7 +504,8 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     // Create new map
     this.stepOverviewMap = L.map('stepOverviewMap', {
       zoomControl: true,
-      attributionControl: true
+      attributionControl: true,
+      scrollWheelZoom: false
     });
 
     // Add tile layer
@@ -406,7 +591,6 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
         this.currentStep = result.steps[0];
         this.isLoading = false;
         this.canRunNextStep = this.canExecuteNextStep(result);
-        console.log('First step completed:', result);
         // Create maps after a short delay to ensure DOM is ready
         setTimeout(() => {
           this.createMapsForCurrentStep();
@@ -423,11 +607,13 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   runNextStep(): void {
-    if (!this.algorithmResult || !this.canRunNextStep) {
+    if (!this.algorithmResult || !this.canRunNextStep || this.isLoading) {
       return;
     }
 
+    // Disable button immediately
     this.isLoading = true;
+    this.canRunNextStep = false;
     this.errorMessage = '';
 
     const subscription = this.geodistrictService.executeNextStep(this.algorithmResult, this.selectedAlgorithm).subscribe({
@@ -438,8 +624,6 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
         this.canRunNextStep = this.canExecuteNextStep(nextResult);
         this.isLoading = false;
         
-        console.log('Next step completed:', nextResult);
-        
         // Create maps after a short delay to ensure DOM is ready
         setTimeout(() => {
           this.createMapsForCurrentStep();
@@ -447,6 +631,8 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       },
       error: (error) => {
         this.errorMessage = error.message || 'An error occurred while running the next step';
+        // Re-enable button if we still have a valid result
+        this.canRunNextStep = this.algorithmResult ? this.canExecuteNextStep(this.algorithmResult) : false;
         this.isLoading = false;
         console.error('Next step error:', error);
       }
@@ -624,6 +810,23 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     // Get current tract
     const currentTract = this.getCurrentTract(groupIndex);
     if (!currentTract?.geometry) return;
+    
+    const currentTractIndex = this.getCurrentTractIndex(groupIndex);
+    
+    // Reset all tract layer styles first
+    const groupTractLayers = this.tractLayers.get(groupIndex);
+    if (groupTractLayers) {
+      const groupColor = this.getGroupColor(groupIndex);
+      groupTractLayers.forEach((layer, tractIdx) => {
+        (layer as any).setStyle({
+          color: 'black',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 1,
+          fillColor: groupColor
+        });
+      });
+    }
 
     // Create highlight layer
     const highlightLayer = L.geoJSON(currentTract.geometry, {
@@ -665,5 +868,93 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.canRunNextStep = false;
     this.currentTractIndices.clear();
     this.highlightedTractLayers.clear();
+  }
+
+  // Build nested hierarchy from algorithm steps
+  // Creates complete tree from step 0 (iteration0) to current step
+  buildGroupHierarchy(): GroupNode[] {
+    if (!this.algorithmResult || !this.currentStep) {
+      return [];
+    }
+
+    // Start from step 0 (root) and recursively build to current step
+    const step0 = this.algorithmResult.steps[0];
+    if (!step0 || step0.districtGroups.length === 0) {
+      return [];
+    }
+
+    // Step 0 (iteration0) should use 'longitude' direction according to requirements
+    const rootNode: GroupNode = {
+      group: step0.districtGroups[0],
+      index: 0,
+      direction: 'longitude', // Override: iteration0 should be longitude
+      children: [],
+      step: 0
+    };
+
+    // Recursively build children from step 1 to current step
+    this.buildChildrenRecursive(rootNode, 1, this.currentStepIndex);
+
+    return [rootNode];
+  }
+
+  // Recursively build children from a parent node
+  private buildChildrenRecursive(parentNode: GroupNode, fromStep: number, toStep: number): void {
+    if (fromStep > toStep || !this.algorithmResult) {
+      return;
+    }
+
+    const currentStep = this.algorithmResult.steps[fromStep];
+    if (!currentStep) {
+      return;
+    }
+
+    // Find groups in current step that belong to this parent
+    // Match by district number ranges
+    const childGroups = currentStep.districtGroups.filter(group =>
+      group.startDistrictNumber >= parentNode.group.startDistrictNumber &&
+      group.endDistrictNumber <= parentNode.group.endDistrictNumber
+    );
+
+    // Create child nodes
+    childGroups.forEach((group, idx) => {
+      const childNode: GroupNode = {
+        group: group,
+        index: currentStep.districtGroups.indexOf(group),
+        direction: currentStep.divisionDirection,
+        children: [],
+        step: fromStep
+      };
+
+      parentNode.children.push(childNode);
+
+      // Recursively build children for this node if not at the final step
+      if (fromStep < toStep) {
+        this.buildChildrenRecursive(childNode, fromStep + 1, toStep);
+      }
+    });
+  }
+
+  // Get the CSS class for a group based on its division direction
+  getGroupDirectionClass(direction: 'latitude' | 'longitude'): string {
+    return direction === 'latitude' ? 'latitude' : 'longitude';
+  }
+
+  // Get the iteration class for a step
+  getIterationClass(step: number): string {
+    return `iteration${step}`;
+  }
+
+  // Get global group index for map IDs - finds the index in currentStep's districtGroups
+  getGlobalGroupIndex(node: GroupNode): number {
+    if (!this.currentStep) return node.index;
+    
+    // Find the index of this group in the current step's districtGroups
+    const index = this.currentStep.districtGroups.findIndex(g => 
+      g.startDistrictNumber === node.group.startDistrictNumber &&
+      g.endDistrictNumber === node.group.endDistrictNumber
+    );
+    
+    return index >= 0 ? index : node.index;
   }
 }

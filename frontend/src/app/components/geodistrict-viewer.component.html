@@ -1,7 +1,8 @@
 <div class="geodistrict-viewer">
   <div class="header">
     <h1>Geodistrict Algorithm Visualization</h1>
-    <p>Visualizing the Fresh Approach algorithm for creating congressional districts</p>
+    <p>Visualizing the various algorithms attempting to create 
+      an objective drawing of congressional district boundaries.</p>
   </div>
 
   <div class="controls">
@@ -27,25 +28,27 @@
       </div>
     </div>
 
-    <div class="control-group">
+    <!-- <div class="control-group">
       <label>
         <input type="checkbox" [(ngModel)]="useDirectAPI" (change)="onSettingsChange()">
-        Use Direct Census API (development only - production uses Secret Manager)
+        Use Direct Census API (development only)
       </label>
-    </div>
+    </div> -->
 
     <div class="control-group">
       <label>
         <input type="checkbox" [(ngModel)]="forceInvalidate" (change)="onSettingsChange()">
-        Force Refresh Census Data (bypasses cache - slower but gets latest data)
+        Force data refresh
       </label>
     </div>
 
     <div class="control-group">
-      <button (click)="runAlgorithm()" [disabled]="isLoading">
+      <button (click)="runAlgorithm()" [disabled]="isLoading" [class.loading]="isLoading">
+        <span class="spinner-small" *ngIf="isLoading"></span>
         {{ isLoading ? 'Running Algorithm...' : 'Run First Step' }}
       </button>
-      <button (click)="runNextStep()" [disabled]="!canRunNextStep || isLoading" *ngIf="algorithmResult">
+      <button (click)="runNextStep()" [disabled]="!canRunNextStep || isLoading" [class.loading]="isLoading" *ngIf="algorithmResult">
+        <span class="spinner-small" *ngIf="isLoading"></span>
         {{ isLoading ? 'Running Next Step...' : 'Run Next Step' }}
       </button>
     </div>
@@ -126,11 +129,11 @@
 
       <div class="district-groups">
         <h4>District Groups ({{ currentStep.districtGroups.length }})</h4>
-        <div class="groups-grid">
+        <div class="groups-container">
           <div *ngFor="let group of currentStep.districtGroups; let i = index" 
-               class="district-group" 
+               class="district-group"
                [style.background-color]="getGroupColor(i)">
-            <div class="group-map">
+            <div class="group-map has-map">
               <div [id]="'groupMap' + i" class="mini-map"></div>
             </div>
             
@@ -174,8 +177,7 @@
                     </div>
                     <div class="tract-detail">
                       <span class="label">Centroid:</span>
-                      ({{ getTractCentroid(getCurrentTract(i)).lat.toFixed(4) }}, {{
-                      getTractCentroid(getCurrentTract(i)).lng.toFixed(4) }})
+                      ({{ getTractCentroid(getCurrentTract(i)).lat.toFixed(4) }}, {{ getTractCentroid(getCurrentTract(i)).lng.toFixed(4) }})
                     </div>
                     <div class="tract-detail">
                       <span class="label">Name:</span> {{ getTractName(getCurrentTract(i)) }}
@@ -185,34 +187,31 @@
               </div>
 
               <div class="group-stats">
-              <div class="stat">
-                <span class="label">Tracts:</span>
-                <span class="value">{{ group.censusTracts.length }}</span>
+                <div class="stat">
+                  <span class="label">Tracts:</span>
+                  <span class="value">{{ group.censusTracts.length }}</span>
+                </div>
+                <div class="stat">
+                  <span class="label">Population:</span>
+                  <span class="value">{{ group.totalPopulation.toLocaleString() }}</span>
+                </div>
+                <div class="stat">
+                  <span class="label">Target Districts:</span>
+                  <span class="value">{{ group.totalDistricts }}</span>
+                </div>
               </div>
-              <div class="stat">
-                <span class="label">Population:</span>
-                <span class="value">{{ group.totalPopulation.toLocaleString() }}</span>
+              <div class="group-bounds">
+                <div class="bound">
+                  <span class="label">North:</span> {{ group.bounds.north.toFixed(4) }}
+                  <span class="label">  South:</span> {{ group.bounds.south.toFixed(4) }}
+                  <span class="label">  East:</span> {{ group.bounds.east.toFixed(4) }}
+                  <span class="label">  West:</span> {{ group.bounds.west.toFixed(4) }}
+                </div>
               </div>
-              <div class="stat">
-                <span class="label">Target Districts:</span>
-                <span class="value">{{ group.totalDistricts }}</span>
+              <div class="group-centroid">
+                <span class="label">Centroid:</span> 
+                ({{ group.centroid.lat.toFixed(4) }}, {{ group.centroid.lng.toFixed(4) }})
               </div>
-            </div>
-            <div class="group-bounds">
-              <div class="bound">
-                <span class="label">North:</span> {{ group.bounds.north.toFixed(4) }}
-                <span class="label">  South:</span> {{ group.bounds.south.toFixed(4) }}
-                <span class="label">  East:</span> {{ group.bounds.east.toFixed(4) }}
-                <span class="label">  West:</span> {{ group.bounds.west.toFixed(4) }}
-              </div>
-            </div>
-            <div class="group-centroid">
-              <span class="label">Centroid:</span> 
-              ({{ group.centroid.lat.toFixed(4) }}, {{ group.centroid.lng.toFixed(4) }})
-            </div>
-            
-            <!-- Tract Debugging Controls -->
-            
             </div>
           </div>
         </div>

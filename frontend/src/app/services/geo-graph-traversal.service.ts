@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GeoJsonFeature } from './census.service';
+import * as turf from '@turf/turf';
 
 /**
  * Service for performing geo-graph traversal operations using zig-zag patterns.
@@ -12,8 +13,9 @@ export class GeoGraphTraversalService {
 
   /**
    * Perform geo-graph traversal using proper zig-zag pattern as described in documentation:
-   * - Latitude division: Start northwest → move east → find northeastern tract → move west → repeat southward
-   * - Longitude division: Start southwest → move north → find northwestern tract → move south → repeat eastward
+   * - Latitude division: Start northwest → move east (northeast bias) → find southeastern tract → move west (northwest bias) → repeat southward
+   * - Longitude division: Start southwest → move north (northwest bias) → find northwestern tract → move south (southwest bias) → repeat eastward
+   *   This is the latitude algorithm rotated 90° counterclockwise
    * @param tracts Array of tracts
    * @param adjacencyGraph S4 adjacency graph
    * @param startTract Starting tract (northwest for latitude, southwest for longitude)
@@ -21,18 +23,14 @@ export class GeoGraphTraversalService {
    * @returns Sorted tracts
    */
   performGeoGraphTraversal(tracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>, startTract: GeoJsonFeature, direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    console.log(`🚀 Starting Geo-Graph zig-zag algorithm from ${this.getTractId(startTract)} (${direction} direction)`);
-
     const tractMap = new Map<string, GeoJsonFeature>();
-    let validGraphTracts = 0;
     for (const tract of tracts) {
       const tractId = this.getTractId(tract);
       tractMap.set(tractId, tract);
-      if (adjacencyGraph.has(tractId)) {
-        validGraphTracts++;
-      }
     }
-    console.log(`🔍 Graph coverage: ${validGraphTracts}/${tracts.length} tracts have adjacencies (${((validGraphTracts / tracts.length) * 100).toFixed(1)}%)`);
+
+    // Pre-compute state boundary tracts (tracts that have edges on the state border)
+    const stateBoundaryTracts = this.findStateBoundaryTracts(tracts);
 
     // Pre-compute containment relationships (allow large datasets for AZ with 1765 tracts)
     // Use adjacency graph to optimize: tracts with only 1 adjacent tract are likely contained
@@ -44,7 +42,6 @@ export class GeoGraphTraversalService {
       }
       containerToContained.get(pair.container)!.push(pair.contained);
     }
-    console.log(`📦 Pre-computed ${containedTracts.length} containment relationships`);
 
     const visited = new Set<string>();
     const sortedTracts: GeoJsonFeature[] = [];
@@ -64,7 +61,6 @@ export class GeoGraphTraversalService {
             const containedTract = tractMap.get(containedId);
             if (containedTract) {
               sortedTracts.push(containedTract);
-              console.log(`📦 Added contained tract ${containedId} after container ${tractId}`);
             }
           }
         }
@@ -103,7 +99,20 @@ export class GeoGraphTraversalService {
 
       // Determine starting angle for clockwise sweep based on sort direction
       // For latitude sort: start at north (0°), for longitude sort: start at west (270°)
-      const sweepStartAngle = direction === 'longitude' ? 270 : 0;
+      // For longitude with northwest/southwest bias, we want to prioritize west-clockwise tracts
+      // "West-clockwise" means starting from west (270°) and going clockwise:
+      // west(270°) -> northwest(315°) -> north(0°) -> northeast(45°) -> etc.
+      // So for northwest bias, we want to check northwest (315°) before pure west (270°)
+      let sweepStartAngle = direction === 'longitude' ? 270 : 0;
+      
+      // For longitude division with northwest bias, start sweep slightly after west to prioritize northwest
+      // This ensures we check northwest (315°) before checking pure west (270°)
+      if (direction === 'longitude' && requestedDirection === 'northwest') {
+        // Start at 271° (just after west) so northwest (315°) is checked before west (270° when angle wraps)
+        // Actually, since we sweep clockwise, we want to prioritize angles closer to northwest (315°)
+        // Start at west (270°) but adjust the range check to prioritize angles further clockwise
+        sweepStartAngle = 270;
+      }
 
       // Sweep the full 360 degrees clockwise from the starting angle
       const startAngle = sweepStartAngle;
@@ -146,54 +155,33 @@ export class GeoGraphTraversalService {
           inDirectionRange = normalizedAngle >= range.start && normalizedAngle <= range.end;
         }
 
+        // For longitude division with northwest/southwest bias, prioritize west-clockwise angles
+        // Exclude only pure west (around 270°) when requesting northwest to prioritize northwest (315°)
+        // West-clockwise means starting from west (270°) and going clockwise to northwest (315°)
+        // We only skip a small range around pure west (268°-275°) to allow northwest (315°+) to be checked first
+        // but still allow northwest angles from 275°-315° to be considered
+        if (direction === 'longitude' && requestedDirection === 'northwest' && normalizedAngle >= 268 && normalizedAngle < 275) {
+          // Skip only a small range around pure west (268°-274.9°) to prioritize northwest (315°+)
+          // This ensures we check northwest (315°+) before pure west (270°), but still allow northwest angles (275°-315°)
+          inDirectionRange = false;
+        }
+
         // Only check tracts if we're in the correct direction range
         if (inDirectionRange) {
           // Check each adjacent tract to see if the ray intersects its boundary
+          // We don't filter by midpoint direction - the ray sweep and intersection is sufficient
           for (const tract of unvisitedAdjacentTracts) {
-            const midpoint = this.getGeometricMidpoint(tract);
-            
-            // Check if tract is in the correct direction relative to current
-            let matchesDirection = false;
-            switch (requestedDirection) {
-              case 'northeast':
-                matchesDirection = midpoint.lat > currentMidpoint.lat && midpoint.lng > currentMidpoint.lng;
-                break;
-              case 'northwest':
-                matchesDirection = midpoint.lat > currentMidpoint.lat && midpoint.lng < currentMidpoint.lng;
-                break;
-              case 'southeast':
-                matchesDirection = midpoint.lat < currentMidpoint.lat && midpoint.lng > currentMidpoint.lng;
-                break;
-              case 'southwest':
-                matchesDirection = midpoint.lat < currentMidpoint.lat && midpoint.lng < currentMidpoint.lng;
-                break;
-              case 'east':
-                matchesDirection = midpoint.lng > currentMidpoint.lng;
-                break;
-              case 'west':
-                matchesDirection = midpoint.lng < currentMidpoint.lng;
-                break;
-              case 'north':
-                matchesDirection = midpoint.lat > currentMidpoint.lat;
-                break;
-              case 'south':
-                matchesDirection = midpoint.lat < currentMidpoint.lat;
-                break;
-            }
+            // Check if ray from currentMidpoint to rayEndPoint intersects the tract's boundary
+            // The angular range filter (inDirectionRange) ensures we're checking the correct direction
+            const intersection = this.findLinePolygonIntersection(
+              currentMidpoint,
+              rayEndPoint,
+              tract
+            );
 
-            // Only check intersection if the tract matches the direction
-            if (matchesDirection) {
-              // Check if ray from currentMidpoint to rayEndPoint intersects the tract's boundary
-              const intersection = this.findLinePolygonIntersection(
-                currentMidpoint,
-                rayEndPoint,
-                tract
-              );
-
-              if (intersection) {
-                // Found the first intersection! This is the tract we want
-                return tract;
-              }
+            if (intersection) {
+              // Found the first intersection! This is the tract we want
+              return tract;
             }
           }
         }
@@ -254,27 +242,21 @@ export class GeoGraphTraversalService {
           }
         }
 
-        if (bestTract) {
-          const coord = this.getNorthwestCoordinate(bestTract);
-          console.log(`🔄 Starting new row: Found southernmost western tract ${this.getTractId(bestTract)} (lat: ${coord.lat.toFixed(6)}, lng: ${coord.lng.toFixed(6)})`);
-        }
 
         return bestTract;
       } else {
-        // For longitude division: find northeastern-most unvisited tract
-        // This maintains the eastward progression pattern
+        // For longitude division: find westernmost unvisited tract to start new column
+        // This maintains the westward-to-eastward column progression pattern (rotated from latitude)
         let bestTract: GeoJsonFeature | null = null;
-        let bestScore = -Infinity;
+        let bestLng = Infinity; // Find westernmost (lowest longitude)
 
         for (const tract of tracts) {
           const tractId = this.getTractId(tract);
           if (visited.has(tractId)) continue;
 
-          const coord = this.getNorthwestCoordinate(tract);
-          const score = coord.lat * 100 + coord.lng; // Prioritize north, then east
-
-          if (score > bestScore) {
-            bestScore = score;
+          const coord = this.getSouthwestCoordinate(tract); // Use southwest coordinate
+          if (coord.lng < bestLng) {
+            bestLng = coord.lng;
             bestTract = tract;
           }
         }
@@ -286,7 +268,6 @@ export class GeoGraphTraversalService {
     // Start with the appropriate starting tract
     const startTractId = this.getTractId(startTract);
     addTractWithContained(startTractId);
-    console.log(`📍 Starting zig-zag traversal from ${startTractId}`);
 
     let currentTractId = startTractId;
     let moveDirection: 'east' | 'west' | 'north' | 'south' = direction === 'latitude' ? 'east' : 'north';
@@ -296,11 +277,6 @@ export class GeoGraphTraversalService {
     // Main zig-zag traversal loop
     while (visited.size < tracts.length && iterationCount < maxIterations) {
       iterationCount++;
-
-      // Log progress every 100 iterations
-      if (iterationCount % 100 === 0) {
-        console.log(`📊 Zig-zag Progress: ${visited.size}/${tracts.length} tracts visited (${((visited.size/tracts.length)*100).toFixed(1)}%), iteration ${iterationCount}`);
-      }
 
       // Find the most extreme adjacent tract in the current movement direction
       // Use biased directions to maintain zig-zag pattern
@@ -316,158 +292,251 @@ export class GeoGraphTraversalService {
           biasedDirection = moveDirection;
         }
       } else {
-        // Longitude division: maintain eastward bias when moving north/south
+        // Longitude division: maintain westward bias when moving north/south (rotate latitude 90° CCW)
         if (moveDirection === 'north') {
-          biasedDirection = 'northeast'; // North movement with east bias
+          biasedDirection = 'northwest'; // North movement with west bias (rotated from latitude's northeast)
         } else if (moveDirection === 'south') {
-          biasedDirection = 'southeast'; // South movement with east bias
+          biasedDirection = 'southwest'; // South movement with west bias (rotated from latitude's southeast)
         } else {
           biasedDirection = moveDirection;
         }
       }
 
-      const nextTract = findExtremeAdjacentTract(currentTractId, biasedDirection);
+      let nextTract = findExtremeAdjacentTract(currentTractId, biasedDirection);
+
+      // Fallback: If moving west with northwest bias finds nothing, try northeast to maintain northward bias
+      // This handles cases where the next tract is northeast (not northwest) but still maintains northward progression
+      if (!nextTract && direction === 'latitude' && moveDirection === 'west' && biasedDirection === 'northwest') {
+        nextTract = findExtremeAdjacentTract(currentTractId, 'northeast');
+      }
+      // Fallback: If moving east with northeast bias finds nothing, try northwest to maintain northward bias
+      if (!nextTract && direction === 'latitude' && moveDirection === 'east' && biasedDirection === 'northeast') {
+        nextTract = findExtremeAdjacentTract(currentTractId, 'northwest');
+      }
+      
+      // Fallback for longitude division: If moving north with northwest bias finds nothing, try northeast to maintain westward bias
+      // This handles cases where the next tract is northeast (not northwest) but still maintains westward progression
+      if (!nextTract && direction === 'longitude' && moveDirection === 'north' && biasedDirection === 'northwest') {
+        nextTract = findExtremeAdjacentTract(currentTractId, 'northeast');
+      }
+      // Fallback: If moving south with southwest bias finds nothing, try northwest instead of southeast
+      // In some geographical layouts, pivoting northwest (biased towards north) works better than continuing southeast
+      if (!nextTract && direction === 'longitude' && moveDirection === 'south' && biasedDirection === 'southwest') {
+        // First try adjacent northwest tract
+        nextTract = findExtremeAdjacentTract(currentTractId, 'northwest');
+        
+        // If no adjacent northwest, find the most northern unvisited northwest-biased tract
+        if (!nextTract) {
+          const currentTract = tractMap.get(currentTractId);
+          if (currentTract) {
+            const currentCoord = this.getSouthwestCoordinate(currentTract);
+            let bestNorthwestTract: GeoJsonFeature | null = null;
+            let bestScore = -Infinity; // Higher score = more northwest (prioritize north, then west)
+            
+            // Look for unvisited tracts that are northwest of current position
+            for (const tract of tracts) {
+              const tractId = this.getTractId(tract);
+              if (visited.has(tractId)) continue;
+              
+              const coord = this.getSouthwestCoordinate(tract);
+              // Check if tract is northwest of current position (more north AND more west)
+              // Prioritize north first, then west (biased towards north as requested)
+              if (coord.lat > currentCoord.lat && coord.lng < currentCoord.lng) {
+                // Score: prioritize north (higher lat) first, then west (lower lng)
+                // Higher score = more northwest, biased towards north
+                const score = (coord.lat - currentCoord.lat) * 100 - (currentCoord.lng - coord.lng);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestNorthwestTract = tract;
+                }
+              }
+            }
+            
+            if (bestNorthwestTract) {
+              nextTract = bestNorthwestTract;
+            }
+          }
+        }
+      }
 
       if (nextTract) {
         // Continue in the same direction
         const nextTractId = this.getTractId(nextTract);
         addTractWithContained(nextTractId);
         currentTractId = nextTractId;
-
-        if (iterationCount <= 10) {
-          console.log(`🔄 Moving ${moveDirection} to ${nextTractId}`);
-        }
       } else {
         // No more tracts in current direction - border detection
-        console.log(`🔄 Border detected: Reached ${moveDirection} border`);
 
         if (direction === 'latitude') {
           // For latitude division: proper zig-zag pattern
           if (moveDirection === 'east') {
             // Hit east border: find southeast adjacent tract as starting point to move west (Step 5)
-            console.log(`🔄 Hit east border: finding southeast tract as starting point to move west`);
             const southeastTract = findExtremeAdjacentTract(currentTractId, 'southeast');
             if (southeastTract) {
               const southeastTractId = this.getTractId(southeastTract);
               addTractWithContained(southeastTractId);
               currentTractId = southeastTractId;
               moveDirection = 'west'; // Start moving west from this southeast position
-
-              if (iterationCount <= 10) {
-                console.log(`🔄 Step 5: Found southeast tract ${southeastTractId}, now moving west`);
-              }
             } else {
               // No southeast adjacent tract, find new northeastern starting point
-              console.log(`🔄 No southeast tract found, finding new northeastern starting point`);
               const newStartTract = findNextStartingTract();
               if (newStartTract) {
                 const newStartTractId = this.getTractId(newStartTract);
                 addTractWithContained(newStartTractId);
                 currentTractId = newStartTractId;
                 moveDirection = 'east'; // Start new row going east
-
-                if (iterationCount <= 10) {
-                  console.log(`🔄 Starting new row from southern western tract ${newStartTractId}`);
-                }
               } else {
-                console.log(`✅ No more unvisited tracts found - traversal complete`);
                 break;
               }
             }
           } else {
-            // Hit west border: find southwest adjacent tract as starting point to move east
-            console.log(`🔄 Hit west border: finding southwest tract as starting point to move east`);
-            const southwestTract = findExtremeAdjacentTract(currentTractId, 'southwest');
-            if (southwestTract) {
-              const southwestTractId = this.getTractId(southwestTract);
-              addTractWithContained(southwestTractId);
-              currentTractId = southwestTractId;
-              moveDirection = 'east'; // Start moving east from this southwest position
-
-              if (iterationCount <= 10) {
-                console.log(`🔄 Found southwest tract ${southwestTractId}, now moving east`);
-              }
-            } else {
-              // No southwest adjacent tract, find new northeastern starting point
-              console.log(`🔄 No southwest tract found, finding new northeastern starting point`);
-              const newStartTract = findNextStartingTract();
-              if (newStartTract) {
-                const newStartTractId = this.getTractId(newStartTract);
-                addTractWithContained(newStartTractId);
-                currentTractId = newStartTractId;
-                moveDirection = 'east'; // Start new row going east
-
-                if (iterationCount <= 10) {
-                  console.log(`🔄 Starting new row from southern western tract ${newStartTractId}`);
-                }
-              } else {
-                console.log(`✅ No more unvisited tracts found - traversal complete`);
-                break;
-              }
-            }
-          }
-        } else {
-          // For longitude division: proper zig-zag pattern
-          if (moveDirection === 'north') {
-            // Hit north border: find northeast adjacent tract as starting point to move south
-            console.log(`🔄 Hit north border: finding northeast tract as starting point to move south`);
+            // Hit west border: find northeast adjacent tract as starting point to move east
+            // This maintains the zig-zag pattern - similar to finding southeast when hitting east border
             const northeastTract = findExtremeAdjacentTract(currentTractId, 'northeast');
             if (northeastTract) {
               const northeastTractId = this.getTractId(northeastTract);
               addTractWithContained(northeastTractId);
               currentTractId = northeastTractId;
-              moveDirection = 'south'; // Start moving south from this northeast position
-
-              if (iterationCount <= 10) {
-                console.log(`🔄 Found northeast tract ${northeastTractId}, now moving south`);
-              }
+              moveDirection = 'east'; // Start moving east from this northeast position
             } else {
               // No northeast adjacent tract, find new northeastern starting point
-              console.log(`🔄 No northeast tract found, finding new northeastern starting point`);
               const newStartTract = findNextStartingTract();
               if (newStartTract) {
                 const newStartTractId = this.getTractId(newStartTract);
                 addTractWithContained(newStartTractId);
                 currentTractId = newStartTractId;
-                moveDirection = 'north'; // Start new column going north
-
-                if (iterationCount <= 10) {
-                  console.log(`🔄 Starting new column from northeastern tract ${newStartTractId}`);
-                }
+                moveDirection = 'east'; // Start new row going east
               } else {
-                console.log(`✅ No more unvisited tracts found - traversal complete`);
                 break;
               }
             }
-          } else {
-            // Hit south border: find southeast adjacent tract as starting point to move north
-            console.log(`🔄 Hit south border: finding southeast tract as starting point to move north`);
-            const southeastTract = findExtremeAdjacentTract(currentTractId, 'southeast');
-            if (southeastTract) {
-              const southeastTractId = this.getTractId(southeastTract);
-              addTractWithContained(southeastTractId);
-              currentTractId = southeastTractId;
-              moveDirection = 'north'; // Start moving north from this southeast position
-
-              if (iterationCount <= 10) {
-                console.log(`🔄 Found southeast tract ${southeastTractId}, now moving north`);
+          }
+        } else {
+          // For longitude division: proper zig-zag pattern (rotated latitude 90° CCW)
+          if (moveDirection === 'north') {
+            // Check if we're at the state northern boundary
+            const isAtStateBoundary = stateBoundaryTracts.has(currentTractId);
+            
+            if (isAtStateBoundary) {
+              console.log(`🔴 State northern boundary detected at tract ${currentTractId} - zigzagging south`);
+              // We're at the state northern boundary - zigzag south by selecting south-clockwise (southwest) adjacent tract
+              let pivotTract = findExtremeAdjacentTract(currentTractId, 'southwest');
+              if (!pivotTract) {
+                // Fallback: try southeast or south to continue south
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'southeast') ||
+                           findExtremeAdjacentTract(currentTractId, 'south');
+              }
+              
+              if (pivotTract) {
+                const pivotTractId = this.getTractId(pivotTract);
+                addTractWithContained(pivotTractId);
+                currentTractId = pivotTractId;
+                moveDirection = 'south'; // Start moving south from this pivot position
+              } else {
+                // No south-adjacent tract found, try to find new westernmost starting point
+                const newStartTract = findNextStartingTract();
+                if (newStartTract) {
+                  const newStartTractId = this.getTractId(newStartTract);
+                  addTractWithContained(newStartTractId);
+                  currentTractId = newStartTractId;
+                  moveDirection = 'north'; // Start new column going north
+                } else {
+                  break;
+                }
               }
             } else {
-              // No southeast adjacent tract, find new northeastern starting point
-              console.log(`🔄 No southeast tract found, finding new northeastern starting point`);
-              const newStartTract = findNextStartingTract();
-              if (newStartTract) {
-                const newStartTractId = this.getTractId(newStartTract);
-                addTractWithContained(newStartTractId);
-                currentTractId = newStartTractId;
-                moveDirection = 'north'; // Start new column going north
-
-                if (iterationCount <= 10) {
-                  console.log(`🔄 Starting new column from northeastern tract ${newStartTractId}`);
-                }
+              // Normal border detection: Hit north border (not state boundary) - find northwest adjacent tract as starting point to move south
+              // Try multiple adjacent directions before jumping to non-adjacent tract
+              let pivotTract = findExtremeAdjacentTract(currentTractId, 'northwest');
+              if (!pivotTract) {
+                // Fallback: try northeast adjacent (still maintains west bias progression)
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'northeast');
+              }
+              if (!pivotTract) {
+                // Fallback: try north adjacent (any adjacent tract to continue)
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'north');
+              }
+              
+              if (pivotTract) {
+                const pivotTractId = this.getTractId(pivotTract);
+                addTractWithContained(pivotTractId);
+                currentTractId = pivotTractId;
+                moveDirection = 'south'; // Start moving south from this pivot position
               } else {
-                console.log(`✅ No more unvisited tracts found - traversal complete`);
-                break;
+                // No adjacent tract found in any northern direction - start new column
+                // Only jump to non-adjacent tract if absolutely no adjacent tracts available
+                const newStartTract = findNextStartingTract();
+                if (newStartTract) {
+                  const newStartTractId = this.getTractId(newStartTract);
+                  addTractWithContained(newStartTractId);
+                  currentTractId = newStartTractId;
+                  moveDirection = 'north'; // Start new column going north
+                } else {
+                  break;
+                }
+              }
+            }
+          } else {
+            // Check if we're at the state southern boundary
+            const isAtStateBoundary = stateBoundaryTracts.has(currentTractId);
+            
+            if (isAtStateBoundary) {
+              console.log(`🔴 State southern boundary detected at tract ${currentTractId} - zigzagging north`);
+              // We're at the state southern boundary - zigzag north by selecting north-clockwise (northwest) adjacent tract
+              let pivotTract = findExtremeAdjacentTract(currentTractId, 'northwest');
+              if (!pivotTract) {
+                // Fallback: try northeast or north to continue north
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'northeast') ||
+                           findExtremeAdjacentTract(currentTractId, 'north');
+              }
+              
+              if (pivotTract) {
+                const pivotTractId = this.getTractId(pivotTract);
+                addTractWithContained(pivotTractId);
+                currentTractId = pivotTractId;
+                moveDirection = 'north'; // Start moving north from this pivot position
+              } else {
+                // No north-adjacent tract found, try to find new westernmost starting point
+                const newStartTract = findNextStartingTract();
+                if (newStartTract) {
+                  const newStartTractId = this.getTractId(newStartTract);
+                  addTractWithContained(newStartTractId);
+                  currentTractId = newStartTractId;
+                  moveDirection = 'north'; // Start new column going north
+                } else {
+                  break;
+                }
+              }
+            } else {
+              // Normal border detection: Hit south border (not state boundary) - find southwest adjacent tract as starting point to move north
+              // Try multiple adjacent directions before jumping to non-adjacent tract
+              let pivotTract = findExtremeAdjacentTract(currentTractId, 'southwest');
+              if (!pivotTract) {
+                // Fallback: try southeast adjacent (still maintains west bias progression)
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'southeast');
+              }
+              if (!pivotTract) {
+                // Fallback: try south adjacent (any adjacent tract to continue)
+                pivotTract = findExtremeAdjacentTract(currentTractId, 'south');
+              }
+              
+              if (pivotTract) {
+                const pivotTractId = this.getTractId(pivotTract);
+                addTractWithContained(pivotTractId);
+                currentTractId = pivotTractId;
+                moveDirection = 'north'; // Start moving north from this pivot position
+              } else {
+                // No adjacent tract found in any southern direction - start new column
+                // Only jump to non-adjacent tract if absolutely no adjacent tracts available
+                const newStartTract = findNextStartingTract();
+                if (newStartTract) {
+                  const newStartTractId = this.getTractId(newStartTract);
+                  addTractWithContained(newStartTractId);
+                  currentTractId = newStartTractId;
+                  moveDirection = 'north'; // Start new column going north
+                } else {
+                  break;
+                }
               }
             }
           }
@@ -487,7 +556,6 @@ export class GeoGraphTraversalService {
       }
     }
 
-    console.log(`✅ Geo-graph traversal complete: ${sortedTracts.length} tracts sorted in ${iterationCount} iterations`);
     return sortedTracts;
   }
 
@@ -580,52 +648,28 @@ export class GeoGraphTraversalService {
       // Only check tracts if we're in the correct direction range
       if (inDirectionRange) {
         // Check each adjacent tract to see if the ray intersects its boundary
+        // We don't filter by midpoint direction - the ray sweep and intersection is sufficient
         for (const tract of adjacentTracts) {
-          const midpoint = this.getGeometricMidpoint(tract);
           const tractId = this.getTractId(tract);
           
-          // Check if tract is in the correct direction relative to current
-          let matchesDirection = false;
-          switch (direction) {
-            case 'northeast':
-              matchesDirection = midpoint.lat > currentMidpoint.lat && midpoint.lng > currentMidpoint.lng;
-              break;
-            case 'northwest':
-              matchesDirection = midpoint.lat > currentMidpoint.lat && midpoint.lng < currentMidpoint.lng;
-              break;
-            case 'southeast':
-              matchesDirection = midpoint.lat < currentMidpoint.lat && midpoint.lng > currentMidpoint.lng;
-              break;
-            case 'southwest':
-              matchesDirection = midpoint.lat < currentMidpoint.lat && midpoint.lng < currentMidpoint.lng;
-              break;
-            case 'east':
-              matchesDirection = midpoint.lng > currentMidpoint.lng;
-              break;
-            case 'west':
-              matchesDirection = midpoint.lng < currentMidpoint.lng;
-              break;
-            case 'north':
-              matchesDirection = midpoint.lat > currentMidpoint.lat;
-              break;
-            case 'south':
-              matchesDirection = midpoint.lat < currentMidpoint.lat;
-              break;
+          // Debug: Check for specific tract (04001942700, not 04019942700)
+          if ((tractId === '04001942700' || tractId === '04019942700') && direction === 'northeast') {
+            console.log(`🔍 Checking target tract ${tractId} at angle ${normalizedAngle.toFixed(2)}°`);
+            console.log(`   Current midpoint: (${currentMidpoint.lat.toFixed(6)}, ${currentMidpoint.lng.toFixed(6)})`);
+            console.log(`   Ray endpoint: (${rayEndPoint.lat.toFixed(6)}, ${rayEndPoint.lng.toFixed(6)})`);
           }
 
-          // Only check intersection if the tract matches the direction
-          if (matchesDirection) {
-            // Check if ray from currentMidpoint to rayEndPoint intersects the tract's boundary
-            const intersection = this.findLinePolygonIntersection(
-              currentMidpoint,
-              rayEndPoint,
-              tract
-            );
+          // Check if ray from currentMidpoint to rayEndPoint intersects the tract's boundary
+          // The angular range filter (inDirectionRange) ensures we're checking the correct direction
+          const intersection = this.findLinePolygonIntersection(
+            currentMidpoint,
+            rayEndPoint,
+            tract
+          );
 
-            if (intersection) {
-              // Found the first intersection! This is the tract we want
-              return tract;
-            }
+          if (intersection) {
+            // Found the first intersection! This is the tract we want
+            return tract;
           }
         }
       }
@@ -743,6 +787,170 @@ export class GeoGraphTraversalService {
     return { lat: maxLat, lng: minLng };
   }
 
+  private getSouthwestCoordinate(tract: GeoJsonFeature): { lat: number; lng: number } {
+    if (!tract.geometry || (tract.geometry.type !== 'Polygon' && tract.geometry.type !== 'MultiPolygon')) {
+      return { lat: 0, lng: 0 };
+    }
+    let minLat = Infinity;
+    let minLng = Infinity;
+    const processCoordinates = (coordinates: number[][]) => {
+      for (const coord of coordinates) {
+        if (coord.length >= 2) {
+          const lng = coord[0];
+          const lat = coord[1];
+          if (lat < minLat) minLat = lat;
+          if (lng < minLng) minLng = lng;
+        }
+      }
+    };
+
+    if (tract.geometry.type === 'Polygon') {
+      for (const ring of tract.geometry.coordinates) {
+        processCoordinates(ring);
+      }
+    } else if (tract.geometry.type === 'MultiPolygon') {
+      for (const polygon of tract.geometry.coordinates) {
+        for (const ring of polygon) {
+          processCoordinates(ring);
+        }
+      }
+    }
+
+    return { lat: minLat, lng: minLng };
+  }
+
+  /**
+   * Find all tracts that are on the state boundary by merging all tracts and comparing boundaries
+   * A tract is on the state boundary if any of its boundary segments match the merged state polygon boundary
+   * @param tracts Array of all census tracts in the state
+   * @returns Set of tract IDs that are on the state boundary
+   */
+  private findStateBoundaryTracts(tracts: GeoJsonFeature[]): Set<string> {
+    const boundaryTracts = new Set<string>();
+    
+    if (!tracts || tracts.length === 0) {
+      return boundaryTracts;
+    }
+
+    try {
+      // Convert all tracts to turf features
+      const turfFeatures = tracts.map(tract => {
+        if (!tract.geometry) return null;
+        return turf.feature(tract.geometry);
+      }).filter((f): f is any => f !== null);
+
+      if (turfFeatures.length === 0) {
+        return boundaryTracts;
+      }
+
+      // Merge all tract polygons into a single state polygon
+      // Start with the first feature and union the rest
+      let mergedPolygon = turfFeatures[0];
+      for (let i = 1; i < turfFeatures.length; i++) {
+        try {
+          mergedPolygon = turf.union(mergedPolygon, turfFeatures[i]);
+        } catch (error) {
+          // If union fails for a feature, try to continue with next
+          continue;
+        }
+      }
+
+      // Extract the boundary of the merged state polygon
+      // The boundary is the outer ring of the merged polygon
+      const stateBoundary = this.extractPolygonBoundary(mergedPolygon);
+      if (!stateBoundary || stateBoundary.length < 3) {
+        return boundaryTracts;
+      }
+
+      // For each tract, check if any of its boundary segments match the state boundary
+      // A tract is on the boundary if any edge of the tract's polygon is on the state boundary
+      for (const tract of tracts) {
+        if (!tract.geometry) continue;
+
+        const tractId = this.getTractId(tract);
+        const tractBoundary = this.extractPolygonBoundary(tract);
+        
+        if (!tractBoundary || tractBoundary.length < 3) continue;
+
+        // Check if any segment of the tract boundary matches a segment of the state boundary
+        // We use a tolerance-based comparison since floating point coordinates might not match exactly
+        if (this.hasBoundaryOverlap(tractBoundary, stateBoundary)) {
+          boundaryTracts.add(tractId);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Error finding state boundary tracts:', error);
+    }
+
+    console.log(`🗺️ Found ${boundaryTracts.size} state boundary tracts out of ${tracts.length} total tracts`);
+    return boundaryTracts;
+  }
+
+  /**
+   * Extract the outer boundary ring from a polygon or multipolygon feature
+   */
+  private extractPolygonBoundary(feature: any): number[][] | null {
+    if (!feature || !feature.geometry) return null;
+
+    const geom = feature.geometry;
+    
+    if (geom.type === 'Polygon') {
+      // First ring is the outer boundary
+      return geom.coordinates[0] || null;
+    } else if (geom.type === 'MultiPolygon') {
+      // First ring of first polygon is the outer boundary
+      if (geom.coordinates && geom.coordinates[0] && geom.coordinates[0][0]) {
+        return geom.coordinates[0][0];
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if a tract boundary overlaps with the state boundary
+   * Uses distance-based comparison since exact coordinate matching may fail due to floating point precision
+   */
+  private hasBoundaryOverlap(tractBoundary: number[][], stateBoundary: number[][]): boolean {
+    const tolerance = 0.00001; // ~1 meter tolerance for coordinate comparison
+    
+    // For each segment in the tract boundary, check if it matches any segment in the state boundary
+    for (let i = 0; i < tractBoundary.length - 1; i++) {
+      const tractP1 = tractBoundary[i];
+      const tractP2 = tractBoundary[i + 1];
+      
+      // Check this tract segment against all state boundary segments
+      for (let j = 0; j < stateBoundary.length - 1; j++) {
+        const stateP1 = stateBoundary[j];
+        const stateP2 = stateBoundary[j + 1];
+        
+        // Check if segments match (forward or reverse direction)
+        if (this.segmentsMatch(tractP1, tractP2, stateP1, stateP2, tolerance)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if two line segments match (within tolerance), accounting for both forward and reverse directions
+   */
+  private segmentsMatch(p1: number[], p2: number[], q1: number[], q2: number[], tolerance: number): boolean {
+    // Check forward direction
+    const forwardMatch = 
+      Math.abs(p1[0] - q1[0]) < tolerance && Math.abs(p1[1] - q1[1]) < tolerance &&
+      Math.abs(p2[0] - q2[0]) < tolerance && Math.abs(p2[1] - q2[1]) < tolerance;
+    
+    // Check reverse direction
+    const reverseMatch = 
+      Math.abs(p1[0] - q2[0]) < tolerance && Math.abs(p1[1] - q2[1]) < tolerance &&
+      Math.abs(p2[0] - q1[0]) < tolerance && Math.abs(p2[1] - q1[1]) < tolerance;
+    
+    return forwardMatch || reverseMatch;
+  }
+
   /**
    * Find contained tracts within a set of tracts
    * Uses adjacency graph to optimize: tracts with only 1 adjacent tract are likely contained
@@ -754,7 +962,9 @@ export class GeoGraphTraversalService {
       return [];
     }
 
-    console.log(`🔍 Starting containment check for ${tracts.length} tracts (allowLargeDatasets: ${allowLargeDatasets})...`);
+    if (tracts.length > 200 && allowLargeDatasets) {
+      console.log(`🔍 Checking for enclosed tracts in ${tracts.length} tracts...`);
+    }
 
     const containedPairs: { container: string; contained: string }[] = [];
     const tractMap = new Map<string, GeoJsonFeature>();
@@ -781,9 +991,6 @@ export class GeoGraphTraversalService {
           tractToSingleAdjacent.set(tractId, adjacentIds[0]);
         }
       }
-      console.log(`📦 Optimization: Found ${singleAdjacentTractIds.size} tracts with only 1 adjacent (dependent tracts)`);
-    } else {
-      console.log(`📦 No adjacency graph provided, performing full O(n²) containment check`);
     }
 
     let optimizedChecks = 0;
@@ -816,13 +1023,6 @@ export class GeoGraphTraversalService {
           contained: dependentId
         });
         
-        if (allowLargeDatasets) {
-          if (isGeometricallyContained) {
-            console.log(`📦 Found contained tract: ${dependentId} is inside ${containerId} (geometrically contained)`);
-          } else {
-            console.log(`📦 Found dependent tract: ${dependentId} is dependent on ${containerId} (only 1 adjacent, likely boundary tract)`);
-          }
-        }
       }
     }
 
@@ -865,17 +1065,11 @@ export class GeoGraphTraversalService {
             contained: containedId
           });
 
-          if (allowLargeDatasets) {
-            console.log(`📦 Found contained tract: ${containedId} is inside ${candidateId}`);
-          }
           alreadyChecked.add(checkKey);
         }
       }
     }
 
-    if (adjacencyGraph) {
-      console.log(`📦 Containment optimization: ${optimizedChecks}/${totalChecks} checks were optimized (${((optimizedChecks/totalChecks)*100).toFixed(1)}% reduction)`);
-    }
 
     return containedPairs;
   }
@@ -915,11 +1109,6 @@ export class GeoGraphTraversalService {
       return false; // Invalid polygon
     }
 
-    // Debug: Check specifically for 950102 and 950103
-    if (tractAId.includes('50102') || tractBId.includes('50102') || tractAId.includes('50103') || tractBId.includes('50103')) {
-      console.log(`🔍 isTractContainedIn: ${tractAId} vs ${tractBId}`);
-      console.log(`   OuterRingA: ${outerRingA.length} points, OuterRingB: ${outerRingB.length} points`);
-    }
 
     // Use point-in-polygon algorithm
     // Check if tract A is contained within tract B
@@ -945,20 +1134,6 @@ export class GeoGraphTraversalService {
     // This handles edge cases where some points might be exactly on the boundary
     const containmentThreshold = 0.9;
     const isContained = pointsInside / pointsChecked >= containmentThreshold;
-    
-    // Debug logging for 950102/950103
-    if (tractAId.includes('50102') && tractBId.includes('50103')) {
-      // Log first few points to see what's happening
-      const samplePoints = outerRingA.slice(0, Math.min(5, outerRingA.length));
-      console.log(`🔍 Containment check: ${tractAId} in ${tractBId}: ${pointsInside}/${pointsChecked} points inside (${(pointsInside/pointsChecked*100).toFixed(1)}%) - ${isContained ? 'CONTAINED' : 'NOT CONTAINED'}`);
-      console.log(`   First 5 points of tract A:`, samplePoints.map(p => `[${p[0].toFixed(6)}, ${p[1].toFixed(6)}]`).join(', '));
-      // Check a few sample points
-      for (let i = 0; i < Math.min(5, outerRingA.length); i++) {
-        const point = outerRingA[i];
-        const isInside = this.isPointInPolygon(point, outerRingB);
-        console.log(`   Point ${i}: [${point[0].toFixed(6)}, ${point[1].toFixed(6)}] - ${isInside ? 'INSIDE' : 'OUTSIDE'}`);
-      }
-    }
     
     return isContained;
   }

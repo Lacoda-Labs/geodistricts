@@ -394,7 +394,9 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     const bounds = this.calculateStateBounds();
     
     // Initialize map
-    this.map = L.map('stateMap').fitBounds(bounds);
+    this.map = L.map('stateMap', {
+      scrollWheelZoom: false
+    }).fitBounds(bounds);
 
     // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -464,33 +466,36 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     const currentTract = this.getCurrentTract();
     if (!currentTract) return;
 
-    // Reset previous selection and adjacent tracts
-    if (this.previousSelectedIndex !== undefined) {
-      this.updateTractStyle(this.previousSelectedIndex, 'default');
-    }
-    
-    if (this.previousAdjacentIndices) {
-      this.previousAdjacentIndices.forEach(index => {
-        this.updateTractStyle(index, 'default');
-      });
+    // Find all adjacent tracts first (excluding current)
+    const currentAdjacentIndices: number[] = [];
+    for (let i = 0; i < this.sortedTracts.length; i++) {
+      if (i !== this.currentTractIndex && this.isAdjacentTract(i)) {
+        currentAdjacentIndices.push(i);
+      }
     }
 
-    // Highlight current selection
-    this.updateTractStyle(this.currentTractIndex, 'selected');
-    
-    // Highlight adjacent tracts
-    this.previousAdjacentIndices = [];
+    // Update all tracts with proper styling
     for (let i = 0; i < this.sortedTracts.length; i++) {
-      if (this.isAdjacentTract(i)) {
+      if (i <= this.currentTractIndex) {
+        // All tracts from 0 to currentTractIndex (inclusive): visited (dark #444444)
+        this.updateTractStyle(i, 'visited');
+      } else if (currentAdjacentIndices.includes(i)) {
+        // Adjacent tract that is beyond current: adjacent (yellow)
         this.updateTractStyle(i, 'adjacent');
-        this.previousAdjacentIndices.push(i);
+      } else {
+        // Unvisited tract: default (gray)
+        this.updateTractStyle(i, 'default');
       }
     }
     
+    // Override current tract with selected style (red) - this overrides the visited style
+    this.updateTractStyle(this.currentTractIndex, 'selected');
+    
     this.previousSelectedIndex = this.currentTractIndex;
+    this.previousAdjacentIndices = currentAdjacentIndices;
   }
 
-  private updateTractStyle(index: number, style: 'default' | 'selected' | 'adjacent') {
+  private updateTractStyle(index: number, style: 'default' | 'selected' | 'adjacent' | 'visited') {
     const layer = this.tractLayers[index];
     if (!layer) return;
 
@@ -506,6 +511,11 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
         break;
       case 'adjacent':
         color = '#ffc107';
+        fillOpacity = 0.6;
+        weight = 1;
+        break;
+      case 'visited':
+        color = '#444444';
         fillOpacity = 0.6;
         weight = 1;
         break;
@@ -736,6 +746,31 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     const direction = this.extremeAdjacentTractDirection as 'east' | 'west' | 'north' | 'south' | 'northeast' | 'northwest' | 'southeast' | 'southwest';
     // Pass sort direction to determine starting sweep angle (latitude = north start, longitude = west start)
     const sortDirection = this.selectedAlgorithm === 'geo-graph' ? 'latitude' : undefined;
+    
+    // Debug: Check if tract 942700 (could be 04019942700 or 04001942700) is in adjacent tracts
+    const targetTractIds = ['04019942700', '04001942700']; // Try both possible formats
+    let foundTargetTract = false;
+    for (const targetTractId of targetTractIds) {
+      const targetTract = adjacentTracts.find(t => this.getTractId(t) === targetTractId);
+      if (targetTract) {
+        console.log(`🔍 Found target tract ${targetTractId} in adjacent tracts list`);
+        foundTargetTract = true;
+        break;
+      }
+    }
+    if (!foundTargetTract) {
+      console.log(`⚠️ Target tract ${targetTractIds.join(' or ')} NOT found in adjacent tracts list`);
+      console.log(`📋 Adjacent tracts (${adjacentTracts.length}):`, adjacentTracts.map(t => this.getTractId(t)).slice(0, 20));
+      // Check if it exists in sortedTracts at all
+      const currentTractId = this.getTractId(currentTract);
+      const allTractIds = this.sortedTracts.map(t => this.getTractId(t));
+      for (const targetTractId of targetTractIds) {
+        if (allTractIds.includes(targetTractId)) {
+          console.log(`⚠️ Target tract ${targetTractId} exists in sortedTracts but is NOT adjacent to ${currentTractId}`);
+        }
+      }
+    }
+    
     const result = this.geoGraphTraversalService.findExtremeAdjacentTract(
       currentTract,
       adjacentTracts,

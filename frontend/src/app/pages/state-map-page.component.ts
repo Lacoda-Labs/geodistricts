@@ -893,7 +893,9 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log('State center coordinates:', stateCenter);
       
       try {
-        this.map = L.map('stateMap').setView(stateCenter, 7);
+        this.map = L.map('stateMap', {
+          scrollWheelZoom: false
+        }).setView(stateCenter, 7);
         console.log('Map created successfully:', this.map);
         
         // Add OpenStreetMap tiles

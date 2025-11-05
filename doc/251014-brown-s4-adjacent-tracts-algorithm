@@ -22,9 +22,10 @@ Dividing an even number of districts in a district group will always be a (50/50
 2. find northwest most census tract.
 3. find all adjacent tracts (using brown-s4) and add to list in clockwise order.
 4. moving east, find most northeastern adjacent tract (from step 3) and repeat steps 3 and 4 until eastern border of state is reach (i.e no more eastern tracts).
-5. find northeastern tract not yet in list as starting point to move west.
-6. moving west, repeat steps 3 and 4 (moving west instead of east).
-7. repeating zig-zag west/east movement (steps 3-6), southward until all tracts have been added to the list.
+5. find the most southeast adjacent tract as starting point to move west.
+6. for the last selected tract find all adjacent tracts and add to list in clockwise order. 
+6.1 moving west, find most northwest adjacent tract and repeat steps 6 and 6.1 until western border of state is reach (i.e no more western tracts).
+7. repeating zig-zag west/east movement (steps 3-6.1), southward until all tracts have been added to the list.
 8. using this geo-graph sorted list, use ration to divde list into two new district groups.
 9. proceed to dividing all divisible district groups by logitude.
 
