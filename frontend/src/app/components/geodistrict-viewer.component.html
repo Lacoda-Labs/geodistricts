@@ -63,7 +63,7 @@
           <span class="value">{{ algorithmResult.totalPopulation.toLocaleString() }}</span>
         </div>
         <div class="stat">
-          <span class="label">Average District Population:</span>
+          <span class="label">Target District Population:</span>
           <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
         </div>
         <div class="stat">
@@ -94,7 +94,12 @@
       <div class="step-controls">
         <button (click)="previousStep()" [disabled]="currentStepIndex <= 0">Previous</button>
         <span class="step-info">
-          Step {{ currentStepIndex + 1 }} of {{ algorithmResult.steps.length }}
+          <ng-container *ngIf="isInitialState(); else stepInfo">
+            Initial State ({{ algorithmResult.steps.length }} total)
+          </ng-container>
+          <ng-template #stepInfo>
+            Step {{ getDisplayStepNumber() }} of {{ getTotalDivisionSteps() }}
+          </ng-template>
         </span>
         <button (click)="nextStep()" [disabled]="currentStepIndex >= algorithmResult.steps.length - 1">Next</button>
       </div>
@@ -103,7 +108,7 @@
         <label for="stepSelect">Jump to Step:</label>
         <select id="stepSelect" [(ngModel)]="currentStepIndex" (change)="onStepChange()">
           <option *ngFor="let step of algorithmResult.steps; let i = index" [value]="i">
-            Step {{ i + 1 }}: {{ step.description }}
+            {{ getStepLabel(i) }}: {{ step.description }}
           </option>
         </select>
       </div>
@@ -225,48 +230,32 @@
         <div class="stat-card">
           <h4>Population Statistics</h4>
           <div class="stat-item">
-            <span class="label">Average Population:</span>
-            <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
+            <span class="label">Total Population:</span>
+            <span class="value">{{ algorithmResult.totalPopulation.toLocaleString() }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">Population Variance:</span>
-            <span class="value">{{ algorithmResult.populationVariance.toLocaleString() }}</span>
+            <span class="label">Number of District Seats:</span>
+            <span class="value">{{ getTotalDistrictSeats() }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">Standard Deviation:</span>
-            <span class="value">{{ getPopulationStdDev().toLocaleString() }}</span>
+            <span class="label">Number of Census Tracts:</span>
+            <span class="value">{{ getTotalTracts() }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">Min Population:</span>
-            <span class="value">{{ getMinPopulation().toLocaleString() }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="label">Max Population:</span>
-            <span class="value">{{ getMaxPopulation().toLocaleString() }}</span>
+            <span class="label">Average Tract Population:</span>
+            <span class="value">{{ getAverageTractPopulation().toLocaleString() }}</span>
           </div>
         </div>
         
         <div class="stat-card">
           <h4>District Statistics</h4>
           <div class="stat-item">
-            <span class="label">Total Districts:</span>
+            <span class="label">Total District Groups:</span>
             <span class="value">{{ algorithmResult.finalDistricts.length }}</span>
           </div>
           <div class="stat-item">
-            <span class="label">Total Tracts:</span>
-            <span class="value">{{ getTotalTracts() }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="label">Average Tracts per District:</span>
-            <span class="value">{{ getAverageTractsPerDistrict().toFixed(1) }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="label">Target Population per District:</span>
-            <span class="value">{{ algorithmResult.averagePopulation.toLocaleString() }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="label">Average Population Variance:</span>
-            <span class="value">{{ getAveragePopulationVariance().toFixed(2) }}%</span>
+            <span class="label">Target District Population:</span>
+            <span class="value">{{ getTargetDistrictPopulation().toLocaleString() }}</span>
           </div>
         </div>
       </div>
@@ -275,25 +264,27 @@
         <table class="districts-table">
           <thead>
             <tr>
-              <th>District</th>
+              <th>District Group</th>
               <th>Population</th>
-              <th>Tract Count</th>
+              <th>Target District Group Population</th>
+              <th>Population Difference</th>
               <th>Population Variance</th>
-              <th>Centroid</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let district of algorithmResult.finalDistricts; let i = index">
-              <td class="district-number">{{ i + 1 }}</td>
+              <td class="district-number">{{ i + 1 }}:({{ district.startDistrictNumber }}-{{ district.endDistrictNumber }})</td>
               <td class="population">{{ district.totalPopulation.toLocaleString() }}</td>
-              <td class="tract-count">{{ district.censusTracts.length }}</td>
-              <td class="population-variance" 
-                  [class.positive]="calculatePopulationVariance(district.totalPopulation) > 0"
-                  [class.negative]="calculatePopulationVariance(district.totalPopulation) < 0">
-                {{ calculatePopulationVariance(district.totalPopulation).toFixed(2) }}%
+              <td class="target-population">{{ getTargetDistrictGroupPopulation(district).toLocaleString() }}</td>
+              <td class="population-difference" 
+                  [class.positive]="getPopulationDifference(district) > 0"
+                  [class.negative]="getPopulationDifference(district) < 0">
+                {{ getPopulationDifference(district) > 0 ? '+' : '' }}{{ getPopulationDifference(district).toLocaleString() }}
               </td>
-              <td class="centroid">
-                ({{ district.centroid.lat.toFixed(4) }}, {{ district.centroid.lng.toFixed(4) }})
+              <td class="population-variance" 
+                  [class.positive]="calculatePopulationVarianceRatio(district) > 1"
+                  [class.negative]="calculatePopulationVarianceRatio(district) < 1">
+                {{ Math.round((calculatePopulationVarianceRatio(district) - 1) * 100) }}%
               </td>
             </tr>
           </tbody>

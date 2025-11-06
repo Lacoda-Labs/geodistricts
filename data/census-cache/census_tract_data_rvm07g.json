@@ -1,0 +1,92 @@
+[
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950100",
+    "name": "Census Tract 9501; Baxter County; Arkansas",
+    "population": 4681,
+    "medianHouseholdIncome": 46450,
+    "medianAge": 46
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950200",
+    "name": "Census Tract 9502; Baxter County; Arkansas",
+    "population": 4413,
+    "medianHouseholdIncome": 45769,
+    "medianAge": 47.8
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950300",
+    "name": "Census Tract 9503; Baxter County; Arkansas",
+    "population": 5191,
+    "medianHouseholdIncome": 39909,
+    "medianAge": 46.5
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950400",
+    "name": "Census Tract 9504; Baxter County; Arkansas",
+    "population": 3395,
+    "medianHouseholdIncome": 45606,
+    "medianAge": 49.4
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950500",
+    "name": "Census Tract 9505; Baxter County; Arkansas",
+    "population": 4952,
+    "medianHouseholdIncome": 48433,
+    "medianAge": 49.4
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950600",
+    "name": "Census Tract 9506; Baxter County; Arkansas",
+    "population": 3682,
+    "medianHouseholdIncome": 56396,
+    "medianAge": 59.3
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950700",
+    "name": "Census Tract 9507; Baxter County; Arkansas",
+    "population": 3246,
+    "medianHouseholdIncome": 48794,
+    "medianAge": 58
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950801",
+    "name": "Census Tract 9508.01; Baxter County; Arkansas",
+    "population": 4389,
+    "medianHouseholdIncome": 51096,
+    "medianAge": 60.9
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950802",
+    "name": "Census Tract 9508.02; Baxter County; Arkansas",
+    "population": 2073,
+    "medianHouseholdIncome": 51272,
+    "medianAge": 52
+  },
+  {
+    "state": "05",
+    "county": "005",
+    "tract": "950900",
+    "name": "Census Tract 9509; Baxter County; Arkansas",
+    "population": 5779,
+    "medianHouseholdIncome": 44308,
+    "medianAge": 48.1
+  }
+]

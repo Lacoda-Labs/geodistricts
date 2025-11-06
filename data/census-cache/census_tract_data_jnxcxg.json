@@ -1,0 +1,65 @@
+[
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950100",
+    "name": "Census Tract 9501; Columbia County; Arkansas",
+    "population": 4585,
+    "medianHouseholdIncome": 63333,
+    "medianAge": 31.7
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950200",
+    "name": "Census Tract 9502; Columbia County; Arkansas",
+    "population": 4058,
+    "medianHouseholdIncome": 39741,
+    "medianAge": 47.6
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Columbia County; Arkansas",
+    "population": 949,
+    "medianHouseholdIncome": 71250,
+    "medianAge": 60.4
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Columbia County; Arkansas",
+    "population": 3200,
+    "medianHouseholdIncome": 51528,
+    "medianAge": 49
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950401",
+    "name": "Census Tract 9504.01; Columbia County; Arkansas",
+    "population": 4433,
+    "medianHouseholdIncome": 58056,
+    "medianAge": 22.1
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950402",
+    "name": "Census Tract 9504.02; Columbia County; Arkansas",
+    "population": 2056,
+    "medianHouseholdIncome": 60208,
+    "medianAge": 29.4
+  },
+  {
+    "state": "05",
+    "county": "027",
+    "tract": "950500",
+    "name": "Census Tract 9505; Columbia County; Arkansas",
+    "population": 3426,
+    "medianHouseholdIncome": 17346,
+    "medianAge": 33
+  }
+]

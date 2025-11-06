@@ -1,0 +1,38 @@
+[
+  {
+    "state": "05",
+    "county": "065",
+    "tract": "960100",
+    "name": "Census Tract 9601; Izard County; Arkansas",
+    "population": 3206,
+    "medianHouseholdIncome": 38857,
+    "medianAge": 54.7
+  },
+  {
+    "state": "05",
+    "county": "065",
+    "tract": "960200",
+    "name": "Census Tract 9602; Izard County; Arkansas",
+    "population": 4704,
+    "medianHouseholdIncome": 53355,
+    "medianAge": 41.2
+  },
+  {
+    "state": "05",
+    "county": "065",
+    "tract": "960300",
+    "name": "Census Tract 9603; Izard County; Arkansas",
+    "population": 3098,
+    "medianHouseholdIncome": 43000,
+    "medianAge": 45.5
+  },
+  {
+    "state": "05",
+    "county": "065",
+    "tract": "960400",
+    "name": "Census Tract 9604; Izard County; Arkansas",
+    "population": 2740,
+    "medianHouseholdIncome": 51250,
+    "medianAge": 50
+  }
+]

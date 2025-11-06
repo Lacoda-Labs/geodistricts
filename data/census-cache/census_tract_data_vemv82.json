@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950100",
+    "name": "Census Tract 9501; Clay County; Arkansas",
+    "population": 1831,
+    "medianHouseholdIncome": 44097,
+    "medianAge": 51.5
+  },
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950200",
+    "name": "Census Tract 9502; Clay County; Arkansas",
+    "population": 2073,
+    "medianHouseholdIncome": 55203,
+    "medianAge": 48
+  },
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950300",
+    "name": "Census Tract 9503; Clay County; Arkansas",
+    "population": 1973,
+    "medianHouseholdIncome": 61985,
+    "medianAge": 47.5
+  },
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950400",
+    "name": "Census Tract 9504; Clay County; Arkansas",
+    "population": 3125,
+    "medianHouseholdIncome": 40898,
+    "medianAge": 40
+  },
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950500",
+    "name": "Census Tract 9505; Clay County; Arkansas",
+    "population": 1911,
+    "medianHouseholdIncome": 41728,
+    "medianAge": 42.1
+  },
+  {
+    "state": "05",
+    "county": "021",
+    "tract": "950600",
+    "name": "Census Tract 9506; Clay County; Arkansas",
+    "population": 3624,
+    "medianHouseholdIncome": 42917,
+    "medianAge": 38
+  }
+]

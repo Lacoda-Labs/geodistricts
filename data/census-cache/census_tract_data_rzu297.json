@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952301",
+    "name": "Census Tract 9523.01; Yell County; Arkansas",
+    "population": 2780,
+    "medianHouseholdIncome": 46750,
+    "medianAge": 41.8
+  },
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952302",
+    "name": "Census Tract 9523.02; Yell County; Arkansas",
+    "population": 2954,
+    "medianHouseholdIncome": 59666,
+    "medianAge": 38.2
+  },
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952401",
+    "name": "Census Tract 9524.01; Yell County; Arkansas",
+    "population": 2712,
+    "medianHouseholdIncome": 62964,
+    "medianAge": 38.1
+  },
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952402",
+    "name": "Census Tract 9524.02; Yell County; Arkansas",
+    "population": 5023,
+    "medianHouseholdIncome": 64815,
+    "medianAge": 38.5
+  },
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952500",
+    "name": "Census Tract 9525; Yell County; Arkansas",
+    "population": 4209,
+    "medianHouseholdIncome": 46429,
+    "medianAge": 36.6
+  },
+  {
+    "state": "05",
+    "county": "149",
+    "tract": "952600",
+    "name": "Census Tract 9526; Yell County; Arkansas",
+    "population": 2664,
+    "medianHouseholdIncome": 49067,
+    "medianAge": 47.2
+  }
+]

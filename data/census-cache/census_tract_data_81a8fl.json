@@ -1,0 +1,488 @@
+[
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010101",
+    "name": "Census Tract 101.01; Washington County; Arkansas",
+    "population": 4688,
+    "medianHouseholdIncome": 59063,
+    "medianAge": 37.9
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010107",
+    "name": "Census Tract 101.07; Washington County; Arkansas",
+    "population": 6473,
+    "medianHouseholdIncome": 94326,
+    "medianAge": 36.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010108",
+    "name": "Census Tract 101.08; Washington County; Arkansas",
+    "population": 5819,
+    "medianHouseholdIncome": 121865,
+    "medianAge": 43.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010109",
+    "name": "Census Tract 101.09; Washington County; Arkansas",
+    "population": 3149,
+    "medianHouseholdIncome": 93207,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010110",
+    "name": "Census Tract 101.10; Washington County; Arkansas",
+    "population": 4224,
+    "medianHouseholdIncome": 49545,
+    "medianAge": 35.6
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010111",
+    "name": "Census Tract 101.11; Washington County; Arkansas",
+    "population": 2134,
+    "medianHouseholdIncome": 73705,
+    "medianAge": 38.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010112",
+    "name": "Census Tract 101.12; Washington County; Arkansas",
+    "population": 2414,
+    "medianHouseholdIncome": 71422,
+    "medianAge": 41.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010113",
+    "name": "Census Tract 101.13; Washington County; Arkansas",
+    "population": 7748,
+    "medianHouseholdIncome": 82179,
+    "medianAge": 39
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010114",
+    "name": "Census Tract 101.14; Washington County; Arkansas",
+    "population": 3025,
+    "medianHouseholdIncome": 49202,
+    "medianAge": 33.9
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010115",
+    "name": "Census Tract 101.15; Washington County; Arkansas",
+    "population": 3740,
+    "medianHouseholdIncome": 106473,
+    "medianAge": 43.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010201",
+    "name": "Census Tract 102.01; Washington County; Arkansas",
+    "population": 3731,
+    "medianHouseholdIncome": 35250,
+    "medianAge": 27.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010202",
+    "name": "Census Tract 102.02; Washington County; Arkansas",
+    "population": 3166,
+    "medianHouseholdIncome": 50772,
+    "medianAge": 22.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010303",
+    "name": "Census Tract 103.03; Washington County; Arkansas",
+    "population": 6513,
+    "medianHouseholdIncome": 61429,
+    "medianAge": 34.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010304",
+    "name": "Census Tract 103.04; Washington County; Arkansas",
+    "population": 4775,
+    "medianHouseholdIncome": 46378,
+    "medianAge": 25.6
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010305",
+    "name": "Census Tract 103.05; Washington County; Arkansas",
+    "population": 6407,
+    "medianHouseholdIncome": 73077,
+    "medianAge": 32.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010306",
+    "name": "Census Tract 103.06; Washington County; Arkansas",
+    "population": 4351,
+    "medianHouseholdIncome": 59260,
+    "medianAge": 28.8
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010307",
+    "name": "Census Tract 103.07; Washington County; Arkansas",
+    "population": 5354,
+    "medianHouseholdIncome": 46536,
+    "medianAge": 25.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010401",
+    "name": "Census Tract 104.01; Washington County; Arkansas",
+    "population": 6279,
+    "medianHouseholdIncome": 58113,
+    "medianAge": 32.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010402",
+    "name": "Census Tract 104.02; Washington County; Arkansas",
+    "population": 5349,
+    "medianHouseholdIncome": 55809,
+    "medianAge": 29.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010404",
+    "name": "Census Tract 104.04; Washington County; Arkansas",
+    "population": 2638,
+    "medianHouseholdIncome": 25313,
+    "medianAge": 24.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010405",
+    "name": "Census Tract 104.05; Washington County; Arkansas",
+    "population": 5706,
+    "medianHouseholdIncome": 74271,
+    "medianAge": 37.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010501",
+    "name": "Census Tract 105.01; Washington County; Arkansas",
+    "population": 7265,
+    "medianHouseholdIncome": 93917,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010508",
+    "name": "Census Tract 105.08; Washington County; Arkansas",
+    "population": 6829,
+    "medianHouseholdIncome": 75932,
+    "medianAge": 35.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010510",
+    "name": "Census Tract 105.10; Washington County; Arkansas",
+    "population": 5064,
+    "medianHouseholdIncome": 73899,
+    "medianAge": 37.6
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010511",
+    "name": "Census Tract 105.11; Washington County; Arkansas",
+    "population": 5968,
+    "medianHouseholdIncome": 90929,
+    "medianAge": 35.9
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010512",
+    "name": "Census Tract 105.12; Washington County; Arkansas",
+    "population": 4522,
+    "medianHouseholdIncome": 50023,
+    "medianAge": 38.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010513",
+    "name": "Census Tract 105.13; Washington County; Arkansas",
+    "population": 3241,
+    "medianHouseholdIncome": 54404,
+    "medianAge": 35.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010514",
+    "name": "Census Tract 105.14; Washington County; Arkansas",
+    "population": 3570,
+    "medianHouseholdIncome": 69917,
+    "medianAge": 36.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010515",
+    "name": "Census Tract 105.15; Washington County; Arkansas",
+    "population": 6805,
+    "medianHouseholdIncome": 92047,
+    "medianAge": 37
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010516",
+    "name": "Census Tract 105.16; Washington County; Arkansas",
+    "population": 4417,
+    "medianHouseholdIncome": 68578,
+    "medianAge": 27.8
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010517",
+    "name": "Census Tract 105.17; Washington County; Arkansas",
+    "population": 5354,
+    "medianHouseholdIncome": 111944,
+    "medianAge": 32.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010518",
+    "name": "Census Tract 105.18; Washington County; Arkansas",
+    "population": 4255,
+    "medianHouseholdIncome": 94508,
+    "medianAge": 36.1
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010519",
+    "name": "Census Tract 105.19; Washington County; Arkansas",
+    "population": 4560,
+    "medianHouseholdIncome": 76679,
+    "medianAge": 33.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010520",
+    "name": "Census Tract 105.20; Washington County; Arkansas",
+    "population": 3860,
+    "medianHouseholdIncome": 97500,
+    "medianAge": 28
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010521",
+    "name": "Census Tract 105.21; Washington County; Arkansas",
+    "population": 3698,
+    "medianHouseholdIncome": 65273,
+    "medianAge": 26.6
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010601",
+    "name": "Census Tract 106.01; Washington County; Arkansas",
+    "population": 3238,
+    "medianHouseholdIncome": 37921,
+    "medianAge": 23.1
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010602",
+    "name": "Census Tract 106.02; Washington County; Arkansas",
+    "population": 4068,
+    "medianHouseholdIncome": 30208,
+    "medianAge": 28.3
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010703",
+    "name": "Census Tract 107.03; Washington County; Arkansas",
+    "population": 3086,
+    "medianHouseholdIncome": 28202,
+    "medianAge": 26.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010704",
+    "name": "Census Tract 107.04; Washington County; Arkansas",
+    "population": 4645,
+    "medianHouseholdIncome": 20399,
+    "medianAge": 22.6
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010705",
+    "name": "Census Tract 107.05; Washington County; Arkansas",
+    "population": 3708,
+    "medianHouseholdIncome": 54375,
+    "medianAge": 33.1
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "010706",
+    "name": "Census Tract 107.06; Washington County; Arkansas",
+    "population": 2164,
+    "medianHouseholdIncome": 51500,
+    "medianAge": 29.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011002",
+    "name": "Census Tract 110.02; Washington County; Arkansas",
+    "population": 5745,
+    "medianHouseholdIncome": 53942,
+    "medianAge": 39.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011003",
+    "name": "Census Tract 110.03; Washington County; Arkansas",
+    "population": 4853,
+    "medianHouseholdIncome": 71375,
+    "medianAge": 41.1
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011004",
+    "name": "Census Tract 110.04; Washington County; Arkansas",
+    "population": 4233,
+    "medianHouseholdIncome": 50000,
+    "medianAge": 47.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011005",
+    "name": "Census Tract 110.05; Washington County; Arkansas",
+    "population": 4239,
+    "medianHouseholdIncome": 72848,
+    "medianAge": 34.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011006",
+    "name": "Census Tract 110.06; Washington County; Arkansas",
+    "population": 6173,
+    "medianHouseholdIncome": 76000,
+    "medianAge": 37.4
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011103",
+    "name": "Census Tract 111.03; Washington County; Arkansas",
+    "population": 4275,
+    "medianHouseholdIncome": 62961,
+    "medianAge": 45.2
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011104",
+    "name": "Census Tract 111.04; Washington County; Arkansas",
+    "population": 3914,
+    "medianHouseholdIncome": 35176,
+    "medianAge": 23.5
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011105",
+    "name": "Census Tract 111.05; Washington County; Arkansas",
+    "population": 4768,
+    "medianHouseholdIncome": 43566,
+    "medianAge": 22.9
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011106",
+    "name": "Census Tract 111.06; Washington County; Arkansas",
+    "population": 3740,
+    "medianHouseholdIncome": 79375,
+    "medianAge": 35.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011107",
+    "name": "Census Tract 111.07; Washington County; Arkansas",
+    "population": 4997,
+    "medianHouseholdIncome": 57155,
+    "medianAge": 36.7
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011200",
+    "name": "Census Tract 112; Washington County; Arkansas",
+    "population": 2550,
+    "medianHouseholdIncome": 54271,
+    "medianAge": 38
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011301",
+    "name": "Census Tract 113.01; Washington County; Arkansas",
+    "population": 6551,
+    "medianHouseholdIncome": 28615,
+    "medianAge": 19.8
+  },
+  {
+    "state": "05",
+    "county": "143",
+    "tract": "011302",
+    "name": "Census Tract 113.02; Washington County; Arkansas",
+    "population": 3293,
+    "medianHouseholdIncome": 26161,
+    "medianAge": 27
+  }
+]

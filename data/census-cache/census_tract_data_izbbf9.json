@@ -1,0 +1,29 @@
+[
+  {
+    "state": "05",
+    "county": "105",
+    "tract": "952700",
+    "name": "Census Tract 9527; Perry County; Arkansas",
+    "population": 5317,
+    "medianHouseholdIncome": 63750,
+    "medianAge": 44.3
+  },
+  {
+    "state": "05",
+    "county": "105",
+    "tract": "952800",
+    "name": "Census Tract 9528; Perry County; Arkansas",
+    "population": 2986,
+    "medianHouseholdIncome": 45759,
+    "medianAge": 42.5
+  },
+  {
+    "state": "05",
+    "county": "105",
+    "tract": "952900",
+    "name": "Census Tract 9529; Perry County; Arkansas",
+    "population": 1752,
+    "medianHouseholdIncome": 59286,
+    "medianAge": 45.5
+  }
+]

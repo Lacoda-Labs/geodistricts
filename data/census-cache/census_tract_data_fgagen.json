@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "121",
+    "tract": "960100",
+    "name": "Census Tract 9601; Randolph County; Arkansas",
+    "population": 4223,
+    "medianHouseholdIncome": 50488,
+    "medianAge": 46.8
+  },
+  {
+    "state": "05",
+    "county": "121",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; Randolph County; Arkansas",
+    "population": 2144,
+    "medianHouseholdIncome": 41737,
+    "medianAge": 44
+  },
+  {
+    "state": "05",
+    "county": "121",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; Randolph County; Arkansas",
+    "population": 4103,
+    "medianHouseholdIncome": 52045,
+    "medianAge": 39
+  },
+  {
+    "state": "05",
+    "county": "121",
+    "tract": "960301",
+    "name": "Census Tract 9603.01; Randolph County; Arkansas",
+    "population": 4643,
+    "medianHouseholdIncome": 38513,
+    "medianAge": 36.8
+  },
+  {
+    "state": "05",
+    "county": "121",
+    "tract": "960302",
+    "name": "Census Tract 9603.02; Randolph County; Arkansas",
+    "population": 3506,
+    "medianHouseholdIncome": 38021,
+    "medianAge": 36.4
+  }
+]

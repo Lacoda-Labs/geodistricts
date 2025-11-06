@@ -1,0 +1,155 @@
+[
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "950700",
+    "name": "Census Tract 9507; Pope County; Arkansas",
+    "population": 4013,
+    "medianHouseholdIncome": 40754,
+    "medianAge": 47.5
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "950800",
+    "name": "Census Tract 9508; Pope County; Arkansas",
+    "population": 5087,
+    "medianHouseholdIncome": 78036,
+    "medianAge": 46.3
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "950901",
+    "name": "Census Tract 9509.01; Pope County; Arkansas",
+    "population": 3203,
+    "medianHouseholdIncome": 65529,
+    "medianAge": 42
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "950902",
+    "name": "Census Tract 9509.02; Pope County; Arkansas",
+    "population": 4065,
+    "medianHouseholdIncome": 37157,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951000",
+    "name": "Census Tract 9510; Pope County; Arkansas",
+    "population": 4179,
+    "medianHouseholdIncome": 48833,
+    "medianAge": 40.9
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951100",
+    "name": "Census Tract 9511; Pope County; Arkansas",
+    "population": 3628,
+    "medianHouseholdIncome": 55455,
+    "medianAge": 42.1
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951201",
+    "name": "Census Tract 9512.01; Pope County; Arkansas",
+    "population": 2992,
+    "medianHouseholdIncome": 77536,
+    "medianAge": 46
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951202",
+    "name": "Census Tract 9512.02; Pope County; Arkansas",
+    "population": 5117,
+    "medianHouseholdIncome": 60703,
+    "medianAge": 34.6
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951301",
+    "name": "Census Tract 9513.01; Pope County; Arkansas",
+    "population": 1133,
+    "medianHouseholdIncome": 45208,
+    "medianAge": 32.7
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951302",
+    "name": "Census Tract 9513.02; Pope County; Arkansas",
+    "population": 3360,
+    "medianHouseholdIncome": 37750,
+    "medianAge": 30.2
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951303",
+    "name": "Census Tract 9513.03; Pope County; Arkansas",
+    "population": 3072,
+    "medianHouseholdIncome": 64833,
+    "medianAge": 38
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951400",
+    "name": "Census Tract 9514; Pope County; Arkansas",
+    "population": 5275,
+    "medianHouseholdIncome": 35134,
+    "medianAge": 20.9
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951501",
+    "name": "Census Tract 9515.01; Pope County; Arkansas",
+    "population": 3530,
+    "medianHouseholdIncome": 92130,
+    "medianAge": 46.2
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951503",
+    "name": "Census Tract 9515.03; Pope County; Arkansas",
+    "population": 2738,
+    "medianHouseholdIncome": 50888,
+    "medianAge": 41.6
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951504",
+    "name": "Census Tract 9515.04; Pope County; Arkansas",
+    "population": 4844,
+    "medianHouseholdIncome": 48125,
+    "medianAge": 35.4
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951601",
+    "name": "Census Tract 9516.01; Pope County; Arkansas",
+    "population": 6038,
+    "medianHouseholdIncome": 40433,
+    "medianAge": 29.5
+  },
+  {
+    "state": "05",
+    "county": "115",
+    "tract": "951602",
+    "name": "Census Tract 9516.02; Pope County; Arkansas",
+    "population": 1201,
+    "medianHouseholdIncome": 51786,
+    "medianAge": 38.1
+  }
+]

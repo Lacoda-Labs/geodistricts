@@ -1,0 +1,83 @@
+[
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480100",
+    "name": "Census Tract 4801; Cleburne County; Arkansas",
+    "population": 3914,
+    "medianHouseholdIncome": 48938,
+    "medianAge": 50.3
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480201",
+    "name": "Census Tract 4802.01; Cleburne County; Arkansas",
+    "population": 1835,
+    "medianHouseholdIncome": 56063,
+    "medianAge": 56.7
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480203",
+    "name": "Census Tract 4802.03; Cleburne County; Arkansas",
+    "population": 1894,
+    "medianHouseholdIncome": 56406,
+    "medianAge": 54.6
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480204",
+    "name": "Census Tract 4802.04; Cleburne County; Arkansas",
+    "population": 926,
+    "medianHouseholdIncome": 57563,
+    "medianAge": 39.9
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480301",
+    "name": "Census Tract 4803.01; Cleburne County; Arkansas",
+    "population": 2019,
+    "medianHouseholdIncome": 58333,
+    "medianAge": 58.3
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480302",
+    "name": "Census Tract 4803.02; Cleburne County; Arkansas",
+    "population": 3119,
+    "medianHouseholdIncome": 59869,
+    "medianAge": 39.3
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480400",
+    "name": "Census Tract 4804; Cleburne County; Arkansas",
+    "population": 4705,
+    "medianHouseholdIncome": 50253,
+    "medianAge": 44.9
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480501",
+    "name": "Census Tract 4805.01; Cleburne County; Arkansas",
+    "population": 3120,
+    "medianHouseholdIncome": 49880,
+    "medianAge": 47.5
+  },
+  {
+    "state": "05",
+    "county": "023",
+    "tract": "480502",
+    "name": "Census Tract 4805.02; Cleburne County; Arkansas",
+    "population": 3416,
+    "medianHouseholdIncome": 49081,
+    "medianAge": 49.2
+  }
+]

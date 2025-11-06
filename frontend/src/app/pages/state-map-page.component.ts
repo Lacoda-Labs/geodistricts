@@ -1625,11 +1625,36 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Check if current step is the initial state (index 0)
+   */
+  isInitialState(): boolean {
+    return this.currentStep === 0;
+  }
+
+  /**
+   * Get display step number (0 for initial state, 1+ for actual divisions)
+   * Returns 0 for initial state, or the step index for divisions (which aligns with division number)
+   */
+  getDisplayStepNumber(): number {
+    return this.currentStep;
+  }
+
+  /**
+   * Get total number of steps (excluding initial state from count for display purposes)
+   * This represents the number of actual division steps
+   */
+  getTotalDivisionSteps(): number {
+    return Math.max(0, this.divisionSteps.length - 1);
+  }
+
+  /**
    * Get step progress percentage
    */
   getStepProgress(): number {
     if (this.divisionSteps.length === 0) return 0;
-    return ((this.currentStep + 1) / this.divisionSteps.length) * 100;
+    const totalSteps = Math.max(1, this.divisionSteps.length - 1); // Exclude initial state from total
+    if (this.currentStep === 0) return 0; // Initial state is 0% progress
+    return (this.currentStep / totalSteps) * 100;
   }
 
   /**
@@ -1641,7 +1666,9 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const step = this.getCurrentStep();
     if (!step) return;
 
-    console.log(`Rendering step ${this.currentStep + 1}/${this.divisionSteps.length}: ${step.description}`);
+    const displayStepNum = this.getDisplayStepNumber();
+    const stepLabel = displayStepNum === 0 ? 'Initial State' : `Step ${displayStepNum}`;
+    console.log(`Rendering ${stepLabel}/${this.divisionSteps.length}: ${step.description}`);
 
     // Clear existing layers
     this.tractLayer.clearLayers();
@@ -1664,7 +1691,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
             fillColor: color
           }
         }).bindPopup(`
-          <strong>Step ${this.currentStep + 1}: Group ${group.id}</strong><br>
+          <strong>${this.getDisplayStepNumber() === 0 ? 'Initial State' : `Step ${this.getDisplayStepNumber()}`}: Group ${group.id}</strong><br>
           <strong>Census Tract ${tract.properties.TRACT || tract.properties.TRACT_FIPS}</strong><br>
           State: ${tract.properties.STATE_ABBR || tract.properties.STATE_FIPS}<br>
           Population: ${tract.properties.POPULATION?.toLocaleString() || 'N/A'}<br>

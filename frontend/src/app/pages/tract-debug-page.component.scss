@@ -1,0 +1,406 @@
+.tract-debug-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+  color: white;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.header p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.controls {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.control-group {
+  margin-bottom: 15px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #333;
+}
+
+.control-group select, .control-group input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.control-group select {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.step-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.step-controls button {
+  padding: 10px 15px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.step-controls button:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.step-controls button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.step-info {
+  background: #f0f8ff;
+  padding: 10px;
+  border-radius: 5px;
+  border-left: 4px solid #2196F3;
+  font-size: 13px;
+}
+
+.step-info strong {
+  color: #1976D2;
+}
+
+.district-info {
+  margin-top: 8px;
+  padding: 8px;
+  background: #e8f5e8;
+  border-radius: 4px;
+  border-left: 3px solid #4CAF50;
+}
+
+.district-group {
+  font-size: 12px;
+  margin: 2px 0;
+  color: #2e7d32;
+}
+
+.control-group button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+}
+
+.control-group button:hover:not(:disabled) {
+  background: #5a6fd8;
+}
+
+.control-group button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.algorithm-description {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+.results {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.summary h2 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 5px;
+}
+
+.stat .label {
+  font-weight: 600;
+  color: #555;
+}
+
+.stat .value {
+  color: #333;
+  font-weight: 500;
+}
+
+.map-section {
+  margin: 30px 0;
+}
+
+.map-section h3 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.map-container {
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.state-map {
+  height: 500px;
+  width: 100%;
+}
+
+.tract-navigation {
+  margin-top: 30px;
+}
+
+.tract-navigation h3 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.tract-visualization {
+  margin-bottom: 20px;
+}
+
+.tract-dots-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tract-dot {
+  width: 6px;
+  height: 6px;
+  background: #6c757d;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #fff;
+}
+
+.tract-dot:hover {
+  transform: scale(1.2);
+  border: 2px solid #333;
+}
+
+.tract-dot.selected {
+  background: #dc3545 !important;
+  transform: scale(1.3);
+  // border: 2px solid #fff;
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+}
+
+.tract-dot.adjacent {
+  background: #ffc107 !important;
+  border: 1px solid #333;
+}
+
+.tract-navigation-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.tract-navigation-controls button {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tract-navigation-controls button:hover:not(:disabled) {
+  background: #218838;
+}
+
+.tract-navigation-controls button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.tract-info {
+  font-weight: 600;
+  color: #333;
+}
+
+.current-tract-info {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.current-tract-info h4 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.tract-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tract-detail {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.tract-detail .label {
+  font-weight: 600;
+  color: #555;
+}
+
+.adjacent-tracts {
+  margin-top: 20px;
+}
+
+.adjacent-tracts h5 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.adjacent-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.adjacent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.adjacent-direction {
+  font-weight: 700;
+  color: #d63384;
+  background: #f8d7da;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.adjacent-id {
+  font-weight: 600;
+  color: #856404;
+  flex: 1;
+}
+
+.adjacent-pop {
+  color: #856404;
+  min-width: 80px;
+  text-align: right;
+}
+
+.adjacent-centroid {
+  color: #856404;
+  font-family: monospace;
+  min-width: 120px;
+  text-align: right;
+}
+
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  margin-bottom: 20px;
+}
+
+.error h3 {
+  margin-top: 0;
+}
+
+.error button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: white;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 4px solid white;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

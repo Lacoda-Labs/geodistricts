@@ -1,0 +1,74 @@
+[
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480100",
+    "name": "Census Tract 4801; Arkansas County; Arkansas",
+    "population": 1253,
+    "medianHouseholdIncome": 58710,
+    "medianAge": 46.1
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480200",
+    "name": "Census Tract 4802; Arkansas County; Arkansas",
+    "population": 1299,
+    "medianHouseholdIncome": 73849,
+    "medianAge": 39.3
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480300",
+    "name": "Census Tract 4803; Arkansas County; Arkansas",
+    "population": 2885,
+    "medianHouseholdIncome": 64886,
+    "medianAge": 36.8
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480400",
+    "name": "Census Tract 4804; Arkansas County; Arkansas",
+    "population": 2151,
+    "medianHouseholdIncome": 22875,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480500",
+    "name": "Census Tract 4805; Arkansas County; Arkansas",
+    "population": 3597,
+    "medianHouseholdIncome": 71392,
+    "medianAge": 37.4
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480600",
+    "name": "Census Tract 4806; Arkansas County; Arkansas",
+    "population": 1900,
+    "medianHouseholdIncome": 69679,
+    "medianAge": 43.9
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480700",
+    "name": "Census Tract 4807; Arkansas County; Arkansas",
+    "population": 2790,
+    "medianHouseholdIncome": 46574,
+    "medianAge": 44.9
+  },
+  {
+    "state": "05",
+    "county": "001",
+    "tract": "480800",
+    "name": "Census Tract 4808; Arkansas County; Arkansas",
+    "population": 1149,
+    "medianHouseholdIncome": 71442,
+    "medianAge": 51.5
+  }
+]

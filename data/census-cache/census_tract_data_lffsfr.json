@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953601",
+    "name": "Census Tract 9536.01; Clark County; Arkansas",
+    "population": 5007,
+    "medianHouseholdIncome": 37205,
+    "medianAge": 24.5
+  },
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953602",
+    "name": "Census Tract 9536.02; Clark County; Arkansas",
+    "population": 4208,
+    "medianHouseholdIncome": 66850,
+    "medianAge": 21.6
+  },
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953700",
+    "name": "Census Tract 9537; Clark County; Arkansas",
+    "population": 3946,
+    "medianHouseholdIncome": 45478,
+    "medianAge": 43.1
+  },
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953800",
+    "name": "Census Tract 9538; Clark County; Arkansas",
+    "population": 3358,
+    "medianHouseholdIncome": 40163,
+    "medianAge": 31.9
+  },
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953901",
+    "name": "Census Tract 9539.01; Clark County; Arkansas",
+    "population": 1793,
+    "medianHouseholdIncome": 75455,
+    "medianAge": 54
+  },
+  {
+    "state": "05",
+    "county": "019",
+    "tract": "953902",
+    "name": "Census Tract 9539.02; Clark County; Arkansas",
+    "population": 3157,
+    "medianHouseholdIncome": 49958,
+    "medianAge": 39
+  }
+]

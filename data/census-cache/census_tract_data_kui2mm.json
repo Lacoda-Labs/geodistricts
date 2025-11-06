@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "047",
+    "tract": "950100",
+    "name": "Census Tract 9501; Franklin County; Arkansas",
+    "population": 3253,
+    "medianHouseholdIncome": 62949,
+    "medianAge": 46.4
+  },
+  {
+    "state": "05",
+    "county": "047",
+    "tract": "950201",
+    "name": "Census Tract 9502.01; Franklin County; Arkansas",
+    "population": 3473,
+    "medianHouseholdIncome": 39628,
+    "medianAge": 41.5
+  },
+  {
+    "state": "05",
+    "county": "047",
+    "tract": "950202",
+    "name": "Census Tract 9502.02; Franklin County; Arkansas",
+    "population": 3572,
+    "medianHouseholdIncome": 40425,
+    "medianAge": 34.1
+  },
+  {
+    "state": "05",
+    "county": "047",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Franklin County; Arkansas",
+    "population": 3776,
+    "medianHouseholdIncome": 39428,
+    "medianAge": 52
+  },
+  {
+    "state": "05",
+    "county": "047",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Franklin County; Arkansas",
+    "population": 3086,
+    "medianHouseholdIncome": 61563,
+    "medianAge": 39.8
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490100",
+    "name": "Census Tract 4901; Poinsett County; Arkansas",
+    "population": 3646,
+    "medianHouseholdIncome": 43909,
+    "medianAge": 46.2
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490200",
+    "name": "Census Tract 4902; Poinsett County; Arkansas",
+    "population": 1433,
+    "medianHouseholdIncome": 48480,
+    "medianAge": 40.3
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490300",
+    "name": "Census Tract 4903; Poinsett County; Arkansas",
+    "population": 2994,
+    "medianHouseholdIncome": 22537,
+    "medianAge": 41.7
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490400",
+    "name": "Census Tract 4904; Poinsett County; Arkansas",
+    "population": 4643,
+    "medianHouseholdIncome": 56605,
+    "medianAge": 36.4
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490501",
+    "name": "Census Tract 4905.01; Poinsett County; Arkansas",
+    "population": 3048,
+    "medianHouseholdIncome": 50833,
+    "medianAge": 36.6
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490502",
+    "name": "Census Tract 4905.02; Poinsett County; Arkansas",
+    "population": 3579,
+    "medianHouseholdIncome": 55240,
+    "medianAge": 38.5
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490600",
+    "name": "Census Tract 4906; Poinsett County; Arkansas",
+    "population": 1446,
+    "medianHouseholdIncome": 50833,
+    "medianAge": 36.4
+  },
+  {
+    "state": "05",
+    "county": "111",
+    "tract": "490700",
+    "name": "Census Tract 4907; Poinsett County; Arkansas",
+    "population": 2208,
+    "medianHouseholdIncome": 33750,
+    "medianAge": 38.8
+  }
+]

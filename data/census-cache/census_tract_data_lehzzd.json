@@ -1,0 +1,128 @@
+[
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010100",
+    "name": "Census Tract 101; Mississippi County; Arkansas",
+    "population": 1559,
+    "medianHouseholdIncome": 28160,
+    "medianAge": 30.4
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010200",
+    "name": "Census Tract 102; Mississippi County; Arkansas",
+    "population": 4591,
+    "medianHouseholdIncome": 43239,
+    "medianAge": 43.7
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010300",
+    "name": "Census Tract 103; Mississippi County; Arkansas",
+    "population": 2726,
+    "medianHouseholdIncome": 29868,
+    "medianAge": 36.3
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010601",
+    "name": "Census Tract 106.01; Mississippi County; Arkansas",
+    "population": 4373,
+    "medianHouseholdIncome": 60347,
+    "medianAge": 37.3
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010602",
+    "name": "Census Tract 106.02; Mississippi County; Arkansas",
+    "population": 1682,
+    "medianHouseholdIncome": 46336,
+    "medianAge": 31.6
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010700",
+    "name": "Census Tract 107; Mississippi County; Arkansas",
+    "population": 4064,
+    "medianHouseholdIncome": 82250,
+    "medianAge": 41.2
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010801",
+    "name": "Census Tract 108.01; Mississippi County; Arkansas",
+    "population": 3291,
+    "medianHouseholdIncome": 52163,
+    "medianAge": 40.4
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010802",
+    "name": "Census Tract 108.02; Mississippi County; Arkansas",
+    "population": 3329,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 32.2
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "010900",
+    "name": "Census Tract 109; Mississippi County; Arkansas",
+    "population": 2277,
+    "medianHouseholdIncome": 31667,
+    "medianAge": 38.4
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "011000",
+    "name": "Census Tract 110; Mississippi County; Arkansas",
+    "population": 3459,
+    "medianHouseholdIncome": 32760,
+    "medianAge": 32.7
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "011100",
+    "name": "Census Tract 111; Mississippi County; Arkansas",
+    "population": 3452,
+    "medianHouseholdIncome": 54973,
+    "medianAge": 33
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "011200",
+    "name": "Census Tract 112; Mississippi County; Arkansas",
+    "population": 2080,
+    "medianHouseholdIncome": 60096,
+    "medianAge": 35
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "011300",
+    "name": "Census Tract 113; Mississippi County; Arkansas",
+    "population": 1686,
+    "medianHouseholdIncome": 37163,
+    "medianAge": 38.7
+  },
+  {
+    "state": "05",
+    "county": "093",
+    "tract": "011400",
+    "name": "Census Tract 114; Mississippi County; Arkansas",
+    "population": 1792,
+    "medianHouseholdIncome": 55616,
+    "medianAge": 42.3
+  }
+]

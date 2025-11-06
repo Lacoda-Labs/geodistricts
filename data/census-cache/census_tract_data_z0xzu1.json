@@ -1,0 +1,65 @@
+[
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480100",
+    "name": "Census Tract 4801; Phillips County; Arkansas",
+    "population": 2710,
+    "medianHouseholdIncome": 42917,
+    "medianAge": 47.4
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480201",
+    "name": "Census Tract 4802.01; Phillips County; Arkansas",
+    "population": 2211,
+    "medianHouseholdIncome": 53750,
+    "medianAge": 43.3
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480202",
+    "name": "Census Tract 4802.02; Phillips County; Arkansas",
+    "population": 2046,
+    "medianHouseholdIncome": 64746,
+    "medianAge": 39.4
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480300",
+    "name": "Census Tract 4803; Phillips County; Arkansas",
+    "population": 4914,
+    "medianHouseholdIncome": 30490,
+    "medianAge": 28.6
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480400",
+    "name": "Census Tract 4804; Phillips County; Arkansas",
+    "population": 1480,
+    "medianHouseholdIncome": 19917,
+    "medianAge": 43.7
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480500",
+    "name": "Census Tract 4805; Phillips County; Arkansas",
+    "population": 1697,
+    "medianHouseholdIncome": 24589,
+    "medianAge": 35.8
+  },
+  {
+    "state": "05",
+    "county": "107",
+    "tract": "480600",
+    "name": "Census Tract 4806; Phillips County; Arkansas",
+    "population": 1315,
+    "medianHouseholdIncome": 40000,
+    "medianAge": 52.4
+  }
+]

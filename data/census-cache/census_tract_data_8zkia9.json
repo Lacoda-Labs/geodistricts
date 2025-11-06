@@ -1,0 +1,173 @@
+[
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070100",
+    "name": "Census Tract 701; White County; Arkansas",
+    "population": 3489,
+    "medianHouseholdIncome": 35197,
+    "medianAge": 41.4
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070200",
+    "name": "Census Tract 702; White County; Arkansas",
+    "population": 5416,
+    "medianHouseholdIncome": 46708,
+    "medianAge": 38.3
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070300",
+    "name": "Census Tract 703; White County; Arkansas",
+    "population": 5393,
+    "medianHouseholdIncome": 58618,
+    "medianAge": 39.1
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070401",
+    "name": "Census Tract 704.01; White County; Arkansas",
+    "population": 5074,
+    "medianHouseholdIncome": 63631,
+    "medianAge": 34.1
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070402",
+    "name": "Census Tract 704.02; White County; Arkansas",
+    "population": 4397,
+    "medianHouseholdIncome": 38438,
+    "medianAge": 30.1
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070501",
+    "name": "Census Tract 705.01; White County; Arkansas",
+    "population": 3856,
+    "medianHouseholdIncome": 56019,
+    "medianAge": 43.5
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070502",
+    "name": "Census Tract 705.02; White County; Arkansas",
+    "population": 2681,
+    "medianHouseholdIncome": 40236,
+    "medianAge": 39.8
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070600",
+    "name": "Census Tract 706; White County; Arkansas",
+    "population": 3706,
+    "medianHouseholdIncome": 48452,
+    "medianAge": 38.3
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070700",
+    "name": "Census Tract 707; White County; Arkansas",
+    "population": 3583,
+    "medianHouseholdIncome": 51821,
+    "medianAge": 53.4
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070801",
+    "name": "Census Tract 708.01; White County; Arkansas",
+    "population": 3830,
+    "medianHouseholdIncome": 29322,
+    "medianAge": 20.1
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070802",
+    "name": "Census Tract 708.02; White County; Arkansas",
+    "population": 2629,
+    "medianHouseholdIncome": 35139,
+    "medianAge": 26.3
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070901",
+    "name": "Census Tract 709.01; White County; Arkansas",
+    "population": 4373,
+    "medianHouseholdIncome": 66151,
+    "medianAge": 40.2
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "070902",
+    "name": "Census Tract 709.02; White County; Arkansas",
+    "population": 4377,
+    "medianHouseholdIncome": 87148,
+    "medianAge": 45.3
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071001",
+    "name": "Census Tract 710.01; White County; Arkansas",
+    "population": 3283,
+    "medianHouseholdIncome": 59014,
+    "medianAge": 50.6
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071002",
+    "name": "Census Tract 710.02; White County; Arkansas",
+    "population": 4114,
+    "medianHouseholdIncome": 72983,
+    "medianAge": 47.8
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071101",
+    "name": "Census Tract 711.01; White County; Arkansas",
+    "population": 3523,
+    "medianHouseholdIncome": 26970,
+    "medianAge": 44.6
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071102",
+    "name": "Census Tract 711.02; White County; Arkansas",
+    "population": 2914,
+    "medianHouseholdIncome": 41500,
+    "medianAge": 37.5
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071201",
+    "name": "Census Tract 712.01; White County; Arkansas",
+    "population": 4995,
+    "medianHouseholdIncome": 75488,
+    "medianAge": 34.8
+  },
+  {
+    "state": "05",
+    "county": "145",
+    "tract": "071202",
+    "name": "Census Tract 712.02; White County; Arkansas",
+    "population": 5485,
+    "medianHouseholdIncome": 44783,
+    "medianAge": 36
+  }
+]

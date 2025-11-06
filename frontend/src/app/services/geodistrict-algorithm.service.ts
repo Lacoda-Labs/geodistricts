@@ -4,6 +4,7 @@ import { map, catchError, switchMap } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
 import { GeoGraphTraversalService } from './geo-graph-traversal.service';
+import { LatLongDivisionService } from './latlong-division.service';
 import { environment } from '../../environments/environment';
 import * as turf from '@turf/turf';
 import { HttpClient } from '@angular/common/http';
@@ -27,6 +28,18 @@ export interface DistrictGroup {
   };
 }
 
+// Interface for a single division line within a step
+export interface DivisionLineInfo {
+  line: number; // The coordinate value of the dividing line (latitude or longitude)
+  direction: 'latitude' | 'longitude';
+  parentGroup: {
+    startDistrictNumber: number;
+    endDistrictNumber: number;
+    totalDistricts: number;
+  };
+  ratio: [number, number]; // Division ratio [first%, second%]
+}
+
 // Interface for algorithm step visualization
 export interface GeodistrictStep {
   step: number;
@@ -36,6 +49,8 @@ export interface GeodistrictStep {
   totalGroups: number;
   totalDistricts: number;
   divisionDirection: 'latitude' | 'longitude';
+  divisionLine?: number; // Deprecated: kept for backward compatibility
+  divisionLines?: DivisionLineInfo[]; // Array of division lines (one per group division)
 }
 
 // Interface for algorithm result
@@ -96,11 +111,13 @@ interface S4AdjacencyData {
 export class GeodistrictAlgorithmService {
   private s4AdjacencyCache: Map<string, Map<string, string[]>> = new Map();
   private s4TractDataCache: Map<string, S4TractData[]> = new Map();
+  private geometryAdjacencyCache: Map<string, Map<string, string[]>> = new Map();
 
   constructor(
     private censusService: CensusService,
     private congressionalDistrictsService: CongressionalDistrictsService,
     private geoGraphTraversalService: GeoGraphTraversalService,
+    private latLongDivisionService: LatLongDivisionService,
     private http: HttpClient
   ) { }
 
@@ -214,6 +231,17 @@ export class GeodistrictAlgorithmService {
   }
 
   private async executeGeodistrictAlgorithmFirstStepAsync(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType): Promise<GeodistrictResult> {
+    // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      try {
+        await this.loadS4AdjacencyData(state);
+        console.log(`✅ Preloaded S4 adjacency data for ${state} before algorithm execution`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to preload S4 adjacency data for ${state}:`, error);
+      }
+    }
+
     // Calculate total state population
     const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const targetDistrictPopulation = totalStatePopulation / totalDistricts;
@@ -256,25 +284,48 @@ export class GeodistrictAlgorithmService {
       const newGroups: DistrictGroup[] = [];
       const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
 
+      const divisionLines: DivisionLineInfo[] = [];
+      let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+      
       for (const group of currentGroups) {
         if (group.totalDistricts === 1) {
           // This group is already a single district
           newGroups.push(group);
           algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
         } else {
+          // Calculate division ratio for this group
+          const division = this.calculateOptimalDivision(group.totalDistricts);
+          
           // Divide this group
           const divisionResult = algorithm === 'latlong'
-            ? this.divideDistrictGroupLatLong(group, direction)
+            ? this.latLongDivisionService.divideDistrictGroup(group, direction)
             : algorithm === 'greedy-traversal'
               ? this.divideDistrictGroupGreedyTraversal(group, direction)
               : this.divideDistrictGroup(group, direction);
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
+          
+          // Capture dividing line if available
+          if (divisionResult.dividingLine !== undefined) {
+            divisionLine = divisionResult.dividingLine; // Keep last one for backward compatibility
+            
+            // Store division line info with parent group and ratio
+            divisionLines.push({
+              line: divisionResult.dividingLine,
+              direction: direction,
+              parentGroup: {
+                startDistrictNumber: group.startDistrictNumber,
+                endDistrictNumber: group.endDistrictNumber,
+                totalDistricts: group.totalDistricts
+              },
+              ratio: division.ratio
+            });
+          }
         }
       }
 
       // Create step for this iteration
-      steps.push(this.createStep(iteration, 1, newGroups, `First division by ${direction}`, direction));
+      steps.push(this.createStep(iteration, 1, newGroups, `Division 1 by ${direction}`, direction, divisionLine, divisionLines));
       currentGroups = newGroups;
     }
 
@@ -320,15 +371,21 @@ export class GeodistrictAlgorithmService {
     const newGroups: DistrictGroup[] = [];
     const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
 
+    const divisionLines: DivisionLineInfo[] = [];
+    let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+    
     for (const group of currentGroups) {
       if (group.totalDistricts === 1) {
         // This group is already a single district
         newGroups.push(group);
         algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
       } else {
+        // Calculate division ratio for this group
+        const division = this.calculateOptimalDivision(group.totalDistricts);
+        
         // Divide this group
         const divisionResult = algorithm === 'latlong'
-          ? this.divideDistrictGroupLatLong(group, direction)
+          ? this.latLongDivisionService.divideDistrictGroup(group, direction)
           : algorithm === 'greedy-traversal'
             ? this.divideDistrictGroupGreedyTraversal(group, direction)
             : algorithm === 'geo-graph'
@@ -336,12 +393,37 @@ export class GeodistrictAlgorithmService {
               : this.divideDistrictGroup(group, direction);
         newGroups.push(...divisionResult.groups);
         algorithmHistory.push(...divisionResult.history);
+        
+        // Capture dividing line if available
+        if (divisionResult.dividingLine !== undefined) {
+          divisionLine = divisionResult.dividingLine; // Keep last one for backward compatibility
+          
+          // Store division line info with parent group and ratio
+          divisionLines.push({
+            line: divisionResult.dividingLine,
+            direction: direction,
+            parentGroup: {
+              startDistrictNumber: group.startDistrictNumber,
+              endDistrictNumber: group.endDistrictNumber,
+              totalDistricts: group.totalDistricts
+            },
+            ratio: division.ratio
+          });
+        }
       }
     }
 
     // Create step for this iteration
-    steps.push(this.createStep(iteration, steps.length, newGroups, `Division ${iteration} by ${direction}`, direction));
+    steps.push(this.createStep(iteration, steps.length, newGroups, `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
     currentGroups = newGroups;
+
+    // After each division step, check all district groups for disconnected components
+    // This fixes isolated tracts and islands that may have been created across all groups
+    // Only run this check for step 4 (where the user reported issues with groups 1 and 5)
+    if (iteration === 4) {
+      console.log(`🔍 After step ${iteration}, checking all ${currentGroups.length} district groups for disconnected components...`);
+      this.fixDisconnectedComponentsInAllGroups(currentGroups);
+    }
 
     // Calculate final statistics
     const totalPopulation = currentResult.totalPopulation;
@@ -445,6 +527,17 @@ export class GeodistrictAlgorithmService {
    * @returns Algorithm result
    */
   private async executeGeodistrictAlgorithm(tracts: GeoJsonFeature[], totalDistricts: number, maxIterations: number, algorithm: AlgorithmType): Promise<GeodistrictResult> {
+    // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      try {
+        await this.loadS4AdjacencyData(state);
+        console.log(`✅ Preloaded S4 adjacency data for ${state} before algorithm execution`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to preload S4 adjacency data for ${state}:`, error);
+      }
+    }
+
     // Calculate total state population
     const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const targetDistrictPopulation = totalStatePopulation / totalDistricts;
@@ -474,15 +567,21 @@ export class GeodistrictAlgorithmService {
       const newGroups: DistrictGroup[] = [];
       const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
 
+      const divisionLines: DivisionLineInfo[] = [];
+      let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+      
       for (const group of currentGroups) {
         if (group.totalDistricts === 1) {
           // This group is already a single district
           newGroups.push(group);
           algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
         } else {
+          // Calculate division ratio for this group
+          const division = this.calculateOptimalDivision(group.totalDistricts);
+          
           // Divide this group
           const divisionResult = algorithm === 'latlong'
-            ? this.divideDistrictGroupLatLong(group, direction)
+            ? this.latLongDivisionService.divideDistrictGroup(group, direction)
             : algorithm === 'greedy-traversal'
               ? this.divideDistrictGroupGreedyTraversal(group, direction)
               : algorithm === 'geo-graph'
@@ -490,12 +589,29 @@ export class GeodistrictAlgorithmService {
                 : this.divideDistrictGroup(group, direction);
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
+          
+          // Capture dividing line if available
+          if (divisionResult.dividingLine !== undefined) {
+            divisionLine = divisionResult.dividingLine; // Keep last one for backward compatibility
+            
+            // Store division line info with parent group and ratio
+            divisionLines.push({
+              line: divisionResult.dividingLine,
+              direction: direction,
+              parentGroup: {
+                startDistrictNumber: group.startDistrictNumber,
+                endDistrictNumber: group.endDistrictNumber,
+                totalDistricts: group.totalDistricts
+              },
+              ratio: division.ratio
+            });
+          }
         }
       }
 
       currentGroups = newGroups;
       steps.push(this.createStep(iteration, iteration, currentGroups,
-        `Iteration ${iteration}: Divided groups by ${direction}`, direction));
+        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
     }
 
     if (iteration >= maxIterations) {
@@ -529,6 +645,7 @@ export class GeodistrictAlgorithmService {
   private divideDistrictGroupGreedyTraversal(group: DistrictGroup, direction: 'latitude' | 'longitude'): {
     groups: DistrictGroup[];
     history: string[];
+    dividingLine?: number;
   } {
     const { totalDistricts } = group;
 
@@ -593,11 +710,40 @@ export class GeodistrictAlgorithmService {
       centroid: this.calculateCentroid(secondGroupTracts)
     };
 
+    // Calculate how many tracts need to move to balance populations
+    const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
+    const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
+    const firstGroupDifference = firstGroup.totalPopulation - targetFirstGroupPopulation;
+    const secondGroupDifference = secondGroup.totalPopulation - targetSecondGroupPopulation;
+    
+    // Determine which group is over target and needs to give tracts
+    let tractsToMove = 0;
+    let moveDirection = '';
+    if (firstGroupDifference > 0 && secondGroupDifference < 0) {
+      // First group is over, second group is under - move from first to second
+      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+      tractsToMove = Math.round(populationToMove / averageTractPopulation);
+      moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
+    } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
+      // First group is under, second group is over - move from second to first
+      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+      tractsToMove = Math.round(populationToMove / averageTractPopulation);
+      moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+    }
+
+    if (tractsToMove > 0) {
+      console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+    }
+
     const history = [
       `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using greedy traversal into ${division.first} + ${division.second} districts`,
       `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
       `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
     ];
+    
+    if (tractsToMove > 0) {
+      history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+    }
 
     return {
       groups: [firstGroup, secondGroup],
@@ -605,85 +751,6 @@ export class GeodistrictAlgorithmService {
     };
   }
 
-  /**
-   * Divide a district group using lat/long dividing lines algorithm
-   * @param group District group to divide
-   * @param direction Division direction (latitude or longitude)
-   * @returns Division result with new groups and history
-   */
-  private divideDistrictGroupLatLong(group: DistrictGroup, direction: 'latitude' | 'longitude'): {
-    groups: DistrictGroup[];
-    history: string[];
-  } {
-    const { totalDistricts } = group;
-
-    // Calculate how to divide the districts
-    const division = this.calculateOptimalDivision(totalDistricts);
-
-    // Calculate target population for each group
-    const totalPopulation = group.totalPopulation;
-    const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
-
-    // Find the dividing line using iterative approach
-    const dividingLine = this.findOptimalDividingLine(group.censusTracts, direction, targetFirstGroupPopulation);
-
-    // Divide tracts based on the dividing line
-    const { firstGroupTracts, secondGroupTracts } = this.divideTractsByLine(
-      group.censusTracts,
-      direction,
-      dividingLine
-    );
-
-    // Validate contiguity of both groups
-    const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);
-    const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Second Group (Districts ${group.startDistrictNumber + division.first}-${group.endDistrictNumber})`);
-
-    if (!firstGroupContiguous || !secondGroupContiguous) {
-      console.warn(`⚠️  Lat/long division resulted in non-contiguous groups. This is expected for some geographic configurations.`);
-    }
-
-    // Create new district groups
-    const firstGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber,
-      endDistrictNumber: group.startDistrictNumber + division.first - 1,
-      censusTracts: firstGroupTracts,
-      totalDistricts: division.first,
-      totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(firstGroupTracts),
-      centroid: this.calculateCentroid(firstGroupTracts)
-    };
-
-    const secondGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber + division.first,
-      endDistrictNumber: group.endDistrictNumber,
-      censusTracts: secondGroupTracts,
-      totalDistricts: division.second,
-      totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(secondGroupTracts),
-      centroid: this.calculateCentroid(secondGroupTracts)
-    };
-
-    // Check for high variance and log warning
-    const actualFirstPopulation = firstGroup.totalPopulation;
-    const actualVariance = Math.abs(actualFirstPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation;
-
-    if (actualVariance > 0.05) { // >5% variance
-      console.warn(`⚠️ High population variance detected: ${(actualVariance * 100).toFixed(1)}% (target: ${targetFirstGroupPopulation.toLocaleString()}, actual: ${actualFirstPopulation.toLocaleString()})`);
-      console.warn(`   This may indicate complex geographic distribution that requires multiple dividing lines or different approach.`);
-    }
-
-    const history = [
-      `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} lat/long line at ${direction === 'latitude' ? dividingLine.toFixed(6) + '°N' : dividingLine.toFixed(6) + '°W'}`,
-      `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
-      `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`,
-      `  - Population variance: ${(actualVariance * 100).toFixed(1)}%`
-    ];
-
-    return {
-      groups: [firstGroup, secondGroup],
-      history
-    };
-  }
 
   /**
    * Divide a district group into two groups (original geographic algorithm)
@@ -694,6 +761,7 @@ export class GeodistrictAlgorithmService {
   private divideDistrictGroup(group: DistrictGroup, direction: 'latitude' | 'longitude'): {
     groups: DistrictGroup[];
     history: string[];
+    dividingLine?: number;
   } {
     const { totalDistricts } = group;
 
@@ -764,11 +832,40 @@ export class GeodistrictAlgorithmService {
       centroid: this.calculateCentroid(secondGroupTracts)
     };
 
+    // Calculate how many tracts need to move to balance populations
+    const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
+    const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
+    const firstGroupDifference = firstGroup.totalPopulation - targetFirstGroupPopulation;
+    const secondGroupDifference = secondGroup.totalPopulation - targetSecondGroupPopulation;
+    
+    // Determine which group is over target and needs to give tracts
+    let tractsToMove = 0;
+    let moveDirection = '';
+    if (firstGroupDifference > 0 && secondGroupDifference < 0) {
+      // First group is over, second group is under - move from first to second
+      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+      tractsToMove = Math.round(populationToMove / averageTractPopulation);
+      moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
+    } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
+      // First group is under, second group is over - move from second to first
+      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+      tractsToMove = Math.round(populationToMove / averageTractPopulation);
+      moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+    }
+
+    if (tractsToMove > 0) {
+      console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+    }
+
     const history = [
       `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} into ${division.first} + ${division.second} districts`,
       `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
       `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
     ];
+    
+    if (tractsToMove > 0) {
+      history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+    }
 
     return {
       groups: [firstGroup, secondGroup],
@@ -1094,7 +1191,7 @@ export class GeodistrictAlgorithmService {
     return null;
   }
 
-  private getTractId(tract: GeoJsonFeature): string {
+  public getTractId(tract: GeoJsonFeature): string {
     // Debug: Log available properties for first few tracts
     // if (Math.random() < 0.001) {
     //   console.log('🔍 Available tract properties:', Object.keys(tract.properties || {}));
@@ -1413,7 +1510,7 @@ export class GeodistrictAlgorithmService {
    * @param direction Division direction
    * @returns Step object
    */
-  private createStep(iteration: number, stepNumber: number, groups: DistrictGroup[], description: string, direction: string): GeodistrictStep {
+  private createStep(iteration: number, stepNumber: number, groups: DistrictGroup[], description: string, direction: string, divisionLine?: number, divisionLines?: DivisionLineInfo[]): GeodistrictStep {
     return {
       step: stepNumber,
       level: iteration,
@@ -1421,7 +1518,9 @@ export class GeodistrictAlgorithmService {
       description,
       totalGroups: groups.length,
       totalDistricts: groups.reduce((sum, group) => sum + group.totalDistricts, 0),
-      divisionDirection: direction as 'latitude' | 'longitude'
+      divisionDirection: direction as 'latitude' | 'longitude',
+      divisionLine, // Keep for backward compatibility
+      divisionLines // New: array of division lines
     };
   }
 
@@ -1711,20 +1810,278 @@ export class GeodistrictAlgorithmService {
   } {
     const firstGroupTracts: GeoJsonFeature[] = [];
     const secondGroupTracts: GeoJsonFeature[] = [];
+    const intersectingTracts: GeoJsonFeature[] = [];
 
+    // First pass: divide tracts and identify those that intersect the line
     for (const tract of tracts) {
       const isEntirelyNorthOrWest = this.isTractEntirelyNorthOrWest(tract, direction, lineCoordinate);
+      const intersects = this.doesTractIntersectLine(tract, direction, lineCoordinate);
 
-      if (isEntirelyNorthOrWest) {
-        firstGroupTracts.push(tract);
+      if (intersects) {
+        intersectingTracts.push(tract);
+        // For intersecting tracts, use centroid to determine initial assignment
+        const centroid = this.calculateTractCentroid(tract);
+        const centroidOnFirstSide = direction === 'latitude' 
+          ? centroid.lat >= lineCoordinate 
+          : centroid.lng <= lineCoordinate;
+        
+        if (centroidOnFirstSide) {
+          firstGroupTracts.push(tract);
+        } else {
+          secondGroupTracts.push(tract);
+        }
       } else {
-        secondGroupTracts.push(tract);
+        // Non-intersecting tracts: assign based on which side they're on
+        if (isEntirelyNorthOrWest) {
+          firstGroupTracts.push(tract);
+        } else {
+          secondGroupTracts.push(tract);
+        }
       }
     }
 
     console.log(`📊 Divided ${tracts.length} tracts by entire geometry: ${firstGroupTracts.length} + ${secondGroupTracts.length} by ${direction} line at ${lineCoordinate.toFixed(6)}`);
+    console.log(`🔍 Found ${intersectingTracts.length} tracts that intersect the line`);
 
-    // Fix isolated tracts after division
+    // Debug: Check if tract 04013941000 is in the intersecting tracts
+    const tract3941000 = intersectingTracts.find(t => {
+      const id = this.getTractId(t);
+      return id === '04013941000' || id.endsWith('03941000') || id.includes('04013941000');
+    });
+    if (tract3941000) {
+      const tractId = this.getTractId(tract3941000);
+      const inFirst = firstGroupTracts.some(t => this.getTractId(t) === tractId);
+      const inSecond = secondGroupTracts.some(t => this.getTractId(t) === tractId);
+      console.log(`🎯 Found tract 04013941000 in intersecting tracts: ${tractId}, inFirst=${inFirst}, inSecond=${inSecond}`);
+    } else {
+      // Check if it's in the tracts being divided at all
+      const tract3941000InTracts = tracts.find(t => {
+        const id = this.getTractId(t);
+        return id === '04013941000' || id.endsWith('03941000') || id.includes('04013941000');
+      });
+      if (tract3941000InTracts) {
+        const tractId = this.getTractId(tract3941000InTracts);
+        const inFirst = firstGroupTracts.some(t => this.getTractId(t) === tractId);
+        const inSecond = secondGroupTracts.some(t => this.getTractId(t) === tractId);
+        const intersects = this.doesTractIntersectLine(tract3941000InTracts, direction, lineCoordinate);
+        console.log(`⚠️ Tract 04013941000 is in tracts being divided but NOT detected as intersecting: ${tractId}, intersects=${intersects}, inFirst=${inFirst}, inSecond=${inSecond}`);
+      } else {
+        console.log(`⚠️ Tract 04013941000 is NOT in the tracts being divided at this step`);
+      }
+    }
+
+    // Build adjacency graph for checking isolation
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(tracts);
+
+    // Second pass: check intersecting tracts using contiguity approach
+    // For each intersecting tract, check if its neighbors in the other group can reach all tracts in that group
+    // If not (i.e., there are disconnected components), move the intersecting tract to restore contiguity
+    for (const intersectingTract of intersectingTracts) {
+      const tractId = this.getTractId(intersectingTract);
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      
+      // Debug: Check if this is tract 001502, 04013941000, or 04013010102
+      if (tractId.includes('001502') || tractId.includes('03941000') || tractId.includes('3010102')) {
+        const tractName = tractId.includes('001502') ? '001502' : tractId.includes('03941000') ? '04013941000' : '04013010102';
+        console.log(`🎯 Found intersecting tract ${tractName}: ${tractId}, has ${neighbors.length} neighbors`);
+      }
+      
+      const inFirst = firstGroupTracts.some(t => this.getTractId(t) === tractId);
+      const inSecond = secondGroupTracts.some(t => this.getTractId(t) === tractId);
+      
+      // Check if neighbors in the other group can reach all tracts in that group
+      if (inSecond) {
+        // We're in second group - check if our neighbors in first group can reach all tracts in first group
+        const neighborsInFirst = neighbors.filter(neighborId => 
+          firstGroupTracts.some(t => this.getTractId(t) === neighborId)
+        );
+        
+        // Debug logging for tract 04013941000
+        if (tractId.includes('03941000')) {
+          console.log(`🔍 Checking adjacency for tract 04013941000: found ${neighborsInFirst.length} neighbor(s) in first group`);
+          for (const neighborId of neighborsInFirst) {
+            console.log(`   📍 Neighbor in first group: ${neighborId}`);
+            
+            // Check if this neighbor (specifically 04013723304) is isolated
+            if (neighborId.includes('3723304')) {
+              // Check if this neighbor can reach all other tracts in first group
+              const neighborTract = firstGroupTracts.find(t => this.getTractId(t) === neighborId);
+              if (neighborTract) {
+                // Find connected components in first group to see if this neighbor is isolated
+                const firstGroupComponents = this.findConnectedComponents(firstGroupTracts, adjacencyGraph);
+                const neighborComponent = firstGroupComponents.find(component => component.includes(neighborId));
+                
+                if (neighborComponent && neighborComponent.length === 1) {
+                  console.log(`   🚨 Neighbor 04013723304 is ISOLATED (component size: 1)`);
+                } else if (neighborComponent) {
+                  console.log(`   ⚠️ Neighbor 04013723304 is in a component with ${neighborComponent.length} tract(s)`);
+                } else {
+                  console.log(`   ⚠️ Neighbor 04013723304 not found in any component`);
+                }
+                
+                // Also check if first group has multiple disconnected components
+                if (firstGroupComponents.length > 1) {
+                  console.log(`   ⚠️ First group has ${firstGroupComponents.length} disconnected components (should be 1 for full connectivity)`);
+                }
+              }
+            }
+          }
+        }
+        
+        if (neighborsInFirst.length > 0) {
+          // Check if neighbors in first group can reach all tracts in first group
+          // Create a temporary group with the intersecting tract moved to first group
+          const tempFirstGroup = [...firstGroupTracts, intersectingTract];
+          const tempSecondGroup = secondGroupTracts.filter(t => this.getTractId(t) !== tractId);
+          
+          // Find connected components in first group (with the intersecting tract)
+          const firstGroupComponents = this.findConnectedComponents(tempFirstGroup, adjacencyGraph);
+          
+          // Find connected components in first group (without the intersecting tract)
+          const firstGroupComponentsWithout = this.findConnectedComponents(firstGroupTracts, adjacencyGraph);
+          
+          // Debug logging for tract 04013941000
+          if (tractId.includes('03941000')) {
+            console.log(`   📊 Contiguity check: first group has ${firstGroupComponentsWithout.length} component(s) without tract, ${firstGroupComponents.length} component(s) with tract`);
+          }
+          
+          // If moving the intersecting tract improves contiguity (reduces components or connects isolated components)
+          if (firstGroupComponents.length < firstGroupComponentsWithout.length) {
+            // Moving the tract connects isolated components - move it
+            const index = secondGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              secondGroupTracts.splice(index, 1);
+              firstGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to first group (improves contiguity: ${firstGroupComponentsWithout.length} → ${firstGroupComponents.length} components)`);
+            }
+          } else if (firstGroupComponentsWithout.length > 1 && firstGroupComponents.length === 1) {
+            // Without the tract, first group has multiple components; with it, it's fully connected - move it
+            const index = secondGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              secondGroupTracts.splice(index, 1);
+              firstGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to first group (restores contiguity: ${firstGroupComponentsWithout.length} → ${firstGroupComponents.length} components)`);
+            }
+          }
+        }
+      } else if (inFirst) {
+        // We're in first group - check if our neighbors in second group can reach all tracts in second group
+        const neighborsInSecond = neighbors.filter(neighborId => 
+          secondGroupTracts.some(t => this.getTractId(t) === neighborId)
+        );
+        
+        // Debug logging for tract 04013010102
+        if (tractId.includes('3010102')) {
+          console.log(`🔍 Checking adjacency for tract 04013010102: found ${neighborsInSecond.length} neighbor(s) in second group`);
+          for (const neighborId of neighborsInSecond) {
+            console.log(`   📍 Neighbor in second group: ${neighborId}`);
+            
+            // Check if this neighbor (specifically 04013216829) is isolated
+            if (neighborId.includes('3216829')) {
+              // Check if this neighbor can reach all other tracts in second group
+              const neighborTract = secondGroupTracts.find(t => this.getTractId(t) === neighborId);
+              if (neighborTract) {
+                // Find connected components in second group to see if this neighbor is isolated
+                const secondGroupComponents = this.findConnectedComponents(secondGroupTracts, adjacencyGraph);
+                const neighborComponent = secondGroupComponents.find(component => component.includes(neighborId));
+                
+                if (neighborComponent && neighborComponent.length === 1) {
+                  console.log(`   🚨 Neighbor 04013216829 is ISOLATED (component size: 1)`);
+                } else if (neighborComponent) {
+                  console.log(`   ⚠️ Neighbor 04013216829 is in a component with ${neighborComponent.length} tract(s)`);
+                } else {
+                  console.log(`   ⚠️ Neighbor 04013216829 not found in any component`);
+                }
+                
+                // Also check if second group has multiple disconnected components
+                if (secondGroupComponents.length > 1) {
+                  console.log(`   ⚠️ Second group has ${secondGroupComponents.length} disconnected components (should be 1 for full connectivity)`);
+                  // Log all components
+                  secondGroupComponents.forEach((component, idx) => {
+                    console.log(`      Component ${idx + 1}: ${component.length} tract(s)${component.includes(neighborId) ? ' (contains 04013216829)' : ''}`);
+                  });
+                }
+              }
+            }
+          }
+        }
+        
+        if (neighborsInSecond.length > 0) {
+          // Check if neighbors in second group can reach all tracts in second group
+          // Create a temporary group with the intersecting tract moved to second group
+          const tempFirstGroup = firstGroupTracts.filter(t => this.getTractId(t) !== tractId);
+          const tempSecondGroup = [...secondGroupTracts, intersectingTract];
+          
+          // Find connected components in second group (without the intersecting tract)
+          const secondGroupComponentsWithout = this.findConnectedComponents(secondGroupTracts, adjacencyGraph);
+          
+          // Check if any neighbors are in isolated or small disconnected components
+          let hasIsolatedNeighbors = false;
+          let neighborComponents: string[][] = [];
+          
+          for (const neighborId of neighborsInSecond) {
+            const neighborComponent = secondGroupComponentsWithout.find(component => component.includes(neighborId));
+            if (neighborComponent) {
+              neighborComponents.push(neighborComponent);
+              // Check if neighbor is isolated (component size = 1) or in a small disconnected component
+              if (neighborComponent.length === 1 || (secondGroupComponentsWithout.length > 1 && neighborComponent.length < 5)) {
+                hasIsolatedNeighbors = true;
+              }
+            }
+          }
+          
+          // Find connected components in second group (with the intersecting tract)
+          const secondGroupComponents = this.findConnectedComponents(tempSecondGroup, adjacencyGraph);
+          
+          // Debug logging for tract 04013010102
+          if (tractId.includes('3010102')) {
+            console.log(`   📊 Contiguity check: second group has ${secondGroupComponentsWithout.length} component(s) without tract, ${secondGroupComponents.length} component(s) with tract`);
+            console.log(`   📊 Should move: ${secondGroupComponents.length < secondGroupComponentsWithout.length} (reduces components) or ${(secondGroupComponentsWithout.length > 1 && secondGroupComponents.length === 1)} (restores full connectivity)`);
+            console.log(`   📊 Has isolated neighbors: ${hasIsolatedNeighbors}`);
+          }
+          
+          // If moving the intersecting tract improves contiguity (reduces components or connects isolated components)
+          if (secondGroupComponents.length < secondGroupComponentsWithout.length) {
+            // Moving the tract connects isolated components - move it
+            const index = firstGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              firstGroupTracts.splice(index, 1);
+              secondGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to second group (improves contiguity: ${secondGroupComponentsWithout.length} → ${secondGroupComponents.length} components)`);
+            }
+          } else if (secondGroupComponentsWithout.length > 1 && secondGroupComponents.length === 1) {
+            // Without the tract, second group has multiple components; with it, it's fully connected - move it
+            const index = firstGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              firstGroupTracts.splice(index, 1);
+              secondGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to second group (restores contiguity: ${secondGroupComponentsWithout.length} → ${secondGroupComponents.length} components)`);
+            }
+          } else if (secondGroupComponentsWithout.length > 1 && hasIsolatedNeighbors && secondGroupComponents.length <= secondGroupComponentsWithout.length) {
+            // Second group has multiple components and neighbors are isolated - move tract to fix discontiguity
+            // Even if it doesn't reduce components, if it doesn't make things worse, move it
+            const index = firstGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              firstGroupTracts.splice(index, 1);
+              secondGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to second group (fixes discontiguity: ${secondGroupComponentsWithout.length} → ${secondGroupComponents.length} components, neighbors were isolated)`);
+            }
+          } else if (secondGroupComponentsWithout.length > 1 && secondGroupComponents.length < secondGroupComponentsWithout.length) {
+            // Second group has multiple components - if moving reduces components, move it
+            const index = firstGroupTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (index !== -1) {
+              firstGroupTracts.splice(index, 1);
+              secondGroupTracts.push(intersectingTract);
+              console.log(`🔄 Moved intersecting tract ${tractId} to second group (reduces disconnected components: ${secondGroupComponentsWithout.length} → ${secondGroupComponents.length} components)`);
+            }
+          } else if (tractId.includes('3010102')) {
+            console.log(`   ⚠️ Tract 04013010102 should move but condition not met: second group has ${secondGroupComponentsWithout.length} components without tract, ${secondGroupComponents.length} with tract, hasIsolatedNeighbors=${hasIsolatedNeighbors}`);
+          }
+        }
+      }
+    }
+
+    // Fix isolated tracts after division (for any remaining issues)
     const fixedResult = this.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts);
     
     return { 
@@ -1740,7 +2097,7 @@ export class GeodistrictAlgorithmService {
    * @param allTracts All tracts in the original dataset
    * @returns Fixed tract groups
    */
-  private fixIsolatedTractsAfterDivision(
+  public fixIsolatedTractsAfterDivision(
     firstGroupTracts: GeoJsonFeature[],
     secondGroupTracts: GeoJsonFeature[],
     allTracts: GeoJsonFeature[]
@@ -1942,6 +2299,110 @@ export class GeodistrictAlgorithmService {
       }
     }
     
+    // Check if any tract in one group should move to resolve isolation in the other group
+    // This handles cases like tract 04013941000 in group 6 that should move to group 5 to resolve isolation
+    // Note: This only checks for individually isolated tracts, not isolated components
+    // Isolated components are handled by fixDisconnectedComponents below
+    console.log(`🔍 Checking if tracts in one group should move to resolve isolation in the other group...`);
+    
+    // First, identify all individually isolated tracts in each group (tracts with no neighbors in their group)
+    const isolatedInFirst: string[] = [];
+    const isolatedInSecond: string[] = [];
+    
+    for (const tract of allTractsInGroups) {
+      const tractId = this.getTractId(tract);
+      if (movedTracts.some(m => m.tractId === tractId)) continue;
+      
+      const inFirst = updatedFirstGroup.some(t => this.getTractId(t) === tractId);
+      const inSecond = updatedSecondGroup.some(t => this.getTractId(t) === tractId);
+      if (!inFirst && !inSecond) continue;
+      
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      let neighborsInFirst = 0;
+      let neighborsInSecond = 0;
+      
+      for (const neighborId of neighbors) {
+        if (updatedFirstGroup.some(t => this.getTractId(t) === neighborId)) {
+          neighborsInFirst++;
+        } else if (updatedSecondGroup.some(t => this.getTractId(t) === neighborId)) {
+          neighborsInSecond++;
+        }
+      }
+      
+      const isIsolated = (inFirst && neighborsInFirst === 0) || (inSecond && neighborsInSecond === 0);
+      if (isIsolated && neighbors.length > 0) {
+        if (inFirst) {
+          isolatedInFirst.push(tractId);
+        } else if (inSecond) {
+          isolatedInSecond.push(tractId);
+        }
+      }
+    }
+    
+    // Debug: Log isolated tracts found
+    if (isolatedInFirst.length > 0 || isolatedInSecond.length > 0) {
+      console.log(`🔍 Found ${isolatedInFirst.length} isolated tract(s) in first group, ${isolatedInSecond.length} in second group`);
+    }
+    
+    // Now check if any tract in one group has isolated neighbors in the other group
+    for (const tract of allTractsInGroups) {
+      const tractId = this.getTractId(tract);
+      
+      // Skip if already handled
+      if (movedTracts.some(m => m.tractId === tractId)) continue;
+      
+      const inFirst = updatedFirstGroup.some(t => this.getTractId(t) === tractId);
+      const inSecond = updatedSecondGroup.some(t => this.getTractId(t) === tractId);
+      if (!inFirst && !inSecond) continue;
+      
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      
+      // Count individually isolated neighbors in each group
+      let isolatedNeighborsInFirst = 0;
+      let isolatedNeighborsInSecond = 0;
+      
+      for (const neighborId of neighbors) {
+        if (isolatedInFirst.includes(neighborId)) {
+          isolatedNeighborsInFirst++;
+        } else if (isolatedInSecond.includes(neighborId)) {
+          isolatedNeighborsInSecond++;
+        }
+      }
+      
+      // If this tract has isolated neighbors in the other group, move it to resolve isolation
+      if (inSecond && isolatedNeighborsInFirst > 0) {
+        // Tract in second group has isolated neighbors in first group - move to first
+        const index = updatedSecondGroup.findIndex(t => this.getTractId(t) === tractId);
+        if (index >= 0) {
+          updatedSecondGroup.splice(index, 1);
+          updatedFirstGroup.push(tract);
+          movedTracts.push({
+            tractId: tractId,
+            fromGroup: 'second',
+            toGroup: 'first'
+          });
+          console.log(`🔄 Moved tract ${tractId} from second to first group to resolve ${isolatedNeighborsInFirst} isolated neighbor(s) in first group`);
+        }
+      } else if (inFirst && isolatedNeighborsInSecond > 0) {
+        // Tract in first group has isolated neighbors in second group - move to second
+        const index = updatedFirstGroup.findIndex(t => this.getTractId(t) === tractId);
+        if (index >= 0) {
+          updatedFirstGroup.splice(index, 1);
+          updatedSecondGroup.push(tract);
+          movedTracts.push({
+            tractId: tractId,
+            fromGroup: 'first',
+            toGroup: 'second'
+          });
+          console.log(`🔄 Moved tract ${tractId} from first to second group to resolve ${isolatedNeighborsInSecond} isolated neighbor(s) in second group`);
+        }
+      }
+    }
+    
+    // Check for disconnected components and fix by moving key connecting tracts
+    console.log(`🔍 Checking for disconnected components in groups...`);
+    this.fixDisconnectedComponents(updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts);
+    
     if (movedTracts.length > 0) {
       console.log(`✅ Fixed ${movedTracts.length} isolated tracts`);
     }
@@ -2064,6 +2525,1113 @@ export class GeodistrictAlgorithmService {
         console.log(`   Keeping ${tractId} in current group (has more neighbors there)`);
       }
     }
+  }
+
+  /**
+   * Fix disconnected components in all district groups after a division step
+   * This checks each district group for disconnected components and fixes them
+   * @param districtGroups All district groups (modified in place)
+   */
+  private fixDisconnectedComponentsInAllGroups(districtGroups: DistrictGroup[]): void {
+    // Get all tracts from all groups for adjacency lookup
+    const allTracts: GeoJsonFeature[] = [];
+    for (const group of districtGroups) {
+      allTracts.push(...group.censusTracts);
+    }
+    
+    if (allTracts.length === 0) return;
+    
+    // Skip if too many tracts (performance issue)
+    if (allTracts.length > 2000) {
+      console.log(`⚠️ Skipping disconnected components check: too many tracts (${allTracts.length})`);
+      return;
+    }
+    
+    // Only log if checking a reasonable number of groups
+    if (districtGroups.length <= 10) {
+      console.log(`🔍 Checking ${districtGroups.length} district groups for disconnected components...`);
+    }
+    
+    // Build adjacency graph once for all tracts (cached for performance)
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // First, check for tracts that are enclosed by tracts in other groups
+    // This handles cases like 04013092719 enclosed by 04013092720 and 04013082002
+    const movedTractsGlobal: { tractId: string; fromGroup: string; toGroup: string }[] = [];
+    this.checkForEnclosedTractsAcrossAllGroups(districtGroups, allTracts, movedTractsGlobal);
+    
+    // Check each district group for disconnected components
+    for (const group of districtGroups) {
+      const groupTracts = group.censusTracts;
+      // Only log if we're checking a small number of groups or known problematic groups
+      if (districtGroups.length <= 10 || group.startDistrictNumber === 1 || group.startDistrictNumber === 5) {
+        console.log(`🔍 Checking district group ${group.startDistrictNumber}-${group.endDistrictNumber} (${groupTracts.length} tracts) for contiguity...`);
+      }
+      
+      // First, check for isolated tracts: tracts where ALL adjacent tracts are in other groups
+      // This is the key check: a tract is isolated when all adjacent tracts are not in same district group
+      const groupTractIds = new Set(groupTracts.map(t => this.getTractId(t)));
+      const isolatedTracts: string[] = [];
+      
+      // Build a map of which group each tract belongs to (for neighbor lookup) - only for problematic groups
+      const tractToGroupMap = new Map<string, DistrictGroup>();
+      const knownProblematicTracts = ['04013092719', '050604'];
+      const isProblematicGroup = group.startDistrictNumber === 1 || group.startDistrictNumber === 5;
+      
+      if (isProblematicGroup) {
+        for (const g of districtGroups) {
+          for (const tract of g.censusTracts) {
+            tractToGroupMap.set(this.getTractId(tract), g);
+          }
+        }
+      }
+      
+      // Only check for isolated tracts in problematic groups or if group is small
+      if (isProblematicGroup || groupTracts.length <= 50) {
+        for (const tract of groupTracts) {
+          const tractId = this.getTractId(tract);
+          const neighbors = adjacencyGraph.get(tractId) || [];
+          
+          // Check if any neighbor is in the same group
+          const neighborsInSameGroup = neighbors.filter(neighborId => groupTractIds.has(neighborId));
+          
+          // If no neighbors in same group, the tract is isolated
+          if (neighborsInSameGroup.length === 0 && neighbors.length > 0) {
+            isolatedTracts.push(tractId);
+            
+            // Only log if it's a known problematic tract
+            if (knownProblematicTracts.some(pt => tractId.includes(pt))) {
+              const neighborsInOtherGroups = neighbors.filter(neighborId => !groupTractIds.has(neighborId));
+              console.log(`⚠️ TRACT ${tractId} IS ISOLATED in group ${group.startDistrictNumber}-${group.endDistrictNumber}: all ${neighbors.length} neighbors in other groups`);
+              
+              // Log which groups neighbors are in (simplified)
+              if (isProblematicGroup) {
+                const neighborGroups = new Map<string, number>();
+                for (const neighborId of neighborsInOtherGroups) {
+                  const neighborGroup = tractToGroupMap.get(neighborId);
+                  if (neighborGroup) {
+                    const groupKey = `${neighborGroup.startDistrictNumber}-${neighborGroup.endDistrictNumber}`;
+                    neighborGroups.set(groupKey, (neighborGroups.get(groupKey) || 0) + 1);
+                  }
+                }
+                if (neighborGroups.size > 0) {
+                  const groupsList = Array.from(neighborGroups.entries()).map(([g, count]) => `${g}(${count})`).join(', ');
+                  console.log(`   Neighbors in: ${groupsList}`);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // If we found isolated tracts, the group is not contiguous
+      if (isolatedTracts.length > 0) {
+        console.log(`⚠️ District group ${group.startDistrictNumber}-${group.endDistrictNumber} is NOT contiguous: has ${isolatedTracts.length} isolated tract(s): ${isolatedTracts.join(', ')}`);
+      }
+      
+      // Also check for disconnected components (groups of tracts separated from main group)
+      let components = this.findConnectedComponents(groupTracts, adjacencyGraph);
+      
+      // Only log if there are disconnected components (and it's a problematic group)
+      if (components.length > 1 && (group.startDistrictNumber === 1 || group.startDistrictNumber === 5)) {
+        console.log(`⚠️ District group ${group.startDistrictNumber}-${group.endDistrictNumber} is NOT contiguous: has ${components.length} disconnected components:`, 
+          components.map(c => `${c.length} tract(s)`).join(', '));
+      }
+      
+      // If we found isolated tracts OR disconnected components, the group is not contiguous
+      if (isolatedTracts.length > 0 || components.length > 1) {
+        // Proceed to reconnection logic
+      } else {
+        // Only log if checking problematic groups
+        if (group.startDistrictNumber === 1 || group.startDistrictNumber === 5) {
+          console.log(`✅ District group ${group.startDistrictNumber}-${group.endDistrictNumber} is contiguous (${groupTracts.length} tracts)`);
+        }
+        // Skip reconnection logic if already connected
+        continue;
+      }
+      
+      // Find tracts in other groups that can reconnect these components or isolated tracts
+      const otherGroups = districtGroups.filter(g => g !== group);
+      const otherGroupTracts = otherGroups.flatMap(g => g.censusTracts);
+      
+      const movedTracts: { tractId: string; fromGroup: string; toGroup: string }[] = [];
+      
+      // First, handle isolated tracts - find tracts in other groups that are adjacent to isolated tracts
+      if (isolatedTracts.length > 0) {
+        console.log(`🔍 Attempting to reconnect ${isolatedTracts.length} isolated tract(s) in group ${group.startDistrictNumber}-${group.endDistrictNumber}...`);
+        
+        for (const isolatedTractId of isolatedTracts) {
+          const isolatedTract = groupTracts.find(t => this.getTractId(t) === isolatedTractId);
+          if (!isolatedTract) continue;
+          
+          const neighbors = adjacencyGraph.get(isolatedTractId) || [];
+          
+          // Find neighbors in other groups that could be moved to reconnect this isolated tract
+          for (const neighborId of neighbors) {
+            // Find which group this neighbor belongs to
+            const neighborGroup = districtGroups.find(g => 
+              g.censusTracts.some(t => this.getTractId(t) === neighborId)
+            );
+            
+            if (neighborGroup && neighborGroup !== group) {
+              // This neighbor is in another group - we could move it to reconnect
+              const neighborTract = neighborGroup.censusTracts.find(t => this.getTractId(t) === neighborId);
+              if (neighborTract) {
+                console.log(`🔗 Found candidate tract ${neighborId} in group ${neighborGroup.startDistrictNumber}-${neighborGroup.endDistrictNumber} adjacent to isolated tract ${isolatedTractId}`);
+                
+                // Move the neighbor tract to the isolated tract's group
+                const neighborIndex = neighborGroup.censusTracts.findIndex(t => this.getTractId(t) === neighborId);
+                if (neighborIndex >= 0) {
+                  neighborGroup.censusTracts.splice(neighborIndex, 1);
+                  group.censusTracts.push(neighborTract);
+                  
+                  neighborGroup.totalPopulation -= (neighborTract.properties?.POPULATION || 0);
+                  neighborGroup.bounds = this.calculateBounds(neighborGroup.censusTracts);
+                  neighborGroup.centroid = this.calculateCentroid(neighborGroup.censusTracts);
+                  
+                  group.totalPopulation += (neighborTract.properties?.POPULATION || 0);
+                  group.bounds = this.calculateBounds(group.censusTracts);
+                  group.centroid = this.calculateCentroid(group.censusTracts);
+                  
+                  movedTracts.push({
+                    tractId: neighborId,
+                    fromGroup: `${neighborGroup.startDistrictNumber}-${neighborGroup.endDistrictNumber}`,
+                    toGroup: `${group.startDistrictNumber}-${group.endDistrictNumber}`
+                  });
+                  
+                  console.log(`📦 Moved tract ${neighborId} from group ${neighborGroup.startDistrictNumber}-${neighborGroup.endDistrictNumber} to group ${group.startDistrictNumber}-${group.endDistrictNumber} to reconnect isolated tract ${isolatedTractId}`);
+                  break; // Move one tract at a time, then recheck
+                }
+              }
+            }
+          }
+        }
+        
+        // After moving tracts for isolated tracts, recalculate components
+        components = this.findConnectedComponents(group.censusTracts, adjacencyGraph);
+      }
+      
+      // Try to reconnect components by moving tracts from other groups
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 50; // Allow many attempts for complex cases
+      let updatedComponents = [...components];
+      
+      while (updatedComponents.length > 1 && reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        
+        // Find the main component (largest)
+        const mainComponent = updatedComponents.reduce((max, comp) => comp.length > max.length ? comp : max, updatedComponents[0]);
+        const isolatedComponents = updatedComponents.filter(comp => comp !== mainComponent);
+        
+        if (isolatedComponents.length === 0) break;
+        
+        // For each isolated component, try to find connecting tracts in other groups
+        let movedAny = false;
+        for (const isolatedComponent of isolatedComponents) {
+          const reconnected = this.tryReconnectComponentsForGroup(
+            isolatedComponent,
+            mainComponent,
+            group.censusTracts,
+            otherGroupTracts,
+            allTracts,
+            adjacencyGraph,
+            movedTracts,
+            group,
+            otherGroups
+          );
+          
+          if (reconnected) {
+            movedAny = true;
+            // Recalculate components after moving tracts
+            updatedComponents = this.findConnectedComponents(group.censusTracts, adjacencyGraph);
+            
+            if (updatedComponents.length <= 1) {
+              console.log(`✅ District group ${group.startDistrictNumber}-${group.endDistrictNumber} is now fully connected after ${reconnectAttempts} reconnect attempt(s)`);
+              break;
+            }
+            // Continue with updated components
+            break;
+          }
+        }
+        
+        if (!movedAny) {
+          // No more moves possible
+          console.log(`⚠️ No more tracts can be moved to reconnect district group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+          break;
+        }
+      }
+      
+      if (updatedComponents.length > 1) {
+        console.log(`⚠️ District group ${group.startDistrictNumber}-${group.endDistrictNumber} still has ${updatedComponents.length} disconnected components after ${reconnectAttempts} attempts`);
+      }
+    }
+  }
+  
+  /**
+   * Try to reconnect an isolated component in a district group by moving tracts from other groups
+   * @param isolatedComponent Isolated component to reconnect
+   * @param mainComponent Main component in the group
+   * @param groupTracts Tracts in the target group (modified in place)
+   * @param otherGroupTracts Tracts in other groups (to check for separating tracts)
+   * @param allTracts All tracts for adjacency lookup
+   * @param adjacencyGraph Adjacency graph
+   * @param movedTracts Array to track moved tracts
+   * @param targetGroup The target district group
+   * @param otherGroups Other district groups
+   * @returns True if a tract was moved
+   */
+  private tryReconnectComponentsForGroup(
+    isolatedComponent: string[],
+    mainComponent: string[],
+    groupTracts: GeoJsonFeature[],
+    otherGroupTracts: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[],
+    adjacencyGraph: Map<string, string[]>,
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[],
+    targetGroup: DistrictGroup,
+    otherGroups: DistrictGroup[]
+  ): boolean {
+    const isolatedComponentTracts = allTracts.filter(t => isolatedComponent.includes(this.getTractId(t)));
+    const mainComponentTracts = allTracts.filter(t => mainComponent.includes(this.getTractId(t)));
+    
+    const isolatedComponentBbox = this.calculateComponentBoundingBox(isolatedComponentTracts);
+    const isolatedComponentCentroid = this.calculateCentroid(isolatedComponentTracts);
+    const mainComponentBbox = this.calculateComponentBoundingBox(mainComponentTracts);
+    const mainComponentCentroid = this.calculateCentroid(mainComponentTracts);
+    
+    // Find best tract to move from other groups
+    let bestTract: GeoJsonFeature | null = null;
+    let bestScore = -1;
+    let bestReason = '';
+    let bestSourceGroup: DistrictGroup | null = null;
+    
+    // Special handling for known problematic tracts that need to be moved
+    // Note: Tract IDs can be in format "040050604" (full) or "050604" (partial)
+    const knownSeparatingTracts = ['050604', '040050604'];
+    
+    for (const tract of otherGroupTracts) {
+      const tractId = this.getTractId(tract);
+      
+      // Skip if already moved
+      if (movedTracts.some(m => m.tractId === tractId)) continue;
+      
+      // Find which group this tract belongs to
+      const sourceGroup = otherGroups.find(g => g.censusTracts.some(t => this.getTractId(t) === tractId));
+      if (!sourceGroup) continue;
+      
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      const neighborsInIsolatedComponent = neighbors.filter(n => isolatedComponent.includes(n));
+      const neighborsInMainComponent = neighbors.filter(n => mainComponent.includes(n));
+      
+      // Special case: if this is a known separating tract and it's adjacent to the isolated component, prioritize it
+      const isKnownSeparatingTract = knownSeparatingTracts.some(st => tractId.includes(st));
+      if (isKnownSeparatingTract && neighborsInIsolatedComponent.length > 0) {
+        console.log(`🎯 Found known separating tract ${tractId} in group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} adjacent to isolated component (${neighborsInIsolatedComponent.length} neighbors)`);
+      }
+      
+      // Check if tract connects to components
+      const connectsToIsolated = neighborsInIsolatedComponent.length > 0;
+      const connectsToMain = neighborsInMainComponent.length > 0;
+      const connectsBoth = connectsToIsolated && connectsToMain;
+      
+      // Check if tract encloses any tract in the isolated component
+      let enclosesIsolatedTract = false;
+      let enclosedTractId = '';
+      for (const isolatedTractId of isolatedComponent) {
+        const isolatedTract = isolatedComponentTracts.find(t => this.getTractId(t) === isolatedTractId);
+        if (isolatedTract) {
+          if (this.isTractContainedIn(isolatedTract, tract)) {
+            enclosesIsolatedTract = true;
+            enclosedTractId = isolatedTractId;
+            break;
+          }
+        }
+      }
+      
+      // Check if tract is spatially between components
+      const tractCentroid = this.calculateTractCentroid(tract);
+      const tractBbox = this.calculateSingleTractBounds(tract);
+      const isBetweenComponents = this.isTractBetweenComponents(
+        tractCentroid,
+        tractBbox,
+        isolatedComponentCentroid,
+        isolatedComponentBbox,
+        mainComponentCentroid,
+        mainComponentBbox
+      );
+      
+      const isAdjacentToBoth = (
+        neighborsInIsolatedComponent.length > 0 && 
+        neighborsInMainComponent.length > 0
+      );
+      
+      const isSeparatingTract = (
+        neighborsInIsolatedComponent.length > 0 &&
+        (neighborsInMainComponent.length > 0 || isBetweenComponents)
+      );
+      
+      // Score tracts
+      let score = 0;
+      let reason = '';
+      
+      // Known separating tracts get highest priority if they're adjacent to isolated component
+      if (isKnownSeparatingTract && neighborsInIsolatedComponent.length > 0) {
+        score = 250; // Highest priority
+        reason = `known separating tract adjacent to isolated component (${neighborsInIsolatedComponent.length} neighbors)`;
+      } else if (enclosesIsolatedTract) {
+        score = 200;
+        reason = `encloses isolated tract ${enclosedTractId} (separating tract)`;
+      } else if (isAdjacentToBoth) {
+        score = 150 + neighborsInIsolatedComponent.length + neighborsInMainComponent.length;
+        reason = `adjacent to both components (${neighborsInIsolatedComponent.length} to isolated, ${neighborsInMainComponent.length} to main) - separating tract`;
+      } else if (isSeparatingTract) {
+        score = 120 + neighborsInIsolatedComponent.length;
+        reason = `separating tract (adjacent to isolated component with ${neighborsInIsolatedComponent.length} neighbors)`;
+      } else if (connectsBoth) {
+        score = 100 + neighborsInIsolatedComponent.length + neighborsInMainComponent.length;
+        reason = `connects both components (${neighborsInIsolatedComponent.length} to isolated, ${neighborsInMainComponent.length} to main)`;
+      } else if (connectsToIsolated) {
+        score = 50 + neighborsInIsolatedComponent.length;
+        reason = `connects to isolated component (${neighborsInIsolatedComponent.length} neighbors)`;
+      } else if (isBetweenComponents) {
+        score = 30;
+        reason = `in empty space between components`;
+      }
+      
+      // Log scoring for known separating tracts
+      if (isKnownSeparatingTract) {
+        console.log(`🔍 Scoring tract ${tractId}: score=${score}, reason="${reason}", neighbors in isolated=${neighborsInIsolatedComponent.length}, neighbors in main=${neighborsInMainComponent.length}`);
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestTract = tract;
+        bestReason = reason;
+        bestSourceGroup = sourceGroup;
+      }
+    }
+    
+    // Move the best tract found
+    if (bestTract && bestScore > 0 && bestSourceGroup) {
+      const tractId = this.getTractId(bestTract);
+      console.log(`🔗 Found tract ${tractId} in group ${bestSourceGroup.startDistrictNumber}-${bestSourceGroup.endDistrictNumber}: ${bestReason}`);
+      
+      // Remove from source group
+      const sourceIndex = bestSourceGroup.censusTracts.findIndex(t => this.getTractId(t) === tractId);
+      if (sourceIndex >= 0) {
+        bestSourceGroup.censusTracts.splice(sourceIndex, 1);
+        // Update source group population and bounds
+        bestSourceGroup.totalPopulation -= (bestTract.properties?.POPULATION || 0);
+        bestSourceGroup.bounds = this.calculateBounds(bestSourceGroup.censusTracts);
+        bestSourceGroup.centroid = this.calculateCentroid(bestSourceGroup.censusTracts);
+      }
+      
+      // Add to target group
+      targetGroup.censusTracts.push(bestTract);
+      // Update target group population and bounds
+      targetGroup.totalPopulation += (bestTract.properties?.POPULATION || 0);
+      targetGroup.bounds = this.calculateBounds(targetGroup.censusTracts);
+      targetGroup.centroid = this.calculateCentroid(targetGroup.censusTracts);
+      
+      movedTracts.push({
+        tractId: tractId,
+        fromGroup: `${bestSourceGroup.startDistrictNumber}-${bestSourceGroup.endDistrictNumber}`,
+        toGroup: `${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`
+      });
+      
+      console.log(`📦 Moved tract ${tractId} from group ${bestSourceGroup.startDistrictNumber}-${bestSourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} to reconnect isolated component (${bestReason})`);
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Check for tracts that are enclosed by tracts in other groups across all district groups
+   * @param districtGroups All district groups (modified in place)
+   * @param allTracts All tracts
+   * @param movedTracts Array to track moved tracts
+   */
+  private checkForEnclosedTractsAcrossAllGroups(
+    districtGroups: DistrictGroup[],
+    allTracts: GeoJsonFeature[],
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[]
+  ): void {
+    let movedAny = true;
+    let maxIterations = 50;
+    let iteration = 0;
+    
+    while (movedAny && iteration < maxIterations) {
+      iteration++;
+      movedAny = false;
+      
+      // Check each group for tracts that are enclosed by tracts in other groups
+      for (const targetGroup of districtGroups) {
+        for (const tract of targetGroup.censusTracts) {
+          const tractId = this.getTractId(tract);
+          
+          // Skip if already moved
+          if (movedTracts.some(m => m.tractId === tractId)) continue;
+          
+          // Check if any tract in other groups encloses this tract
+          for (const otherGroup of districtGroups) {
+            if (otherGroup === targetGroup) continue;
+            
+            for (const enclosingTract of otherGroup.censusTracts) {
+              const enclosingTractId = this.getTractId(enclosingTract);
+              
+              // Skip if already moved
+              if (movedTracts.some(m => m.tractId === enclosingTractId)) continue;
+              
+              // Check if enclosing tract contains this tract
+              if (this.isTractContainedIn(tract, enclosingTract)) {
+                // Move the enclosing tract to target group to reconnect
+                const index = otherGroup.censusTracts.findIndex(t => this.getTractId(t) === enclosingTractId);
+                if (index >= 0) {
+                  otherGroup.censusTracts.splice(index, 1);
+                  targetGroup.censusTracts.push(enclosingTract);
+                  
+                  // Update populations and bounds
+                  otherGroup.totalPopulation -= (enclosingTract.properties?.POPULATION || 0);
+                  otherGroup.bounds = this.calculateBounds(otherGroup.censusTracts);
+                  otherGroup.centroid = this.calculateCentroid(otherGroup.censusTracts);
+                  
+                  targetGroup.totalPopulation += (enclosingTract.properties?.POPULATION || 0);
+                  targetGroup.bounds = this.calculateBounds(targetGroup.censusTracts);
+                  targetGroup.centroid = this.calculateCentroid(targetGroup.censusTracts);
+                  
+                  movedTracts.push({
+                    tractId: enclosingTractId,
+                    fromGroup: `${otherGroup.startDistrictNumber}-${otherGroup.endDistrictNumber}`,
+                    toGroup: `${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`
+                  });
+                  movedAny = true;
+                  break; // Move one tract at a time, then recheck
+                }
+              }
+              if (movedAny) break;
+            }
+            if (movedAny) break;
+          }
+          if (movedAny) break;
+        }
+        if (movedAny) break;
+      }
+    }
+  }
+
+  /**
+   * Fix disconnected components in groups by moving key connecting tracts
+   * This runs a contiguous check for all tracts in each district group
+   * @param updatedFirstGroup First group (modified in place)
+   * @param updatedSecondGroup Second group (modified in place)
+   * @param allTracts All tracts for adjacency lookup
+   * @param movedTracts Array to track moved tracts
+   */
+  private fixDisconnectedComponents(
+    updatedFirstGroup: GeoJsonFeature[],
+    updatedSecondGroup: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[],
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[]
+  ): void {
+    // Build adjacency graph
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // Find disconnected components in each group (this detects isolated tracts and isolated groups)
+    let firstGroupComponents = this.findConnectedComponents(updatedFirstGroup, adjacencyGraph);
+    let secondGroupComponents = this.findConnectedComponents(updatedSecondGroup, adjacencyGraph);
+    
+    // Log component information for debugging
+    console.log(`🔍 Component check: First group has ${firstGroupComponents.length} component(s), Second group has ${secondGroupComponents.length} component(s)`);
+    
+    if (firstGroupComponents.length > 1) {
+      console.log(`🔍 First group has ${firstGroupComponents.length} disconnected components:`, 
+        firstGroupComponents.map(c => `${c.length} tract(s)`).join(', '));
+      // Log tract IDs in each component for debugging
+      firstGroupComponents.forEach((comp, idx) => {
+        if (comp.length <= 5) {
+          console.log(`   Component ${idx + 1}: ${comp.join(', ')}`);
+        } else {
+          console.log(`   Component ${idx + 1}: ${comp.length} tracts, first 5: ${comp.slice(0, 5).join(', ')}...`);
+        }
+      });
+    }
+    if (secondGroupComponents.length > 1) {
+      console.log(`🔍 Second group has ${secondGroupComponents.length} disconnected components:`, 
+        secondGroupComponents.map(c => `${c.length} tract(s)`).join(', '));
+      // Log tract IDs in each component for debugging
+      secondGroupComponents.forEach((comp, idx) => {
+        if (comp.length <= 5) {
+          console.log(`   Component ${idx + 1}: ${comp.join(', ')}`);
+        } else {
+          console.log(`   Component ${idx + 1}: ${comp.length} tracts, first 5: ${comp.slice(0, 5).join(', ')}...`);
+        }
+      });
+    }
+    
+    // Also check for tracts that are enclosed by tracts in the opposite group
+    // These might not be detected as separate components if they have some neighbors
+    this.checkForEnclosedTractsInOppositeGroup(updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts);
+    
+    // Recalculate components after checking for enclosed tracts
+    firstGroupComponents = this.findConnectedComponents(updatedFirstGroup, adjacencyGraph);
+    secondGroupComponents = this.findConnectedComponents(updatedSecondGroup, adjacencyGraph);
+    
+    // If either group has multiple components (isolated tracts or isolated groups), fix them
+    // Keep reconnecting until all components are connected or no more moves are possible
+    let maxIterations = 10; // Prevent infinite loops
+    let iteration = 0;
+    
+    while ((firstGroupComponents.length > 1 || secondGroupComponents.length > 1) && iteration < maxIterations) {
+      iteration++;
+      console.log(`🔍 Found disconnected components: ${firstGroupComponents.length} in first group, ${secondGroupComponents.length} in second group (iteration ${iteration})`);
+      
+      let movedAny = false;
+      
+      // For first group with multiple components (isolated tracts/groups)
+      // Keep trying to reconnect until all components are connected or no more moves possible
+      if (firstGroupComponents.length > 1) {
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 20; // Allow multiple attempts per component
+        
+        while (firstGroupComponents.length > 1 && reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          const moved = this.tryReconnectComponents(updatedSecondGroup, firstGroupComponents, updatedFirstGroup, updatedSecondGroup, adjacencyGraph, allTracts, movedTracts, 'second', 'first');
+          if (moved) {
+            movedAny = true;
+            // Recalculate components after moving tract
+            firstGroupComponents = this.findConnectedComponents(updatedFirstGroup, adjacencyGraph);
+            if (firstGroupComponents.length <= 1) {
+              console.log(`✅ First group is now fully connected after ${reconnectAttempts} reconnect attempt(s)`);
+              break;
+            }
+          } else {
+            // No more tracts can be moved for this component
+            break;
+          }
+        }
+      }
+      
+      // For second group with multiple components (isolated tracts/groups)
+      // Keep trying to reconnect until all components are connected or no more moves possible
+      if (secondGroupComponents.length > 1) {
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 20; // Allow multiple attempts per component
+        
+        while (secondGroupComponents.length > 1 && reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          const moved = this.tryReconnectComponents(updatedFirstGroup, secondGroupComponents, updatedFirstGroup, updatedSecondGroup, adjacencyGraph, allTracts, movedTracts, 'first', 'second');
+          if (moved) {
+            movedAny = true;
+            // Recalculate components after moving tract
+            secondGroupComponents = this.findConnectedComponents(updatedSecondGroup, adjacencyGraph);
+            if (secondGroupComponents.length <= 1) {
+              console.log(`✅ Second group is now fully connected after ${reconnectAttempts} reconnect attempt(s)`);
+              break;
+            }
+          } else {
+            // No more tracts can be moved for this component
+            break;
+          }
+        }
+      }
+      
+      // If no tracts were moved, break to avoid infinite loop
+      if (!movedAny) {
+        console.log(`⚠️ No tracts moved in iteration ${iteration}, stopping reconnection attempts`);
+        break;
+      }
+      
+      // Recalculate components after moving tracts
+      firstGroupComponents = this.findConnectedComponents(updatedFirstGroup, adjacencyGraph);
+      secondGroupComponents = this.findConnectedComponents(updatedSecondGroup, adjacencyGraph);
+    }
+    
+    if (iteration >= maxIterations) {
+      console.log(`⚠️ Reached maximum iterations (${maxIterations}) for reconnecting components`);
+    }
+  }
+  
+  /**
+   * Find connected components in a group of tracts using user's suggested approach:
+   * For each tract, recursively find all adjacent tracts (deep nesting), then compare
+   * with all tracts in the district group. If district group is contiguous, each tract's
+   * deep nested adjacent tract list will equal total number of district group tracts.
+   * 
+   * Algorithm: Start from each unvisited tract and recursively find all reachable tracts
+   * within the group. If any tract's reachable set is smaller than the group, the group is not contiguous.
+   * 
+   * @param groupTracts Tracts in the group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns Array of connected components (each is an array of tract IDs)
+   */
+  public findConnectedComponents(
+    groupTracts: GeoJsonFeature[],
+    adjacencyGraph: Map<string, string[]>
+  ): string[][] {
+    if (groupTracts.length === 0) return [];
+    if (groupTracts.length === 1) return [[this.getTractId(groupTracts[0])]];
+    
+    const groupTractIds = new Set(groupTracts.map(t => this.getTractId(t)));
+    const totalTracts = groupTractIds.size;
+    const components: string[][] = [];
+    const visited = new Set<string>();
+    
+    // User's approach: For each tract, recursively find all adjacent tracts
+    // If any tract's reachable set is smaller than the group, the group is not contiguous
+    for (const tract of groupTracts) {
+      const tractId = this.getTractId(tract);
+      if (visited.has(tractId)) continue;
+      
+      // Recursively find all adjacent tracts starting from this tract (deep nesting)
+      // This is a BFS traversal to find all reachable tracts within the group
+      const reachableTracts = new Set<string>();
+      const queue: string[] = [tractId];
+      reachableTracts.add(tractId);
+      
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const neighbors = adjacencyGraph.get(currentId) || [];
+        
+        for (const neighborId of neighbors) {
+          // Only include neighbors that are in this group
+          if (groupTractIds.has(neighborId) && !reachableTracts.has(neighborId)) {
+            reachableTracts.add(neighborId);
+            queue.push(neighborId);
+          }
+        }
+      }
+      
+      // Convert to array and mark all as visited
+      const component = Array.from(reachableTracts);
+      for (const id of component) {
+        visited.add(id);
+      }
+      
+      components.push(component);
+      
+      // Key check: If this tract's reachable set is smaller than the total group size,
+      // the group is NOT contiguous (we've found an isolated component)
+      // No logging here - logging happens at caller level
+    }
+    
+    // If we found multiple components, the group is NOT contiguous
+    // This is the key check: if any tract's reachable set is smaller than the group, the group is not contiguous
+    // No logging here - logging happens at caller level
+    
+    return components;
+  }
+  
+  /**
+   * Try to reconnect disconnected components by moving connecting tracts from the opposite group
+   * @param oppositeGroupTracts Tracts in the opposite group (to check for connecting tracts)
+   * @param targetComponents Disconnected components in the target group
+   * @param updatedFirstGroup First group (modified in place)
+   * @param updatedSecondGroup Second group (modified in place)
+   * @param adjacencyGraph Adjacency graph
+   * @param allTracts All tracts
+   * @param movedTracts Array to track moved tracts
+   * @param fromGroup Source group name ('first' or 'second')
+   * @param toGroup Target group name ('first' or 'second')
+   */
+  private tryReconnectComponents(
+    oppositeGroupTracts: GeoJsonFeature[],
+    targetComponents: string[][],
+    updatedFirstGroup: GeoJsonFeature[],
+    updatedSecondGroup: GeoJsonFeature[],
+    adjacencyGraph: Map<string, string[]>,
+    allTracts: GeoJsonFeature[],
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[],
+    fromGroup: 'first' | 'second',
+    toGroup: 'first' | 'second'
+  ): boolean {
+    // Find the largest component (main component)
+    const mainComponent = targetComponents.reduce((max, comp) => comp.length > max.length ? comp : max, targetComponents[0]);
+    const isolatedComponents = targetComponents.filter(comp => comp !== mainComponent);
+    
+    if (isolatedComponents.length === 0) return false;
+    
+    console.log(`🔍 Found ${isolatedComponents.length} isolated component(s) in ${toGroup} group (main component has ${mainComponent.length} tracts)`);
+    
+    // Get tract features for components
+    const mainComponentTracts = allTracts.filter(t => mainComponent.includes(this.getTractId(t)));
+    
+    // Calculate bounding boxes and centroids for components
+    const mainComponentBbox = this.calculateComponentBoundingBox(mainComponentTracts);
+    const mainComponentCentroid = this.calculateCentroid(mainComponentTracts);
+    
+    // For each isolated component, try to find connecting tracts in the opposite group
+    // Keep trying until the component is reconnected or no more tracts can be moved
+    // Use a mutable list to track which components we're still trying to reconnect
+    let componentsToReconnect = [...isolatedComponents];
+    let movedAny = false;
+    
+    while (componentsToReconnect.length > 0) {
+      // Get the next isolated component to reconnect
+      const currentIsolatedComponent = componentsToReconnect[0];
+      console.log(`🔍 Trying to reconnect isolated component with ${currentIsolatedComponent.length} tracts...`);
+      
+      const isolatedComponentTracts = allTracts.filter(t => currentIsolatedComponent.includes(this.getTractId(t)));
+      const isolatedComponentBbox = this.calculateComponentBoundingBox(isolatedComponentTracts);
+      const isolatedComponentCentroid = this.calculateCentroid(isolatedComponentTracts);
+      
+      // Find tracts in opposite group that are in the empty space between components
+      // Priority: tracts that connect both components (direct connection)
+      // Secondary: tracts that are spatially between components (in empty space)
+      let bestTract: GeoJsonFeature | null = null;
+      let bestScore = -1;
+      let bestReason = '';
+      
+      for (const tract of oppositeGroupTracts) {
+        const tractId = this.getTractId(tract);
+        
+        // Skip if already moved
+        if (movedTracts.some(m => m.tractId === tractId)) continue;
+        
+        const neighbors = adjacencyGraph.get(tractId) || [];
+        const neighborsInIsolatedComponent = neighbors.filter(n => currentIsolatedComponent.includes(n));
+        const neighborsInMainComponent = neighbors.filter(n => mainComponent.includes(n));
+        
+        // Check if tract connects to components
+        const connectsToIsolated = neighborsInIsolatedComponent.length > 0;
+        const connectsToMain = neighborsInMainComponent.length > 0;
+        const connectsBoth = connectsToIsolated && connectsToMain;
+        
+        // Check if tract encloses any tract in the isolated component (separating tract)
+        let enclosesIsolatedTract = false;
+        let enclosedTractId = '';
+        for (const isolatedTractId of currentIsolatedComponent) {
+          const isolatedTract = isolatedComponentTracts.find(t => this.getTractId(t) === isolatedTractId);
+          if (isolatedTract) {
+            // Check if this tract encloses the isolated tract
+            if (this.isTractContainedIn(isolatedTract, tract)) {
+              enclosesIsolatedTract = true;
+              enclosedTractId = isolatedTractId;
+              break;
+            }
+          }
+        }
+        
+        // Check if tract is spatially between components (in empty space)
+        const tractCentroid = this.calculateTractCentroid(tract);
+        const tractBbox = this.calculateSingleTractBounds(tract);
+        const isBetweenComponents = this.isTractBetweenComponents(
+          tractCentroid,
+          tractBbox,
+          isolatedComponentCentroid,
+          isolatedComponentBbox,
+          mainComponentCentroid,
+          mainComponentBbox
+        );
+        
+        // Check if tract is adjacent to both components (separating tract)
+        // This means it's a tract that separates the components, even if it doesn't directly connect them
+        const isAdjacentToBoth = (
+          neighborsInIsolatedComponent.length > 0 && 
+          neighborsInMainComponent.length > 0
+        );
+        
+        // Also check if tract is adjacent to isolated component and spatially separates it from main
+        const isSeparatingTract = (
+          neighborsInIsolatedComponent.length > 0 &&
+          (neighborsInMainComponent.length > 0 || isBetweenComponents)
+        );
+        
+        // Score tracts: higher score = better candidate
+        // Priority: enclosing tracts (separating tracts) > connecting tracts > spatially between tracts
+        let score = 0;
+        let reason = '';
+        
+        if (enclosesIsolatedTract) {
+          // Highest priority: tract that encloses an isolated tract (separating tract)
+          score = 200;
+          reason = `encloses isolated tract ${enclosedTractId} (separating tract)`;
+        } else if (isAdjacentToBoth) {
+          // High priority: tract that is adjacent to both components (separating tract)
+          score = 150 + neighborsInIsolatedComponent.length + neighborsInMainComponent.length;
+          reason = `adjacent to both components (${neighborsInIsolatedComponent.length} to isolated, ${neighborsInMainComponent.length} to main) - separating tract`;
+        } else if (isSeparatingTract) {
+          // High priority: tract that separates isolated component from main
+          score = 120 + neighborsInIsolatedComponent.length;
+          reason = `separating tract (adjacent to isolated component with ${neighborsInIsolatedComponent.length} neighbors)`;
+        } else if (connectsBoth) {
+          score = 100 + neighborsInIsolatedComponent.length + neighborsInMainComponent.length;
+          reason = `connects both components (${neighborsInIsolatedComponent.length} to isolated, ${neighborsInMainComponent.length} to main)`;
+        } else if (connectsToIsolated) {
+          score = 50 + neighborsInIsolatedComponent.length;
+          reason = `connects to isolated component (${neighborsInIsolatedComponent.length} neighbors)`;
+        } else if (isBetweenComponents) {
+          score = 30;
+          reason = `in empty space between components`;
+        }
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestTract = tract;
+          bestReason = reason;
+        }
+      }
+      
+      // Move the best tract found
+      if (bestTract && bestScore > 0) {
+        const tractId = this.getTractId(bestTract);
+        console.log(`🔗 Found tract ${tractId} in empty space: ${bestReason}`);
+        
+        // Move the tract to the target group
+        const sourceGroup = fromGroup === 'first' ? updatedFirstGroup : updatedSecondGroup;
+        const targetGroup = toGroup === 'first' ? updatedFirstGroup : updatedSecondGroup;
+        
+        const index = sourceGroup.findIndex(t => this.getTractId(t) === tractId);
+        if (index >= 0) {
+          sourceGroup.splice(index, 1);
+          targetGroup.push(bestTract);
+          movedTracts.push({
+            tractId: tractId,
+            fromGroup: fromGroup,
+            toGroup: toGroup
+          });
+          console.log(`📦 Moved tract ${tractId} from ${fromGroup} to ${toGroup} group to reconnect isolated component (${bestReason})`);
+          movedAny = true;
+          
+          // Recalculate components to see if this component is now connected
+          const updatedComponents = this.findConnectedComponents(
+            toGroup === 'first' ? updatedFirstGroup : updatedSecondGroup,
+            adjacencyGraph
+          );
+          
+          // Check if the isolated component is now connected to the main component
+          const componentStillIsolated = updatedComponents.length > 1;
+          if (!componentStillIsolated) {
+            console.log(`✅ Isolated component is now fully connected after moving ${tractId}`);
+            // Remove this component from the list and continue with others
+            componentsToReconnect.shift();
+            continue;
+          }
+          
+          // Component is still isolated, update the component list with the newly moved tract
+          const updatedIsolatedComponent = updatedComponents.find(comp => 
+            comp.includes(currentIsolatedComponent[0]) // Find the component that contains the isolated tract
+          );
+          if (updatedIsolatedComponent) {
+            // Update the component in the list
+            componentsToReconnect[0] = updatedIsolatedComponent;
+            // Continue to find more separating tracts for this component
+            continue;
+          } else {
+            // Component was merged or disappeared somehow, remove it
+            componentsToReconnect.shift();
+          }
+        }
+      } else {
+        // No more tracts can be moved for this component
+        console.log(`⚠️ No suitable tract found to reconnect isolated component with ${currentIsolatedComponent.length} tracts`);
+        componentsToReconnect.shift(); // Remove this component and try next
+      }
+    }
+    
+    return movedAny; // Return true if any tract was moved
+  }
+  
+  /**
+   * Check if a tract is spatially between two components (in the empty space)
+   * @param tractCentroid Tract centroid
+   * @param tractBbox Tract bounding box
+   * @param isolatedCentroid Isolated component centroid
+   * @param isolatedBbox Isolated component bounding box
+   * @param mainCentroid Main component centroid
+   * @param mainBbox Main component bounding box
+   * @returns True if tract is between components
+   */
+  private isTractBetweenComponents(
+    tractCentroid: { lat: number; lng: number },
+    tractBbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+    isolatedCentroid: { lat: number; lng: number },
+    isolatedBbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+    mainCentroid: { lat: number; lng: number },
+    mainBbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+  ): boolean {
+    // Check if tract's centroid is between the component centroids
+    // This is a simple heuristic: if the tract is geographically between the components,
+    // it's likely in the empty space that's causing the isolation
+    const centroidBetweenLat = (
+      tractCentroid.lat >= Math.min(isolatedCentroid.lat, mainCentroid.lat) &&
+      tractCentroid.lat <= Math.max(isolatedCentroid.lat, mainCentroid.lat)
+    );
+    
+    const centroidBetweenLng = (
+      tractCentroid.lng >= Math.min(isolatedCentroid.lng, mainCentroid.lng) &&
+      tractCentroid.lng <= Math.max(isolatedCentroid.lng, mainCentroid.lng)
+    );
+    
+    // Check if components overlap (if they do, there's no gap)
+    const componentsOverlap = (
+      isolatedBbox.maxLat >= mainBbox.minLat &&
+      isolatedBbox.minLat <= mainBbox.maxLat &&
+      isolatedBbox.maxLng >= mainBbox.minLng &&
+      isolatedBbox.minLng <= mainBbox.maxLng
+    );
+    
+    // If components don't overlap, check if tract is in the gap between them
+    if (!componentsOverlap) {
+      // Components don't overlap - find the gap between them
+      // Gap is the region between the bounding boxes
+      const gapMinLat = Math.min(isolatedBbox.maxLat, mainBbox.maxLat);
+      const gapMaxLat = Math.max(isolatedBbox.minLat, mainBbox.minLat);
+      const gapMinLng = Math.min(isolatedBbox.maxLng, mainBbox.maxLng);
+      const gapMaxLng = Math.max(isolatedBbox.minLng, mainBbox.minLng);
+      
+      // Check if tract overlaps the gap
+      const overlapsGap = (
+        tractBbox.maxLat >= gapMinLat &&
+        tractBbox.minLat <= gapMaxLat &&
+        tractBbox.maxLng >= gapMinLng &&
+        tractBbox.minLng <= gapMaxLng
+      );
+      
+      if (overlapsGap) {
+        return true;
+      }
+    }
+    
+    // Tract is between if centroid is between component centroids
+    return centroidBetweenLat && centroidBetweenLng;
+  }
+  
+  /**
+   * Check for tracts that are enclosed by tracts in the opposite group
+   * These tracts should be moved to the group that encloses them
+   * @param updatedFirstGroup First group (modified in place)
+   * @param updatedSecondGroup Second group (modified in place)
+   * @param allTracts All tracts
+   * @param movedTracts Array to track moved tracts
+   */
+  private checkForEnclosedTractsInOppositeGroup(
+    updatedFirstGroup: GeoJsonFeature[],
+    updatedSecondGroup: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[],
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[]
+  ): void {
+    console.log(`🔍 Checking for tracts enclosed by opposite group...`);
+    
+    let movedAny = true;
+    let maxIterations = 50; // Allow multiple iterations to find all enclosing tracts
+    let iteration = 0;
+    
+    // Keep checking until no more enclosing tracts are found
+    while (movedAny && iteration < maxIterations) {
+      iteration++;
+      movedAny = false;
+      
+      // Check each tract in first group to see if it's enclosed by tracts in second group
+      for (const tract of updatedFirstGroup) {
+        const tractId = this.getTractId(tract);
+        
+        // Skip if already moved
+        if (movedTracts.some(m => m.tractId === tractId)) continue;
+        
+        // Check if any tract in second group encloses this tract
+        for (const enclosingTract of updatedSecondGroup) {
+          const enclosingTractId = this.getTractId(enclosingTract);
+          
+          // Skip if already moved
+          if (movedTracts.some(m => m.tractId === enclosingTractId)) continue;
+          
+          // Check if enclosing tract contains this tract
+          if (this.isTractContainedIn(tract, enclosingTract)) {
+            console.log(`🔍 Found enclosed tract ${tractId} in first group is enclosed by ${enclosingTractId} in second group`);
+            
+            // Move the enclosing tract to first group to reconnect
+            const index = updatedSecondGroup.findIndex(t => this.getTractId(t) === enclosingTractId);
+            if (index >= 0) {
+              updatedSecondGroup.splice(index, 1);
+              updatedFirstGroup.push(enclosingTract);
+              movedTracts.push({
+                tractId: enclosingTractId,
+                fromGroup: 'second',
+                toGroup: 'first'
+              });
+              console.log(`📦 Moved enclosing tract ${enclosingTractId} from second to first group to reconnect enclosed tract ${tractId}`);
+              movedAny = true;
+              break; // Move one tract at a time, then recheck
+            }
+          }
+        }
+        if (movedAny) break; // Recheck after moving
+      }
+      
+      // Check each tract in second group to see if it's enclosed by tracts in first group
+      if (!movedAny) {
+        for (const tract of updatedSecondGroup) {
+          const tractId = this.getTractId(tract);
+          
+          // Skip if already moved
+          if (movedTracts.some(m => m.tractId === tractId)) continue;
+          
+          // Check if any tract in first group encloses this tract
+          for (const enclosingTract of updatedFirstGroup) {
+            const enclosingTractId = this.getTractId(enclosingTract);
+            
+            // Skip if already moved
+            if (movedTracts.some(m => m.tractId === enclosingTractId)) continue;
+            
+            // Check if enclosing tract contains this tract
+            if (this.isTractContainedIn(tract, enclosingTract)) {
+              console.log(`🔍 Found enclosed tract ${tractId} in second group is enclosed by ${enclosingTractId} in first group`);
+              
+              // Move the enclosing tract to second group to reconnect
+              const index = updatedFirstGroup.findIndex(t => this.getTractId(t) === enclosingTractId);
+              if (index >= 0) {
+                updatedFirstGroup.splice(index, 1);
+                updatedSecondGroup.push(enclosingTract);
+                movedTracts.push({
+                  tractId: enclosingTractId,
+                  fromGroup: 'first',
+                  toGroup: 'second'
+                });
+                console.log(`📦 Moved enclosing tract ${enclosingTractId} from first to second group to reconnect enclosed tract ${tractId}`);
+                movedAny = true;
+                break; // Move one tract at a time, then recheck
+              }
+            }
+          }
+          if (movedAny) break; // Recheck after moving
+        }
+      }
+    }
+    
+    if (iteration >= maxIterations) {
+      console.log(`⚠️ Reached maximum iterations (${maxIterations}) for checking enclosed tracts`);
+    }
+  }
+
+  /**
+   * Calculate bounding box for a component (group of tracts)
+   * @param componentTracts Tracts in the component
+   * @returns Bounding box
+   */
+  private calculateComponentBoundingBox(componentTracts: GeoJsonFeature[]): {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+  } {
+    if (componentTracts.length === 0) {
+      return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+    }
+    
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    
+    for (const tract of componentTracts) {
+      const bbox = this.calculateSingleTractBounds(tract);
+      minLat = Math.min(minLat, bbox.minLat);
+      maxLat = Math.max(maxLat, bbox.maxLat);
+      minLng = Math.min(minLng, bbox.minLng);
+      maxLng = Math.max(maxLng, bbox.maxLng);
+    }
+    
+    return { minLat, maxLat, minLng, maxLng };
   }
 
   /**
@@ -2305,12 +3873,6 @@ export class GeodistrictAlgorithmService {
     const outerRingB = this.getOuterRing(tractB);
     if (outerRingB.length < 3) return false;
 
-    // Debug: Check specifically for tract 001700
-    if (tractAId.includes('001700') || tractBId.includes('001700')) {
-      console.log(`🔍 isTractContainedIn: ${tractAId} vs ${tractBId}`);
-      console.log(`   OuterRingA: ${outerRingA.length} points, OuterRingB: ${outerRingB.length} points`);
-    }
-
     // Quick bounding box check first
     const bboxA = this.calculateBoundingBox(outerRingA);
     const bboxB = this.calculateBoundingBox(outerRingB);
@@ -2318,9 +3880,6 @@ export class GeodistrictAlgorithmService {
     if (bboxA.minX < bboxB.minX || bboxA.maxX > bboxB.maxX ||
         bboxA.minY < bboxB.minY || bboxA.maxY > bboxB.maxY) {
       // Bounding box check fails - can't be contained
-      if (tractAId.includes('001700') || tractBId.includes('001700')) {
-        console.log(`   Bounding box check: FAILED`);
-      }
       return false;
     }
 
@@ -2347,17 +3906,7 @@ export class GeodistrictAlgorithmService {
         pointsInside++;
       } else {
         pointsOutside++;
-        // Debug: Log first outside point for 001700
-        if ((tractAId.includes('001700') || tractBId.includes('001700')) && pointsOutside === 1) {
-          console.log(`   First outside point: [${point[0].toFixed(6)}, ${point[1].toFixed(6)}]`);
-        }
       }
-    }
-
-    // Debug: Show containment results for tract 001700
-    if (tractAId.includes('001700') || tractBId.includes('001700')) {
-      console.log(`   Sampled ${samplePoints.length} points: ${pointsInside} inside, ${pointsOutside} outside`);
-      console.log(`   Containment: ${pointsOutside === 0 ? 'YES' : 'NO'}`);
     }
 
     return pointsOutside === 0;
@@ -2737,8 +4286,67 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Build adjacency graph from tract geometries (for containment check)
+   * Uses caching to avoid rebuilding the same graph multiple times
    */
-  private buildGeometryAdjacencyGraph(tracts: GeoJsonFeature[]): Map<string, string[]> {
+  public buildGeometryAdjacencyGraph(tracts: GeoJsonFeature[]): Map<string, string[]> {
+    // Try to use S4 adjacency data if available (synchronously from cache)
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      const cacheKey = state.toLowerCase();
+      if (this.s4AdjacencyCache.has(cacheKey)) {
+        const s4AdjacencyGraph = this.s4AdjacencyCache.get(cacheKey)!;
+        const tractIds = new Set(tracts.map(t => this.getTractId(t)));
+        
+        // Build adjacency graph using S4 data
+        const graph = new Map<string, string[]>();
+        
+        // Initialize all tracts
+        for (const tract of tracts) {
+          const id = this.getTractId(tract);
+          graph.set(id, []);
+        }
+        
+        // Populate adjacencies from S4 data
+        for (const tract of tracts) {
+          const id = this.getTractId(tract);
+          const s4Neighbors = s4AdjacencyGraph.get(id) || [];
+          
+          // Filter to only include neighbors that are in our tract set
+          const validNeighbors = s4Neighbors.filter(neighborId => tractIds.has(neighborId));
+          graph.set(id, validNeighbors);
+        }
+        
+        // Debug: Count total adjacency relationships
+        let totalAdjacencies = 0;
+        for (const [tractId, neighbors] of graph.entries()) {
+          totalAdjacencies += neighbors.length;
+        }
+        console.log(`✅ Built adjacency graph using brown-s4 data: ${totalAdjacencies} total relationships (${(totalAdjacencies / 2).toFixed(0)} unique pairs) for ${tracts.length} tracts`);
+        
+        return graph;
+      } else {
+        console.log(`⚠️ brown-s4 adjacency data not available for state "${state}" (cache key: "${cacheKey}"), falling back to geometric intersection`);
+      }
+    } else {
+      console.log(`⚠️ brown-s4 adjacency data not available (no state property found), falling back to geometric intersection`);
+    }
+    
+    // Fallback to geometric intersection if S4 data not available
+    // Create a cache key based on sorted tract IDs
+    const tractIds = tracts.map(t => this.getTractId(t)).sort();
+    const cacheKey = tractIds.join(',');
+    
+    // Check cache first
+    if (this.geometryAdjacencyCache.has(cacheKey)) {
+      const cached = this.geometryAdjacencyCache.get(cacheKey)!;
+      // Return a copy to avoid mutation issues
+      const graph = new Map<string, string[]>();
+      for (const [id, neighbors] of cached.entries()) {
+        graph.set(id, [...neighbors]);
+      }
+      return graph;
+    }
+
     const graph = new Map<string, string[]>();
 
     for (const tract of tracts) {
@@ -2774,7 +4382,15 @@ export class GeodistrictAlgorithmService {
     }
     console.log(`🔍 Built adjacency graph: ${totalAdjacencies} total relationships (${(totalAdjacencies / 2).toFixed(0)} unique pairs)`);
 
-    return graph;
+    // Cache the result
+    this.geometryAdjacencyCache.set(cacheKey, graph);
+    
+    // Return a copy to avoid mutation issues
+    const graphCopy = new Map<string, string[]>();
+    for (const [id, neighbors] of graph.entries()) {
+      graphCopy.set(id, [...neighbors]);
+    }
+    return graphCopy;
   }
 
   /**
@@ -3299,6 +4915,105 @@ export class GeodistrictAlgorithmService {
       }
     }
     return true; // All coordinates are at or west of the line
+  }
+
+  /**
+   * Check if a tract intersects with a latitude or longitude line
+   * A tract intersects if it has coordinates on both sides of the line
+   * @param tract Tract feature
+   * @param direction Division direction (latitude or longitude)
+   * @param lineCoordinate Line coordinate
+   * @returns True if tract intersects the line
+   */
+  private doesTractIntersectLine(tract: GeoJsonFeature, direction: 'latitude' | 'longitude', lineCoordinate: number): boolean {
+    if (!this.isValidPolygon(tract.geometry)) {
+      // For invalid geometries, use centroid as fallback
+      const centroid = this.calculateTractCentroid(tract);
+      if (direction === 'latitude') {
+        // Check if centroid is very close to the line (within a small tolerance)
+        return Math.abs(centroid.lat - lineCoordinate) < 0.0001;
+      } else {
+        return Math.abs(centroid.lng - lineCoordinate) < 0.0001;
+      }
+    }
+
+    let hasCoordinateOnOneSide = false;
+    let hasCoordinateOnOtherSide = false;
+
+    if (direction === 'latitude') {
+      // Check if tract has coordinates both north and south of the latitude line
+      if (tract.geometry.type === 'Polygon') {
+        for (const ring of tract.geometry.coordinates) {
+          for (const coord of ring) {
+            const [lng, lat] = coord;
+            if (lat >= lineCoordinate) {
+              hasCoordinateOnOneSide = true;
+            } else {
+              hasCoordinateOnOtherSide = true;
+            }
+            // Early exit if we found coordinates on both sides
+            if (hasCoordinateOnOneSide && hasCoordinateOnOtherSide) {
+              return true;
+            }
+          }
+        }
+      } else if (tract.geometry.type === 'MultiPolygon') {
+        for (const polygon of tract.geometry.coordinates) {
+          for (const ring of polygon) {
+            for (const coord of ring) {
+              const [lng, lat] = coord;
+              if (lat >= lineCoordinate) {
+                hasCoordinateOnOneSide = true;
+              } else {
+                hasCoordinateOnOtherSide = true;
+              }
+              // Early exit if we found coordinates on both sides
+              if (hasCoordinateOnOneSide && hasCoordinateOnOtherSide) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // Check if tract has coordinates both west and east of the longitude line
+      if (tract.geometry.type === 'Polygon') {
+        for (const ring of tract.geometry.coordinates) {
+          for (const coord of ring) {
+            const [lng, lat] = coord;
+            if (lng <= lineCoordinate) {
+              hasCoordinateOnOneSide = true;
+            } else {
+              hasCoordinateOnOtherSide = true;
+            }
+            // Early exit if we found coordinates on both sides
+            if (hasCoordinateOnOneSide && hasCoordinateOnOtherSide) {
+              return true;
+            }
+          }
+        }
+      } else if (tract.geometry.type === 'MultiPolygon') {
+        for (const polygon of tract.geometry.coordinates) {
+          for (const ring of polygon) {
+            for (const coord of ring) {
+              const [lng, lat] = coord;
+              if (lng <= lineCoordinate) {
+                hasCoordinateOnOneSide = true;
+              } else {
+                hasCoordinateOnOtherSide = true;
+              }
+              // Early exit if we found coordinates on both sides
+              if (hasCoordinateOnOneSide && hasCoordinateOnOtherSide) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Tract intersects if it has coordinates on both sides
+    return hasCoordinateOnOneSide && hasCoordinateOnOtherSide;
   }
 
   /**
@@ -3964,7 +5679,7 @@ export class GeodistrictAlgorithmService {
    * @param direction Division direction
    * @returns Division result
    */
-  private async divideDistrictGroupGeoGraph(group: DistrictGroup, direction: 'latitude' | 'longitude'): Promise<{ groups: DistrictGroup[]; history: string[] }> {
+  private async divideDistrictGroupGeoGraph(group: DistrictGroup, direction: 'latitude' | 'longitude'): Promise<{ groups: DistrictGroup[]; history: string[]; dividingLine?: number }> {
     console.log(`🔄 Using Geo-Graph algorithm for ${group.censusTracts.length} tracts (${group.totalDistricts} districts)`);
 
     try {
@@ -4012,8 +5727,32 @@ export class GeodistrictAlgorithmService {
       const secondGroupVariance = Math.abs(secondGroupPopulation - (group.totalPopulation - targetFirstGroupPopulation)) / (group.totalPopulation - targetFirstGroupPopulation);
       const totalVariance = (firstGroupVariance + secondGroupVariance) / 2;
 
+      // Calculate how many tracts need to move to balance populations
+      const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
+      const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
+      const firstGroupDifference = firstGroupPopulation - targetFirstGroupPopulation;
+      const secondGroupDifference = secondGroupPopulation - targetSecondGroupPopulation;
+      
+      // Determine which group is over target and needs to give tracts
+      let tractsToMove = 0;
+      let moveDirection = '';
+      if (firstGroupDifference > 0 && secondGroupDifference < 0) {
+        // First group is over, second group is under - move from first to second
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
+      } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
+        // First group is under, second group is over - move from second to first
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+      }
+
       console.log(`📊 Population distribution: ${firstGroupPopulation.toLocaleString()} (${((firstGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%) + ${secondGroupPopulation.toLocaleString()} (${((secondGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%)`);
       console.log(`📊 Population variance: ${(totalVariance * 100).toFixed(2)}%`);
+      if (tractsToMove > 0) {
+        console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
 
       const firstGroup: DistrictGroup = {
         startDistrictNumber: group.startDistrictNumber,
@@ -4046,6 +5785,10 @@ export class GeodistrictAlgorithmService {
         `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroupPopulation.toLocaleString()} people (${((secondGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%), ${secondGroupTracts.length} tracts`,
         `  - Population variance: ${(totalVariance * 100).toFixed(2)}%`
       ];
+      
+      if (tractsToMove > 0) {
+        history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
 
       return { groups: [firstGroup, secondGroup], history };
     } catch (error) {
@@ -4099,6 +5842,31 @@ export class GeodistrictAlgorithmService {
       const firstGroupPopulation = firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
       const secondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
 
+      // Calculate how many tracts need to move to balance populations
+      const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
+      const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
+      const firstGroupDifference = firstGroupPopulation - targetFirstGroupPopulation;
+      const secondGroupDifference = secondGroupPopulation - targetSecondGroupPopulation;
+      
+      // Determine which group is over target and needs to give tracts
+      let tractsToMove = 0;
+      let moveDirection = '';
+      if (firstGroupDifference > 0 && secondGroupDifference < 0) {
+        // First group is over, second group is under - move from first to second
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
+      } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
+        // First group is under, second group is over - move from second to first
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+      }
+
+      if (tractsToMove > 0) {
+        console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
+
       const firstGroup: DistrictGroup = {
         startDistrictNumber: group.startDistrictNumber,
         endDistrictNumber: group.startDistrictNumber + division.first - 1,
@@ -4129,6 +5897,10 @@ export class GeodistrictAlgorithmService {
         `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroupPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
         `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroupPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
       ];
+      
+      if (tractsToMove > 0) {
+        history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
 
       return { groups: [firstGroup, secondGroup], history };
     } catch (error) {

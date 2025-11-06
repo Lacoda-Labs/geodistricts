@@ -97,7 +97,12 @@
                  (input)="goToStep(currentStep)"
                  style="flex: 1; margin: 0 10px;">
           <span style="font-weight: 600; color: #333; min-width: 80px;">
-            {{ currentStep + 1 }} / {{ divisionSteps.length }}
+            <ng-container *ngIf="isInitialState(); else stepNumber">
+              Initial State / {{ divisionSteps.length }}
+            </ng-container>
+            <ng-template #stepNumber>
+              Step {{ getDisplayStepNumber() }} / {{ getTotalDivisionSteps() }}
+            </ng-template>
           </span>
         </div>
         
@@ -111,7 +116,14 @@
 
       <!-- Step Information -->
       <div *ngIf="enableStepThrough && getCurrentStep()" class="step-info" style="margin: 10px 0; padding: 15px; background: rgba(255, 255, 255, 0.95); border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-        <h4 style="margin: 0 0 10px 0; color: #007bff;">Step {{ currentStep + 1 }}: {{ getCurrentStep()?.description }}</h4>
+        <h4 style="margin: 0 0 10px 0; color: #007bff;">
+          <ng-container *ngIf="isInitialState(); else stepLabel">
+            Initial State: {{ getCurrentStep()?.description }}
+          </ng-container>
+          <ng-template #stepLabel>
+            Step {{ getDisplayStepNumber() }}: {{ getCurrentStep()?.description }}
+          </ng-template>
+        </h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 14px;">
           <div><strong>Level:</strong> {{ getCurrentStep()?.level }}</div>
           <div><strong>Groups:</strong> {{ getCurrentStep()?.totalGroups }}</div>
@@ -141,7 +153,14 @@
             
             <!-- Step-through Information -->
             <div *ngIf="enableStepThrough && getCurrentStep()" class="step-through-info">
-              <h4>Step {{ currentStep + 1 }} of {{ divisionSteps.length }}</h4>
+              <h4>
+                <ng-container *ngIf="isInitialState(); else stepHeader">
+                  Initial State ({{ divisionSteps.length }} total)
+                </ng-container>
+                <ng-template #stepHeader>
+                  Step {{ getDisplayStepNumber() }} of {{ getTotalDivisionSteps() }}
+                </ng-template>
+              </h4>
               <p><strong>Description:</strong> {{ getCurrentStep()?.description }}</p>
               <p><strong>Level:</strong> {{ getCurrentStep()?.level }}</p>
               <p><strong>Groups:</strong> {{ getCurrentStep()?.totalGroups }}</p>

@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950100",
+    "name": "Census Tract 9501; Cross County; Arkansas",
+    "population": 895,
+    "medianHouseholdIncome": 27216,
+    "medianAge": 46.6
+  },
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950200",
+    "name": "Census Tract 9502; Cross County; Arkansas",
+    "population": 3042,
+    "medianHouseholdIncome": 47835,
+    "medianAge": 47.8
+  },
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950300",
+    "name": "Census Tract 9503; Cross County; Arkansas",
+    "population": 1505,
+    "medianHouseholdIncome": 49623,
+    "medianAge": 52.1
+  },
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950400",
+    "name": "Census Tract 9504; Cross County; Arkansas",
+    "population": 2711,
+    "medianHouseholdIncome": 69167,
+    "medianAge": 38.2
+  },
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950500",
+    "name": "Census Tract 9505; Cross County; Arkansas",
+    "population": 4608,
+    "medianHouseholdIncome": 34069,
+    "medianAge": 35.4
+  },
+  {
+    "state": "05",
+    "county": "037",
+    "tract": "950600",
+    "name": "Census Tract 9506; Cross County; Arkansas",
+    "population": 4066,
+    "medianHouseholdIncome": 64853,
+    "medianAge": 40.3
+  }
+]

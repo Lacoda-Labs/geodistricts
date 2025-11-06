@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "089",
+    "tract": "960100",
+    "name": "Census Tract 9601; Marion County; Arkansas",
+    "population": 3998,
+    "medianHouseholdIncome": 43980,
+    "medianAge": 55.9
+  },
+  {
+    "state": "05",
+    "county": "089",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; Marion County; Arkansas",
+    "population": 3658,
+    "medianHouseholdIncome": 47884,
+    "medianAge": 37.6
+  },
+  {
+    "state": "05",
+    "county": "089",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; Marion County; Arkansas",
+    "population": 3659,
+    "medianHouseholdIncome": 56786,
+    "medianAge": 43.5
+  },
+  {
+    "state": "05",
+    "county": "089",
+    "tract": "960301",
+    "name": "Census Tract 9603.01; Marion County; Arkansas",
+    "population": 2466,
+    "medianHouseholdIncome": 33989,
+    "medianAge": 54.8
+  },
+  {
+    "state": "05",
+    "county": "089",
+    "tract": "960302",
+    "name": "Census Tract 9603.02; Marion County; Arkansas",
+    "population": 3124,
+    "medianHouseholdIncome": 41173,
+    "medianAge": 60.5
+  }
+]

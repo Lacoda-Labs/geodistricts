@@ -1,0 +1,74 @@
+[
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950101",
+    "name": "Census Tract 9501.01; Ouachita County; Arkansas",
+    "population": 2245,
+    "medianHouseholdIncome": 52679,
+    "medianAge": 34.6
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950102",
+    "name": "Census Tract 9501.02; Ouachita County; Arkansas",
+    "population": 2849,
+    "medianHouseholdIncome": 43811,
+    "medianAge": 50.6
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950200",
+    "name": "Census Tract 9502; Ouachita County; Arkansas",
+    "population": 2415,
+    "medianHouseholdIncome": 42000,
+    "medianAge": 51.9
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Ouachita County; Arkansas",
+    "population": 1395,
+    "medianHouseholdIncome": 43835,
+    "medianAge": 50.5
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Ouachita County; Arkansas",
+    "population": 2923,
+    "medianHouseholdIncome": 63553,
+    "medianAge": 45.1
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950400",
+    "name": "Census Tract 9504; Ouachita County; Arkansas",
+    "population": 3660,
+    "medianHouseholdIncome": 59948,
+    "medianAge": 32.7
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950500",
+    "name": "Census Tract 9505; Ouachita County; Arkansas",
+    "population": 3710,
+    "medianHouseholdIncome": 41053,
+    "medianAge": 43.4
+  },
+  {
+    "state": "05",
+    "county": "103",
+    "tract": "950600",
+    "name": "Census Tract 9506; Ouachita County; Arkansas",
+    "population": 3409,
+    "medianHouseholdIncome": 42330,
+    "medianAge": 45.2
+  }
+]

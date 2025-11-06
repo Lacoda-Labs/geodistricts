@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460100",
+    "name": "Census Tract 4601; Van Buren County; Arkansas",
+    "population": 3678,
+    "medianHouseholdIncome": 40208,
+    "medianAge": 40.1
+  },
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460200",
+    "name": "Census Tract 4602; Van Buren County; Arkansas",
+    "population": 3111,
+    "medianHouseholdIncome": 38528,
+    "medianAge": 48.2
+  },
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460301",
+    "name": "Census Tract 4603.01; Van Buren County; Arkansas",
+    "population": 1838,
+    "medianHouseholdIncome": 46657,
+    "medianAge": 62.1
+  },
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460303",
+    "name": "Census Tract 4603.03; Van Buren County; Arkansas",
+    "population": 1660,
+    "medianHouseholdIncome": 51548,
+    "medianAge": 59.3
+  },
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460304",
+    "name": "Census Tract 4603.04; Van Buren County; Arkansas",
+    "population": 1867,
+    "medianHouseholdIncome": 47227,
+    "medianAge": 51
+  },
+  {
+    "state": "05",
+    "county": "141",
+    "tract": "460400",
+    "name": "Census Tract 4604; Van Buren County; Arkansas",
+    "population": 3746,
+    "medianHouseholdIncome": 50278,
+    "medianAge": 48.1
+  }
+]

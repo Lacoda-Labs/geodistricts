@@ -1,0 +1,128 @@
+[
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020100",
+    "name": "Census Tract 201; Miller County; Arkansas",
+    "population": 3399,
+    "medianHouseholdIncome": 38750,
+    "medianAge": 39.5
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020200",
+    "name": "Census Tract 202; Miller County; Arkansas",
+    "population": 2996,
+    "medianHouseholdIncome": 39940,
+    "medianAge": 33.6
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020400",
+    "name": "Census Tract 204; Miller County; Arkansas",
+    "population": 3090,
+    "medianHouseholdIncome": 28973,
+    "medianAge": 33.5
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020500",
+    "name": "Census Tract 205; Miller County; Arkansas",
+    "population": 2305,
+    "medianHouseholdIncome": 30703,
+    "medianAge": 35.4
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020600",
+    "name": "Census Tract 206; Miller County; Arkansas",
+    "population": 2381,
+    "medianHouseholdIncome": 22602,
+    "medianAge": 27.4
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020701",
+    "name": "Census Tract 207.01; Miller County; Arkansas",
+    "population": 3572,
+    "medianHouseholdIncome": 42759,
+    "medianAge": 44
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020702",
+    "name": "Census Tract 207.02; Miller County; Arkansas",
+    "population": 3345,
+    "medianHouseholdIncome": 43438,
+    "medianAge": 41.8
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020801",
+    "name": "Census Tract 208.01; Miller County; Arkansas",
+    "population": 2722,
+    "medianHouseholdIncome": 77736,
+    "medianAge": 37
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020802",
+    "name": "Census Tract 208.02; Miller County; Arkansas",
+    "population": 2644,
+    "medianHouseholdIncome": 67866,
+    "medianAge": 43.4
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020901",
+    "name": "Census Tract 209.01; Miller County; Arkansas",
+    "population": 2228,
+    "medianHouseholdIncome": 60655,
+    "medianAge": 43
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "020902",
+    "name": "Census Tract 209.02; Miller County; Arkansas",
+    "population": 6318,
+    "medianHouseholdIncome": 60247,
+    "medianAge": 41.8
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "021001",
+    "name": "Census Tract 210.01; Miller County; Arkansas",
+    "population": 3568,
+    "medianHouseholdIncome": 62737,
+    "medianAge": 46.7
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "021002",
+    "name": "Census Tract 210.02; Miller County; Arkansas",
+    "population": 4007,
+    "medianHouseholdIncome": 68316,
+    "medianAge": 39.3
+  },
+  {
+    "state": "05",
+    "county": "091",
+    "tract": "980000",
+    "name": "Census Tract 9800; Miller County; Arkansas",
+    "population": 107,
+    "medianHouseholdIncome": -666666666,
+    "medianAge": 35.2
+  }
+]

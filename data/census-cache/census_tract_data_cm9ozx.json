@@ -1,0 +1,74 @@
+[
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950100",
+    "name": "Census Tract 9501; Carroll County; Arkansas",
+    "population": 2668,
+    "medianHouseholdIncome": 46585,
+    "medianAge": 53.4
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950201",
+    "name": "Census Tract 9502.01; Carroll County; Arkansas",
+    "population": 3628,
+    "medianHouseholdIncome": 68500,
+    "medianAge": 56.7
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950202",
+    "name": "Census Tract 9502.02; Carroll County; Arkansas",
+    "population": 2806,
+    "medianHouseholdIncome": 51682,
+    "medianAge": 57.5
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950301",
+    "name": "Census Tract 9503.01; Carroll County; Arkansas",
+    "population": 3986,
+    "medianHouseholdIncome": 55958,
+    "medianAge": 38.6
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950302",
+    "name": "Census Tract 9503.02; Carroll County; Arkansas",
+    "population": 4223,
+    "medianHouseholdIncome": 45331,
+    "medianAge": 38.5
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950400",
+    "name": "Census Tract 9504; Carroll County; Arkansas",
+    "population": 4086,
+    "medianHouseholdIncome": 66463,
+    "medianAge": 42.6
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950501",
+    "name": "Census Tract 9505.01; Carroll County; Arkansas",
+    "population": 2243,
+    "medianHouseholdIncome": 59844,
+    "medianAge": 40.3
+  },
+  {
+    "state": "05",
+    "county": "015",
+    "tract": "950502",
+    "name": "Census Tract 9505.02; Carroll County; Arkansas",
+    "population": 4722,
+    "medianHouseholdIncome": 45653,
+    "medianAge": 35.7
+  }
+]

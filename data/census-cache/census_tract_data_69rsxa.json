@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470100",
+    "name": "Census Tract 4701; Sharp County; Arkansas",
+    "population": 1982,
+    "medianHouseholdIncome": 40086,
+    "medianAge": 56.1
+  },
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470201",
+    "name": "Census Tract 4702.01; Sharp County; Arkansas",
+    "population": 2672,
+    "medianHouseholdIncome": 37964,
+    "medianAge": 46.1
+  },
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470202",
+    "name": "Census Tract 4702.02; Sharp County; Arkansas",
+    "population": 2926,
+    "medianHouseholdIncome": 35491,
+    "medianAge": 53.1
+  },
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470300",
+    "name": "Census Tract 4703; Sharp County; Arkansas",
+    "population": 3924,
+    "medianHouseholdIncome": 44964,
+    "medianAge": 51.6
+  },
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470401",
+    "name": "Census Tract 4704.01; Sharp County; Arkansas",
+    "population": 2957,
+    "medianHouseholdIncome": 48788,
+    "medianAge": 36.8
+  },
+  {
+    "state": "05",
+    "county": "135",
+    "tract": "470402",
+    "name": "Census Tract 4704.02; Sharp County; Arkansas",
+    "population": 2961,
+    "medianHouseholdIncome": 42520,
+    "medianAge": 41.3
+  }
+]

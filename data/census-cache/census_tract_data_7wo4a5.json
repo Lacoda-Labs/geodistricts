@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470100",
+    "name": "Census Tract 4701; Lawrence County; Arkansas",
+    "population": 1688,
+    "medianHouseholdIncome": 50446,
+    "medianAge": 40.6
+  },
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470200",
+    "name": "Census Tract 4702; Lawrence County; Arkansas",
+    "population": 4224,
+    "medianHouseholdIncome": 50000,
+    "medianAge": 38.5
+  },
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470300",
+    "name": "Census Tract 4703; Lawrence County; Arkansas",
+    "population": 1803,
+    "medianHouseholdIncome": 46170,
+    "medianAge": 45.4
+  },
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470400",
+    "name": "Census Tract 4704; Lawrence County; Arkansas",
+    "population": 1314,
+    "medianHouseholdIncome": 44205,
+    "medianAge": 39
+  },
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470501",
+    "name": "Census Tract 4705.01; Lawrence County; Arkansas",
+    "population": 2684,
+    "medianHouseholdIncome": 33445,
+    "medianAge": 37.1
+  },
+  {
+    "state": "05",
+    "county": "075",
+    "tract": "470502",
+    "name": "Census Tract 4705.02; Lawrence County; Arkansas",
+    "population": 4545,
+    "medianHouseholdIncome": 45033,
+    "medianAge": 42.1
+  }
+]

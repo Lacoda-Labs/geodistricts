@@ -1,0 +1,254 @@
+[
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030101",
+    "name": "Census Tract 301.01; Faulkner County; Arkansas",
+    "population": 3109,
+    "medianHouseholdIncome": 64236,
+    "medianAge": 41
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030102",
+    "name": "Census Tract 301.02; Faulkner County; Arkansas",
+    "population": 6059,
+    "medianHouseholdIncome": 64707,
+    "medianAge": 32.4
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030103",
+    "name": "Census Tract 301.03; Faulkner County; Arkansas",
+    "population": 3798,
+    "medianHouseholdIncome": 104671,
+    "medianAge": 35.8
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030104",
+    "name": "Census Tract 301.04; Faulkner County; Arkansas",
+    "population": 5179,
+    "medianHouseholdIncome": 100054,
+    "medianAge": 36
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030201",
+    "name": "Census Tract 302.01; Faulkner County; Arkansas",
+    "population": 3131,
+    "medianHouseholdIncome": 71648,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030202",
+    "name": "Census Tract 302.02; Faulkner County; Arkansas",
+    "population": 2506,
+    "medianHouseholdIncome": 49432,
+    "medianAge": 43.3
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030301",
+    "name": "Census Tract 303.01; Faulkner County; Arkansas",
+    "population": 5718,
+    "medianHouseholdIncome": 72348,
+    "medianAge": 36
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030302",
+    "name": "Census Tract 303.02; Faulkner County; Arkansas",
+    "population": 6402,
+    "medianHouseholdIncome": 77750,
+    "medianAge": 37.7
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030303",
+    "name": "Census Tract 303.03; Faulkner County; Arkansas",
+    "population": 5242,
+    "medianHouseholdIncome": 57104,
+    "medianAge": 39.3
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030401",
+    "name": "Census Tract 304.01; Faulkner County; Arkansas",
+    "population": 3012,
+    "medianHouseholdIncome": 107540,
+    "medianAge": 46.3
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030402",
+    "name": "Census Tract 304.02; Faulkner County; Arkansas",
+    "population": 4530,
+    "medianHouseholdIncome": 81250,
+    "medianAge": 35.3
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030403",
+    "name": "Census Tract 304.03; Faulkner County; Arkansas",
+    "population": 3621,
+    "medianHouseholdIncome": 57375,
+    "medianAge": 37.8
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030404",
+    "name": "Census Tract 304.04; Faulkner County; Arkansas",
+    "population": 2446,
+    "medianHouseholdIncome": 57729,
+    "medianAge": 34.5
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030502",
+    "name": "Census Tract 305.02; Faulkner County; Arkansas",
+    "population": 4540,
+    "medianHouseholdIncome": 52266,
+    "medianAge": 26.2
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030503",
+    "name": "Census Tract 305.03; Faulkner County; Arkansas",
+    "population": 5150,
+    "medianHouseholdIncome": 49000,
+    "medianAge": 27.6
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030504",
+    "name": "Census Tract 305.04; Faulkner County; Arkansas",
+    "population": 6630,
+    "medianHouseholdIncome": 104430,
+    "medianAge": 35.8
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030600",
+    "name": "Census Tract 306; Faulkner County; Arkansas",
+    "population": 5620,
+    "medianHouseholdIncome": 76304,
+    "medianAge": 40.3
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030701",
+    "name": "Census Tract 307.01; Faulkner County; Arkansas",
+    "population": 3522,
+    "medianHouseholdIncome": 24284,
+    "medianAge": 23.1
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030702",
+    "name": "Census Tract 307.02; Faulkner County; Arkansas",
+    "population": 4578,
+    "medianHouseholdIncome": 42575,
+    "medianAge": 28.9
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030800",
+    "name": "Census Tract 308; Faulkner County; Arkansas",
+    "population": 6073,
+    "medianHouseholdIncome": 46685,
+    "medianAge": 21.6
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "030900",
+    "name": "Census Tract 309; Faulkner County; Arkansas",
+    "population": 3579,
+    "medianHouseholdIncome": 26827,
+    "medianAge": 24.7
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031001",
+    "name": "Census Tract 310.01; Faulkner County; Arkansas",
+    "population": 5033,
+    "medianHouseholdIncome": 69231,
+    "medianAge": 28.8
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031003",
+    "name": "Census Tract 310.03; Faulkner County; Arkansas",
+    "population": 2614,
+    "medianHouseholdIncome": 34123,
+    "medianAge": 27.7
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031006",
+    "name": "Census Tract 310.06; Faulkner County; Arkansas",
+    "population": 3861,
+    "medianHouseholdIncome": 54679,
+    "medianAge": 34.6
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031007",
+    "name": "Census Tract 310.07; Faulkner County; Arkansas",
+    "population": 3953,
+    "medianHouseholdIncome": 58707,
+    "medianAge": 24.9
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031008",
+    "name": "Census Tract 310.08; Faulkner County; Arkansas",
+    "population": 4656,
+    "medianHouseholdIncome": 63185,
+    "medianAge": 33.5
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031101",
+    "name": "Census Tract 311.01; Faulkner County; Arkansas",
+    "population": 5137,
+    "medianHouseholdIncome": 55691,
+    "medianAge": 40.7
+  },
+  {
+    "state": "05",
+    "county": "045",
+    "tract": "031102",
+    "name": "Census Tract 311.02; Faulkner County; Arkansas",
+    "population": 4912,
+    "medianHouseholdIncome": 52394,
+    "medianAge": 46.2
+  }
+]

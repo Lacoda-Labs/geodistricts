@@ -1,0 +1,29 @@
+[
+  {
+    "state": "05",
+    "county": "129",
+    "tract": "970100",
+    "name": "Census Tract 9701; Searcy County; Arkansas",
+    "population": 2335,
+    "medianHouseholdIncome": 49167,
+    "medianAge": 44.5
+  },
+  {
+    "state": "05",
+    "county": "129",
+    "tract": "970200",
+    "name": "Census Tract 9702; Searcy County; Arkansas",
+    "population": 3492,
+    "medianHouseholdIncome": 31791,
+    "medianAge": 46.1
+  },
+  {
+    "state": "05",
+    "county": "129",
+    "tract": "970300",
+    "name": "Census Tract 9703; Searcy County; Arkansas",
+    "population": 2053,
+    "medianHouseholdIncome": 45948,
+    "medianAge": 51.8
+  }
+]

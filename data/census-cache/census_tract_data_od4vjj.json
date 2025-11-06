@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "011",
+    "tract": "950100",
+    "name": "Census Tract 9501; Bradley County; Arkansas",
+    "population": 2913,
+    "medianHouseholdIncome": 57500,
+    "medianAge": 38.6
+  },
+  {
+    "state": "05",
+    "county": "011",
+    "tract": "950200",
+    "name": "Census Tract 9502; Bradley County; Arkansas",
+    "population": 1820,
+    "medianHouseholdIncome": 44758,
+    "medianAge": 47.4
+  },
+  {
+    "state": "05",
+    "county": "011",
+    "tract": "950300",
+    "name": "Census Tract 9503; Bradley County; Arkansas",
+    "population": 1941,
+    "medianHouseholdIncome": 29395,
+    "medianAge": 41.1
+  },
+  {
+    "state": "05",
+    "county": "011",
+    "tract": "950400",
+    "name": "Census Tract 9504; Bradley County; Arkansas",
+    "population": 1725,
+    "medianHouseholdIncome": 45212,
+    "medianAge": 38.1
+  },
+  {
+    "state": "05",
+    "county": "011",
+    "tract": "950500",
+    "name": "Census Tract 9505; Bradley County; Arkansas",
+    "population": 2062,
+    "medianHouseholdIncome": 37216,
+    "medianAge": 38
+  }
+]

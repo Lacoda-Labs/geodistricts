@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions, AlgorithmType } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions, AlgorithmType, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
+import { GeoJsonFeature } from '../services/census.service';
 
 // Interface for nested group hierarchy
 interface GroupNode {
@@ -38,6 +39,9 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   private currentTractIndices: Map<number, number> = new Map(); // Track current tract index for each group
   private highlightedTractLayers: Map<number, L.Layer> = new Map(); // Track highlighted tract layers
   private tractLayers: Map<number, Map<number, L.GeoJSON>> = new Map(); // Track tract layers by groupIndex -> tractIndex for click handling
+  private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
+  private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
+  private divisionLineMarkers: L.Marker[] = []; // Track all division line markers
 
   private subscriptions: Subscription[] = [];
 
@@ -138,6 +142,23 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     
     // Clean up tract layers tracking
     this.tractLayers.clear();
+    
+    // Clean up all division lines and markers when starting a new algorithm run
+    this.divisionLineLayers.forEach(layer => {
+      if (this.stepOverviewMap) {
+        this.stepOverviewMap.removeLayer(layer);
+      }
+    });
+    this.divisionLineLayers = [];
+    
+    this.divisionLineMarkers.forEach(marker => {
+      if (this.stepOverviewMap) {
+        this.stepOverviewMap.removeLayer(marker);
+      }
+    });
+    this.divisionLineMarkers = [];
+    
+    this.divisionLinesByStep.clear();
     
     if (this.stepOverviewMap) {
       this.stepOverviewMap.remove();
@@ -457,6 +478,37 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     }
   }
 
+  /**
+   * Check if current step is the initial state (index 0)
+   */
+  isInitialState(): boolean {
+    return this.currentStepIndex === 0;
+  }
+
+  /**
+   * Get display step number (0 for initial state, 1+ for actual divisions)
+   * Returns 0 for initial state, or the step index for divisions (which aligns with division number)
+   */
+  getDisplayStepNumber(): number {
+    return this.currentStepIndex;
+  }
+
+  /**
+   * Get total number of steps (excluding initial state from count for display purposes)
+   * This represents the number of actual division steps
+   */
+  getTotalDivisionSteps(): number {
+    if (!this.algorithmResult) return 0;
+    return Math.max(0, this.algorithmResult.steps.length - 1);
+  }
+
+  /**
+   * Get display label for step (e.g., "Initial State" or "Step 1", "Step 2", etc.)
+   */
+  getStepLabel(index: number): string {
+    return index === 0 ? 'Initial State' : `Step ${index}`;
+  }
+
   private createMapsForCurrentStep(): void {
     if (!this.currentStep) return;
     
@@ -496,25 +548,72 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       return;
     }
 
-    // Clean up existing map
-    if (this.stepOverviewMap) {
-      this.stepOverviewMap.remove();
+    // Only recreate the map if it doesn't exist
+    // This preserves all previous division lines when changing steps
+    if (!this.stepOverviewMap) {
+      // Create new map
+      this.stepOverviewMap = L.map('stepOverviewMap', {
+        zoomControl: true,
+        attributionControl: true,
+        scrollWheelZoom: false
+      });
+
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        className: 'minimal-tiles'
+      }).addTo(this.stepOverviewMap);
     }
 
-    // Create new map
-    this.stepOverviewMap = L.map('stepOverviewMap', {
-      zoomControl: true,
-      attributionControl: true,
-      scrollWheelZoom: false
-    });
-
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      className: 'minimal-tiles'
-    }).addTo(this.stepOverviewMap);
+    // Remove division lines and markers from steps greater than the current step (if any)
+    // This handles the case when stepping backwards
+    for (let stepNum = this.currentStepIndex + 1; stepNum < (this.algorithmResult?.steps.length || 0); stepNum++) {
+      const futureStepLines = this.divisionLinesByStep.get(stepNum);
+      if (futureStepLines) {
+        futureStepLines.forEach(layer => {
+          if (this.stepOverviewMap) {
+            this.stepOverviewMap.removeLayer(layer);
+          }
+          const index = this.divisionLineLayers.indexOf(layer);
+          if (index !== -1) {
+            this.divisionLineLayers.splice(index, 1);
+          }
+        });
+        this.divisionLinesByStep.delete(stepNum);
+      }
+      
+      // Remove markers associated with future steps
+      // Find markers for this step by checking their tooltip content
+      const markersToRemove = this.divisionLineMarkers.filter(marker => {
+        const tooltip = (marker as any)._tooltip;
+        if (tooltip && tooltip._content) {
+          return tooltip._content.includes(`Step ${stepNum}`);
+        }
+        return false;
+      });
+      
+      markersToRemove.forEach(marker => {
+        if (this.stepOverviewMap) {
+          this.stepOverviewMap.removeLayer(marker);
+        }
+        const index = this.divisionLineMarkers.indexOf(marker);
+        if (index !== -1) {
+          this.divisionLineMarkers.splice(index, 1);
+        }
+      });
+    }
 
     // Add all district groups to the map
+    // Clear existing tract layers first to avoid duplicates
+    if (this.stepOverviewMap) {
+      this.stepOverviewMap.eachLayer((layer) => {
+        // Only remove GeoJSON layers (tracts), not division lines or tile layers
+        if (layer instanceof L.GeoJSON && !this.divisionLineLayers.includes(layer as any)) {
+          this.stepOverviewMap!.removeLayer(layer);
+        }
+      });
+    }
+
     const bounds = L.latLngBounds([]);
     let hasBounds = false;
 
@@ -560,9 +659,227 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       });
     });
 
-    // Fit map to show all groups
+    // Fit map to show all groups first
     if (hasBounds && bounds.isValid()) {
       this.stepOverviewMap.fitBounds(bounds, { padding: [20, 20] });
+      
+      // Add division lines for all steps up to and including the current step
+      // This preserves all previous division lines and only adds new ones
+      if (this.currentStep && this.algorithmResult) {
+        setTimeout(() => {
+          if (!this.stepOverviewMap || !this.currentStep || !this.algorithmResult) {
+            console.warn('⚠️ Map, step, or algorithm result not available for division lines');
+            return;
+          }
+          
+          // Add division lines for all steps from 1 to current step
+          // Use the new divisionLines array which contains one entry per group division
+          for (let stepIdx = 1; stepIdx <= this.currentStepIndex; stepIdx++) {
+            const step = this.algorithmResult.steps[stepIdx];
+            if (!step) continue;
+            
+            // Check if we've already added division lines for this step
+            if (this.divisionLinesByStep.has(stepIdx)) {
+              continue; // Already added, skip
+            }
+            
+            // Use the new divisionLines array if available, otherwise fall back to old divisionLine
+            const stepDivisionLines: L.Polyline[] = [];
+            
+            if (step.divisionLines && step.divisionLines.length > 0) {
+              // Use the new divisionLines array - one entry per group division
+              console.log(`📏 Adding ${step.divisionLines.length} division line(s) for step ${stepIdx}`);
+              
+              for (const divLineInfo of step.divisionLines) {
+                try {
+                  const divisionLine = divLineInfo.line;
+                  const direction = divLineInfo.direction;
+                  const parentGroup = divLineInfo.parentGroup;
+                  const divisionRatio = divLineInfo.ratio;
+                  
+                  // Find the parent group in the previous step to get its bounds
+                  const prevStep = stepIdx > 0 ? this.algorithmResult.steps[stepIdx - 1] : null;
+                  const parentGroupInPrevStep = prevStep?.districtGroups.find(g =>
+                    g.startDistrictNumber === parentGroup.startDistrictNumber &&
+                    g.endDistrictNumber === parentGroup.endDistrictNumber
+                  );
+                  
+                  // Find the resulting groups in the current step to get their combined bounds
+                  const resultingGroups = this.currentStep!.districtGroups.filter(g =>
+                    g.startDistrictNumber >= parentGroup.startDistrictNumber &&
+                    g.endDistrictNumber <= parentGroup.endDistrictNumber &&
+                    (g.startDistrictNumber !== parentGroup.startDistrictNumber || 
+                     g.endDistrictNumber !== parentGroup.endDistrictNumber)
+                  );
+                  
+                  // Calculate bounds from resulting groups (or use parent group bounds if available)
+                  let groupBounds: L.LatLngBounds | null = null;
+                  if (resultingGroups.length > 0) {
+                    // Use bounds from resulting groups
+                    for (const group of resultingGroups) {
+                      let bounds: L.LatLngBounds | null = null;
+                      if (group.bounds) {
+                        bounds = L.latLngBounds(
+                          L.latLng(group.bounds.south, group.bounds.west),
+                          L.latLng(group.bounds.north, group.bounds.east)
+                        );
+                      } else {
+                        bounds = this.calculateGroupBounds(group.censusTracts);
+                      }
+                      
+                      if (bounds && bounds.isValid()) {
+                        if (!groupBounds) {
+                          groupBounds = bounds;
+                        } else {
+                          groupBounds.extend(bounds);
+                        }
+                      }
+                    }
+                  } else if (parentGroupInPrevStep) {
+                    // Fallback to parent group bounds
+                    if (parentGroupInPrevStep.bounds) {
+                      groupBounds = L.latLngBounds(
+                        L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
+                        L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
+                      );
+                    } else {
+                      groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+                    }
+                  }
+                  
+                  if (!groupBounds || !groupBounds.isValid()) continue;
+                  
+                  let lineCoordinates: L.LatLng[] | null = null;
+                  
+                  if (direction === 'latitude') {
+                    const minLng = groupBounds.getWest();
+                    const maxLng = groupBounds.getEast();
+                    const lineLat = divisionLine;
+                    const south = groupBounds.getSouth();
+                    const north = groupBounds.getNorth();
+                    
+                    if (lineLat < south) {
+                      lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
+                    } else if (lineLat > north) {
+                      lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
+                    } else {
+                      lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
+                    }
+                  } else {
+                    const minLat = groupBounds.getSouth();
+                    const maxLat = groupBounds.getNorth();
+                    const lineLng = divisionLine;
+                    const west = groupBounds.getWest();
+                    const east = groupBounds.getEast();
+                    
+                    if (lineLng < west) {
+                      lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
+                    } else if (lineLng > east) {
+                      lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
+                    } else {
+                      lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
+                    }
+                  }
+                  
+                  if (!lineCoordinates || lineCoordinates.some(coord => !coord || isNaN(coord.lat) || isNaN(coord.lng))) {
+                    console.warn(`Invalid line coordinates for step ${stepIdx}, parent group ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber}, skipping`);
+                    continue;
+                  }
+                  
+                  // Create polyline for this division
+                  const divisionLineLayer = L.polyline(lineCoordinates, {
+                    color: '#ff0000',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '10, 5'
+                  }).bindPopup(`
+                    <strong>Division Line</strong><br>
+                    Step ${stepIdx}<br>
+                    ${direction === 'latitude' ? 'Latitude' : 'Longitude'}: ${divisionLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}<br>
+                    Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
+                    Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
+                  `);
+                  
+                  if (this.stepOverviewMap) {
+                    divisionLineLayer.addTo(this.stepOverviewMap);
+                    this.divisionLineLayers.push(divisionLineLayer);
+                    stepDivisionLines.push(divisionLineLayer);
+                    
+                    // Add marker
+                    let markerPosition: L.LatLng;
+                    if (direction === 'latitude') {
+                      const leftmostPoint = lineCoordinates.reduce((left, current) => 
+                        current.lng < left.lng ? current : left
+                      );
+                      markerPosition = L.latLng(leftmostPoint.lat, leftmostPoint.lng);
+                    } else {
+                      const topmostPoint = lineCoordinates.reduce((top, current) => 
+                        current.lat > top.lat ? current : top
+                      );
+                      markerPosition = L.latLng(topmostPoint.lat, topmostPoint.lng);
+                    }
+                    
+                    const markerIcon = L.divIcon({
+                      className: 'division-line-marker',
+                      html: `<div style="
+                        background-color: #ff0000;
+                        color: white;
+                        border: 2px solid white;
+                        border-radius: 50%;
+                        width: 24px;
+                        height: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        font-size: 12px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                      ">${stepIdx}</div>`,
+                      iconSize: [24, 24],
+                      iconAnchor: [12, 12]
+                    });
+                    
+                    const coordLabel = direction === 'latitude' ? 'lat' : 'long';
+                    const coordValue = divisionLine.toFixed(4);
+                    const tooltipText = `${coordLabel}:${coordValue} dividing group (${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber}) ratio: ${divisionRatio[0]}%/${divisionRatio[1]}%`;
+                    
+                    const marker = L.marker(markerPosition, { icon: markerIcon })
+                      .bindTooltip(tooltipText, {
+                        permanent: false,
+                        direction: direction === 'latitude' ? 'right' : 'bottom',
+                        offset: direction === 'latitude' ? [8, 0] : [0, 8]
+                      });
+                    
+                    marker.addTo(this.stepOverviewMap);
+                    this.divisionLineMarkers.push(marker);
+                  }
+                  
+                  console.log(`✅ Added division line for step ${stepIdx}, parent group ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber} (${divisionRatio[0]}%/${divisionRatio[1]}%)`);
+                } catch (error) {
+                  console.error(`Error adding division line for step ${stepIdx}:`, error);
+                }
+              }
+            } else if (step.divisionLine && step.divisionDirection) {
+              // Fallback to old format for backward compatibility
+              console.log(`📏 Using legacy division line format for step ${stepIdx}`);
+              // ... (keep old logic as fallback)
+            }
+            
+            // Store division lines for this step
+            if (stepDivisionLines.length > 0) {
+              this.divisionLinesByStep.set(stepIdx, stepDivisionLines);
+              console.log(`✅ Stored ${stepDivisionLines.length} division line layers for step ${stepIdx}`);
+            }
+          } // End of for loop over steps
+          
+          console.log(`✅ Total division line layers: ${this.divisionLineLayers.length} across ${this.divisionLinesByStep.size} steps`);
+        }, 200);
+      } else {
+        if (this.currentStep) {
+          console.log(`⚠️ No division line: step=${this.currentStep.step}, divisionLine=${this.currentStep.divisionLine}, direction=${this.currentStep.divisionDirection}`);
+        }
+      }
     }
   }
 
@@ -682,6 +999,68 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     return Math.abs(percentageVariance);
   }
 
+  /**
+   * Calculate population variance for a district group against the ratio
+   * The target population is calculated as: totalDistricts * averagePopulation
+   * @param district The district group
+   * @returns Population variance as a percentage (can be negative or positive)
+   */
+  calculatePopulationVarianceForGroup(district: DistrictGroup): number {
+    if (!this.algorithmResult?.averagePopulation || !district.totalDistricts) return 0;
+    const targetPopulation = district.totalDistricts * this.algorithmResult.averagePopulation;
+    if (targetPopulation === 0) return 0;
+    
+    const difference = district.totalPopulation - targetPopulation;
+    const percentageVariance = (difference / targetPopulation) * 100;
+    return percentageVariance; // Return signed value to show over/under
+  }
+
+  /**
+   * Get the target district population per district
+   * This calculates the correct target based on total district seats
+   * @returns Target population per district
+   */
+  getTargetDistrictPopulation(): number {
+    if (!this.algorithmResult?.totalPopulation) return 0;
+    const totalDistrictSeats = this.getTotalDistrictSeats();
+    if (totalDistrictSeats === 0) return 0;
+    return this.algorithmResult.totalPopulation / totalDistrictSeats;
+  }
+
+  /**
+   * Get the target district group population
+   * Target = numOfDistrictsInGroup * targetDistrictPopulation
+   * @param district The district group
+   * @returns Target population for the district group
+   */
+  getTargetDistrictGroupPopulation(district: DistrictGroup): number {
+    if (!district.totalDistricts) return 0;
+    const targetDistrictPopulation = this.getTargetDistrictPopulation();
+    return Math.round(district.totalDistricts * targetDistrictPopulation);
+  }
+
+  /**
+   * Calculate population variance as a ratio: district group population / target district group population
+   * where target district group population = numOfDistrictsInGroup * targetDistrictPopulation
+   * @param district The district group
+   * @returns Variance ratio (1.0 = exact match, >1.0 = over target, <1.0 = under target)
+   */
+  calculatePopulationVarianceRatio(district: DistrictGroup): number {
+    const targetPopulation = this.getTargetDistrictGroupPopulation(district);
+    if (targetPopulation === 0) return 0;
+    return district.totalPopulation / targetPopulation;
+  }
+
+  /**
+   * Calculate the difference between district group population and target district group population
+   * @param district The district group
+   * @returns Population difference (positive = over target, negative = under target)
+   */
+  getPopulationDifference(district: DistrictGroup): number {
+    const targetPopulation = this.getTargetDistrictGroupPopulation(district);
+    return Math.round(district.totalPopulation - targetPopulation);
+  }
+
   getTotalTracts(): number {
     if (!this.algorithmResult?.finalDistricts) return 0;
     return this.algorithmResult.finalDistricts.reduce((total, district) => 
@@ -716,6 +1095,28 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   getAverageTractsPerDistrict(): number {
     if (!this.algorithmResult?.finalDistricts) return 0;
     return this.getTotalTracts() / this.algorithmResult.finalDistricts.length;
+  }
+
+  /**
+   * Get the total number of district seats
+   * This is the sum of totalDistricts in all final district groups
+   * @returns Total number of district seats
+   */
+  getTotalDistrictSeats(): number {
+    if (!this.algorithmResult?.finalDistricts) return 0;
+    return this.algorithmResult.finalDistricts.reduce((total, district) => 
+      total + district.totalDistricts, 0);
+  }
+
+  /**
+   * Calculate average tract population
+   * @returns Average population per tract
+   */
+  getAverageTractPopulation(): number {
+    if (!this.algorithmResult?.totalPopulation) return 0;
+    const totalTracts = this.getTotalTracts();
+    if (totalTracts === 0) return 0;
+    return this.algorithmResult.totalPopulation / totalTracts;
   }
 
   // Tract debugging methods
@@ -896,6 +1297,38 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.buildChildrenRecursive(rootNode, 1, this.currentStepIndex);
 
     return [rootNode];
+  }
+
+  /**
+   * Calculate bounds for a group of tracts
+   * @param tracts Array of tract features
+   * @returns Leaflet bounds object
+   */
+  private calculateGroupBounds(tracts: GeoJsonFeature[]): L.LatLngBounds | null {
+    if (tracts.length === 0) {
+      return null;
+    }
+
+    const bounds = L.latLngBounds([]);
+    let hasValidBounds = false;
+
+    for (const tract of tracts) {
+      if (tract.geometry) {
+        try {
+          const geoJson = L.geoJSON(tract.geometry);
+          const tractBounds = geoJson.getBounds();
+          if (tractBounds && tractBounds.isValid()) {
+            bounds.extend(tractBounds);
+            hasValidBounds = true;
+          }
+        } catch (error) {
+          // Skip invalid geometries
+          continue;
+        }
+      }
+    }
+
+    return hasValidBounds && bounds.isValid() ? bounds : null;
   }
 
   // Recursively build children from a parent node

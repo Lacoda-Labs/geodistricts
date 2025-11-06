@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "951700",
+    "name": "Census Tract 9517; Johnson County; Arkansas",
+    "population": 4632,
+    "medianHouseholdIncome": 55721,
+    "medianAge": 46.5
+  },
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "951800",
+    "name": "Census Tract 9518; Johnson County; Arkansas",
+    "population": 4696,
+    "medianHouseholdIncome": 40997,
+    "medianAge": 39.4
+  },
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "951900",
+    "name": "Census Tract 9519; Johnson County; Arkansas",
+    "population": 3630,
+    "medianHouseholdIncome": 49224,
+    "medianAge": 37.2
+  },
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "952000",
+    "name": "Census Tract 9520; Johnson County; Arkansas",
+    "population": 4091,
+    "medianHouseholdIncome": 29537,
+    "medianAge": 38.5
+  },
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "952100",
+    "name": "Census Tract 9521; Johnson County; Arkansas",
+    "population": 3831,
+    "medianHouseholdIncome": 40972,
+    "medianAge": 34.9
+  },
+  {
+    "state": "05",
+    "county": "071",
+    "tract": "952200",
+    "name": "Census Tract 9522; Johnson County; Arkansas",
+    "population": 5045,
+    "medianHouseholdIncome": 49318,
+    "medianAge": 37.7
+  }
+]

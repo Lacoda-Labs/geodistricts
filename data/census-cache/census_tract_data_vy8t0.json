@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "041",
+    "tract": "950100",
+    "name": "Census Tract 9501; Desha County; Arkansas",
+    "population": 1380,
+    "medianHouseholdIncome": 38472,
+    "medianAge": 53.5
+  },
+  {
+    "state": "05",
+    "county": "041",
+    "tract": "950200",
+    "name": "Census Tract 9502; Desha County; Arkansas",
+    "population": 3741,
+    "medianHouseholdIncome": 37715,
+    "medianAge": 38.4
+  },
+  {
+    "state": "05",
+    "county": "041",
+    "tract": "950300",
+    "name": "Census Tract 9503; Desha County; Arkansas",
+    "population": 1316,
+    "medianHouseholdIncome": 23371,
+    "medianAge": 31
+  },
+  {
+    "state": "05",
+    "county": "041",
+    "tract": "950400",
+    "name": "Census Tract 9504; Desha County; Arkansas",
+    "population": 3165,
+    "medianHouseholdIncome": 41036,
+    "medianAge": 37.8
+  },
+  {
+    "state": "05",
+    "county": "041",
+    "tract": "950500",
+    "name": "Census Tract 9505; Desha County; Arkansas",
+    "population": 1683,
+    "medianHouseholdIncome": 40745,
+    "medianAge": 40.2
+  }
+]

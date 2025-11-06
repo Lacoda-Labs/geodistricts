@@ -1,0 +1,20 @@
+[
+  {
+    "state": "05",
+    "county": "013",
+    "tract": "480100",
+    "name": "Census Tract 4801; Calhoun County; Arkansas",
+    "population": 2302,
+    "medianHouseholdIncome": 57284,
+    "medianAge": 52.5
+  },
+  {
+    "state": "05",
+    "county": "013",
+    "tract": "480200",
+    "name": "Census Tract 4802; Calhoun County; Arkansas",
+    "population": 2471,
+    "medianHouseholdIncome": 62131,
+    "medianAge": 38.4
+  }
+]

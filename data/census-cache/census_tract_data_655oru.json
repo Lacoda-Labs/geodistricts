@@ -1,0 +1,56 @@
+[
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950100",
+    "name": "Census Tract 9501; Logan County; Arkansas",
+    "population": 4049,
+    "medianHouseholdIncome": 55833,
+    "medianAge": 55.1
+  },
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950200",
+    "name": "Census Tract 9502; Logan County; Arkansas",
+    "population": 3667,
+    "medianHouseholdIncome": 65533,
+    "medianAge": 37.4
+  },
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950300",
+    "name": "Census Tract 9503; Logan County; Arkansas",
+    "population": 3629,
+    "medianHouseholdIncome": 45734,
+    "medianAge": 45.4
+  },
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950400",
+    "name": "Census Tract 9504; Logan County; Arkansas",
+    "population": 3179,
+    "medianHouseholdIncome": 58947,
+    "medianAge": 41.6
+  },
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950500",
+    "name": "Census Tract 9505; Logan County; Arkansas",
+    "population": 3895,
+    "medianHouseholdIncome": 46534,
+    "medianAge": 37.3
+  },
+  {
+    "state": "05",
+    "county": "083",
+    "tract": "950600",
+    "name": "Census Tract 9506; Logan County; Arkansas",
+    "population": 2828,
+    "medianHouseholdIncome": 51847,
+    "medianAge": 42
+  }
+]

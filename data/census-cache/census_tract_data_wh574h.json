@@ -1,0 +1,65 @@
+[
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960100",
+    "name": "Census Tract 9601; St. Francis County; Arkansas",
+    "population": 2207,
+    "medianHouseholdIncome": 35513,
+    "medianAge": 43.9
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960201",
+    "name": "Census Tract 9602.01; St. Francis County; Arkansas",
+    "population": 2097,
+    "medianHouseholdIncome": 44583,
+    "medianAge": 41.3
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960202",
+    "name": "Census Tract 9602.02; St. Francis County; Arkansas",
+    "population": 2689,
+    "medianHouseholdIncome": 46413,
+    "medianAge": 53.1
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960300",
+    "name": "Census Tract 9603; St. Francis County; Arkansas",
+    "population": 2540,
+    "medianHouseholdIncome": 42273,
+    "medianAge": 44.9
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960400",
+    "name": "Census Tract 9604; St. Francis County; Arkansas",
+    "population": 4230,
+    "medianHouseholdIncome": 32134,
+    "medianAge": 27.5
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960500",
+    "name": "Census Tract 9605; St. Francis County; Arkansas",
+    "population": 2974,
+    "medianHouseholdIncome": 47119,
+    "medianAge": 34.4
+  },
+  {
+    "state": "05",
+    "county": "123",
+    "tract": "960600",
+    "name": "Census Tract 9606; St. Francis County; Arkansas",
+    "population": 6401,
+    "medianHouseholdIncome": 37697,
+    "medianAge": 40.2
+  }
+]

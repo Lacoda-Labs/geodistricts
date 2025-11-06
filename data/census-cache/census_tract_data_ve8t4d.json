@@ -1,0 +1,47 @@
+[
+  {
+    "state": "05",
+    "county": "053",
+    "tract": "470100",
+    "name": "Census Tract 4701; Grant County; Arkansas",
+    "population": 4776,
+    "medianHouseholdIncome": 73426,
+    "medianAge": 42.6
+  },
+  {
+    "state": "05",
+    "county": "053",
+    "tract": "470200",
+    "name": "Census Tract 4702; Grant County; Arkansas",
+    "population": 3207,
+    "medianHouseholdIncome": 87589,
+    "medianAge": 41.5
+  },
+  {
+    "state": "05",
+    "county": "053",
+    "tract": "470300",
+    "name": "Census Tract 4703; Grant County; Arkansas",
+    "population": 3804,
+    "medianHouseholdIncome": 59750,
+    "medianAge": 43.4
+  },
+  {
+    "state": "05",
+    "county": "053",
+    "tract": "470401",
+    "name": "Census Tract 4704.01; Grant County; Arkansas",
+    "population": 3916,
+    "medianHouseholdIncome": 56971,
+    "medianAge": 37.9
+  },
+  {
+    "state": "05",
+    "county": "053",
+    "tract": "470402",
+    "name": "Census Tract 4704.02; Grant County; Arkansas",
+    "population": 2319,
+    "medianHouseholdIncome": 54572,
+    "medianAge": 38.2
+  }
+]
