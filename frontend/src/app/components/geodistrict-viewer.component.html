@@ -284,7 +284,7 @@
               <td class="population-variance" 
                   [class.positive]="calculatePopulationVarianceRatio(district) > 1"
                   [class.negative]="calculatePopulationVarianceRatio(district) < 1">
-                {{ Math.round((calculatePopulationVarianceRatio(district) - 1) * 100) }}%
+                {{ calculatePopulationVariancePercentage(district) }}%
               </td>
             </tr>
           </tbody>

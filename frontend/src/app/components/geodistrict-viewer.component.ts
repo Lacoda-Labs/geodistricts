@@ -1052,6 +1052,16 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   /**
+   * Calculate population variance as a percentage (rounded to whole number)
+   * @param district The district group
+   * @returns Variance percentage (0 = exact match, >0 = over target, <0 = under target)
+   */
+  calculatePopulationVariancePercentage(district: DistrictGroup): number {
+    const ratio = this.calculatePopulationVarianceRatio(district);
+    return Math.round((ratio - 1) * 100);
+  }
+
+  /**
    * Calculate the difference between district group population and target district group population
    * @param district The district group
    * @returns Population difference (positive = over target, negative = under target)
