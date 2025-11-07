@@ -24,7 +24,7 @@ else
     
     if [ -z "$FILES_TO_ARCHIVE" ]; then
         echo "✅ No new or modified command files since last push."
-        exit 0
+        # Continue to create current conversation entry
     fi
 fi
 
@@ -90,12 +90,14 @@ for FILE in $FILES_TO_ARCHIVE; do
     echo "  ✅ Archived: $FILENAME → $ARCHIVE_NAME"
 done
 
-if [ $ARCHIVED_COUNT -eq 0 ]; then
-    echo "✅ No files to archive."
-    exit 0
+# Get today's date for archive directory (if not already set)
+if [ -z "$TODAY" ]; then
+    TODAY=$(date +%Y-%m-%d)
+    TODAY_ARCHIVE_DIR="$ARCHIVE_DIR/$TODAY"
+    mkdir -p "$TODAY_ARCHIVE_DIR"
 fi
 
-# Create archive entry for current conversation
+# Create archive entry for current conversation (always create this)
 echo ""
 echo "📝 Creating archive entry for current conversation..."
 
