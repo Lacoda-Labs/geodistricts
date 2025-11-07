@@ -38,6 +38,7 @@ export interface DivisionLineInfo {
     totalDistricts: number;
   };
   ratio: [number, number]; // Division ratio [first%, second%]
+  intersectingTractIds?: string[]; // IDs of tracts that intersect this division line
 }
 
 // Interface for algorithm step visualization
@@ -318,7 +319,8 @@ export class GeodistrictAlgorithmService {
                 endDistrictNumber: group.endDistrictNumber,
                 totalDistricts: group.totalDistricts
               },
-              ratio: division.ratio
+              ratio: division.ratio,
+              intersectingTractIds: (divisionResult as any).intersectingTractIds
             });
           }
         }
@@ -407,7 +409,8 @@ export class GeodistrictAlgorithmService {
               endDistrictNumber: group.endDistrictNumber,
               totalDistricts: group.totalDistricts
             },
-            ratio: division.ratio
+            ratio: division.ratio,
+            intersectingTractIds: (divisionResult as any).intersectingTractIds
           });
         }
       }
@@ -603,13 +606,18 @@ export class GeodistrictAlgorithmService {
                 endDistrictNumber: group.endDistrictNumber,
                 totalDistricts: group.totalDistricts
               },
-              ratio: division.ratio
+              ratio: division.ratio,
+              intersectingTractIds: (divisionResult as any).intersectingTractIds
             });
           }
         }
       }
 
       currentGroups = newGroups;
+      
+      // Check for and resolve isolated tracts across all groups after this step
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts);
+      
       steps.push(this.createStep(iteration, iteration, currentGroups,
         `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
     }
@@ -2528,6 +2536,132 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Fix isolated tracts across all groups after a division step
+   * This checks each group for isolated tracts and moves them to adjacent groups to connect them
+   * @param districtGroups All district groups
+   * @param allTracts All tracts in the dataset
+   * @returns Updated district groups with isolated tracts fixed
+   */
+  public fixIsolatedTractsAcrossAllGroups(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[]): DistrictGroup[] {
+    console.log(`🔧 FIX ISOLATED TRACTS ACROSS ALL GROUPS: Checking ${districtGroups.length} groups for isolated tracts`);
+    
+    if (districtGroups.length < 2) {
+      // Need at least 2 groups to move tracts between them
+      return districtGroups;
+    }
+    
+    // Build adjacency graph for all tracts
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // Create a copy of groups to modify
+    const updatedGroups = districtGroups.map(group => ({
+      ...group,
+      censusTracts: [...group.censusTracts]
+    }));
+    
+    let totalMoved = 0;
+    
+    // Check each group for isolated tracts
+    for (let groupIndex = 0; groupIndex < updatedGroups.length; groupIndex++) {
+      const group = updatedGroups[groupIndex];
+      const groupTracts = group.censusTracts;
+      
+      if (groupTracts.length === 0) continue;
+      
+      // Calculate max reachable count for this group (main component size)
+      const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
+      
+      // Check each tract in this group for isolation
+      for (const tract of groupTracts) {
+        const tractId = this.getTractId(tract);
+        const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+        
+        // Tract is isolated if its reachable count is less than the max reachable count
+        if (reachableCount < maxReachableCount) {
+          console.log(`🔍 Found isolated tract ${tractId} in group ${group.startDistrictNumber}-${group.endDistrictNumber}: reachable count ${reachableCount} < max ${maxReachableCount}`);
+          
+          // Find neighbors of this tract
+          const neighbors = adjacencyGraph.get(tractId) || [];
+          
+          // Check which groups these neighbors belong to
+          const neighborGroups = new Map<number, number>(); // Map<groupIndex, neighborCount>
+          
+          for (const neighborId of neighbors) {
+            // Find which group this neighbor belongs to
+            for (let otherGroupIndex = 0; otherGroupIndex < updatedGroups.length; otherGroupIndex++) {
+              const otherGroup = updatedGroups[otherGroupIndex];
+              if (otherGroup.censusTracts.some(t => this.getTractId(t) === neighborId)) {
+                neighborGroups.set(otherGroupIndex, (neighborGroups.get(otherGroupIndex) || 0) + 1);
+                break;
+              }
+            }
+          }
+          
+          // Find the best group to move this tract to
+          // Prefer groups where the tract would connect to the main component
+          let bestGroupIndex = -1;
+          let bestReachableCount = 0;
+          
+          for (const [otherGroupIndex, neighborCount] of neighborGroups.entries()) {
+            if (otherGroupIndex === groupIndex) continue; // Don't move to same group
+            
+            const otherGroup = updatedGroups[otherGroupIndex];
+            const otherGroupTracts = [...otherGroup.censusTracts, tract];
+            
+            // Calculate what the reachable count would be if we moved this tract
+            const potentialReachableCount = this.calculateReachableTracts(tractId, otherGroupTracts, adjacencyGraph);
+            const otherGroupMaxReachableCount = this.calculateMaxReachableCount(otherGroupTracts, adjacencyGraph);
+            
+            // If moving to this group would connect the tract to the main component, it's a good candidate
+            if (potentialReachableCount >= otherGroupMaxReachableCount && potentialReachableCount > bestReachableCount) {
+              bestGroupIndex = otherGroupIndex;
+              bestReachableCount = potentialReachableCount;
+            }
+          }
+          
+          // If we found a good group to move to, move the tract
+          if (bestGroupIndex !== -1) {
+            const sourceGroup = updatedGroups[groupIndex];
+            const targetGroup = updatedGroups[bestGroupIndex];
+            
+            // Remove from source group
+            const tractIndex = sourceGroup.censusTracts.findIndex(t => this.getTractId(t) === tractId);
+            if (tractIndex !== -1) {
+              sourceGroup.censusTracts.splice(tractIndex, 1);
+              
+              // Update source group population and bounds
+              sourceGroup.totalPopulation = sourceGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+              sourceGroup.bounds = this.calculateBounds(sourceGroup.censusTracts);
+              sourceGroup.centroid = this.calculateCentroid(sourceGroup.censusTracts);
+              
+              // Add to target group
+              targetGroup.censusTracts.push(tract);
+              
+              // Update target group population and bounds
+              targetGroup.totalPopulation = targetGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+              targetGroup.bounds = this.calculateBounds(targetGroup.censusTracts);
+              targetGroup.centroid = this.calculateCentroid(targetGroup.censusTracts);
+              
+              totalMoved++;
+              console.log(`🔄 Moved isolated tract ${tractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} (reachable count: ${bestReachableCount})`);
+            }
+          } else {
+            console.log(`⚠️ Could not find a suitable group to move isolated tract ${tractId} to`);
+          }
+        }
+      }
+    }
+    
+    if (totalMoved > 0) {
+      console.log(`✅ Fixed ${totalMoved} isolated tract(s) across all groups`);
+    } else {
+      console.log(`✅ No isolated tracts found across all groups`);
+    }
+    
+    return updatedGroups;
+  }
+
+  /**
    * Fix disconnected components in all district groups after a division step
    * This checks each district group for disconnected components and fixes them
    * @param districtGroups All district groups (modified in place)
@@ -4391,6 +4525,108 @@ export class GeodistrictAlgorithmService {
       graphCopy.set(id, [...neighbors]);
     }
     return graphCopy;
+  }
+
+  /**
+   * Calculate the number of reachable tracts from a given tract using BFS
+   * This represents the size of the connected component containing the tract
+   * @param tractId Tract ID to start from
+   * @param groupTracts All tracts in the group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns Number of reachable tracts (including the tract itself)
+   */
+  public calculateReachableTracts(tractId: string, groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): number {
+    const groupTractIds = new Set<string>(groupTracts.map(t => this.getTractId(t)));
+    
+    // BFS traversal to find all reachable tracts
+    const reachableTracts = new Set<string>();
+    const queue: string[] = [tractId];
+    reachableTracts.add(tractId);
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      
+      for (const neighborId of neighbors) {
+        // Only include neighbors that are in this group
+        if (groupTractIds.has(neighborId) && !reachableTracts.has(neighborId)) {
+          reachableTracts.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    
+    return reachableTracts.size;
+  }
+
+  /**
+   * Calculate the maximum reachable count for all tracts in a group
+   * This represents the size of the main component
+   * @param groupTracts All tracts in the group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns Maximum reachable count (main component size)
+   */
+  public calculateMaxReachableCount(groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): number {
+    let maxReachableCount = 0;
+    for (const tract of groupTracts) {
+      const tractId = this.getTractId(tract);
+      const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+      if (reachableCount > maxReachableCount) {
+        maxReachableCount = reachableCount;
+      }
+    }
+    return maxReachableCount;
+  }
+
+  /**
+   * Check if a tract is isolated using the new definition
+   * A tract is isolated if its reachable count is less than the maximum reachable count in the group
+   * (i.e., it's in a smaller component than the main component)
+   * @param tractId Tract ID to check
+   * @param groupTracts All tracts in the group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns True if tract is isolated
+   */
+  public isTractIsolated(tractId: string, groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): boolean {
+    const reachableTractsCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+    const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
+    return reachableTractsCount < maxReachableCount;
+  }
+
+  /**
+   * Get all tract IDs in the isolated component containing the given tract
+   * @param tractId Tract ID to start from
+   * @param groupTracts All tracts in the group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns Set of tract IDs in the isolated component
+   */
+  public getIsolatedComponentTractIds(tractId: string, groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): Set<string> {
+    const groupTractIds = new Set<string>(groupTracts.map(t => this.getTractId(t)));
+    const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
+    
+    // BFS to find all tracts in the same component
+    const componentTractIds = new Set<string>();
+    const queue: string[] = [tractId];
+    componentTractIds.add(tractId);
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      
+      for (const neighborId of neighbors) {
+        // Only include neighbors that are in this group and in the same isolated component
+        if (groupTractIds.has(neighborId) && !componentTractIds.has(neighborId)) {
+          const neighborReachableCount = this.calculateReachableTracts(neighborId, groupTracts, adjacencyGraph);
+          // Only include if it's in the same isolated component (same reachable count)
+          if (neighborReachableCount < maxReachableCount) {
+            componentTractIds.add(neighborId);
+            queue.push(neighborId);
+          }
+        }
+      }
+    }
+    
+    return componentTractIds;
   }
 
   /**

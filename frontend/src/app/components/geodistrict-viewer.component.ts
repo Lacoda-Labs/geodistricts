@@ -42,6 +42,14 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
   private divisionLineMarkers: L.Marker[] = []; // Track all division line markers
+  private intersectingTractIds: Map<number, Set<string>> = new Map(); // Track intersecting tract IDs by groupIndex
+  private selectedIntersectingTract: { groupIndex: number; tractIndex: number } | null = null; // Track selected intersecting tract
+  private highlightedAdjacentTracts: Map<number, Set<number>> = new Map(); // Track highlighted adjacent tract indices by groupIndex
+  private isolatedAdjacentTracts: Map<number, Map<number, Set<number>>> = new Map(); // Track isolated adjacent tracts by groupIndex -> (oppositeGroupIndex -> Set of tractIndices)
+  private stepOverviewTractLayers: Map<string, L.GeoJSON> = new Map(); // Track step overview map tract layers by tractId
+  private selectedStepOverviewIntersectingTract: string | null = null; // Track selected intersecting tract in step overview map
+  private highlightedStepOverviewAdjacentTracts: Set<string> = new Set(); // Track highlighted adjacent tract IDs in step overview map
+  private isolatedStepOverviewAdjacentTracts: Set<string> = new Set(); // Track isolated adjacent tract IDs in step overview map
 
   private subscriptions: Subscription[] = [];
 
@@ -285,17 +293,27 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
           }
           const groupTractLayers = this.tractLayers.get(groupIndex)!;
           
+          // Check if this group has intersecting tracts
+          const intersectingIds = this.intersectingTractIds.get(groupIndex);
+          const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+          
           // Add each tract as a separate feature with click handlers
           group.censusTracts.forEach((tract, tractIndex) => {
             try {
               if (tract.geometry) {
+                const tractId = this.getTractId(tract);
+                const isIntersecting = isIntersectingTract(tractId);
+                
+                // Use darker color for intersecting tracts
+                const tractColor = isIntersecting ? this.darkenColor(color, 30) : color;
+                
                 const tractLayer = L.geoJSON(tract.geometry, {
                   style: {
                     color: 'black',
                     weight: 1,
                     opacity: 1,
                     fillOpacity: 1,
-                    fillColor: color
+                    fillColor: tractColor
                   }
                 }).addTo(map);
                 
@@ -319,17 +337,25 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
                   // Only reset style if this isn't the currently selected tract
                   const currentIndex = this.getCurrentTractIndex(groupIndex);
                   if (tractIndex !== currentIndex) {
+                    const highlightedAdjacent = this.highlightedAdjacentTracts.get(groupIndex);
+                    const isHighlighted = highlightedAdjacent ? highlightedAdjacent.has(tractIndex) : false;
+                    const finalColor = isHighlighted ? this.lightenColor(color, 20) : (isIntersecting ? this.darkenColor(color, 30) : color);
                     tractLayer.setStyle({
                       weight: 1,
-                      fillOpacity: 1
+                      fillOpacity: 1,
+                      fillColor: finalColor
                     });
                   }
                   map.getContainer().style.cursor = '';
                 });
                 
-                // Add click handler to select the tract
+                // Add click handler - special handling for intersecting tracts
                 tractLayer.on('click', () => {
-                  this.selectTract(groupIndex, tractIndex.toString());
+                  if (isIntersecting) {
+                    this.handleIntersectingTractClick(groupIndex, tractIndex);
+                  } else {
+                    this.selectTract(groupIndex, tractIndex.toString());
+                  }
                 });
                 
                 tractCount++;
@@ -514,6 +540,9 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     
     this.cleanupMaps();
     
+    // Identify intersecting tracts for all groups
+    this.identifyIntersectingTracts();
+    
     // Create the step overview map first
     this.createStepOverviewMap();
     
@@ -613,23 +642,37 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
         }
       });
     }
+    
+    // Clear step overview tract layers tracking
+    this.stepOverviewTractLayers.clear();
+    this.selectedStepOverviewIntersectingTract = null;
+    this.highlightedStepOverviewAdjacentTracts.clear();
+    this.isolatedStepOverviewAdjacentTracts.clear();
 
     const bounds = L.latLngBounds([]);
     let hasBounds = false;
 
     this.currentStep.districtGroups.forEach((group, index) => {
       const color = this.getGroupColor(index);
+      const intersectingIds = this.intersectingTractIds.get(index);
+      const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
       
       // Add individual tract geometries instead of combined geometry
       group.censusTracts.forEach(tract => {
         if (tract.geometry) {
+          const tractId = this.getTractId(tract);
+          const isIntersecting = isIntersectingTract(tractId);
+          
+          // Use darker color for intersecting tracts
+          const tractColor = isIntersecting ? this.darkenColor(color, 30) : color;
+          
           const geoJson = L.geoJSON(tract.geometry, {
             style: {
               color: 'black',//color,
               weight: 1,
               opacity: 1,//0.8,
               fillOpacity: 1,//0.6,
-              fillColor: color
+              fillColor: tractColor
             }
           }).bindPopup(`
             <strong>Tract Information</strong><br>
@@ -638,12 +681,36 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
             <strong>Name:</strong> ${tract.properties?.NAME || 'Unknown'}<br>
             <strong>County:</strong> ${tract.properties?.COUNTY_FIPS || tract.properties?.COUNTY || 'Unknown'}<br>
             <strong>State:</strong> ${tract.properties?.STATE_FIPS || tract.properties?.STATE || 'Unknown'}<br>
+            ${isIntersecting ? '<strong>Intersecting Tract</strong><br>' : ''}
             <hr>
             <strong>Group ${index + 1}</strong><br>
             Districts: ${group.startDistrictNumber}-${group.endDistrictNumber}<br>
             Group Population: ${group.totalPopulation.toLocaleString()}<br>
             Group Tracts: ${group.censusTracts.length}
           `);
+          
+          // Store tract layer for click handling
+          this.stepOverviewTractLayers.set(tractId, geoJson);
+          
+          // Add click handler and cursor styling for intersecting tracts
+          if (isIntersecting) {
+            geoJson.on('click', () => {
+              this.handleStepOverviewIntersectingTractClick(tractId);
+            });
+            
+            // Add cursor pointer on hover for intersecting tracts
+            geoJson.on('mouseover', () => {
+              if (this.stepOverviewMap) {
+                this.stepOverviewMap.getContainer().style.cursor = 'pointer';
+              }
+            });
+            
+            geoJson.on('mouseout', () => {
+              if (this.stepOverviewMap) {
+                this.stepOverviewMap.getContainer().style.cursor = '';
+              }
+            });
+          }
           
           if (this.stepOverviewMap) {
             geoJson.addTo(this.stepOverviewMap);
@@ -1052,13 +1119,13 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   }
 
   /**
-   * Calculate population variance as a percentage (rounded to whole number)
+   * Calculate population variance as a percentage (with two decimal places)
    * @param district The district group
    * @returns Variance percentage (0 = exact match, >0 = over target, <0 = under target)
    */
   calculatePopulationVariancePercentage(district: DistrictGroup): number {
     const ratio = this.calculatePopulationVarianceRatio(district);
-    return Math.round((ratio - 1) * 100);
+    return (ratio - 1) * 100;
   }
 
   /**
@@ -1224,17 +1291,68 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     
     const currentTractIndex = this.getCurrentTractIndex(groupIndex);
     
-    // Reset all tract layer styles first
+    // Reset all tract layer styles first, preserving intersecting tract colors and adjacent tract highlighting
     const groupTractLayers = this.tractLayers.get(groupIndex);
     if (groupTractLayers) {
       const groupColor = this.getGroupColor(groupIndex);
+      const intersectingIds = this.intersectingTractIds.get(groupIndex);
+      const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+      const highlightedAdjacent = this.highlightedAdjacentTracts.get(groupIndex);
+      const isolatedAdjacent = this.isolatedAdjacentTracts.get(groupIndex);
+      
       groupTractLayers.forEach((layer, tractIdx) => {
+        const tract = group.censusTracts[tractIdx];
+        const tractId = this.getTractId(tract);
+        const isIntersecting = isIntersectingTract(tractId);
+        const isHighlighted = highlightedAdjacent ? highlightedAdjacent.has(tractIdx) : false;
+        
+        // Check if this tract is isolated in any opposite group
+        let isIsolated = false;
+        if (isolatedAdjacent) {
+          isolatedAdjacent.forEach((tractIndices, oppositeGroupIndex) => {
+            if (tractIndices.has(tractIdx)) {
+              isIsolated = true;
+            }
+          });
+        }
+        
+        // Determine the correct color based on intersecting, highlighted, and isolated state
+        let fillColor: string;
+        if (isIsolated) {
+          fillColor = '#ffff00'; // Yellow for isolated adjacent tracts
+        } else if (isHighlighted) {
+          fillColor = this.lightenColor(groupColor, 20);
+        } else if (isIntersecting) {
+          fillColor = this.darkenColor(groupColor, 30);
+        } else {
+          fillColor = groupColor;
+        }
+        
         (layer as any).setStyle({
           color: 'black',
           weight: 1,
           opacity: 1,
           fillOpacity: 1,
-          fillColor: groupColor
+          fillColor: fillColor
+        });
+      });
+    }
+    
+    // Also update isolated adjacent tracts in opposite groups
+    const isolatedAdjacentForGroup = this.isolatedAdjacentTracts.get(groupIndex);
+    if (isolatedAdjacentForGroup) {
+      isolatedAdjacentForGroup.forEach((tractIndices: Set<number>, oppositeGroupIndex: number) => {
+        const otherGroupTractLayers = this.tractLayers.get(oppositeGroupIndex);
+        if (!otherGroupTractLayers) return;
+        
+        tractIndices.forEach(tractIndex => {
+          const tractLayer = otherGroupTractLayers.get(tractIndex);
+          if (tractLayer) {
+            // Use yellow color for isolated adjacent tracts
+            (tractLayer as any).setStyle({
+              fillColor: '#ffff00' // Yellow
+            });
+          }
         });
       });
     }
@@ -1279,6 +1397,584 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.canRunNextStep = false;
     this.currentTractIndices.clear();
     this.highlightedTractLayers.clear();
+    this.intersectingTractIds.clear();
+    this.selectedIntersectingTract = null;
+    this.highlightedAdjacentTracts.clear();
+    this.isolatedAdjacentTracts.clear();
+    this.stepOverviewTractLayers.clear();
+    this.selectedStepOverviewIntersectingTract = null;
+    this.highlightedStepOverviewAdjacentTracts.clear();
+    this.isolatedStepOverviewAdjacentTracts.clear();
+  }
+
+  /**
+   * Identify intersecting tracts for all groups in the current step
+   * Uses the intersecting tract IDs stored in division lines from previous steps
+   */
+  private identifyIntersectingTracts(): void {
+    if (!this.currentStep || !this.algorithmResult) return;
+    
+    this.intersectingTractIds.clear();
+    
+    // For each group in the current step, collect intersecting tract IDs from division lines
+    this.currentStep.districtGroups.forEach((group, groupIndex) => {
+      const intersectingIds = new Set<string>();
+      
+      // Check all previous steps to find division lines that might intersect this group's tracts
+      for (let stepIdx = 1; stepIdx <= this.currentStepIndex; stepIdx++) {
+        const step = this.algorithmResult!.steps[stepIdx];
+        if (!step || !step.divisionLines) continue;
+        
+        // Check each division line in this step
+        for (const divLineInfo of step.divisionLines) {
+          const { parentGroup, intersectingTractIds } = divLineInfo;
+          
+          // Check if this group is a descendant of the parent group that was divided
+          const isDescendant = group.startDistrictNumber >= parentGroup.startDistrictNumber &&
+                               group.endDistrictNumber <= parentGroup.endDistrictNumber;
+          
+          if (isDescendant && intersectingTractIds) {
+            // Add intersecting tract IDs that belong to this group
+            intersectingTractIds.forEach(tractId => {
+              // Check if this tract ID belongs to this group
+              const tractInGroup = group.censusTracts.some(tract => this.getTractId(tract) === tractId);
+              if (tractInGroup) {
+                intersectingIds.add(tractId);
+              }
+            });
+          }
+        }
+      }
+      
+      if (intersectingIds.size > 0) {
+        this.intersectingTractIds.set(groupIndex, intersectingIds);
+        console.log(`🔍 Group ${groupIndex}: Found ${intersectingIds.size} intersecting tract(s) from division lines`);
+      }
+    });
+  }
+
+
+  /**
+   * Darken a color by a certain percentage
+   */
+  private darkenColor(color: string, percent: number): string {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) - amt));
+    const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) - amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) - amt));
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+  }
+
+  /**
+   * Lighten a color by a certain percentage
+   */
+  private lightenColor(color: string, percent: number): string {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+    const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+  }
+
+  /**
+   * Calculate the total number of reachable adjacent tracts recursively for a tract
+   * Returns the size of the set of all reachable tracts (including the tract itself)
+   */
+  private calculateReachableTracts(tractId: string, groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): number {
+    const groupTractIds = new Set<string>(groupTracts.map(t => this.getTractId(t)));
+    
+    // BFS traversal to find all reachable tracts
+    const reachableTracts = new Set<string>();
+    const queue: string[] = [tractId];
+    reachableTracts.add(tractId);
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      
+      for (const neighborId of neighbors) {
+        // Only include neighbors that are in this group
+        if (groupTractIds.has(neighborId) && !reachableTracts.has(neighborId)) {
+          reachableTracts.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    
+    return reachableTracts.size;
+  }
+
+  /**
+   * Calculate the maximum reachable count for all tracts in a group
+   * This represents the size of the main component
+   */
+  private calculateMaxReachableCount(groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): number {
+    let maxReachableCount = 0;
+    for (const tract of groupTracts) {
+      const tractId = this.getTractId(tract);
+      const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+      if (reachableCount > maxReachableCount) {
+        maxReachableCount = reachableCount;
+      }
+    }
+    return maxReachableCount;
+  }
+
+  /**
+   * Check if a tract is isolated
+   * A tract is isolated if its reachable count is less than the maximum reachable count in the group
+   * (i.e., it's in a smaller component than the main component)
+   */
+  private isTractIsolated(tractId: string, groupTracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>): boolean {
+    const reachableTractsCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+    const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
+    return reachableTractsCount < maxReachableCount;
+  }
+
+  /**
+   * Handle click on an intersecting tract
+   * Toggles highlighting of adjacent tracts
+   */
+  private handleIntersectingTractClick(groupIndex: number, tractIndex: number): void {
+    if (!this.currentStep?.districtGroups[groupIndex]) {
+      console.log(`⚠️ Group map: No current step or group ${groupIndex} not found`);
+      return;
+    }
+    
+    const group = this.currentStep.districtGroups[groupIndex];
+    const tract = group.censusTracts[tractIndex];
+    const tractId = this.getTractId(tract);
+    
+    console.log(`🖱️ Group map: Intersecting tract ${tractId} clicked in group ${groupIndex} (handler called)`);
+    
+    // Check if this is the same intersecting tract that's already selected
+    const isCurrentlySelected = this.selectedIntersectingTract?.groupIndex === groupIndex &&
+                                 this.selectedIntersectingTract?.tractIndex === tractIndex;
+    
+    if (isCurrentlySelected) {
+      // Deselect: remove highlighting from adjacent tracts
+      console.log(`🔄 Group map: Deselecting intersecting tract ${tractId}`);
+      this.removeAdjacentTractHighlighting(groupIndex);
+      this.selectedIntersectingTract = null;
+    } else {
+      // Select: highlight adjacent tracts
+      console.log(`🔄 Group map: Selecting intersecting tract ${tractId}`);
+      
+      // First, clear any previous highlighting
+      if (this.selectedIntersectingTract) {
+        this.removeAdjacentTractHighlighting(this.selectedIntersectingTract.groupIndex);
+      }
+      
+      // Build adjacency graph for all groups to find adjacent tracts in opposite groups
+      const allTracts: GeoJsonFeature[] = [];
+      this.currentStep.districtGroups.forEach(g => {
+        allTracts.push(...g.censusTracts);
+      });
+      
+      console.log(`🔍 Group map: Building adjacency graph for ${allTracts.length} total tracts`);
+      
+      const allAdjacencyGraph = this.geodistrictService.buildGeometryAdjacencyGraph(allTracts);
+      const neighbors = allAdjacencyGraph.get(tractId) || [];
+      
+      console.log(`🔍 Group map: Found ${neighbors.length} adjacent tract(s) for ${tractId}`);
+      
+      // Find adjacent tracts in opposite groups and check for isolation
+      const adjacentTractIndices = new Set<number>();
+      const isolatedAdjacentTractsByGroup = new Map<number, Set<number>>(); // Map of oppositeGroupIndex -> Set of tractIndices
+      
+      neighbors.forEach((neighborId, index) => {
+        console.log(`🔍 Group map: Processing neighbor ${index + 1}/${neighbors.length}: ${neighborId}`);
+        // Find which group this neighbor belongs to
+        let neighborGroupIndex = -1;
+        let neighborTractIndex = -1;
+        
+        if (!this.currentStep) return;
+        
+        for (let i = 0; i < this.currentStep.districtGroups.length; i++) {
+          const g = this.currentStep.districtGroups[i];
+          const index = g.censusTracts.findIndex(t => this.getTractId(t) === neighborId);
+          if (index !== -1) {
+            neighborGroupIndex = i;
+            neighborTractIndex = index;
+            break;
+          }
+        }
+        
+        if (neighborGroupIndex === -1) return; // Neighbor not found
+        
+        if (neighborGroupIndex === groupIndex) {
+          // Same group neighbor
+          adjacentTractIndices.add(neighborTractIndex);
+        } else {
+          // Neighbor is in opposite group - check for isolation
+          if (!this.currentStep) return;
+          const neighborGroup = this.currentStep.districtGroups[neighborGroupIndex];
+          
+          // Build adjacency graph for neighbor's group
+          const neighborGroupAdjacencyGraph = this.geodistrictService.buildGeometryAdjacencyGraph(neighborGroup.censusTracts);
+          
+          // Check if neighbor is isolated using the new definition:
+          // A tract is isolated if its reachable count is less than the maximum reachable count in the group
+          const totalTractsInGroup = neighborGroup.censusTracts.length;
+          const reachableTractsCount = this.calculateReachableTracts(neighborId, neighborGroup.censusTracts, neighborGroupAdjacencyGraph);
+          const maxReachableCount = this.calculateMaxReachableCount(neighborGroup.censusTracts, neighborGroupAdjacencyGraph);
+          const isIsolated = reachableTractsCount < maxReachableCount;
+          
+          // Log isolation check result
+          console.log(`🔍 Isolation check for adjacent tract ${neighborId} in opposite group ${neighborGroupIndex}:`);
+          console.log(`   - Total tracts in group: ${totalTractsInGroup}`);
+          console.log(`   - Reachable tracts count: ${reachableTractsCount}`);
+          console.log(`   - Max reachable count (main component): ${maxReachableCount}`);
+          console.log(`   - Is isolated: ${isIsolated} (${reachableTractsCount} < ${maxReachableCount})`);
+          
+          if (isIsolated) {
+            if (!isolatedAdjacentTractsByGroup.has(neighborGroupIndex)) {
+              isolatedAdjacentTractsByGroup.set(neighborGroupIndex, new Set<number>());
+            }
+            isolatedAdjacentTractsByGroup.get(neighborGroupIndex)!.add(neighborTractIndex);
+            console.log(`   ✅ Marked as isolated - will be highlighted in yellow`);
+          } else {
+            console.log(`   ℹ️ Not isolated - will be highlighted in lighter color`);
+          }
+        }
+      });
+      
+      // Store highlighted adjacent tracts
+      this.highlightedAdjacentTracts.set(groupIndex, adjacentTractIndices);
+      this.isolatedAdjacentTracts.set(groupIndex, isolatedAdjacentTractsByGroup);
+      this.selectedIntersectingTract = { groupIndex, tractIndex };
+      
+      // Apply lighter color to adjacent tracts and yellow to isolated ones
+      this.applyAdjacentTractHighlighting(groupIndex, adjacentTractIndices, isolatedAdjacentTractsByGroup);
+      
+      const totalIsolated = Array.from(isolatedAdjacentTractsByGroup.values()).reduce((sum, set) => sum + set.size, 0);
+      console.log(`📊 Summary for intersecting tract ${tractId} clicked:`);
+      console.log(`   - Same group adjacent tracts: ${adjacentTractIndices.size} (highlighted in lighter color)`);
+      console.log(`   - Opposite group isolated adjacent tracts: ${totalIsolated} (highlighted in yellow)`);
+      console.log(`   - Opposite group non-isolated adjacent tracts: ${neighbors.length - adjacentTractIndices.size - totalIsolated}`);
+    }
+  }
+
+  /**
+   * Apply lighter color to adjacent tracts and yellow to isolated adjacent tracts in opposite groups
+   */
+  private applyAdjacentTractHighlighting(groupIndex: number, adjacentTractIndices: Set<number>, isolatedAdjacentTractsByGroup: Map<number, Set<number>> = new Map()): void {
+    const groupTractLayers = this.tractLayers.get(groupIndex);
+    if (!groupTractLayers) return;
+    
+    const group = this.currentStep?.districtGroups[groupIndex];
+    if (!group) return;
+    
+    const groupColor = this.getGroupColor(groupIndex);
+    const intersectingIds = this.intersectingTractIds.get(groupIndex);
+    const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+    
+    // Apply lighter color to adjacent tracts in same group
+    adjacentTractIndices.forEach(tractIndex => {
+      const tractLayer = groupTractLayers.get(tractIndex);
+      if (tractLayer) {
+        const tract = group.censusTracts[tractIndex];
+        const tractId = this.getTractId(tract);
+        const isIntersecting = isIntersectingTract(tractId);
+        // Use lighter color for adjacent tracts (even if they're intersecting)
+        const lighterColor = this.lightenColor(groupColor, 20);
+        (tractLayer as any).setStyle({
+          fillColor: lighterColor
+        });
+      }
+    });
+    
+    // Apply yellow color to isolated adjacent tracts in opposite groups
+    isolatedAdjacentTractsByGroup.forEach((tractIndices, oppositeGroupIndex) => {
+      const otherGroupTractLayers = this.tractLayers.get(oppositeGroupIndex);
+      if (!otherGroupTractLayers) return;
+      
+      tractIndices.forEach(tractIndex => {
+        const tractLayer = otherGroupTractLayers.get(tractIndex);
+        if (tractLayer) {
+          // Use yellow color for isolated adjacent tracts
+          (tractLayer as any).setStyle({
+            fillColor: '#ffff00' // Yellow
+          });
+        }
+      });
+    });
+  }
+
+  /**
+   * Handle click on an intersecting tract in the step overview map
+   * Highlights adjacent tracts across all district groups
+   */
+  private handleStepOverviewIntersectingTractClick(tractId: string): void {
+    console.log(`🖱️ Step overview: Intersecting tract ${tractId} clicked (handler called)`);
+    
+    if (!this.currentStep) {
+      console.log(`⚠️ Step overview: No current step available`);
+      return;
+    }
+    
+    // Check if this is the same intersecting tract that's already selected
+    const isCurrentlySelected = this.selectedStepOverviewIntersectingTract === tractId;
+    
+    if (isCurrentlySelected) {
+      // Deselect: remove highlighting from adjacent tracts
+      console.log(`🔄 Step overview: Deselecting intersecting tract ${tractId}`);
+      this.removeStepOverviewAdjacentTractHighlighting();
+      this.selectedStepOverviewIntersectingTract = null;
+    } else {
+      // Select: highlight adjacent tracts across all groups
+      console.log(`🔄 Step overview: Selecting intersecting tract ${tractId}`);
+      
+      // First, clear any previous highlighting
+      if (this.selectedStepOverviewIntersectingTract) {
+        this.removeStepOverviewAdjacentTractHighlighting();
+      }
+      
+      // Find which group the clicked intersecting tract belongs to
+      let clickedGroupIndex = -1;
+      for (let i = 0; i < this.currentStep.districtGroups.length; i++) {
+        const g = this.currentStep.districtGroups[i];
+        if (g.censusTracts.some(t => this.getTractId(t) === tractId)) {
+          clickedGroupIndex = i;
+          break;
+        }
+      }
+      
+      console.log(`📍 Step overview: Clicked tract ${tractId} belongs to group ${clickedGroupIndex}`);
+      
+      // Collect all tracts from all groups in the current step
+      const allTracts: GeoJsonFeature[] = [];
+      this.currentStep.districtGroups.forEach(group => {
+        allTracts.push(...group.censusTracts);
+      });
+      
+      console.log(`🔍 Step overview: Building adjacency graph for ${allTracts.length} total tracts`);
+      
+      // Build adjacency graph for all tracts across all groups
+      const adjacencyGraph = this.geodistrictService.buildGeometryAdjacencyGraph(allTracts);
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      
+      console.log(`🔍 Step overview: Found ${neighbors.length} adjacent tract(s) for ${tractId}`);
+      
+      // Store highlighted adjacent tract IDs and check for isolation
+      this.highlightedStepOverviewAdjacentTracts.clear();
+      this.isolatedStepOverviewAdjacentTracts.clear();
+      
+      let sameGroupAdjacentCount = 0;
+      let oppositeGroupIsolatedCount = 0;
+      let oppositeGroupNonIsolatedCount = 0;
+      
+      neighbors.forEach((neighborId, index) => {
+        console.log(`🔍 Step overview: Processing neighbor ${index + 1}/${neighbors.length}: ${neighborId}`);
+        // Find which group this neighbor belongs to
+        let neighborGroupIndex = -1;
+        
+        if (!this.currentStep) return;
+        
+        for (let i = 0; i < this.currentStep.districtGroups.length; i++) {
+          const g = this.currentStep.districtGroups[i];
+          if (g.censusTracts.some(t => this.getTractId(t) === neighborId)) {
+            neighborGroupIndex = i;
+            break;
+          }
+        }
+        
+        if (neighborGroupIndex === -1) return; // Neighbor not found
+        
+        if (neighborGroupIndex === clickedGroupIndex) {
+          // Same group neighbor
+          this.highlightedStepOverviewAdjacentTracts.add(neighborId);
+          sameGroupAdjacentCount++;
+        } else {
+          // Neighbor is in opposite group - check for isolation
+          if (!this.currentStep) return;
+          const neighborGroup = this.currentStep.districtGroups[neighborGroupIndex];
+          
+          // Build adjacency graph for neighbor's group
+          const neighborGroupAdjacencyGraph = this.geodistrictService.buildGeometryAdjacencyGraph(neighborGroup.censusTracts);
+          
+          // Check if neighbor is isolated using the new definition:
+          // A tract is isolated if its reachable count is less than the maximum reachable count in the group
+          const totalTractsInGroup = neighborGroup.censusTracts.length;
+          const reachableTractsCount = this.calculateReachableTracts(neighborId, neighborGroup.censusTracts, neighborGroupAdjacencyGraph);
+          const maxReachableCount = this.calculateMaxReachableCount(neighborGroup.censusTracts, neighborGroupAdjacencyGraph);
+          const isIsolated = reachableTractsCount < maxReachableCount;
+          
+          // Log isolation check result
+          console.log(`🔍 Step overview: Isolation check for adjacent tract ${neighborId} in opposite group ${neighborGroupIndex}:`);
+          console.log(`   - Total tracts in group: ${totalTractsInGroup}`);
+          console.log(`   - Reachable tracts count: ${reachableTractsCount}`);
+          console.log(`   - Max reachable count (main component): ${maxReachableCount}`);
+          console.log(`   - Is isolated: ${isIsolated} (${reachableTractsCount} < ${maxReachableCount})`);
+          
+          if (isIsolated) {
+            this.isolatedStepOverviewAdjacentTracts.add(neighborId);
+            oppositeGroupIsolatedCount++;
+            console.log(`   ✅ Marked as isolated - will be highlighted in yellow`);
+          } else {
+            this.highlightedStepOverviewAdjacentTracts.add(neighborId);
+            oppositeGroupNonIsolatedCount++;
+            console.log(`   ℹ️ Not isolated - will be highlighted in lighter color`);
+          }
+        }
+      });
+      
+      this.selectedStepOverviewIntersectingTract = tractId;
+      
+      // Apply lighter color to adjacent tracts and yellow to isolated ones
+      this.applyStepOverviewAdjacentTractHighlighting();
+      
+      console.log(`📊 Step overview summary for intersecting tract ${tractId} clicked:`);
+      console.log(`   - Same group adjacent tracts: ${sameGroupAdjacentCount} (highlighted in lighter color)`);
+      console.log(`   - Opposite group isolated adjacent tracts: ${oppositeGroupIsolatedCount} (highlighted in yellow)`);
+      console.log(`   - Opposite group non-isolated adjacent tracts: ${oppositeGroupNonIsolatedCount} (highlighted in lighter color)`);
+      console.log(`   - Total adjacent tracts: ${neighbors.length}`);
+    }
+  }
+
+  /**
+   * Apply lighter color to adjacent tracts and yellow to isolated adjacent tracts in step overview map
+   */
+  private applyStepOverviewAdjacentTractHighlighting(): void {
+    if (!this.currentStep) return;
+    
+    // Get all groups to determine colors
+    this.currentStep.districtGroups.forEach((group, groupIndex) => {
+      const groupColor = this.getGroupColor(groupIndex);
+      const intersectingIds = this.intersectingTractIds.get(groupIndex);
+      const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+      
+      group.censusTracts.forEach(tract => {
+        const tractId = this.getTractId(tract);
+        const isHighlighted = this.highlightedStepOverviewAdjacentTracts.has(tractId);
+        const isIsolated = this.isolatedStepOverviewAdjacentTracts.has(tractId);
+        
+        if (isIsolated) {
+          const tractLayer = this.stepOverviewTractLayers.get(tractId);
+          if (tractLayer) {
+            // Use yellow color for isolated adjacent tracts
+            (tractLayer as any).setStyle({
+              fillColor: '#ffff00' // Yellow
+            });
+          }
+        } else if (isHighlighted) {
+          const tractLayer = this.stepOverviewTractLayers.get(tractId);
+          if (tractLayer) {
+            // Use lighter color for adjacent tracts (even if they're intersecting)
+            const lighterColor = this.lightenColor(groupColor, 20);
+            (tractLayer as any).setStyle({
+              fillColor: lighterColor
+            });
+          }
+        }
+      });
+    });
+  }
+
+  /**
+   * Remove highlighting from adjacent tracts in step overview map
+   */
+  private removeStepOverviewAdjacentTractHighlighting(): void {
+    if (!this.currentStep) return;
+    
+    // Get all groups to determine colors
+    this.currentStep.districtGroups.forEach((group, groupIndex) => {
+      const groupColor = this.getGroupColor(groupIndex);
+      const intersectingIds = this.intersectingTractIds.get(groupIndex);
+      const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+      
+      group.censusTracts.forEach(tract => {
+        const tractId = this.getTractId(tract);
+        const wasHighlighted = this.highlightedStepOverviewAdjacentTracts.has(tractId);
+        const wasIsolated = this.isolatedStepOverviewAdjacentTracts.has(tractId);
+        
+        if (wasHighlighted || wasIsolated) {
+          const tractLayer = this.stepOverviewTractLayers.get(tractId);
+          if (tractLayer) {
+            const isIntersecting = isIntersectingTract(tractId);
+            // Restore original color (darker if intersecting, normal otherwise)
+            const originalColor = isIntersecting ? this.darkenColor(groupColor, 30) : groupColor;
+            (tractLayer as any).setStyle({
+              fillColor: originalColor
+            });
+          }
+        }
+      });
+    });
+    
+    this.highlightedStepOverviewAdjacentTracts.clear();
+    this.isolatedStepOverviewAdjacentTracts.clear();
+  }
+
+  /**
+   * Remove highlighting from adjacent tracts
+   */
+  private removeAdjacentTractHighlighting(groupIndex: number): void {
+    const highlightedAdjacent = this.highlightedAdjacentTracts.get(groupIndex);
+    const isolatedAdjacent = this.isolatedAdjacentTracts.get(groupIndex);
+    
+    if (!highlightedAdjacent && !isolatedAdjacent) return;
+    
+    const groupTractLayers = this.tractLayers.get(groupIndex);
+    if (!groupTractLayers) return;
+    
+    const group = this.currentStep?.districtGroups[groupIndex];
+    if (!group) return;
+    
+    const groupColor = this.getGroupColor(groupIndex);
+    const intersectingIds = this.intersectingTractIds.get(groupIndex);
+    const isIntersectingTract = (tractId: string) => intersectingIds ? intersectingIds.has(tractId) : false;
+    
+    // Restore colors for highlighted adjacent tracts in same group
+    if (highlightedAdjacent) {
+      highlightedAdjacent.forEach(tractIndex => {
+        const tractLayer = groupTractLayers.get(tractIndex);
+        if (tractLayer) {
+          const tract = group.censusTracts[tractIndex];
+          const tractId = this.getTractId(tract);
+          const isIntersecting = isIntersectingTract(tractId);
+          // Restore original color (darker if intersecting, normal otherwise)
+          const originalColor = isIntersecting ? this.darkenColor(groupColor, 30) : groupColor;
+          (tractLayer as any).setStyle({
+            fillColor: originalColor
+          });
+        }
+      });
+    }
+    
+    // Restore colors for isolated adjacent tracts in opposite groups
+    if (isolatedAdjacent) {
+      isolatedAdjacent.forEach((tractIndices, oppositeGroupIndex) => {
+        const otherGroupTractLayers = this.tractLayers.get(oppositeGroupIndex);
+        if (!otherGroupTractLayers) return;
+        
+        const otherGroupColor = this.getGroupColor(oppositeGroupIndex);
+        const otherIntersectingIds = this.intersectingTractIds.get(oppositeGroupIndex);
+        const isOtherIntersectingTract = (tractId: string) => otherIntersectingIds ? otherIntersectingIds.has(tractId) : false;
+        
+        if (!this.currentStep) return;
+        
+        tractIndices.forEach(tractIndex => {
+          const tractLayer = otherGroupTractLayers.get(tractIndex);
+          if (tractLayer && this.currentStep) {
+            const otherGroup = this.currentStep.districtGroups[oppositeGroupIndex];
+            const tract = otherGroup.censusTracts[tractIndex];
+            const tractId = this.getTractId(tract);
+            const isIntersecting = isOtherIntersectingTract(tractId);
+            // Restore original color (darker if intersecting, normal otherwise)
+            const originalColor = isIntersecting ? this.darkenColor(otherGroupColor, 30) : otherGroupColor;
+            (tractLayer as any).setStyle({
+              fillColor: originalColor
+            });
+          }
+        });
+      });
+    }
+    
+    this.highlightedAdjacentTracts.delete(groupIndex);
+    this.isolatedAdjacentTracts.delete(groupIndex);
   }
 
   // Build nested hierarchy from algorithm steps
