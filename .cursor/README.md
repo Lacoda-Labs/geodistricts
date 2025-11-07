@@ -26,12 +26,18 @@ This directory contains Cursor AI conversation history and command files for the
 
 ### Archiving a Session
 
-1. **Manual Archive:**
+1. **Archive Since Last Push (Recommended):**
+   ```bash
+   ./cursor/archive-chats-since-last-push.sh
+   ```
+   This automatically finds new/modified files in `commands/` since last push, archives them, commits, and pushes.
+
+2. **Manual Archive:**
    - Copy conversation from Cursor
    - Create date directory: `archive/2025-11-06/`
    - Save as markdown file with descriptive name
 
-2. **Using Archive Script:**
+3. **Using Archive Script:**
    ```bash
    ./cursor/archive-session.sh "session-name"
    ```
