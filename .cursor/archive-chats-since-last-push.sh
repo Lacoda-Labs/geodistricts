@@ -2,7 +2,8 @@
 
 # Archive chats since last push and push
 # This script finds new/modified files in .cursor/commands/ since last push,
-# archives them, commits, and pushes
+# archives them, creates an archive entry for the current conversation,
+# commits, and pushes
 
 set -e
 
@@ -93,6 +94,47 @@ if [ $ARCHIVED_COUNT -eq 0 ]; then
     echo "✅ No files to archive."
     exit 0
 fi
+
+# Create archive entry for current conversation
+echo ""
+echo "📝 Creating archive entry for current conversation..."
+
+CURRENT_SESSION_NAME="cursor-session-$(date +%Y%m%d-%H%M%S)"
+CURRENT_ARCHIVE_PATH="$TODAY_ARCHIVE_DIR/$CURRENT_SESSION_NAME.md"
+
+# Create archive entry with template
+{
+    echo "# Cursor Session - $TODAY"
+    echo ""
+    echo "**Date:** $TODAY"
+    echo "**Time:** $(date +%H:%M:%S)"
+    echo "**Session ID:** $CURRENT_SESSION_NAME"
+    echo ""
+    echo "## Summary"
+    echo "<!-- Add a brief summary of what was discussed/implemented in this session -->"
+    echo ""
+    echo "## Key Changes"
+    echo "<!-- List key changes, features, or fixes implemented -->"
+    echo ""
+    echo "## Files Modified"
+    echo "<!-- List files that were modified -->"
+    echo ""
+    echo "## Conversation"
+    echo ""
+    echo "<!-- This conversation was archived automatically. To add the full conversation:"
+    echo "1. Copy the conversation from Cursor"
+    echo "2. Paste it below this comment"
+    echo "3. Commit and push -->"
+    echo ""
+    echo "## Notes"
+    echo "<!-- Add any additional notes or context -->"
+} > "$CURRENT_ARCHIVE_PATH"
+
+ARCHIVED_COUNT=$((ARCHIVED_COUNT + 1))
+ARCHIVED_FILES+=("$CURRENT_SESSION_NAME.md")
+
+echo "  ✅ Created archive entry: $CURRENT_SESSION_NAME.md"
+echo "     Edit this file to add conversation details: $CURRENT_ARCHIVE_PATH"
 
 echo ""
 echo "📝 Committing archived chats..."
