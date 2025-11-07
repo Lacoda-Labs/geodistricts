@@ -130,7 +130,8 @@ ARCHIVED_COUNT=$((ARCHIVED_COUNT + 1))
 ARCHIVED_FILES+=("$CURRENT_SESSION_NAME.md")
 
 echo "  ✅ Created archive entry: $CURRENT_SESSION_NAME.md"
-echo "     Edit this file to add conversation details: $CURRENT_ARCHIVE_PATH"
+echo "     Archive file: $CURRENT_ARCHIVE_PATH"
+echo "     Note: Conversation details will be populated automatically by AI assistant"
 
 echo ""
 echo "📝 Committing archived chats..."
