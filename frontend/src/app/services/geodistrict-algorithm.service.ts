@@ -618,6 +618,9 @@ export class GeodistrictAlgorithmService {
       // Check for and resolve isolated tracts across all groups after this step
       currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts);
       
+      // Rebalance populations after isolation fixes
+      currentGroups = this.rebalanceGroupPopulations(currentGroups, tracts, targetDistrictPopulation);
+      
       steps.push(this.createStep(iteration, iteration, currentGroups,
         `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
     }
@@ -2659,6 +2662,218 @@ export class GeodistrictAlgorithmService {
     }
     
     return updatedGroups;
+  }
+
+  /**
+   * Rebalance group populations after isolation fixes
+   * Moves tracts between adjacent groups to balance populations while maintaining contiguity
+   * @param districtGroups All district groups
+   * @param allTracts All tracts in the dataset
+   * @param targetDistrictPopulation Target population per district
+   * @returns Updated district groups with balanced populations
+   */
+  public rebalanceGroupPopulations(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[], targetDistrictPopulation: number): DistrictGroup[] {
+    console.log(`⚖️ REBALANCING GROUP POPULATIONS: Checking ${districtGroups.length} groups for population balance`);
+    
+    if (districtGroups.length < 2) {
+      return districtGroups;
+    }
+    
+    // Build adjacency graph for all tracts
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // Create a copy of groups to modify
+    const updatedGroups = districtGroups.map(group => ({
+      ...group,
+      censusTracts: [...group.censusTracts]
+    }));
+    
+    // Calculate target population for each group
+    const groupTargets = updatedGroups.map(group => ({
+      group,
+      targetPopulation: targetDistrictPopulation * group.totalDistricts,
+      currentPopulation: group.totalPopulation,
+      variance: group.totalPopulation - (targetDistrictPopulation * group.totalDistricts),
+      variancePercent: ((group.totalPopulation - (targetDistrictPopulation * group.totalDistricts)) / (targetDistrictPopulation * group.totalDistricts)) * 100
+    }));
+    
+    // Log current state
+    console.log(`📊 Current population distribution:`);
+    for (const gt of groupTargets) {
+      console.log(`   Group ${gt.group.startDistrictNumber}-${gt.group.endDistrictNumber}: ${gt.currentPopulation.toLocaleString()} (target: ${gt.targetPopulation.toLocaleString()}, variance: ${gt.variancePercent.toFixed(2)}%)`);
+    }
+    
+    // Find groups that need rebalancing (variance > 5%)
+    const overTargetGroups = groupTargets.filter(gt => gt.variancePercent > 5);
+    const underTargetGroups = groupTargets.filter(gt => gt.variancePercent < -5);
+    
+    if (overTargetGroups.length === 0 && underTargetGroups.length === 0) {
+      console.log(`✅ All groups are within 5% of target population - no rebalancing needed`);
+      return updatedGroups;
+    }
+    
+    console.log(`🔍 Found ${overTargetGroups.length} group(s) over target, ${underTargetGroups.length} group(s) under target`);
+    
+    // Try to balance by moving tracts between adjacent groups
+    let totalMoved = 0;
+    const maxRebalancingIterations = 10;
+    
+    for (let iteration = 0; iteration < maxRebalancingIterations; iteration++) {
+      let movedThisIteration = false;
+      
+      // Sort groups by variance (largest variance first)
+      const sortedOverTarget = [...overTargetGroups].sort((a, b) => b.variancePercent - a.variancePercent);
+      const sortedUnderTarget = [...underTargetGroups].sort((a, b) => a.variancePercent - b.variancePercent);
+      
+      for (const overGroupTarget of sortedOverTarget) {
+        if (overGroupTarget.variancePercent <= 5) continue; // Already balanced
+        
+        const overGroupIndex = updatedGroups.findIndex(g => g.startDistrictNumber === overGroupTarget.group.startDistrictNumber);
+        const overGroup = updatedGroups[overGroupIndex];
+        
+        // Find adjacent groups that are under target
+        for (const underGroupTarget of sortedUnderTarget) {
+          if (underGroupTarget.variancePercent >= -5) continue; // Already balanced
+          
+          const underGroupIndex = updatedGroups.findIndex(g => g.startDistrictNumber === underGroupTarget.group.startDistrictNumber);
+          const underGroup = updatedGroups[underGroupIndex];
+          
+          // Check if groups are adjacent (share a boundary)
+          const areAdjacent = this.areGroupsAdjacent(overGroup, underGroup, adjacencyGraph);
+          
+          if (areAdjacent) {
+            // Calculate how much population to move
+            const populationToMove = Math.min(
+              Math.abs(overGroupTarget.variance),
+              Math.abs(underGroupTarget.variance)
+            ) / 2; // Move half the difference to avoid overcorrection
+            
+            // Find tracts on the boundary that can be moved
+            const boundaryTracts = this.findBoundaryTracts(overGroup, underGroup, adjacencyGraph);
+            
+            // Sort by population (smallest first for finer control)
+            boundaryTracts.sort((a, b) => {
+              const popA = a.properties?.POPULATION || 0;
+              const popB = b.properties?.POPULATION || 0;
+              return popA - popB;
+            });
+            
+            // Move tracts until we've moved enough population
+            let movedPopulation = 0;
+            const tractsToMove: GeoJsonFeature[] = [];
+            
+            for (const tract of boundaryTracts) {
+              const tractPopulation = tract.properties?.POPULATION || 0;
+              
+              if (movedPopulation + tractPopulation <= populationToMove * 1.1) { // Allow 10% over to complete move
+                tractsToMove.push(tract);
+                movedPopulation += tractPopulation;
+              }
+              
+              if (movedPopulation >= populationToMove) break;
+            }
+            
+            // Move the tracts
+            if (tractsToMove.length > 0) {
+              for (const tract of tractsToMove) {
+                const tractId = this.getTractId(tract);
+                const tractIndex = overGroup.censusTracts.findIndex(t => this.getTractId(t) === tractId);
+                
+                if (tractIndex !== -1) {
+                  overGroup.censusTracts.splice(tractIndex, 1);
+                  underGroup.censusTracts.push(tract);
+                }
+              }
+              
+              // Update group populations and properties
+              overGroup.totalPopulation = overGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+              underGroup.totalPopulation = underGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+              overGroup.bounds = this.calculateBounds(overGroup.censusTracts);
+              underGroup.bounds = this.calculateBounds(underGroup.censusTracts);
+              overGroup.centroid = this.calculateCentroid(overGroup.censusTracts);
+              underGroup.centroid = this.calculateCentroid(underGroup.censusTracts);
+              
+              // Update targets
+              overGroupTarget.currentPopulation = overGroup.totalPopulation;
+              overGroupTarget.variance = overGroup.totalPopulation - overGroupTarget.targetPopulation;
+              overGroupTarget.variancePercent = (overGroupTarget.variance / overGroupTarget.targetPopulation) * 100;
+              
+              underGroupTarget.currentPopulation = underGroup.totalPopulation;
+              underGroupTarget.variance = underGroup.totalPopulation - underGroupTarget.targetPopulation;
+              underGroupTarget.variancePercent = (underGroupTarget.variance / underGroupTarget.targetPopulation) * 100;
+              
+              totalMoved += tractsToMove.length;
+              movedThisIteration = true;
+              
+              console.log(`🔄 Moved ${tractsToMove.length} tract(s) (${movedPopulation.toLocaleString()} people) from group ${overGroup.startDistrictNumber}-${overGroup.endDistrictNumber} to group ${underGroup.startDistrictNumber}-${underGroup.endDistrictNumber}`);
+            }
+          }
+        }
+      }
+      
+      if (!movedThisIteration) break; // No more moves possible
+    }
+    
+    if (totalMoved > 0) {
+      console.log(`✅ Rebalanced populations: moved ${totalMoved} tract(s) total`);
+    } else {
+      console.log(`⚠️ Could not rebalance populations - no adjacent groups found or no suitable tracts to move`);
+    }
+    
+    return updatedGroups;
+  }
+
+  /**
+   * Check if two groups are adjacent (share a boundary)
+   * @param group1 First group
+   * @param group2 Second group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns True if groups are adjacent
+   */
+  private areGroupsAdjacent(group1: DistrictGroup, group2: DistrictGroup, adjacencyGraph: Map<string, string[]>): boolean {
+    const group1TractIds = new Set(group1.censusTracts.map(t => this.getTractId(t)));
+    const group2TractIds = new Set(group2.censusTracts.map(t => this.getTractId(t)));
+    
+    // Check if any tract in group1 is adjacent to any tract in group2
+    for (const tract1 of group1.censusTracts) {
+      const tract1Id = this.getTractId(tract1);
+      const neighbors = adjacencyGraph.get(tract1Id) || [];
+      
+      for (const neighborId of neighbors) {
+        if (group2TractIds.has(neighborId)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Find tracts on the boundary between two groups
+   * @param group1 First group
+   * @param group2 Second group
+   * @param adjacencyGraph Adjacency graph for all tracts
+   * @returns Array of tracts on the boundary
+   */
+  private findBoundaryTracts(group1: DistrictGroup, group2: DistrictGroup, adjacencyGraph: Map<string, string[]>): GeoJsonFeature[] {
+    const boundaryTracts: GeoJsonFeature[] = [];
+    const group2TractIds = new Set(group2.censusTracts.map(t => this.getTractId(t)));
+    
+    // Find tracts in group1 that are adjacent to group2
+    for (const tract of group1.censusTracts) {
+      const tractId = this.getTractId(tract);
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      
+      // Check if this tract has neighbors in group2
+      const hasNeighborInGroup2 = neighbors.some(neighborId => group2TractIds.has(neighborId));
+      
+      if (hasNeighborInGroup2) {
+        boundaryTracts.push(tract);
+      }
+    }
+    
+    return boundaryTracts;
   }
 
   /**
