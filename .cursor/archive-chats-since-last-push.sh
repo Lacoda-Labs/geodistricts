@@ -28,11 +28,6 @@ else
     fi
 fi
 
-if [ -z "$FILES_TO_ARCHIVE" ]; then
-    echo "✅ No files to archive."
-    exit 0
-fi
-
 # Get today's date for archive directory
 TODAY=$(date +%Y-%m-%d)
 TODAY_ARCHIVE_DIR="$ARCHIVE_DIR/$TODAY"
@@ -41,11 +36,13 @@ mkdir -p "$TODAY_ARCHIVE_DIR"
 ARCHIVED_COUNT=0
 ARCHIVED_FILES=()
 
-echo "📦 Archiving chats since last push..."
-echo ""
-
-# Process each file
-for FILE in $FILES_TO_ARCHIVE; do
+# Process files from commands/ if any exist
+if [ -n "$FILES_TO_ARCHIVE" ]; then
+    echo "📦 Archiving chats since last push..."
+    echo ""
+    
+    # Process each file
+    for FILE in $FILES_TO_ARCHIVE; do
     if [ ! -f "$FILE" ]; then
         continue
     fi
@@ -87,14 +84,11 @@ for FILE in $FILES_TO_ARCHIVE; do
     ARCHIVED_COUNT=$((ARCHIVED_COUNT + 1))
     ARCHIVED_FILES+=("$ARCHIVE_NAME")
     
-    echo "  ✅ Archived: $FILENAME → $ARCHIVE_NAME"
-done
-
-# Get today's date for archive directory (if not already set)
-if [ -z "$TODAY" ]; then
-    TODAY=$(date +%Y-%m-%d)
-    TODAY_ARCHIVE_DIR="$ARCHIVE_DIR/$TODAY"
-    mkdir -p "$TODAY_ARCHIVE_DIR"
+        echo "  ✅ Archived: $FILENAME → $ARCHIVE_NAME"
+    done
+else
+    echo "📦 No command files to archive since last push."
+    echo ""
 fi
 
 # Create archive entry for current conversation (always create this)
