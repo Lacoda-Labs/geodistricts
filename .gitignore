@@ -74,3 +74,5 @@ geodistricts-cloud-run-admin-key.json
 frontend/src/config/api-keys.ts
 
 console.debug
+
+figma

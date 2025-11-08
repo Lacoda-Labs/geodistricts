@@ -1,0 +1,92 @@
+import { Component, OnInit, AfterViewInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { ApiService } from '../services/api.service';
+import * as L from 'leaflet';
+
+@Component({
+  selector: 'app-oldhome-page',
+  standalone: true,
+  imports: [CommonModule, RouterModule],
+  templateUrl: './oldhome-page.component.html',
+  styleUrls: ['../app.scss']
+})
+export class OldHomePageComponent implements OnInit, AfterViewInit {
+  title = 'GeoDistricts';
+  apiMessage = '';
+  healthStatus = '';
+  private usaMap: L.Map | null = null;
+  private californiaMap: L.Map | null = null;
+
+  constructor(private apiService: ApiService) {}
+
+  ngOnInit() {
+    this.testApiConnection();
+  }
+
+  ngAfterViewInit() {
+    // Initialize maps after view is ready
+    setTimeout(() => {
+      this.initializeUSAMap();
+      this.initializeCaliforniaMap();
+    }, 100);
+  }
+
+  testApiConnection() {
+    this.apiService.getHello().subscribe({
+      next: (response) => {
+        this.apiMessage = response.message;
+      },
+      error: (error) => {
+        this.apiMessage = 'API connection failed';
+        console.error('API Error:', error);
+      }
+    });
+
+    this.apiService.getHealth().subscribe({
+      next: (response) => {
+        this.healthStatus = response.status;
+      },
+      error: (error) => {
+        this.healthStatus = 'Health check failed';
+        console.error('Health Check Error:', error);
+      }
+    });
+  }
+
+  private initializeUSAMap() {
+    const mapElement = document.getElementById('usaMap');
+    if (mapElement && !this.usaMap) {
+      this.usaMap = L.map('usaMap', {
+        scrollWheelZoom: false
+      }).setView([39.8283, -98.5795], 4);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(this.usaMap);
+
+      // Add a marker for the center of the US
+      L.marker([39.8283, -98.5795]).addTo(this.usaMap)
+        .bindPopup('United States<br>Electoral Districts')
+        .openPopup();
+    }
+  }
+
+  private initializeCaliforniaMap() {
+    const mapElement = document.getElementById('californiaMap');
+    if (mapElement && !this.californiaMap) {
+      this.californiaMap = L.map('californiaMap', {
+        scrollWheelZoom: false
+      }).setView([36.7783, -119.4179], 6);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(this.californiaMap);
+
+      // Add a marker for California
+      L.marker([36.7783, -119.4179]).addTo(this.californiaMap)
+        .bindPopup('California<br>Census Tracts')
+        .openPopup();
+    }
+  }
+}

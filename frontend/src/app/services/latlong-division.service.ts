@@ -42,13 +42,17 @@ export class LatLongDivisionService {
     // Find the dividing line using iterative approach
     const dividingLine = this.findOptimalDividingLine(group.censusTracts, direction, targetFirstGroupPopulation);
 
+    // Create history array early so it can be updated during refinement
+    const history: string[] = [];
+    
     // Divide tracts based on the dividing line
     const { firstGroupTracts, secondGroupTracts, intersectingTractIds } = this.divideTractsByLine(
       group.censusTracts,
       direction,
       dividingLine,
       targetFirstGroupPopulation,
-      targetSecondGroupPopulation
+      targetSecondGroupPopulation,
+      history
     );
 
     // Validate contiguity of both groups
@@ -113,12 +117,17 @@ export class LatLongDivisionService {
       console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
     }
 
-    const history = [
-      `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} lat/long line at ${dividingLine.toFixed(6) + (direction === 'latitude' ? '°N' : '°W')}`,
+    // Format ratio for display (e.g., 50/50, 66/34)
+    // division.ratio is already in percentages [50, 50] or [66, 34]
+    const ratioDisplay = `${division.ratio[0]}/${division.ratio[1]}`;
+    
+    // Add initial history entries (history array was created earlier and passed to divideTractsByLine)
+    history.push(
+      `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} lat/long line at ${dividingLine.toFixed(6) + (direction === 'latitude' ? '°N' : '°W')} by ${ratioDisplay} ratio`,
       `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
       `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`,
       `  - Population variance: ${(actualVariance * 100).toFixed(1)}%`
-    ];
+    );
     
     if (tractsToMove > 0) {
       history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
@@ -319,7 +328,8 @@ export class LatLongDivisionService {
     direction: 'latitude' | 'longitude', 
     lineCoordinate: number,
     targetFirstGroupPopulation: number,
-    targetSecondGroupPopulation: number
+    targetSecondGroupPopulation: number,
+    history: string[] = []
   ): {
     firstGroupTracts: GeoJsonFeature[];
     secondGroupTracts: GeoJsonFeature[];
@@ -629,12 +639,24 @@ export class LatLongDivisionService {
     }
 
     // Third pass: refine division to minimize variance by moving intersecting tracts
+    // Track initial state before refinement
+    const initialFirstGroupPopulation = firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    const initialSecondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    const initialFirstGroupCount = firstGroupTracts.length;
+    const initialSecondGroupCount = secondGroupTracts.length;
+    const initialFirstVariance = ((initialFirstGroupPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation) * 100;
+    const initialSecondVariance = ((initialSecondGroupPopulation - targetSecondGroupPopulation) / targetSecondGroupPopulation) * 100;
+    
     // Get remaining intersecting tracts that can be moved
     const remainingIntersectingTracts = intersectingTracts.filter(tract => {
       const tractId = algorithmService.getTractId(tract);
       return firstGroupTracts.some(t => algorithmService.getTractId(t) === tractId) ||
              secondGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
     });
+
+    console.log(`📊 Variance refinement: Starting with ${remainingIntersectingTracts.length} intersecting tract(s) available to move`);
+    console.log(`   Initial variance: First group: ${initialFirstVariance.toFixed(2)}%, Second group: ${initialSecondVariance.toFixed(2)}%`);
+    console.log(`   Target: First group: ${targetFirstGroupPopulation.toLocaleString()}, Second group: ${targetSecondGroupPopulation.toLocaleString()}`);
 
     // Sort intersecting tracts by population (smallest first for finer control)
     remainingIntersectingTracts.sort((a, b) => {
@@ -644,10 +666,14 @@ export class LatLongDivisionService {
     });
 
     // Calculate current population and variance
-    let firstGroupPopulation = firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-    let secondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    let firstGroupPopulation = initialFirstGroupPopulation;
+    let secondGroupPopulation = initialSecondGroupPopulation;
     let firstGroupVariance = firstGroupPopulation - targetFirstGroupPopulation;
     let secondGroupVariance = secondGroupPopulation - targetSecondGroupPopulation;
+    
+    // Track how many tracts were moved
+    let tractsMovedCount = 0;
+    let stopReason = '';
 
     // Move tracts from the group with positive variance to the group with negative variance
     for (const tract of remainingIntersectingTracts) {
@@ -690,11 +716,14 @@ export class LatLongDivisionService {
           secondGroupPopulation += totalMovedPopulation;
           firstGroupVariance = firstGroupPopulation - targetFirstGroupPopulation;
           secondGroupVariance = secondGroupPopulation - targetSecondGroupPopulation;
+          tractsMovedCount += 1 + enclosedTractIds.length; // Count the tract plus any enclosed tracts
           console.log(`📊 Moved intersecting tract ${tractId} (pop: ${tractPopulation.toLocaleString()})${enclosedTractIds.length > 0 ? ` and ${enclosedTractIds.length} enclosed tract(s)` : ''} from first to second group to reduce variance`);
         }
         // Stop if first group now has negative variance (overcorrected)
         if (firstGroupVariance < 0) {
-          console.log(`✅ First group variance reduced to negative (${((firstGroupVariance / targetFirstGroupPopulation) * 100).toFixed(2)}%), stopping`);
+          const currentFirstVariance = ((firstGroupVariance / targetFirstGroupPopulation) * 100);
+          stopReason = `First group variance reduced to negative (${currentFirstVariance.toFixed(2)}%), stopping to avoid overcorrection`;
+          console.log(`✅ ${stopReason}`);
           break;
         }
       } else if (secondGroupVariance > 0 && firstGroupVariance < 0 && inSecond) {
@@ -730,11 +759,14 @@ export class LatLongDivisionService {
           firstGroupPopulation += totalMovedPopulation;
           firstGroupVariance = firstGroupPopulation - targetFirstGroupPopulation;
           secondGroupVariance = secondGroupPopulation - targetSecondGroupPopulation;
+          tractsMovedCount += 1 + enclosedTractIds.length; // Count the tract plus any enclosed tracts
           console.log(`📊 Moved intersecting tract ${tractId} (pop: ${tractPopulation.toLocaleString()})${enclosedTractIds.length > 0 ? ` and ${enclosedTractIds.length} enclosed tract(s)` : ''} from second to first group to reduce variance`);
         }
         // Stop if second group now has negative variance (overcorrected)
         if (secondGroupVariance < 0) {
-          console.log(`✅ Second group variance reduced to negative (${((secondGroupVariance / targetSecondGroupPopulation) * 100).toFixed(2)}%), stopping`);
+          const currentSecondVariance = ((secondGroupVariance / targetSecondGroupPopulation) * 100);
+          stopReason = `Second group variance reduced to negative (${currentSecondVariance.toFixed(2)}%), stopping to avoid overcorrection`;
+          console.log(`✅ ${stopReason}`);
           break;
         }
       }
@@ -744,7 +776,34 @@ export class LatLongDivisionService {
     const finalSecondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const finalFirstVariance = ((finalFirstGroupPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation) * 100;
     const finalSecondVariance = ((finalSecondGroupPopulation - targetSecondGroupPopulation) / targetSecondGroupPopulation) * 100;
-    console.log(`📊 Final variance after refinement: First group: ${finalFirstVariance.toFixed(2)}%, Second group: ${finalSecondVariance.toFixed(2)}%`);
+    
+    // Determine why refinement stopped
+    if (!stopReason) {
+      if (tractsMovedCount === 0) {
+        stopReason = 'No intersecting tracts available to move';
+      } else if (tractsMovedCount >= remainingIntersectingTracts.length) {
+        stopReason = `All ${remainingIntersectingTracts.length} available intersecting tracts were moved`;
+      } else {
+        stopReason = `Variance balanced (${finalFirstVariance.toFixed(2)}% / ${finalSecondVariance.toFixed(2)}%)`;
+      }
+    }
+    
+    console.log(`📊 Variance refinement complete:`);
+    console.log(`   Moved ${tractsMovedCount} tract(s) out of ${remainingIntersectingTracts.length} available intersecting tracts`);
+    console.log(`   Final variance: First group: ${finalFirstVariance.toFixed(2)}%, Second group: ${finalSecondVariance.toFixed(2)}%`);
+    console.log(`   Variance reduction: ${(Math.abs(initialFirstVariance) + Math.abs(initialSecondVariance) - (Math.abs(finalFirstVariance) + Math.abs(finalSecondVariance))).toFixed(2)}%`);
+    console.log(`   Stop reason: ${stopReason}`);
+    
+    // Log how many tracts were actually moved during refinement
+    if (tractsMovedCount > 0) {
+      const moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+      history.push(`  - Balanced variance: moved ${tractsMovedCount} tract(s) ${moveDirection} (final variance: ${finalFirstVariance.toFixed(2)}% / ${finalSecondVariance.toFixed(2)}%)`);
+      if (tractsMovedCount < remainingIntersectingTracts.length) {
+        history.push(`    (${remainingIntersectingTracts.length - tractsMovedCount} intersecting tract(s) remaining, stopped: ${stopReason})`);
+      }
+    } else {
+      history.push(`  - No variance balancing needed (variance already acceptable or no intersecting tracts available)`);
+    }
     
     // Fourth pass (after variance reduction): Check intersecting tracts again for isolated neighbors
     // This is important because variance reduction may have moved tracts without checking isolation

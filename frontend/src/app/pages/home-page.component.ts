@@ -1,92 +1,68 @@
-import { Component, OnInit, AfterViewInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { ApiService } from '../services/api.service';
-import * as L from 'leaflet';
+import { NavigationComponent } from '../components/navigation/navigation.component';
+import { HeroComponent } from '../components/hero/hero.component';
+import { WhatIsItComponent } from '../components/what-is-it/what-is-it.component';
+import { HowItWorksComponent } from '../components/how-it-works/how-it-works.component';
+import { VoterSwingComponent } from '../components/voter-swing/voter-swing.component';
+import { TryItComponent } from '../components/try-it/try-it.component';
 
 @Component({
   selector: 'app-home-page',
   standalone: true,
-  imports: [CommonModule, RouterModule],
-  templateUrl: './home-page.component.html',
-  styleUrls: ['../app.scss']
+  imports: [
+    CommonModule,
+    NavigationComponent,
+    HeroComponent,
+    WhatIsItComponent,
+    HowItWorksComponent,
+    VoterSwingComponent,
+    TryItComponent,
+  ],
+  template: `
+    <div class="min-h-screen bg-white">
+      <app-navigation 
+        [activeSection]="activeSection"
+        (scrollToSection)="scrollToSection($event)">
+      </app-navigation>
+      
+      <main>
+        <section id="home">
+          <app-hero (scrollToSection)="scrollToSection($event)"></app-hero>
+        </section>
+        
+        <section id="what" class="py-20 px-6">
+          <app-what-is-it></app-what-is-it>
+        </section>
+        
+        <section id="how" class="py-20 px-6 bg-gray-50">
+          <app-how-it-works></app-how-it-works>
+        </section>
+        
+        <section id="impact" class="py-20 px-6">
+          <app-voter-swing></app-voter-swing>
+        </section>
+        
+        <section id="try" class="py-20 px-6 bg-gray-50">
+          <app-try-it></app-try-it>
+        </section>
+      </main>
+      
+      <footer class="border-t border-gray-200 py-12 px-6">
+        <div class="max-w-4xl mx-auto text-center text-gray-500">
+          <p>© 2025 GeoDistricts. Objective redistricting through AI.</p>
+        </div>
+      </footer>
+    </div>
+  `,
 })
-export class HomePageComponent implements OnInit, AfterViewInit {
-  title = 'GeoDistricts';
-  apiMessage = '';
-  healthStatus = '';
-  private usaMap: L.Map | null = null;
-  private californiaMap: L.Map | null = null;
+export class HomePageComponent {
+  activeSection = 'home';
 
-  constructor(private apiService: ApiService) {}
-
-  ngOnInit() {
-    this.testApiConnection();
-  }
-
-  ngAfterViewInit() {
-    // Initialize maps after view is ready
-    setTimeout(() => {
-      this.initializeUSAMap();
-      this.initializeCaliforniaMap();
-    }, 100);
-  }
-
-  testApiConnection() {
-    this.apiService.getHello().subscribe({
-      next: (response) => {
-        this.apiMessage = response.message;
-      },
-      error: (error) => {
-        this.apiMessage = 'API connection failed';
-        console.error('API Error:', error);
-      }
-    });
-
-    this.apiService.getHealth().subscribe({
-      next: (response) => {
-        this.healthStatus = response.status;
-      },
-      error: (error) => {
-        this.healthStatus = 'Health check failed';
-        console.error('Health Check Error:', error);
-      }
-    });
-  }
-
-  private initializeUSAMap() {
-    const mapElement = document.getElementById('usaMap');
-    if (mapElement && !this.usaMap) {
-      this.usaMap = L.map('usaMap', {
-        scrollWheelZoom: false
-      }).setView([39.8283, -98.5795], 4);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(this.usaMap);
-
-      // Add a marker for the center of the US
-      L.marker([39.8283, -98.5795]).addTo(this.usaMap)
-        .bindPopup('United States<br>Electoral Districts')
-        .openPopup();
-    }
-  }
-
-  private initializeCaliforniaMap() {
-    const mapElement = document.getElementById('californiaMap');
-    if (mapElement && !this.californiaMap) {
-      this.californiaMap = L.map('californiaMap', {
-        scrollWheelZoom: false
-      }).setView([36.7783, -119.4179], 6);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(this.californiaMap);
-
-      // Add a marker for California
-      L.marker([36.7783, -119.4179]).addTo(this.californiaMap)
-        .bindPopup('California<br>Census Tracts')
-        .openPopup();
-    }
+  scrollToSection(sectionId: string) {
+    this.activeSection = sectionId;
+    const element = document.getElementById(sectionId);
+    element?.scrollIntoView({ behavior: 'smooth' });
   }
 }
+
