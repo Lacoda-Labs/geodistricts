@@ -15,17 +15,6 @@
       </select>
     </div>
 
-    <div class="control-group">
-      <label for="algorithmSelect">Sorting Algorithm:</label>
-      <select id="algorithmSelect" [(ngModel)]="selectedAlgorithm" (change)="onAlgorithmChange()">
-        <option *ngFor="let option of algorithmOptions" [value]="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-      <div class="algorithm-description">
-        {{ getSelectedAlgorithmDescription() }}
-      </div>
-    </div>
 
     <div class="control-group">
       <label>
@@ -34,29 +23,6 @@
       </label>
     </div>
 
-    <div class="control-group" *ngIf="selectedAlgorithm === 'geo-graph'">
-      <label>Geo-Graph Execution Mode:</label>
-      <div class="step-controls">
-        <button (click)="executeStep()" [disabled]="isExecuting">
-          {{ currentStep === 0 ? 'Execute Phase 1' : 'Next Step' }}
-        </button>
-        <button (click)="resetSteps()" [disabled]="isExecuting">
-          Reset
-        </button>
-        <div class="step-info" *ngIf="stepResult">
-          <strong>{{ stepResult.phase === 'phase1' ? 'Phase 1' : 'Phase 2' }}</strong>
-          Step {{ stepResult.step }}/{{ stepResult.totalSteps }}
-          <br>
-          <small>{{ stepResult.message }}</small>
-          <div *ngIf="stepResult.currentDistricts && stepResult.currentDistricts.length > 0" class="district-info">
-            <strong>Current Districts:</strong>
-            <div *ngFor="let district of stepResult.currentDistricts; let i = index" class="district-group">
-              District {{ i + 1 }}: {{ district.length }} tracts
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="control-group">
       <button (click)="loadStateData()" [disabled]="isLoading || !selectedState">
@@ -92,7 +58,7 @@
     </div>
 
     <div class="tract-navigation" *ngIf="sortedTracts.length > 0">
-      <h3>Tract Navigation ({{ selectedAlgorithm }} Algorithm)</h3>
+      <h3>Tract Navigation</h3>
       
       <div class="tract-visualization">
         <div class="tract-dots-container">
@@ -162,27 +128,6 @@
           </div>
         </div>
 
-        <div class="debug-controls" *ngIf="selectedAlgorithm === 'geo-graph'">
-          <h5>Debug: Find Extreme Adjacent Tract</h5>
-          <div class="debug-control-group">
-            <label for="directionSelect">Direction:</label>
-            <select id="directionSelect" [(ngModel)]="extremeAdjacentTractDirection">
-              <option value="northeast">Northeast</option>
-              <option value="northwest">Northwest</option>
-              <option value="southeast">Southeast</option>
-              <option value="southwest">Southwest</option>
-              <option value="east">East</option>
-              <option value="west">West</option>
-              <option value="north">North</option>
-              <option value="south">South</option>
-            </select>
-            <button (click)="findExtremeAdjacentTract()">Find Extreme Adjacent Tract</button>
-          </div>
-          <div class="debug-result" *ngIf="extremeAdjacentTractResult">
-            <strong>Result:</strong> Tract {{ getTractId(extremeAdjacentTractResult) }} 
-            ({{ getTractPopulation(extremeAdjacentTractResult).toLocaleString() }})
-          </div>
-        </div>
       </div>
     </div>
   </div>

@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { GeoJsonFeature } from './census.service';
-import { DistrictGroup, GeodistrictAlgorithmService } from './geodistrict-algorithm.service';
+import { DistrictGroup, GeodistrictAlgorithmService, ALGORITHM_VERSION } from './geodistrict-algorithm.service';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -11,7 +11,8 @@ import { environment } from '../../environments/environment';
 })
 export class LatLongDivisionService {
   private algorithmService: GeodistrictAlgorithmService | null = null;
-  private readonly backendUrl = environment.apiUrl || 'http://localhost:8080';
+  // Use base URL without /api since routes already include /api
+  private readonly backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
 
   constructor(
     private injector: Injector,
@@ -59,11 +60,23 @@ export class LatLongDivisionService {
    * Check if cached result exists for this division
    */
   private checkCache(cacheKey: string): Observable<any> {
-    const url = `${this.backendUrl}/api/algorithm/latlong/cache/${encodeURIComponent(cacheKey)}`;
-    return this.http.get(url).pipe(
+    // Include algorithm version in query parameter for cache validation
+    const url = `${this.backendUrl}/api/algorithm/latlong/cache/${encodeURIComponent(cacheKey)}?algorithmVersion=${ALGORITHM_VERSION}`;
+    return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(url).pipe(
       map((response: any) => {
         if (response.cached && response.data) {
-          console.log(`✅ LATLONG CACHE HIT: Retrieved cached result for key: ${cacheKey}`);
+          // Check algorithm version - if missing or doesn't match, invalidate cache
+          if (!response.algorithmVersion) {
+            console.log(`🔄 LATLONG CACHE: Algorithm version missing. Old cache entry without version. Treating as cache miss.`);
+            return null;
+          }
+          
+          if (response.algorithmVersion !== ALGORITHM_VERSION) {
+            console.log(`🔄 LATLONG CACHE: Algorithm version mismatch. cached=${response.algorithmVersion}, current=${ALGORITHM_VERSION}. Treating as cache miss.`);
+            return null;
+          }
+          
+          console.log(`✅ LATLONG CACHE HIT: Retrieved cached result for key: ${cacheKey} (algorithm version: ${response.algorithmVersion})`);
           return response.data;
         }
         return null;
@@ -83,7 +96,8 @@ export class LatLongDivisionService {
     const payload = {
       cacheKey,
       divisionResult,
-      ttl: 24 * 60 * 60 * 1000 // 24 hours
+      ttl: 24 * 60 * 60 * 1000, // 24 hours
+      algorithmVersion: ALGORITHM_VERSION // Include algorithm version for cache validation
     };
 
     return this.http.post(url, payload).pipe(
@@ -594,8 +608,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           secondGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from second group back to first group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(secondGroupTracts, firstGroupTracts, tracts, direction, totalPopulationMoved, 'second', 'first');
+          }
         } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
           console.log(`⚠️ DEBUG: ${tractId} - No isolated neighbors found in first group. neighborsInFirst: ${neighborsInFirst.length}`);
         }
@@ -648,8 +670,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           firstGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from first group back to second group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(firstGroupTracts, secondGroupTracts, tracts, direction, totalPopulationMoved, 'first', 'second');
+          }
         } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
           console.log(`⚠️ DEBUG: ${tractId} - No isolated neighbors found in second group. neighborsInSecond: ${neighborsInSecond.length}`);
         }
@@ -657,7 +687,8 @@ export class LatLongDivisionService {
     }
 
     // Fix isolated tracts after division (for any remaining issues)
-    const fixedResult = algorithmService.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts);
+    // Pass direction for population balancing
+    const fixedResult = algorithmService.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts, direction);
     firstGroupTracts.length = 0;
     firstGroupTracts.push(...fixedResult.firstGroupTracts);
     secondGroupTracts.length = 0;
@@ -718,8 +749,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           secondGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 (After fix) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 (After fix) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from second group back to first group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(secondGroupTracts, firstGroupTracts, tracts, direction, totalPopulationMoved, 'second', 'first');
+          }
         }
       } else if (inFirst) {
         // We're in first group - check neighbors in second group (opposite group)
@@ -759,8 +798,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           firstGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 (After fix) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 (After fix) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from first group back to second group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(firstGroupTracts, secondGroupTracts, tracts, direction, totalPopulationMoved, 'first', 'second');
+          }
         }
       }
     }
@@ -986,8 +1033,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           secondGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 (After variance) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 (After variance) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from first group to second group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from second group back to first group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(secondGroupTracts, firstGroupTracts, tracts, direction, totalPopulationMoved, 'second', 'first');
+          }
         }
       } else if (inFirst) {
         // We're in first group - check neighbors in second group (opposite group)
@@ -1038,8 +1093,16 @@ export class LatLongDivisionService {
           // Add all moved tracts to the opposite group
           firstGroupTracts.push(...tractsToMove);
           
-          console.log(`🔄 (After variance) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group`);
+          // Calculate total population moved
+          const totalPopulationMoved = tractsToMove.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          
+          console.log(`🔄 (After variance) Moved entire isolated component (${isolatedComponentTractIds.size} tracts) and intersecting tract ${tractId} from second group to first group (${totalPopulationMoved.toLocaleString()} people)`);
           console.log(`   Isolated component tracts: ${Array.from(isolatedComponentTractIds).slice(0, 10).join(', ')}${isolatedComponentTractIds.size > 10 ? '...' : ''}`);
+          
+          // BALANCE: Move boundary tracts from first group back to second group
+          if (direction && algorithmService) {
+            algorithmService.balanceTractMove(firstGroupTracts, secondGroupTracts, tracts, direction, totalPopulationMoved, 'first', 'second');
+          }
         } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
           console.log(`⚠️ DEBUG (after variance): ${tractId} - No isolated neighbors found in second group. neighborsInSecond: ${neighborsInSecond.length}`);
         }
@@ -1048,6 +1111,56 @@ export class LatLongDivisionService {
     
     // Get intersecting tract IDs (reuse algorithmService from earlier in the function)
     const intersectingTractIds = intersectingTracts.map(tract => algorithmService.getTractId(tract));
+    
+    // VALIDATE: Ensure all tracts are assigned to exactly one group
+    const allTractIds = new Set(tracts.map(t => algorithmService.getTractId(t)));
+    const firstGroupTractIds = new Set(firstGroupTracts.map(t => algorithmService.getTractId(t)));
+    const secondGroupTractIds = new Set(secondGroupTracts.map(t => algorithmService.getTractId(t)));
+    
+    // Check for tracts in both groups (duplicates)
+    for (const tractId of firstGroupTractIds) {
+      if (secondGroupTractIds.has(tractId)) {
+        console.error(`⚠️ ERROR: Tract ${tractId} is in both groups! Removing from second group.`);
+        const index = secondGroupTracts.findIndex(t => algorithmService.getTractId(t) === tractId);
+        if (index !== -1) {
+          secondGroupTracts.splice(index, 1);
+        }
+      }
+    }
+    
+    // Check for missing tracts
+    const missingTracts: string[] = [];
+    for (const tractId of allTractIds) {
+      if (!firstGroupTractIds.has(tractId) && !secondGroupTractIds.has(tractId)) {
+        missingTracts.push(tractId);
+      }
+    }
+    
+    if (missingTracts.length > 0) {
+      console.error(`⚠️ ERROR: ${missingTracts.length} tract(s) not assigned to any group after division:`);
+      console.error(`   Missing tracts: ${missingTracts.slice(0, 10).join(', ')}${missingTracts.length > 10 ? '...' : ''}`);
+      
+      // Assign missing tracts based on their position relative to the division line
+      for (const missingTractId of missingTracts) {
+        const missingTract = tracts.find(t => algorithmService.getTractId(t) === missingTractId);
+        if (missingTract) {
+          const isEntirelyNorthOrWest = this.isTractEntirelyNorthOrWest(missingTract, direction, lineCoordinate);
+          const centroid = this.calculateTractCentroid(missingTract);
+          const centroidOnFirstSide = direction === 'latitude' 
+            ? centroid.lat >= lineCoordinate 
+            : centroid.lng <= lineCoordinate;
+          
+          // Assign to group based on position
+          if (isEntirelyNorthOrWest || centroidOnFirstSide) {
+            firstGroupTracts.push(missingTract);
+            console.log(`🔧 Fixed: Assigned missing tract ${missingTractId} to first group (north/west of line)`);
+          } else {
+            secondGroupTracts.push(missingTract);
+            console.log(`🔧 Fixed: Assigned missing tract ${missingTractId} to second group (south/east of line)`);
+          }
+        }
+      }
+    }
     
     return { 
       firstGroupTracts, 

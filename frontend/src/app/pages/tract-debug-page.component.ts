@@ -2,8 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from '../services/census.service';
-import { GeodistrictAlgorithmService, GeoGraphStepResult } from '../services/geodistrict-algorithm.service';
-import { GeoGraphTraversalService } from '../services/geo-graph-traversal.service';
+import { GeodistrictAlgorithmService } from '../services/geodistrict-algorithm.service';
 import { VERSION_INFO } from '../../version';
 
 declare var L: any;
@@ -22,17 +21,8 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   isLoading: boolean = false;
   errorMessage: string = '';
 
-  // Geo-Graph steppable execution properties
-  currentStep: number = 0;
-  isExecuting: boolean = false;
-  stepResult: GeoGraphStepResult | null = null;
-
   // S4 adjacency data for accurate adjacency checking
   private s4AdjacencyData: Map<string, string[]> | null = null;
-
-  // Debug properties for extreme adjacent tract finding
-  extremeAdjacentTractResult: GeoJsonFeature | null = null;
-  extremeAdjacentTractDirection: string = 'northeast';
 
   states = [
     { code: 'AL', name: 'Alabama', districts: 7 },
@@ -87,9 +77,6 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     { code: 'WY', name: 'Wyoming', districts: 1 }
   ];
 
-  algorithmOptions = [
-    { value: 'latlong', label: 'Lat/Long Division (Population-balanced)' }
-  ];
 
   stateData: GeoJsonResponse | null = null;
   sortedTracts: GeoJsonFeature[] = [];
@@ -107,7 +94,6 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   constructor(
     private censusService: CensusService,
     private geodistrictAlgorithmService: GeodistrictAlgorithmService,
-    private geoGraphTraversalService: GeoGraphTraversalService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -141,75 +127,12 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     this.previousAdjacentIndices = [];
   }
 
-  onAlgorithmChange() {
-    console.log('Algorithm changed to:', this.selectedAlgorithm);
-    // Clear performance caches when algorithm changes
-    this.adjacencyCache.clear();
-    this.previousSelectedIndex = undefined;
-    this.previousAdjacentIndices = [];
-    
-    if (this.stateData) {
-      this.sortTracts();
-    }
-  }
 
   onSettingsChange() {
     console.log('Settings changed - useDirectAPI:', this.useDirectAPI);
   }
 
-  async executeStep() {
-    if (!this.stateData || this.selectedAlgorithm !== 'geo-graph') {
-      return;
-    }
 
-    this.isExecuting = true;
-    try {
-      console.log(`🔄 Executing Geo-Graph step ${this.currentStep}`);
-      
-      // Get combined tract data
-      const combinedTracts = this.geodistrictAlgorithmService.combineTractData(
-        this.stateData.features,
-        [] // No demographic data for now
-      );
-
-      // Execute the step
-      this.stepResult = await this.geodistrictAlgorithmService.executeGeoGraphStep(
-        combinedTracts,
-        'latitude',
-        this.currentStep
-      );
-
-      // Update sorted tracts if we have results
-      if (this.stepResult.sortedTracts) {
-        this.sortedTracts = this.stepResult.sortedTracts;
-        
-        // If we have current districts from Phase 2, use those for display
-        if (this.stepResult.currentDistricts && this.stepResult.currentDistricts.length > 0) {
-          // Flatten all districts for display
-          this.sortedTracts = this.stepResult.currentDistricts.flat();
-        }
-        
-        this.updateMapLayers();
-      }
-
-      // Move to next step
-      this.currentStep++;
-
-      console.log(`✅ Step ${this.currentStep - 1} complete:`, this.stepResult.message);
-    } catch (error) {
-      console.error('❌ Step execution failed:', error);
-      this.errorMessage = `Step execution failed: ${error}`;
-    } finally {
-      this.isExecuting = false;
-    }
-  }
-
-  resetSteps() {
-    this.currentStep = 0;
-    this.stepResult = null;
-    this.isExecuting = false;
-    console.log('🔄 Reset Geo-Graph steps');
-  }
 
   updateMapLayers() {
     // Clear existing layers
@@ -721,84 +644,6 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     return sortedTracts;
   }
 
-  /**
-   * Find the most extreme adjacent tract in a specific direction (debug function)
-   */
-  findExtremeAdjacentTract() {
-    const currentTract = this.getCurrentTract();
-    if (!currentTract) {
-      this.extremeAdjacentTractResult = null;
-      console.log('⚠️ No current tract selected');
-      return;
-    }
-
-    const adjacentTracts = this.getAdjacentTracts();
-    if (adjacentTracts.length === 0) {
-      this.extremeAdjacentTractResult = null;
-      console.log('⚠️ No adjacent tracts found for current tract');
-      return;
-    }
-
-    const direction = this.extremeAdjacentTractDirection as 'east' | 'west' | 'north' | 'south' | 'northeast' | 'northwest' | 'southeast' | 'southwest';
-    // Pass sort direction to determine starting sweep angle (latitude = north start, longitude = west start)
-    const sortDirection = this.selectedAlgorithm === 'geo-graph' ? 'latitude' : undefined;
-    
-    // Debug: Check if tract 942700 (could be 04019942700 or 04001942700) is in adjacent tracts
-    const targetTractIds = ['04019942700', '04001942700']; // Try both possible formats
-    let foundTargetTract = false;
-    for (const targetTractId of targetTractIds) {
-      const targetTract = adjacentTracts.find(t => this.getTractId(t) === targetTractId);
-      if (targetTract) {
-        console.log(`🔍 Found target tract ${targetTractId} in adjacent tracts list`);
-        foundTargetTract = true;
-        break;
-      }
-    }
-    if (!foundTargetTract) {
-      console.log(`⚠️ Target tract ${targetTractIds.join(' or ')} NOT found in adjacent tracts list`);
-      console.log(`📋 Adjacent tracts (${adjacentTracts.length}):`, adjacentTracts.map(t => this.getTractId(t)).slice(0, 20));
-      // Check if it exists in sortedTracts at all
-      const currentTractId = this.getTractId(currentTract);
-      const allTractIds = this.sortedTracts.map(t => this.getTractId(t));
-      for (const targetTractId of targetTractIds) {
-        if (allTractIds.includes(targetTractId)) {
-          console.log(`⚠️ Target tract ${targetTractId} exists in sortedTracts but is NOT adjacent to ${currentTractId}`);
-        }
-      }
-    }
-    
-    const result = this.geoGraphTraversalService.findExtremeAdjacentTract(
-      currentTract,
-      adjacentTracts,
-      direction,
-      sortDirection
-    );
-
-    this.extremeAdjacentTractResult = result;
-    
-    if (result) {
-      const tractId = this.getTractId(result);
-      console.log(`✅ Found extreme ${direction} adjacent tract: ${tractId}`);
-      
-      // Find the index of this tract in sortedTracts and select it first
-      const index = this.sortedTracts.findIndex(t => this.getTractId(t) === tractId);
-      if (index >= 0) {
-        // Update tract index and highlighting without clearing sweep line
-        this.currentTractIndex = index;
-        this.updateMapHighlighting();
-      }
-      
-      // Draw visualization line from geometric midpoint to intersection point
-      // Use setTimeout to ensure map highlighting is done first
-      setTimeout(() => {
-        this.drawSweepLine(currentTract, result);
-      }, 100);
-    } else {
-      console.log(`⚠️ No extreme ${direction} adjacent tract found`);
-      // Clear any existing sweep line
-      this.clearSweepLine();
-    }
-  }
 
   /**
    * Draw a line from geometric midpoint through the first intersection with adjacent tract boundary
@@ -1205,26 +1050,6 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
     return [[south, west], [north, east]];
   }
 
-  getSelectedAlgorithmDescription(): string {
-    const option = this.algorithmOptions.find(opt => opt.value === this.selectedAlgorithm);
-    if (!option) return '';
-    
-    // Add detailed descriptions for specific algorithms
-    switch (this.selectedAlgorithm) {
-      case 'geo-graph':
-        return 'Geo-Graph (Zig-zag with Brown S4 Adjacency) - Implements the specification-compliant zig-zag traversal pattern starting from northwest-most tract, moving east/west in rows using Brown S4 adjacency data';
-      case 'brown-s4':
-        return 'Brown S4 (Pre-computed Adjacency) - Uses Brown University S4 adjacency data for graph-based traversal';
-      case 'greedy-traversal':
-        return 'Greedy Traversal (Graph-based) - Graph-based directional traversal for optimal contiguity';
-      case 'geographic':
-        return 'Geographic (North-South, West-East) - Simple geographic sorting by centroid coordinates';
-      case 'latlong':
-        return 'Latitude-Longitude (Centroid-based) - Sorting based on tract centroid coordinates';
-      default:
-        return option.label;
-    }
-  }
 
   clearError() {
     this.errorMessage = '';

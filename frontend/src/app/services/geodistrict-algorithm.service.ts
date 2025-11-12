@@ -4,6 +4,7 @@ import { map, catchError, switchMap } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
 import { LatLongDivisionService } from './latlong-division.service';
+import { GeodistrictCacheService } from './geodistrict-cache.service';
 import { environment } from '../../environments/environment';
 import * as turf from '@turf/turf';
 import { HttpClient } from '@angular/common/http';
@@ -69,7 +70,7 @@ export interface GeodistrictOptions {
   useDirectAPI?: boolean;
   forceInvalidate?: boolean;
   maxIterations?: number;
-  algorithm?: 'latlong';
+  algorithm?: AlgorithmType;
 }
 
 // Interface for steppable geo-graph algorithm results
@@ -86,7 +87,11 @@ export interface GeoGraphStepResult {
 }
 
 // Algorithm types
-export type AlgorithmType = 'latlong';
+export type AlgorithmType = 'latlong' | 'geographic' | 'brown-s4' | 'geo-graph' | 'greedy-traversal';
+
+// Algorithm version - increment this when algorithm logic changes to invalidate old cache
+// Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
+export const ALGORITHM_VERSION = '20251112-0800'; // Updated when balancing was added to large isolated component moves in latlong-division.service.ts
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -117,6 +122,7 @@ export class GeodistrictAlgorithmService {
     private censusService: CensusService,
     private congressionalDistrictsService: CongressionalDistrictsService,
     private latLongDivisionService: LatLongDivisionService,
+    private cacheService: GeodistrictCacheService,
     private http: HttpClient
   ) { }
 
@@ -187,34 +193,72 @@ export class GeodistrictAlgorithmService {
   runGeodistrictAlgorithmStepByStep(options: GeodistrictOptions): Observable<GeodistrictResult> {
     const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'latlong' } = options;
 
-    // In production, always use backend proxy (which handles Secret Manager)
-    // In development, respect the useDirectAPI flag
-    const shouldUseDirectAPI = useDirectAPI && !environment.production;
+    // Handle cache invalidation if needed
+    const invalidateCache$ = forceInvalidate
+      ? this.cacheService.invalidate(state, algorithm, maxIterations).pipe(map(() => null))
+      : of(null);
 
-    // Choose data source based on environment and options
-    const dataSource$ = shouldUseDirectAPI
-      ? this.censusService.getTractDataWithBoundariesDirect(state, undefined, forceInvalidate)
-      : this.censusService.getTractDataWithBoundaries(state, undefined, forceInvalidate);
+    // Check cache first (unless forceInvalidate is true)
+    const cacheCheck$ = forceInvalidate
+      ? of(null)
+      : this.cacheService.get(state, algorithm, maxIterations).pipe(
+          map(cachedResult => {
+            if (cachedResult) {
+              console.log(`✅ Returning cached result for ${state} with ${algorithm} algorithm`);
+              return cachedResult;
+            }
+            return null;
+          })
+        );
 
-    return dataSource$.pipe(
-      switchMap(data => {
-        if (!data.boundaries || !data.boundaries.features || data.boundaries.features.length === 0) {
-          throw new Error(`No tract boundaries found for state: ${state} (${shouldUseDirectAPI ? 'direct API' : 'backend proxy'} failed)`);
+    return invalidateCache$.pipe(
+      switchMap(() => cacheCheck$),
+      switchMap(cachedResult => {
+        // If we have a cached result, return it
+        if (cachedResult) {
+          return of(cachedResult);
         }
 
-        // Combine boundary and demographic data to ensure STATE property is set
-        const combinedTracts = this.combineTractData(data.demographic || [], data.boundaries.features);
+        // Otherwise, run the algorithm
+        // In production, always use backend proxy (which handles Secret Manager)
+        // In development, respect the useDirectAPI flag
+        const shouldUseDirectAPI = useDirectAPI && !environment.production;
 
-        // Get number of districts for this state
-        const totalDistricts = this.congressionalDistrictsService.getDistrictsForState(state);
-        if (!totalDistricts) {
-          throw new Error(`No congressional districts found for state: ${state}`);
-        }
+        // Choose data source based on environment and options
+        const dataSource$ = shouldUseDirectAPI
+          ? this.censusService.getTractDataWithBoundariesDirect(state, undefined, forceInvalidate)
+          : this.censusService.getTractDataWithBoundaries(state, undefined, forceInvalidate);
 
-        // Execute only the first step of the algorithm
-        return this.executeGeodistrictAlgorithmFirstStep(combinedTracts, totalDistricts, algorithm, forceInvalidate);
-      }),
-      catchError(this.handleError)
+        return dataSource$.pipe(
+          switchMap(data => {
+            if (!data.boundaries || !data.boundaries.features || data.boundaries.features.length === 0) {
+              throw new Error(`No tract boundaries found for state: ${state} (${shouldUseDirectAPI ? 'direct API' : 'backend proxy'} failed)`);
+            }
+
+            // Combine boundary and demographic data to ensure STATE property is set
+            const combinedTracts = this.combineTractData(data.demographic || [], data.boundaries.features);
+
+            // Get number of districts for this state
+            const totalDistricts = this.congressionalDistrictsService.getDistrictsForState(state);
+            if (!totalDistricts) {
+              throw new Error(`No congressional districts found for state: ${state}`);
+            }
+
+            // Execute only the first step of the algorithm
+            return this.executeGeodistrictAlgorithmFirstStep(combinedTracts, totalDistricts, algorithm, forceInvalidate).pipe(
+              switchMap(result => {
+                // Cache the result (async, but don't wait for it)
+                this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
+                  next: () => console.log(`💾 Cached result for ${state}`),
+                  error: (err) => console.error(`❌ Failed to cache result:`, err)
+                });
+                return of(result);
+              })
+            );
+          }),
+          catchError(this.handleError)
+        );
+      })
     );
   }
 
@@ -289,6 +333,9 @@ export class GeodistrictAlgorithmService {
           
           // Divide this group using latlong algorithm
           const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, forceInvalidate).toPromise();
+          if (!divisionResult) {
+            throw new Error('Division result is undefined');
+          }
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
           
@@ -312,7 +359,7 @@ export class GeodistrictAlgorithmService {
         }
       }
 
-      // Create step for this iteration
+    // Create step for this iteration
       steps.push(this.createStep(iteration, 1, newGroups, `Division 1 by ${direction}`, direction, divisionLine, divisionLines));
       currentGroups = newGroups;
     }
@@ -339,8 +386,72 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Updated algorithm result with next step
    */
-  executeNextStep(currentResult: GeodistrictResult, algorithm: AlgorithmType = 'geographic'): Observable<GeodistrictResult> {
-    return from(this.executeNextStepAsync(currentResult, algorithm));
+  executeNextStep(currentResult: GeodistrictResult, algorithm: AlgorithmType = 'latlong'): Observable<GeodistrictResult> {
+    return from(this.executeNextStepAsync(currentResult, algorithm)).pipe(
+      switchMap(result => {
+        // Extract state from result tracts and update cache
+        const state = this.extractStateFromResult(result);
+        if (state) {
+          const maxIterations = 100; // Default, matches typical usage
+          // Cache the result (async, but don't wait for it)
+          this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
+            next: () => console.log(`💾 Updated cache for ${state} after next step`),
+            error: (err) => console.error(`❌ Failed to update cache:`, err)
+          });
+        }
+        return of(result);
+      })
+    );
+  }
+
+  /**
+   * Extract state code from result tracts
+   */
+  private extractStateFromResult(result: GeodistrictResult): string | null {
+    // Try to get state from first district's first tract
+    if (result.finalDistricts && result.finalDistricts.length > 0) {
+      const firstDistrict = result.finalDistricts[0];
+      if (firstDistrict.censusTracts && firstDistrict.censusTracts.length > 0) {
+        const firstTract = firstDistrict.censusTracts[0];
+        // Try STATE property first (could be abbreviation or FIPS)
+        if (firstTract.properties?.['STATE']) {
+          const state = firstTract.properties['STATE'];
+          // If it's a 2-digit FIPS code, convert to abbreviation
+          if (/^\d{2}$/.test(state)) {
+            return this.getStateAbbreviationFromFips(state);
+          }
+          // Otherwise assume it's already an abbreviation
+          return state;
+        }
+        // Try to extract from GISJOIN if available (format: G1400010 where 14 is state FIPS)
+        if (firstTract.properties?.['GISJOIN']) {
+          const gisjoin = firstTract.properties['GISJOIN'];
+          // GISJOIN format: G + state FIPS (2 digits) + ...
+          const match = gisjoin.match(/^G(\d{2})/);
+          if (match) {
+            const stateFips = match[1];
+            return this.getStateAbbreviationFromFips(stateFips);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Convert FIPS code to state abbreviation
+   */
+  private getStateAbbreviationFromFips(fipsCode: string): string | null {
+    const fipsToAbbrMap: { [key: string]: string } = {
+      '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA', '08': 'CO', '09': 'CT', '10': 'DE',
+      '12': 'FL', '13': 'GA', '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA', '20': 'KS',
+      '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD', '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS',
+      '29': 'MO', '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ', '35': 'NM', '36': 'NY',
+      '37': 'NC', '38': 'ND', '39': 'OH', '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
+      '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT', '51': 'VA', '53': 'WA', '54': 'WV',
+      '55': 'WI', '56': 'WY'
+    };
+    return fipsToAbbrMap[fipsCode] || null;
   }
 
   private async executeNextStepAsync(currentResult: GeodistrictResult, algorithm: AlgorithmType): Promise<GeodistrictResult> {
@@ -374,6 +485,9 @@ export class GeodistrictAlgorithmService {
         // Divide this group
         // Divide this group using latlong algorithm
         const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, false).toPromise();
+        if (!divisionResult) {
+          throw new Error('Division result is undefined');
+        }
         newGroups.push(...divisionResult.groups);
         algorithmHistory.push(...divisionResult.history);
         
@@ -565,6 +679,9 @@ export class GeodistrictAlgorithmService {
           
           // Divide this group using latlong algorithm
           const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, forceInvalidate).toPromise();
+          if (!divisionResult) {
+            throw new Error('Division result is undefined');
+          }
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
           
@@ -590,10 +707,67 @@ export class GeodistrictAlgorithmService {
 
       currentGroups = newGroups;
       
-      // Check for and resolve isolated tracts across all groups after this step
-      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts);
+      // VALIDATE: Ensure all tracts are assigned to exactly one group
+      const assignedTractIds = new Set<string>();
+      for (const group of currentGroups) {
+        for (const tract of group.censusTracts) {
+          const tractId = this.getTractId(tract);
+          if (assignedTractIds.has(tractId)) {
+            console.error(`⚠️ ERROR: Tract ${tractId} is assigned to multiple groups!`);
+          }
+          assignedTractIds.add(tractId);
+        }
+      }
       
-      // Rebalance populations after isolation fixes
+      // Check for missing tracts
+      const allTractIds = new Set(tracts.map(t => this.getTractId(t)));
+      const missingTracts: string[] = [];
+      for (const tractId of allTractIds) {
+        if (!assignedTractIds.has(tractId)) {
+          missingTracts.push(tractId);
+        }
+      }
+      
+      if (missingTracts.length > 0) {
+        console.error(`⚠️ ERROR: ${missingTracts.length} tract(s) not assigned to any group after division step ${iteration}:`);
+        console.error(`   Missing tracts: ${missingTracts.slice(0, 10).join(', ')}${missingTracts.length > 10 ? '...' : ''}`);
+        
+        // Assign missing tracts to the nearest group based on centroid
+        for (const missingTractId of missingTracts) {
+          const missingTract = tracts.find(t => this.getTractId(t) === missingTractId);
+          if (missingTract) {
+            const tractCentroid = this.calculateTractCentroid(missingTract);
+            let nearestGroup: DistrictGroup | null = null;
+            let minDistance = Infinity;
+            
+            for (const group of currentGroups) {
+              const groupCentroid = group.centroid;
+              const distance = Math.sqrt(
+                Math.pow(tractCentroid.lat - groupCentroid.lat, 2) +
+                Math.pow(tractCentroid.lng - groupCentroid.lng, 2)
+              );
+              if (distance < minDistance) {
+                minDistance = distance;
+                nearestGroup = group;
+              }
+            }
+            
+            if (nearestGroup) {
+              nearestGroup.censusTracts.push(missingTract);
+              nearestGroup.totalPopulation += missingTract.properties?.POPULATION || 0;
+              nearestGroup.bounds = this.calculateBounds(nearestGroup.censusTracts);
+              nearestGroup.centroid = this.calculateCentroid(nearestGroup.censusTracts);
+              console.log(`🔧 Fixed: Assigned missing tract ${missingTractId} to group ${nearestGroup.startDistrictNumber}-${nearestGroup.endDistrictNumber}`);
+            }
+          }
+        }
+      }
+      
+      // Check for and resolve isolated tracts across all groups after this step
+      // Pass direction so population can be balanced immediately when tracts are moved
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts, direction);
+      
+      // Rebalance populations after isolation fixes (for any remaining imbalance)
       currentGroups = this.rebalanceGroupPopulations(currentGroups, tracts, targetDistrictPopulation);
       
       steps.push(this.createStep(iteration, iteration, currentGroups,
@@ -1914,7 +2088,8 @@ export class GeodistrictAlgorithmService {
     }
 
     // Fix isolated tracts after division (for any remaining issues)
-    const fixedResult = this.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts);
+    // Pass direction for population balancing
+    const fixedResult = this.fixIsolatedTractsAfterDivision(firstGroupTracts, secondGroupTracts, tracts, direction);
     
     return { 
       firstGroupTracts: fixedResult.firstGroupTracts, 
@@ -1932,7 +2107,8 @@ export class GeodistrictAlgorithmService {
   public fixIsolatedTractsAfterDivision(
     firstGroupTracts: GeoJsonFeature[],
     secondGroupTracts: GeoJsonFeature[],
-    allTracts: GeoJsonFeature[]
+    allTracts: GeoJsonFeature[],
+    direction?: 'latitude' | 'longitude'
   ): {
     firstGroupTracts: GeoJsonFeature[];
     secondGroupTracts: GeoJsonFeature[];
@@ -2039,6 +2215,7 @@ export class GeodistrictAlgorithmService {
       // If enclosed tract is in a different group than its container, move it
       if (enclosedInFirst && containerInSecond) {
         // Move enclosed tract from first group to second group
+        const tractPopulation = enclosedTract.properties?.POPULATION || 0;
         updatedFirstGroup = updatedFirstGroup.filter(tract => this.getTractId(tract) !== enclosedId);
         updatedSecondGroup.push(enclosedTract);
         movedTracts.push({
@@ -2047,8 +2224,14 @@ export class GeodistrictAlgorithmService {
           toGroup: 'second'
         });
         console.log(`📦 Fixed isolated tract: ${enclosedId} moved to be with container ${containerId}`);
+        
+        // BALANCE: Move boundary tracts from second group back to first group
+        if (direction) {
+          this.balanceTractMove(updatedSecondGroup, updatedFirstGroup, allTracts, direction, tractPopulation, 'second', 'first');
+        }
       } else if (enclosedInSecond && containerInFirst) {
         // Move enclosed tract from second group to first group
+        const tractPopulation = enclosedTract.properties?.POPULATION || 0;
         updatedSecondGroup = updatedSecondGroup.filter(tract => this.getTractId(tract) !== enclosedId);
         updatedFirstGroup.push(enclosedTract);
         movedTracts.push({
@@ -2057,6 +2240,11 @@ export class GeodistrictAlgorithmService {
           toGroup: 'first'
         });
         console.log(`📦 Fixed isolated tract: ${enclosedId} moved to be with container ${containerId}`);
+        
+        // BALANCE: Move boundary tracts from first group back to second group
+        if (direction) {
+          this.balanceTractMove(updatedFirstGroup, updatedSecondGroup, allTracts, direction, tractPopulation, 'first', 'second');
+        }
       }
     }
     
@@ -2082,7 +2270,7 @@ export class GeodistrictAlgorithmService {
       if (!inFirst && !inSecond) continue; // Not in either group
       
       checkedProblematicTracts.add(tractId);
-      this.moveIsolatedTractToBetterGroup(tractId, tract, updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts);
+      this.moveIsolatedTractToBetterGroup(tractId, tract, updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts, direction);
     }
     
     // Now check for ANY isolated tracts (not just problematic ones)
@@ -2127,7 +2315,7 @@ export class GeodistrictAlgorithmService {
       
       if (isIsolated && neighbors.length > 0) {
         console.log(`🚨 Found isolated tract ${tractId}: ${neighbors.length} total neighbors, but ${inFirst ? neighborsInFirst : neighborsInSecond} in own group`);
-        this.moveIsolatedTractToBetterGroup(tractId, tract, updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts);
+        this.moveIsolatedTractToBetterGroup(tractId, tract, updatedFirstGroup, updatedSecondGroup, allTracts, movedTracts, direction);
       }
     }
     
@@ -2260,7 +2448,8 @@ export class GeodistrictAlgorithmService {
     updatedFirstGroup: GeoJsonFeature[],
     updatedSecondGroup: GeoJsonFeature[],
     allTracts: GeoJsonFeature[],
-    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[]
+    movedTracts: { tractId: string; fromGroup: string; toGroup: string }[],
+    direction?: 'latitude' | 'longitude'
   ): void {
     const inFirst = updatedFirstGroup.some(t => this.getTractId(t) === tractId);
     const inSecond = updatedSecondGroup.some(t => this.getTractId(t) === tractId);
@@ -2295,6 +2484,8 @@ export class GeodistrictAlgorithmService {
     // Move to the group with more neighbors
     // If equal, move to the group where it has at least one neighbor (rather than staying isolated)
     // If truly isolated (0 neighbors in own group), force move to the group with neighbors
+    const tractPopulation = tract.properties?.POPULATION || 0;
+    
     if (inFirst && (neighborsInSecond > neighborsInFirst || (neighborsInFirst === 0 && neighborsInSecond > 0))) {
       // Remove from first group (modify in place)
       const index = updatedFirstGroup.findIndex(t => this.getTractId(t) === tractId);
@@ -2308,6 +2499,11 @@ export class GeodistrictAlgorithmService {
         toGroup: 'second'
       });
       console.log(`📦 Moved isolated tract ${tractId} from first to second group (${neighborsInSecond} neighbors vs ${neighborsInFirst})`);
+      
+      // BALANCE: Move boundary tracts from second group back to first group
+      if (direction) {
+        this.balanceTractMove(updatedSecondGroup, updatedFirstGroup, allTracts, direction, tractPopulation, 'second', 'first');
+      }
     } else if (inSecond && (neighborsInFirst > neighborsInSecond || (neighborsInSecond === 0 && neighborsInFirst > 0))) {
       // Remove from second group (modify in place)
       const index = updatedSecondGroup.findIndex(t => this.getTractId(t) === tractId);
@@ -2321,6 +2517,11 @@ export class GeodistrictAlgorithmService {
         toGroup: 'first'
       });
       console.log(`📦 Moved isolated tract ${tractId} from second to first group (${neighborsInFirst} neighbors vs ${neighborsInSecond})`);
+      
+      // BALANCE: Move boundary tracts from first group back to second group
+      if (direction) {
+        this.balanceTractMove(updatedFirstGroup, updatedSecondGroup, allTracts, direction, tractPopulation, 'first', 'second');
+      }
     } else {
       // Check if truly isolated (no neighbors in own group)
       const isTrulyIsolated = (inFirst && neighborsInFirst === 0) || (inSecond && neighborsInSecond === 0);
@@ -2338,6 +2539,11 @@ export class GeodistrictAlgorithmService {
             toGroup: 'second'
           });
           console.log(`📦 Force moved isolated tract ${tractId} from first to second group (has ${neighborsInSecond} neighbors in second, 0 in first)`);
+          
+          // BALANCE: Move boundary tracts from second group back to first group
+          if (direction) {
+            this.balanceTractMove(updatedSecondGroup, updatedFirstGroup, allTracts, direction, tractPopulation, 'second', 'first');
+          }
         } else if (neighborsInFirst > 0 && inSecond) {
           const index = updatedSecondGroup.findIndex(t => this.getTractId(t) === tractId);
           if (index >= 0) {
@@ -2350,6 +2556,11 @@ export class GeodistrictAlgorithmService {
             toGroup: 'first'
           });
           console.log(`📦 Force moved isolated tract ${tractId} from second to first group (has ${neighborsInFirst} neighbors in first, 0 in second)`);
+          
+          // BALANCE: Move boundary tracts from first group back to second group
+          if (direction) {
+            this.balanceTractMove(updatedFirstGroup, updatedSecondGroup, allTracts, direction, tractPopulation, 'first', 'second');
+          }
         } else {
           console.log(`   Keeping ${tractId} in current group (has ${inFirst ? neighborsInFirst : neighborsInSecond} neighbors there)`);
         }
@@ -2362,11 +2573,13 @@ export class GeodistrictAlgorithmService {
   /**
    * Fix isolated tracts across all groups after a division step
    * This checks each group for isolated tracts and moves them to adjacent groups to connect them
+   * Immediately balances population by moving boundary tracts back based on division direction
    * @param districtGroups All district groups
    * @param allTracts All tracts in the dataset
-   * @returns Updated district groups with isolated tracts fixed
+   * @param direction Division direction ('latitude' or 'longitude') for selecting boundary tracts
+   * @returns Updated district groups with isolated tracts fixed and population balanced
    */
-  public fixIsolatedTractsAcrossAllGroups(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[]): DistrictGroup[] {
+  public fixIsolatedTractsAcrossAllGroups(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[], direction?: 'latitude' | 'longitude'): DistrictGroup[] {
     console.log(`🔧 FIX ISOLATED TRACTS ACROSS ALL GROUPS: Checking ${districtGroups.length} groups for isolated tracts`);
     
     if (districtGroups.length < 2) {
@@ -2451,6 +2664,7 @@ export class GeodistrictAlgorithmService {
             // Remove from source group
             const tractIndex = sourceGroup.censusTracts.findIndex(t => this.getTractId(t) === tractId);
             if (tractIndex !== -1) {
+              const tractPopulation = tract.properties?.POPULATION || 0;
               sourceGroup.censusTracts.splice(tractIndex, 1);
               
               // Update source group population and bounds
@@ -2468,6 +2682,43 @@ export class GeodistrictAlgorithmService {
               
               totalMoved++;
               console.log(`🔄 Moved isolated tract ${tractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} (reachable count: ${bestReachableCount})`);
+              
+              // IMMEDIATELY BALANCE: Find boundary tracts in target group and move them back
+              if (direction) {
+                const boundaryTracts = this.findBoundaryTracts(targetGroup, sourceGroup, adjacencyGraph);
+                
+                if (boundaryTracts.length > 0) {
+                  // Select boundary tracts based on division direction
+                  const selectedTracts = this.selectBoundaryTractsByDirection(
+                    boundaryTracts, 
+                    direction, 
+                    tractPopulation,  // Target population to balance
+                    sourceGroup,
+                    targetGroup
+                  );
+                  
+                  // Move selected tracts back to source group to balance population
+                  for (const boundaryTract of selectedTracts) {
+                    const boundaryTractId = this.getTractId(boundaryTract);
+                    const boundaryTractIndex = targetGroup.censusTracts.findIndex(t => this.getTractId(t) === boundaryTractId);
+                    
+                    if (boundaryTractIndex !== -1) {
+                      targetGroup.censusTracts.splice(boundaryTractIndex, 1);
+                      sourceGroup.censusTracts.push(boundaryTract);
+                      
+                      console.log(`⚖️ Balanced: Moved boundary tract ${boundaryTractId} from group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} back to group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber}`);
+                    }
+                  }
+                  
+                  // Update populations and bounds after balancing
+                  sourceGroup.totalPopulation = sourceGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+                  targetGroup.totalPopulation = targetGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+                  sourceGroup.bounds = this.calculateBounds(sourceGroup.censusTracts);
+                  targetGroup.bounds = this.calculateBounds(targetGroup.censusTracts);
+                  sourceGroup.centroid = this.calculateCentroid(sourceGroup.censusTracts);
+                  targetGroup.centroid = this.calculateCentroid(targetGroup.censusTracts);
+                }
+              }
             }
           } else {
             console.log(`⚠️ Could not find a suitable group to move isolated tract ${tractId} to`);
@@ -2695,6 +2946,180 @@ export class GeodistrictAlgorithmService {
     }
     
     return boundaryTracts;
+  }
+
+  /**
+   * Select boundary tracts based on division direction to balance population
+   * @param boundaryTracts Tracts on the boundary between two groups
+   * @param direction Division direction ('latitude' or 'longitude')
+   * @param targetPopulation Population to balance (from the isolated tract that was moved)
+   * @param sourceGroup Source group (to move tracts back to)
+   * @param targetGroup Target group (to move tracts from)
+   * @returns Selected tracts to move
+   */
+  private selectBoundaryTractsByDirection(
+    boundaryTracts: GeoJsonFeature[],
+    direction: 'latitude' | 'longitude',
+    targetPopulation: number,
+    sourceGroup: DistrictGroup,
+    targetGroup: DistrictGroup
+  ): GeoJsonFeature[] {
+    if (boundaryTracts.length === 0) return [];
+    
+    // Calculate centroids for all boundary tracts
+    const tractsWithCentroids = boundaryTracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract),
+      population: tract.properties?.POPULATION || 0
+    }));
+    
+    // Sort based on direction
+    let sortedTracts: typeof tractsWithCentroids;
+    
+    if (direction === 'latitude') {
+      // For latitude division: select most north or south tracts
+      // Determine which side the source group is on
+      const sourceIsNorth = sourceGroup.centroid.lat > targetGroup.centroid.lat;
+      
+      if (sourceIsNorth) {
+        // Source is north, so select most south tracts from target (closest to source)
+        sortedTracts = tractsWithCentroids.sort((a, b) => a.centroid.lat - b.centroid.lat); // South first
+      } else {
+        // Source is south, so select most north tracts from target (closest to source)
+        sortedTracts = tractsWithCentroids.sort((a, b) => b.centroid.lat - a.centroid.lat); // North first
+      }
+    } else {
+      // For longitude division: select most east or west tracts
+      // Determine which side the source group is on
+      const sourceIsEast = sourceGroup.centroid.lng > targetGroup.centroid.lng;
+      
+      if (sourceIsEast) {
+        // Source is east, so select most west tracts from target (closest to source)
+        sortedTracts = tractsWithCentroids.sort((a, b) => a.centroid.lng - b.centroid.lng); // West first
+      } else {
+        // Source is west, so select most east tracts from target (closest to source)
+        sortedTracts = tractsWithCentroids.sort((a, b) => b.centroid.lng - a.centroid.lng); // East first
+      }
+    }
+    
+    // Select tracts to balance population (try to match the population that was moved)
+    const selectedTracts: GeoJsonFeature[] = [];
+    let accumulatedPopulation = 0;
+    
+    for (const item of sortedTracts) {
+      if (accumulatedPopulation >= targetPopulation * 0.9) break; // Stop when we've balanced ~90% or more
+      
+      selectedTracts.push(item.tract);
+      accumulatedPopulation += item.population;
+    }
+    
+    console.log(`📊 Selected ${selectedTracts.length} boundary tract(s) (${accumulatedPopulation.toLocaleString()} people) to balance ${targetPopulation.toLocaleString()} people moved`);
+    
+    return selectedTracts;
+  }
+
+  /**
+   * Balance population after moving a tract by moving boundary tracts back
+   * @param receivingGroup Group that received the tract (needs to give tracts back)
+   * @param givingGroup Group that gave the tract (needs to receive tracts back)
+   * @param allTracts All tracts for adjacency graph
+   * @param direction Division direction
+   * @param targetPopulation Population to balance
+   * @param receivingGroupName Name for logging
+   * @param givingGroupName Name for logging
+   */
+  public balanceTractMove(
+    receivingGroup: GeoJsonFeature[],
+    givingGroup: GeoJsonFeature[],
+    allTracts: GeoJsonFeature[],
+    direction: 'latitude' | 'longitude',
+    targetPopulation: number,
+    receivingGroupName: string,
+    givingGroupName: string
+  ): void {
+    // Build adjacency graph
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // Find boundary tracts in receiving group that are adjacent to giving group
+    const givingGroupTractIds = new Set(givingGroup.map(t => this.getTractId(t)));
+    const boundaryTracts: GeoJsonFeature[] = [];
+    
+    for (const tract of receivingGroup) {
+      const tractId = this.getTractId(tract);
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      const hasNeighborInGivingGroup = neighbors.some(neighborId => givingGroupTractIds.has(neighborId));
+      
+      if (hasNeighborInGivingGroup) {
+        boundaryTracts.push(tract);
+      }
+    }
+    
+    if (boundaryTracts.length === 0) {
+      console.log(`⚠️ No boundary tracts found for balancing after moving tract`);
+      return;
+    }
+    
+    // Calculate centroids for groups to determine direction
+    const receivingCentroid = this.calculateGroupCentroid(receivingGroup);
+    const givingCentroid = this.calculateGroupCentroid(givingGroup);
+    
+    // Select boundary tracts based on direction
+    const tractsWithCentroids = boundaryTracts.map(tract => ({
+      tract,
+      centroid: this.calculateTractCentroid(tract),
+      population: tract.properties?.POPULATION || 0
+    }));
+    
+    let sortedTracts: typeof tractsWithCentroids;
+    
+    if (direction === 'latitude') {
+      const receivingIsNorth = receivingCentroid.lat > givingCentroid.lat;
+      if (receivingIsNorth) {
+        sortedTracts = tractsWithCentroids.sort((a, b) => a.centroid.lat - b.centroid.lat); // South first
+      } else {
+        sortedTracts = tractsWithCentroids.sort((a, b) => b.centroid.lat - a.centroid.lat); // North first
+      }
+    } else {
+      const receivingIsEast = receivingCentroid.lng > givingCentroid.lng;
+      if (receivingIsEast) {
+        sortedTracts = tractsWithCentroids.sort((a, b) => a.centroid.lng - b.centroid.lng); // West first
+      } else {
+        sortedTracts = tractsWithCentroids.sort((a, b) => b.centroid.lng - a.centroid.lng); // East first
+      }
+    }
+    
+    // Select tracts to balance population
+    const selectedTracts: GeoJsonFeature[] = [];
+    let accumulatedPopulation = 0;
+    
+    for (const item of sortedTracts) {
+      if (accumulatedPopulation >= targetPopulation * 0.9) break;
+      selectedTracts.push(item.tract);
+      accumulatedPopulation += item.population;
+    }
+    
+    // Move selected tracts back
+    for (const boundaryTract of selectedTracts) {
+      const boundaryTractId = this.getTractId(boundaryTract);
+      const receivingIndex = receivingGroup.findIndex(t => this.getTractId(t) === boundaryTractId);
+      
+      if (receivingIndex !== -1) {
+        receivingGroup.splice(receivingIndex, 1);
+        givingGroup.push(boundaryTract);
+        console.log(`⚖️ Balanced: Moved boundary tract ${boundaryTractId} from ${receivingGroupName} back to ${givingGroupName}`);
+      }
+    }
+    
+    if (selectedTracts.length > 0) {
+      console.log(`📊 Selected ${selectedTracts.length} boundary tract(s) (${accumulatedPopulation.toLocaleString()} people) to balance ${targetPopulation.toLocaleString()} people moved`);
+    }
+  }
+
+  /**
+   * Calculate centroid for a group of tracts
+   */
+  private calculateGroupCentroid(tracts: GeoJsonFeature[]): { lat: number; lng: number } {
+    return this.calculateCentroid(tracts);
   }
 
   /**
@@ -5426,6 +5851,9 @@ export class GeodistrictAlgorithmService {
 
       // Divide the group using latlong algorithm
       const divisionResult = await this.latLongDivisionService.divideDistrictGroup(groupToDivide, direction, false).toPromise();
+      if (!divisionResult) {
+        throw new Error('Division result is undefined');
+      }
       const newGroups = divisionResult.groups;
 
       // Remove the original group and add the new groups
@@ -5551,7 +5979,7 @@ export class GeodistrictAlgorithmService {
    */
   public sortTractsByAlgorithm(
     tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
-    algorithm: 'latlong'
+    algorithm: AlgorithmType
   ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
     if (!tractsWithCentroids || tractsWithCentroids.length === 0) {
       return [];
@@ -5559,8 +5987,14 @@ export class GeodistrictAlgorithmService {
 
     const tracts = tractsWithCentroids.map(item => item.tract);
 
-    // Only latlong algorithm is supported
-    const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
+    // Handle different algorithm types
+    let sortedTracts: GeoJsonFeature[];
+    if (algorithm === 'latlong' || algorithm === 'geographic') {
+      sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
+    } else {
+      // For other algorithms, use latlong as fallback
+      sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
+    }
 
     // Map back to tracts with centroids
     return sortedTracts.map(tract => {
@@ -5569,6 +6003,36 @@ export class GeodistrictAlgorithmService {
     });
   }
 
+  /**
+   * Sort tracts using Brown S4 adjacency data
+   * @param tracts Array of tracts
+   * @param direction Sorting direction
+   * @returns Sorted tracts using Brown S4 adjacency
+   */
+  public async sortTractsByBrownS4(
+    tracts: GeoJsonFeature[],
+    direction: 'latitude' | 'longitude'
+  ): Promise<GeoJsonFeature[]> {
+    // For now, use the latlong algorithm as a fallback
+    // TODO: Implement full Brown S4 adjacency-based sorting
+    return this.sortTractsForLatLongAlgorithm(tracts, direction);
+  }
+
+  /**
+   * Sort tracts using Geo-Graph algorithm with Brown S4 adjacency data
+   * Implements the zig-zag traversal pattern described in the algorithm specification
+   * @param tracts Array of tracts
+   * @param direction Sorting direction
+   * @returns Sorted tracts using geo-graph traversal
+   */
+  public async sortTractsByGeoGraph(
+    tracts: GeoJsonFeature[],
+    direction: 'latitude' | 'longitude'
+  ): Promise<GeoJsonFeature[]> {
+    // For now, use the latlong algorithm as a fallback
+    // TODO: Implement full geo-graph zig-zag traversal
+    return this.sortTractsForLatLongAlgorithm(tracts, direction);
+  }
 
   private handleError(error: any): Observable<never> {
     console.error('Geodistrict Algorithm Error:', error);

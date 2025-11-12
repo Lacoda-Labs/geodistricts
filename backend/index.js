@@ -56,8 +56,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body parser limit for large algorithm results (up to 200MB)
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
 // Timeout middleware for long-running requests
 app.use((req, res, next) => {
@@ -132,6 +133,10 @@ function simpleHash(str) {
  * Check if cache entry is expired
  */
 function isCacheExpired(timestamp, ttl) {
+  // If TTL is null, cache never expires
+  if (ttl === null || ttl === undefined) {
+    return false;
+  }
   return Date.now() - timestamp > ttl;
 }
 
@@ -169,7 +174,8 @@ async function getFromCache(key) {
       }
       
       console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
-      return data.data;
+      // Return the full cache entry (not just data.data) so algorithmVersion is available
+      return data;
     } catch (error) {
       console.error('❌ FIRESTORE CACHE ERROR: Failed to get from cache for key:', key);
       console.error('❌ FIRESTORE CACHE ERROR:', error.message);
@@ -272,6 +278,221 @@ function ultraCompressGeoJson(geojson) {
     t: 'FeatureCollection',
     f: compressedFeatures
   };
+}
+
+/**
+ * Normalize and compress GeodistrictResult by:
+ * 1. Creating a tract lookup table (store each tract geometry only once)
+ * 2. Replacing full tract arrays with tract ID arrays in DistrictGroups
+ * 3. Compressing coordinate precision
+ */
+function compressGeodistrictResult(result) {
+  if (!result) return result;
+  
+  // Step 1: Collect all unique tracts and create lookup table
+  const tractMap = new Map(); // tractId -> compressed tract
+  const tractIds = new Set();
+  
+  // Collect tracts from finalDistricts
+  if (result.finalDistricts && Array.isArray(result.finalDistricts)) {
+    result.finalDistricts.forEach(district => {
+      if (district.censusTracts && Array.isArray(district.censusTracts)) {
+        district.censusTracts.forEach(tract => {
+          const tractId = getTractId(tract);
+          if (tractId && !tractIds.has(tractId)) {
+            tractIds.add(tractId);
+            tractMap.set(tractId, compressTract(tract));
+          }
+        });
+      }
+    });
+  }
+  
+  // Collect tracts from steps
+  if (result.steps && Array.isArray(result.steps)) {
+    result.steps.forEach(step => {
+      if (step.districtGroups && Array.isArray(step.districtGroups)) {
+        step.districtGroups.forEach(group => {
+          if (group.censusTracts && Array.isArray(group.censusTracts)) {
+            group.censusTracts.forEach(tract => {
+              const tractId = getTractId(tract);
+              if (tractId && !tractIds.has(tractId)) {
+                tractIds.add(tractId);
+                tractMap.set(tractId, compressTract(tract));
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  // Step 2: Convert tract map to array for storage
+  const tractLookup = Array.from(tractMap.entries()).map(([id, tract]) => [id, tract]);
+  
+  // Step 3: Create normalized structure with tract IDs instead of full tracts
+  const normalized = {
+    ...result,
+    _normalized: true,
+    _tractLookup: tractLookup, // [tractId, compressedTract][]
+    finalDistricts: result.finalDistricts ? result.finalDistricts.map(district => ({
+      ...district,
+      censusTractIds: district.censusTracts ? district.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
+      // Remove censusTracts - will be reconstructed from lookup
+    })) : result.finalDistricts,
+    steps: result.steps ? result.steps.map(step => ({
+      ...step,
+      districtGroups: step.districtGroups ? step.districtGroups.map(group => ({
+        ...group,
+        censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
+        // Remove censusTracts - will be reconstructed from lookup
+      })) : step.districtGroups
+    })) : result.steps
+  };
+  
+  // Remove censusTracts from normalized structure (already replaced with IDs)
+  if (normalized.finalDistricts) {
+    normalized.finalDistricts.forEach(d => {
+      if (d.censusTracts) delete d.censusTracts;
+    });
+  }
+  if (normalized.steps) {
+    normalized.steps.forEach(s => {
+      if (s.districtGroups) {
+        s.districtGroups.forEach(g => {
+          if (g.censusTracts) delete g.censusTracts;
+        });
+      }
+    });
+  }
+  
+  return normalized;
+}
+
+/**
+ * Get unique tract ID from a tract feature
+ */
+function getTractId(tract) {
+  if (!tract || !tract.properties) return null;
+  // Try multiple possible ID fields
+  return tract.properties.GISJOIN || 
+         tract.properties.GEOID || 
+         tract.properties.TRACT_FIPS || 
+         `${tract.properties.STATE_FIPS || ''}${tract.properties.COUNTY_FIPS || ''}${tract.properties.TRACT_FIPS || ''}` ||
+         null;
+}
+
+/**
+ * Compress a single tract (reduce coordinate precision)
+ */
+function compressTract(tract) {
+  if (!tract || !tract.geometry) return tract;
+  
+  const compressed = {
+    type: tract.type,
+    properties: tract.properties,
+    geometry: {
+      type: tract.geometry.type,
+      coordinates: compressCoordinates(tract.geometry.coordinates)
+    }
+  };
+  
+  return compressed;
+}
+
+/**
+ * Decompress GeodistrictResult by reconstructing tract arrays from lookup table
+ */
+function decompressGeodistrictResult(result) {
+  if (!result) return result;
+  
+  // If not normalized, return as-is
+  if (!result._normalized || !result._tractLookup) {
+    return result;
+  }
+  
+  // Rebuild tract lookup map
+  const tractMap = new Map(result._tractLookup);
+  
+  // Helper to reconstruct tract array from IDs
+  const reconstructTracts = (tractIds) => {
+    if (!Array.isArray(tractIds)) return [];
+    return tractIds.map(id => tractMap.get(id)).filter(Boolean);
+  };
+  
+  // Reconstruct finalDistricts
+  const decompressed = {
+    ...result,
+    finalDistricts: result.finalDistricts ? result.finalDistricts.map(district => ({
+      ...district,
+      censusTracts: reconstructTracts(district.censusTractIds || [])
+    })) : result.finalDistricts,
+    steps: result.steps ? result.steps.map(step => ({
+      ...step,
+      districtGroups: step.districtGroups ? step.districtGroups.map(group => ({
+        ...group,
+        censusTracts: reconstructTracts(group.censusTractIds || [])
+      })) : step.districtGroups
+    })) : result.steps
+  };
+  
+  // Remove normalization metadata
+  delete decompressed._normalized;
+  delete decompressed._tractLookup;
+  if (decompressed.finalDistricts) {
+    decompressed.finalDistricts.forEach(d => {
+      if (d.censusTractIds) delete d.censusTractIds;
+    });
+  }
+  if (decompressed.steps) {
+    decompressed.steps.forEach(s => {
+      if (s.districtGroups) {
+        s.districtGroups.forEach(g => {
+          if (g.censusTractIds) delete g.censusTractIds;
+        });
+      }
+    });
+  }
+  
+  return decompressed;
+}
+
+/**
+ * Compress array of tracts by reducing coordinate precision
+ */
+function compressTractArray(tracts) {
+  if (!Array.isArray(tracts)) return tracts;
+  
+  return tracts.map(tract => {
+    if (!tract || !tract.geometry) return tract;
+    
+    const compressed = { ...tract };
+    
+    // Reduce coordinate precision to 4 decimal places (~11m precision)
+    if (compressed.geometry && compressed.geometry.coordinates) {
+      compressed.geometry = {
+        ...compressed.geometry,
+        coordinates: compressCoordinates(compressed.geometry.coordinates)
+      };
+    }
+    
+    return compressed;
+  });
+}
+
+/**
+ * Compress coordinates by reducing precision
+ */
+function compressCoordinates(coords) {
+  if (!Array.isArray(coords)) return coords;
+  
+  if (typeof coords[0] === 'number') {
+    // Single coordinate pair
+    return coords.map(coord => Math.round(coord * 10000) / 10000);
+  }
+  
+  // Nested arrays
+  return coords.map(compressCoordinates);
 }
 
 /**
@@ -491,8 +712,10 @@ app.get('/api/census/counties', async (req, res) => {
     const cacheKey = generateCacheKey('counties', { state });
     
     // Check cache first
-    const cachedData = await getFromCache(cacheKey);
-    if (cachedData) {
+    const cachedEntry = await getFromCache(cacheKey);
+    if (cachedEntry) {
+      // Extract data from cache entry (could be nested in data.data or just data)
+      const cachedData = cachedEntry.data || cachedEntry;
       return res.json(cachedData);
     }
     
@@ -576,8 +799,10 @@ app.get('/api/census/tract-data', async (req, res) => {
     if (req.query.forceInvalidate === 'true') {
       console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract data - state: ${state}, county: ${county}`);
     } else {
-      const cachedData = await getFromCache(cacheKey);
-      if (cachedData) {
+      const cachedEntry = await getFromCache(cacheKey);
+      if (cachedEntry) {
+        // Extract data from cache entry (could be nested in data.data or just data)
+        const cachedData = cachedEntry.data || cachedEntry;
         console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${cacheKey}`);
         return res.json(cachedData);
       }
@@ -754,8 +979,10 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     if (req.query.forceInvalidate === 'true') {
       console.log(`🔄 FORCE INVALIDATE: Bypassing cache for tract boundaries - state: ${state}, county: ${county || 'all'}`);
     } else {
-      const cachedData = await getFromCache(cacheKey);
-      if (cachedData) {
+      const cachedEntry = await getFromCache(cacheKey);
+      if (cachedEntry) {
+        // Extract data from cache entry (could be nested in data.data or just data)
+        const cachedData = cachedEntry.data || cachedEntry;
         console.log(`✅ FIRESTORE CACHE HIT: Retrieved boundaries for key: ${cacheKey}`);
         return res.json(cachedData);
       }
@@ -948,9 +1175,9 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
 });
 
 /**
- * Cache latlong division step results
+ * Cache algorithm results (supports all algorithm types)
  */
-app.post('/api/algorithm/latlong/cache', async (req, res) => {
+app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
   try {
     const { cacheKey, divisionResult, ttl } = req.body;
 
@@ -958,16 +1185,25 @@ app.post('/api/algorithm/latlong/cache', async (req, res) => {
       return res.status(400).json({ error: 'cacheKey and divisionResult are required' });
     }
 
-    const cacheTtl = ttl || CACHE_TTL;
+    // Use null TTL if explicitly set to null (no expiration), otherwise use provided TTL or default
+    const cacheTtl = ttl === null ? null : (ttl || CACHE_TTL);
 
-    // Store in cache with latlong-specific source
+    const algorithm = req.params.algorithm || 'latlong';
+    const algorithmVersion = req.body.algorithmVersion || 'unknown';
+    
+    // Compress the result data to reduce size (especially GeoJSON geometries)
+    const compressedResult = compressGeodistrictResult(divisionResult);
+    
+    // Store in cache with algorithm-specific source
     const cacheEntry = {
-      data: divisionResult,
+      data: compressedResult,
       timestamp: Date.now(),
-      ttl: cacheTtl,
+      ttl: cacheTtl || null, // null means no expiration
       version: CACHE_VERSION,
-      source: 'latlong-division-cache',
-      attribution: 'Lat/long division algorithm cached result'
+      algorithmVersion: algorithmVersion, // Store algorithm version for cache validation
+      source: `${algorithm}-algorithm-cache`,
+      attribution: `${algorithm} algorithm cached result`,
+      compressed: true // Flag to indicate data is compressed
     };
 
     if (USE_LOCAL_CACHE) {
@@ -977,7 +1213,11 @@ app.post('/api/algorithm/latlong/cache', async (req, res) => {
       await docRef.set(cacheEntry);
     }
 
-    console.log(`💾 LATLONG CACHE: Successfully cached division result for key: ${cacheKey}, size: ${JSON.stringify(divisionResult).length} bytes`);
+    const originalSize = JSON.stringify(divisionResult).length;
+    const compressedSize = JSON.stringify(compressedResult).length;
+    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+    console.log(`💾 ALGORITHM CACHE (${algorithm}): Successfully cached result for key: ${cacheKey}`);
+    console.log(`📊 Size: ${originalSize} bytes → ${compressedSize} bytes (${compressionRatio}% reduction)`);
 
     res.json({
       status: 'success',
@@ -994,9 +1234,9 @@ app.post('/api/algorithm/latlong/cache', async (req, res) => {
 });
 
 /**
- * Get cached latlong division step results
+ * Get cached algorithm results (supports all algorithm types)
  */
-app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
+app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
   try {
     const { cacheKey } = req.params;
 
@@ -1005,17 +1245,60 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
     }
 
     // Check cache
-    const cachedResult = await getFromCache(cacheKey);
+    const cachedEntry = await getFromCache(cacheKey);
+    const algorithm = req.params.algorithm || 'latlong';
 
-    if (cachedResult) {
-      console.log(`✅ LATLONG CACHE HIT: Retrieved division result for key: ${cacheKey}`);
+    if (cachedEntry) {
+      // Check algorithm version - if it doesn't match, treat as cache miss
+      const cachedVersion = cachedEntry.algorithmVersion;
+      const requestedVersion = req.query.algorithmVersion || req.headers['x-algorithm-version'];
+      
+      // If no version is stored, treat as old cache (pre-versioning) and invalidate
+      if (!cachedVersion) {
+        console.log(`🔄 ALGORITHM VERSION MISSING (${algorithm}): Old cache entry without version. Invalidating.`);
+        // Delete the outdated cache entry
+        if (USE_LOCAL_CACHE) {
+          await localCache.deleteCacheEntry(cacheKey);
+        } else {
+          await firestore.collection('census_cache').doc(cacheKey).delete();
+        }
+        return res.json({
+          status: 'miss',
+          cached: false,
+          message: 'Cache entry outdated (no algorithm version)'
+        });
+      }
+      
+      // If versions don't match, invalidate
+      if (requestedVersion && cachedVersion !== requestedVersion) {
+        console.log(`🔄 ALGORITHM VERSION MISMATCH (${algorithm}): Cached version ${cachedVersion} != requested ${requestedVersion}. Invalidating cache.`);
+        // Delete the outdated cache entry
+        if (USE_LOCAL_CACHE) {
+          await localCache.deleteCacheEntry(cacheKey);
+        } else {
+          await firestore.collection('census_cache').doc(cacheKey).delete();
+        }
+        return res.json({
+          status: 'miss',
+          cached: false,
+          message: 'Cache entry outdated due to algorithm version change'
+        });
+      }
+      
+      // Decompress if needed
+      const decompressedResult = cachedEntry.compressed 
+        ? decompressGeodistrictResult(cachedEntry.data)
+        : cachedEntry.data;
+      
+      console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved result for key: ${cacheKey} (algorithm version: ${cachedVersion || 'unknown'})`);
       return res.json({
         status: 'success',
         cached: true,
-        data: cachedResult
+        data: decompressedResult,
+        algorithmVersion: cachedVersion || 'unknown'
       });
     } else {
-      console.log(`❌ LATLONG CACHE MISS: No cached result for key: ${cacheKey}`);
+      console.log(`❌ ALGORITHM CACHE MISS (${algorithm}): No cached result for key: ${cacheKey}`);
       return res.json({
         status: 'miss',
         cached: false,
@@ -1032,11 +1315,12 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
 });
 
 /**
- * Clear latlong division cache (for debugging)
+ * Clear algorithm cache (for debugging, supports all algorithm types)
  */
-app.delete('/api/algorithm/latlong/cache', async (req, res) => {
+app.delete('/api/algorithm/:algorithm/cache', async (req, res) => {
   try {
-    const { key } = req.query;
+    const { cacheKey } = req.body || {};
+    const key = cacheKey || req.query.key;
 
     if (USE_LOCAL_CACHE) {
       if (key) {

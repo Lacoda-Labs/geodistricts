@@ -59,14 +59,6 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
 
   private subscriptions: Subscription[] = [];
 
-  // Algorithm options
-  algorithmOptions = [
-    { value: 'brown-s4', label: 'Brown S4 (Default)', description: 'Uses pre-computed adjacency data from Brown University S4 project for optimal contiguity' },
-    { value: 'geo-graph', label: 'Geo-Graph', description: 'Zig-zag traversal using Brown S4 adjacency data with northwest starting point and clockwise row-by-row movement' },
-    { value: 'greedy-traversal', label: 'Greedy Traversal', description: 'Graph-based directional traversal for optimal contiguity' },
-    { value: 'geographic', label: 'Geographic Sorting', description: 'Uses TIGER internal points for geographic sorting and contiguity-based division' },
-    { value: 'latlong', label: 'Lat/Long Dividing Lines', description: 'Uses straight latitude/longitude lines to divide districts' }
-  ];
 
   // US States with their congressional district counts
   states = [
@@ -129,12 +121,8 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   ) {}
 
   ngOnInit(): void {
-    // Load last selected algorithm from localStorage
-    const savedAlgorithm = localStorage.getItem('geodistrict-selected-algorithm');
-    if (savedAlgorithm && this.algorithmOptions.some(opt => opt.value === savedAlgorithm)) {
-      this.selectedAlgorithm = savedAlgorithm as AlgorithmType;
-      console.log(`📋 Loaded saved algorithm: ${this.selectedAlgorithm}`);
-    }
+    // Only latlong algorithm is available
+    console.log(`📋 Using latlong algorithm with caching`);
   }
 
   ngAfterViewInit(): void {
@@ -472,19 +460,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.clearResults();
   }
 
-  onAlgorithmChange(): void {
-    // Save selected algorithm to localStorage
-    localStorage.setItem('geodistrict-selected-algorithm', this.selectedAlgorithm);
-    console.log(`💾 Saved algorithm selection: ${this.selectedAlgorithm}`);
-    
-    // Algorithm changed - clear results if any
-    this.clearResults();
-  }
 
-  getSelectedAlgorithmDescription(): string {
-    const selectedOption = this.algorithmOptions.find(option => option.value === this.selectedAlgorithm);
-    return selectedOption ? selectedOption.description : '';
-  }
 
   /**
    * Calculate the population variance percentage for the current result
@@ -831,7 +807,14 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     for (const divLineInfo of step.divisionLines) {
       const animationPromise = this.createAnimatedDivisionLine(divLineInfo, stepIdx);
       if (animationPromise) {
-        animationPromises.push(animationPromise);
+        // Filter out null results after promise resolves
+        const filteredPromise = animationPromise.then(line => {
+          if (line === null) {
+            throw new Error('Animation line is null');
+          }
+          return line;
+        });
+        animationPromises.push(filteredPromise);
       }
     }
 
@@ -839,7 +822,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     if (animationPromises.length > 0) {
       try {
         const completedLines = await Promise.all(animationPromises);
-        stepDivisionLines.push(...completedLines);
+        stepDivisionLines.push(...completedLines.filter(line => line !== null));
         console.log(`✅ Completed animations for step ${stepIdx} (${completedLines.length} line(s))`);
       } catch (error) {
         console.error(`Error animating division lines for step ${stepIdx}:`, error);

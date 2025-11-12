@@ -1,6 +1,6 @@
 <div class="geodistrict-viewer">
   <div class="header">
-    <h1>Geodistrict Algorithm Visualization</h1>
+    <h1>Geodistrict Algorithm Visualization!</h1>
     <p>Visualizing the various algorithms attempting to create 
       an objective drawing of congressional district boundaries.</p>
   </div>
@@ -16,17 +16,6 @@
       </select>
     </div>
 
-    <div class="control-group">
-      <label for="algorithmSelect">Algorithm:</label>
-      <select id="algorithmSelect" [(ngModel)]="selectedAlgorithm" (change)="onAlgorithmChange()">
-        <option *ngFor="let option of algorithmOptions" [value]="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-      <div class="algorithm-description">
-        {{ getSelectedAlgorithmDescription() }}
-      </div>
-    </div>
 
     <!-- <div class="control-group">
       <label>
