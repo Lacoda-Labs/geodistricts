@@ -51,6 +51,9 @@
         <span class="spinner-small" *ngIf="isLoading"></span>
         {{ isLoading ? 'Running Next Step...' : 'Run Next Step' }}
       </button>
+      <button (click)="demoSVGrendering()" [disabled]="!currentStep" style="background: #9b59b6;" *ngIf="algorithmResult">
+        SVG Demo
+      </button>
     </div>
   </div>
 
@@ -299,6 +302,32 @@
           <span class="step-number">{{ i + 1 }}.</span>
           <span class="entry-text">{{ entry }}</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SVG Rendering Demo Section -->
+  <div class="svg-demo-section" *ngIf="algorithmResult && currentStep">
+    <h3>SVG Tract Rendering</h3>
+    <p>This demonstrates rendering tracts as SVG in empty div containers instead of using Leaflet maps.</p>
+
+    <div class="svg-demo-controls">
+      <button (click)="renderTractsToDiv('svg-canvas-1', undefined, { width: 400, height: 300, groupIndex: 0, showIntersecting: true })">
+        Render Group 1 (with intersecting)
+      </button>
+      <button (click)="renderTractsToDiv('svg-canvas-2', undefined, { width: 400, height: 300, showHighlighted: true })">
+        Render All Groups (highlighted)
+      </button>
+    </div>
+
+    <div class="svg-canvases">
+      <div class="svg-canvas-wrapper">
+        <h4>Group 1 Tracts</h4>
+        <div id="svg-canvas-1" class="svg-tract-renderer" style="width: 400px; height: 300px; border: 1px solid #ddd;"></div>
+      </div>
+      <div class="svg-canvas-wrapper">
+        <h4>All Groups</h4>
+        <div id="svg-canvas-2" class="svg-tract-renderer" style="width: 400px; height: 300px; border: 1px solid #ddd;"></div>
       </div>
     </div>
   </div>

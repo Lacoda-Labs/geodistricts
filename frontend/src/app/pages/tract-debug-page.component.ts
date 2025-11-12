@@ -17,7 +17,7 @@ declare var L: any;
 })
 export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedState: string = 'AZ';
-  selectedAlgorithm: string = 'geo-graph';
+  selectedAlgorithm: string = 'latlong';
   useDirectAPI: boolean = false;
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -88,11 +88,7 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
   ];
 
   algorithmOptions = [
-    { value: 'geographic', label: 'Geographic (North-South, West-East)' },
-    { value: 'latlong', label: 'Latitude-Longitude (Centroid-based)' },
-    { value: 'greedy-traversal', label: 'Greedy Traversal (Graph-based)' },
-    { value: 'brown-s4', label: 'Brown S4 (Pre-computed Adjacency)' },
-    { value: 'geo-graph', label: 'Geo-Graph (Zig-zag with Brown S4 Adjacency)' }
+    { value: 'latlong', label: 'Lat/Long Division (Population-balanced)' }
   ];
 
   stateData: GeoJsonResponse | null = null;

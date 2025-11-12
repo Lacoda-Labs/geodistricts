@@ -1,14 +1,22 @@
 import { Injectable, Injector, forwardRef } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { GeoJsonFeature } from './census.service';
 import { DistrictGroup, GeodistrictAlgorithmService } from './geodistrict-algorithm.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class LatLongDivisionService {
   private algorithmService: GeodistrictAlgorithmService | null = null;
+  private readonly backendUrl = environment.apiUrl || 'http://localhost:8080';
 
-  constructor(private injector: Injector) {}
+  constructor(
+    private injector: Injector,
+    private http: HttpClient
+  ) {}
 
   private getAlgorithmService(): GeodistrictAlgorithmService {
     if (!this.algorithmService) {
@@ -18,127 +26,246 @@ export class LatLongDivisionService {
   }
 
   /**
+   * Generate a cache key for division results
+   */
+  private generateCacheKey(group: DistrictGroup, direction: 'latitude' | 'longitude'): string {
+    // Create a unique key based on group properties and direction
+    const keyData = {
+      startDistrict: group.startDistrictNumber,
+      endDistrict: group.endDistrictNumber,
+      totalDistricts: group.totalDistricts,
+      tractCount: group.censusTracts.length,
+      totalPopulation: group.totalPopulation,
+      direction: direction,
+      // Include bounds for uniqueness
+      north: group.bounds.north.toFixed(6),
+      south: group.bounds.south.toFixed(6),
+      east: group.bounds.east.toFixed(6),
+      west: group.bounds.west.toFixed(6)
+    };
+
+    // Simple hash function for the key
+    const str = JSON.stringify(keyData);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return `latlong_division_${Math.abs(hash).toString(36)}`;
+  }
+
+  /**
+   * Check if cached result exists for this division
+   */
+  private checkCache(cacheKey: string): Observable<any> {
+    const url = `${this.backendUrl}/api/algorithm/latlong/cache/${encodeURIComponent(cacheKey)}`;
+    return this.http.get(url).pipe(
+      map((response: any) => {
+        if (response.cached && response.data) {
+          console.log(`✅ LATLONG CACHE HIT: Retrieved cached result for key: ${cacheKey}`);
+          return response.data;
+        }
+        return null;
+      }),
+      catchError(error => {
+        console.warn(`⚠️ LATLONG CACHE CHECK FAILED: ${error.message}`);
+        return of(null);
+      })
+    );
+  }
+
+  /**
+   * Store division result in cache
+   */
+  private storeInCache(cacheKey: string, divisionResult: any): Observable<any> {
+    const url = `${this.backendUrl}/api/algorithm/latlong/cache`;
+    const payload = {
+      cacheKey,
+      divisionResult,
+      ttl: 24 * 60 * 60 * 1000 // 24 hours
+    };
+
+    return this.http.post(url, payload).pipe(
+      map((response: any) => {
+        console.log(`💾 LATLONG CACHE: Stored result for key: ${cacheKey}`);
+        return response;
+      }),
+      catchError(error => {
+        console.warn(`⚠️ LATLONG CACHE STORE FAILED: ${error.message}`);
+        return of(null);
+      })
+    );
+  }
+
+  /**
    * Divide a district group using lat/long dividing lines algorithm
    * @param group District group to divide
    * @param direction Division direction (latitude or longitude)
-   * @returns Division result with new groups and history
+   * @param forceRecalculate Force recalculation even if cached result exists
+   * @returns Observable with division result
    */
-  divideDistrictGroup(group: DistrictGroup, direction: 'latitude' | 'longitude'): {
+  divideDistrictGroup(group: DistrictGroup, direction: 'latitude' | 'longitude', forceRecalculate: boolean = false): Observable<{
     groups: DistrictGroup[];
     history: string[];
     dividingLine: number;
     intersectingTractIds?: string[];
-  } {
-    const { totalDistricts } = group;
+  }> {
+    return new Observable(observer => {
+      const cacheKey = this.generateCacheKey(group, direction);
 
-    // Calculate how to divide the districts
-    const division = this.calculateOptimalDivision(totalDistricts);
+      // Check cache first unless force recalculate is requested
+      if (!forceRecalculate) {
+        this.checkCache(cacheKey).subscribe(cachedResult => {
+          if (cachedResult) {
+            observer.next(cachedResult);
+            observer.complete();
+            return;
+          }
 
-    // Calculate target population for each group
-    const totalPopulation = group.totalPopulation;
-    const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
-    const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
+          // Cache miss - compute the result
+          this.computeDivisionResult(group, direction, cacheKey).subscribe(result => {
+            observer.next(result);
+            observer.complete();
+          });
+        });
+      } else {
+        // Force recalculate - compute directly
+        this.computeDivisionResult(group, direction, cacheKey).subscribe(result => {
+          observer.next(result);
+          observer.complete();
+        });
+      }
+    });
+  }
 
-    // Find the dividing line using iterative approach
-    const dividingLine = this.findOptimalDividingLine(group.censusTracts, direction, targetFirstGroupPopulation);
+  /**
+   * Compute the division result (extracted from the original method)
+   */
+  private computeDivisionResult(group: DistrictGroup, direction: 'latitude' | 'longitude', cacheKey: string): Observable<{
+    groups: DistrictGroup[];
+    history: string[];
+    dividingLine: number;
+    intersectingTractIds?: string[];
+  }> {
+    return new Observable(observer => {
+      const { totalDistricts } = group;
 
-    // Create history array early so it can be updated during refinement
-    const history: string[] = [];
-    
-    // Divide tracts based on the dividing line
-    const { firstGroupTracts, secondGroupTracts, intersectingTractIds } = this.divideTractsByLine(
-      group.censusTracts,
-      direction,
-      dividingLine,
-      targetFirstGroupPopulation,
-      targetSecondGroupPopulation,
-      history
-    );
+      // Calculate how to divide the districts
+      const division = this.calculateOptimalDivision(totalDistricts);
 
-    // Validate contiguity of both groups
-    const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);
-    const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Second Group (Districts ${group.startDistrictNumber + division.first}-${group.endDistrictNumber})`);
+      // Calculate target population for each group
+      const totalPopulation = group.totalPopulation;
+      const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
+      const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
 
-    if (!firstGroupContiguous || !secondGroupContiguous) {
-      console.warn(`⚠️  Lat/long division resulted in non-contiguous groups. This is expected for some geographic configurations.`);
-    }
+      // Find the dividing line using iterative approach
+      const dividingLine = this.findOptimalDividingLine(group.censusTracts, direction, targetFirstGroupPopulation);
 
-    // Create new district groups
-    const firstGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber,
-      endDistrictNumber: group.startDistrictNumber + division.first - 1,
-      censusTracts: firstGroupTracts,
-      totalDistricts: division.first,
-      totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(firstGroupTracts),
-      centroid: this.calculateCentroid(firstGroupTracts)
-    };
+      // Create history array early so it can be updated during refinement
+      const history: string[] = [];
 
-    const secondGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber + division.first,
-      endDistrictNumber: group.endDistrictNumber,
-      censusTracts: secondGroupTracts,
-      totalDistricts: division.second,
-      totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(secondGroupTracts),
-      centroid: this.calculateCentroid(secondGroupTracts)
-    };
+      // Divide tracts based on the dividing line
+      const { firstGroupTracts, secondGroupTracts, intersectingTractIds } = this.divideTractsByLine(
+        group.censusTracts,
+        direction,
+        dividingLine,
+        targetFirstGroupPopulation,
+        targetSecondGroupPopulation,
+        history
+      );
 
-    // Check for high variance and log warning
-    const actualFirstPopulation = firstGroup.totalPopulation;
-    const actualVariance = Math.abs(actualFirstPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation;
+      // Validate contiguity of both groups
+      const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);
+      const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Second Group (Districts ${group.startDistrictNumber + division.first}-${group.endDistrictNumber})`);
 
-    // Calculate how many tracts need to move to balance populations
-    const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
-    let firstGroupDifference = firstGroup.totalPopulation - targetFirstGroupPopulation;
-    let secondGroupDifference = secondGroup.totalPopulation - targetSecondGroupPopulation;
-    
-    // Determine which group is over target and needs to give tracts
-    let tractsToMove = 0;
-    let moveDirection = '';
-    if (firstGroupDifference > 0 && secondGroupDifference < 0) {
-      // First group is over, second group is under - move from first to second
-      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-      tractsToMove = Math.round(populationToMove / averageTractPopulation);
-      moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
-    } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
-      // First group is under, second group is over - move from second to first
-      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-      tractsToMove = Math.round(populationToMove / averageTractPopulation);
-      moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
-    }
+      if (!firstGroupContiguous || !secondGroupContiguous) {
+        console.warn(`⚠️  Lat/long division resulted in non-contiguous groups. This is expected for some geographic configurations.`);
+      }
 
-    if (actualVariance > 0.05) { // >5% variance
-      console.warn(`⚠️ High population variance detected: ${(actualVariance * 100).toFixed(1)}% (target: ${targetFirstGroupPopulation.toLocaleString()}, actual: ${actualFirstPopulation.toLocaleString()})`);
-      console.warn(`   This may indicate complex geographic distribution that requires multiple dividing lines or different approach.`);
-    }
+      // Create new district groups
+      const firstGroup: DistrictGroup = {
+        startDistrictNumber: group.startDistrictNumber,
+        endDistrictNumber: group.startDistrictNumber + division.first - 1,
+        censusTracts: firstGroupTracts,
+        totalDistricts: division.first,
+        totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
+        bounds: this.calculateBounds(firstGroupTracts),
+        centroid: this.calculateCentroid(firstGroupTracts)
+      };
 
-    if (tractsToMove > 0) {
-      console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-    }
+      const secondGroup: DistrictGroup = {
+        startDistrictNumber: group.startDistrictNumber + division.first,
+        endDistrictNumber: group.endDistrictNumber,
+        censusTracts: secondGroupTracts,
+        totalDistricts: division.second,
+        totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
+        bounds: this.calculateBounds(secondGroupTracts),
+        centroid: this.calculateCentroid(secondGroupTracts)
+      };
 
-    // Format ratio for display (e.g., 50/50, 66/34)
-    // division.ratio is already in percentages [50, 50] or [66, 34]
-    const ratioDisplay = `${division.ratio[0]}/${division.ratio[1]}`;
-    
-    // Add initial history entries (history array was created earlier and passed to divideTractsByLine)
-    history.push(
-      `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} lat/long line at ${dividingLine.toFixed(6) + (direction === 'latitude' ? '°N' : '°W')} by ${ratioDisplay} ratio`,
-      `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
-      `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`,
-      `  - Population variance: ${(actualVariance * 100).toFixed(1)}%`
-    );
-    
-    if (tractsToMove > 0) {
-      history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-    }
+      // Check for high variance and log warning
+      const actualFirstPopulation = firstGroup.totalPopulation;
+      const actualVariance = Math.abs(actualFirstPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation;
 
-    return {
-      groups: [firstGroup, secondGroup],
-      history,
-      dividingLine,
-      intersectingTractIds
-    };
+      // Calculate how many tracts need to move to balance populations
+      const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
+      let firstGroupDifference = firstGroup.totalPopulation - targetFirstGroupPopulation;
+      let secondGroupDifference = secondGroup.totalPopulation - targetSecondGroupPopulation;
+
+      // Determine which group is over target and needs to give tracts
+      let tractsToMove = 0;
+      let moveDirection = '';
+      if (firstGroupDifference > 0 && secondGroupDifference < 0) {
+        // First group is over, second group is under - move from first to second
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
+      } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
+        // First group is under, second group is over - move from second to first
+        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
+        tractsToMove = Math.round(populationToMove / averageTractPopulation);
+        moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
+      }
+
+      if (actualVariance > 0.05) { // >5% variance
+        console.warn(`⚠️ High population variance detected: ${(actualVariance * 100).toFixed(1)}% (target: ${targetFirstGroupPopulation.toLocaleString()}, actual: ${actualFirstPopulation.toLocaleString()})`);
+        console.warn(`   This may indicate complex geographic distribution that requires multiple dividing lines or different approach.`);
+      }
+
+      if (tractsToMove > 0) {
+        console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
+
+      // Format ratio for display (e.g., 50/50, 66/34)
+      // division.ratio is already in percentages [50, 50] or [66, 34]
+      const ratioDisplay = `${division.ratio[0]}/${division.ratio[1]}`;
+
+      // Add initial history entries (history array was created earlier and passed to divideTractsByLine)
+      history.push(
+        `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} lat/long line at ${dividingLine.toFixed(6) + (direction === 'latitude' ? '°N' : '°W')} by ${ratioDisplay} ratio`,
+        `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
+        `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`,
+        `  - Population variance: ${(actualVariance * 100).toFixed(1)}%`
+      );
+
+      if (tractsToMove > 0) {
+        history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
+      }
+
+      const result = {
+        groups: [firstGroup, secondGroup],
+        history,
+        dividingLine,
+        intersectingTractIds
+      };
+
+      // Store result in cache
+      this.storeInCache(cacheKey, result).subscribe(() => {
+        observer.next(result);
+        observer.complete();
+      });
+    });
   }
 
   /**

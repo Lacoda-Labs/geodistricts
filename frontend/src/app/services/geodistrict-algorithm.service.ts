@@ -3,7 +3,6 @@ import { Observable, throwError, of, from } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
-import { GeoGraphTraversalService } from './geo-graph-traversal.service';
 import { LatLongDivisionService } from './latlong-division.service';
 import { environment } from '../../environments/environment';
 import * as turf from '@turf/turf';
@@ -70,7 +69,7 @@ export interface GeodistrictOptions {
   useDirectAPI?: boolean;
   forceInvalidate?: boolean;
   maxIterations?: number;
-  algorithm?: 'geographic' | 'latlong' | 'greedy-traversal' | 'brown-s4' | 'geo-graph';
+  algorithm?: 'latlong';
 }
 
 // Interface for steppable geo-graph algorithm results
@@ -87,7 +86,7 @@ export interface GeoGraphStepResult {
 }
 
 // Algorithm types
-export type AlgorithmType = 'geographic' | 'latlong' | 'greedy-traversal' | 'brown-s4' | 'geo-graph';
+export type AlgorithmType = 'latlong';
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -117,7 +116,6 @@ export class GeodistrictAlgorithmService {
   constructor(
     private censusService: CensusService,
     private congressionalDistrictsService: CongressionalDistrictsService,
-    private geoGraphTraversalService: GeoGraphTraversalService,
     private latLongDivisionService: LatLongDivisionService,
     private http: HttpClient
   ) { }
@@ -128,7 +126,7 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   runGeodistrictAlgorithm(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'brown-s4' } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'latlong' } = options;
 
     // In production, always use backend proxy (which handles Secret Manager)
     // In development, respect the useDirectAPI flag
@@ -155,7 +153,7 @@ export class GeodistrictAlgorithmService {
             const tractsWithPopulation = this.combineTractData(data.demographic, data.boundaries.features);
 
             // Run the algorithm
-            return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm));
+            return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm, forceInvalidate));
           }),
           catchError(error => {
             console.warn(`Direct API failed for state ${state}, falling back to backend proxy:`, error);
@@ -171,7 +169,7 @@ export class GeodistrictAlgorithmService {
                 const tractsWithPopulation = this.combineTractData(data.demographic, data.boundaries.features);
 
                 // Run the algorithm
-                return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm));
+                return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm, forceInvalidate));
               })
             );
           })
@@ -187,7 +185,7 @@ export class GeodistrictAlgorithmService {
    * @returns Observable of algorithm result with step-by-step execution
    */
   runGeodistrictAlgorithmStepByStep(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'brown-s4' } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'latlong' } = options;
 
     // In production, always use backend proxy (which handles Secret Manager)
     // In development, respect the useDirectAPI flag
@@ -214,7 +212,7 @@ export class GeodistrictAlgorithmService {
         }
 
         // Execute only the first step of the algorithm
-        return this.executeGeodistrictAlgorithmFirstStep(combinedTracts, totalDistricts, algorithm);
+        return this.executeGeodistrictAlgorithmFirstStep(combinedTracts, totalDistricts, algorithm, forceInvalidate);
       }),
       catchError(this.handleError)
     );
@@ -227,11 +225,11 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Algorithm result with only the first step
    */
-  private executeGeodistrictAlgorithmFirstStep(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType): Observable<GeodistrictResult> {
-    return from(this.executeGeodistrictAlgorithmFirstStepAsync(tracts, totalDistricts, algorithm));
+  private executeGeodistrictAlgorithmFirstStep(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Observable<GeodistrictResult> {
+    return from(this.executeGeodistrictAlgorithmFirstStepAsync(tracts, totalDistricts, algorithm, forceInvalidate));
   }
 
-  private async executeGeodistrictAlgorithmFirstStepAsync(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType): Promise<GeodistrictResult> {
+  private async executeGeodistrictAlgorithmFirstStepAsync(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
     // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -249,16 +247,8 @@ export class GeodistrictAlgorithmService {
 
     // Note: geo-graph and brown-s4 algorithms are now supported in first step mode
 
-    // Sort tracts initially by latitude (north to south)
-    const sortedTracts = algorithm === 'latlong'
-      ? this.sortTractsForLatLongAlgorithm(tracts, 'latitude')
-      : algorithm === 'greedy-traversal'
-        ? this.sortTractsByGreedyTraversal(tracts, 'latitude')
-        : algorithm === 'brown-s4'
-          ? await this.sortTractsByBrownS4(tracts, 'latitude')
-          : algorithm === 'geo-graph'
-            ? await this.sortTractsByGeoGraph(tracts, 'latitude')
-            : this.sortTractsByCentroid(tracts, 'latitude');
+    // Sort tracts initially by latitude (north to south) using latlong algorithm
+    const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
 
     // Initialize with all tracts as a single district group
     const initialGroup: DistrictGroup = {
@@ -297,12 +287,8 @@ export class GeodistrictAlgorithmService {
           // Calculate division ratio for this group
           const division = this.calculateOptimalDivision(group.totalDistricts);
           
-          // Divide this group
-          const divisionResult = algorithm === 'latlong'
-            ? this.latLongDivisionService.divideDistrictGroup(group, direction)
-            : algorithm === 'greedy-traversal'
-              ? this.divideDistrictGroupGreedyTraversal(group, direction)
-              : this.divideDistrictGroup(group, direction);
+          // Divide this group using latlong algorithm
+          const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, forceInvalidate).toPromise();
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
           
@@ -386,13 +372,8 @@ export class GeodistrictAlgorithmService {
         const division = this.calculateOptimalDivision(group.totalDistricts);
         
         // Divide this group
-        const divisionResult = algorithm === 'latlong'
-          ? this.latLongDivisionService.divideDistrictGroup(group, direction)
-          : algorithm === 'greedy-traversal'
-            ? this.divideDistrictGroupGreedyTraversal(group, direction)
-            : algorithm === 'geo-graph'
-              ? await this.divideDistrictGroupGeoGraph(group, direction)
-              : this.divideDistrictGroup(group, direction);
+        // Divide this group using latlong algorithm
+        const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, false).toPromise();
         newGroups.push(...divisionResult.groups);
         algorithmHistory.push(...divisionResult.history);
         
@@ -529,7 +510,7 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Algorithm result
    */
-  private async executeGeodistrictAlgorithm(tracts: GeoJsonFeature[], totalDistricts: number, maxIterations: number, algorithm: AlgorithmType): Promise<GeodistrictResult> {
+  private async executeGeodistrictAlgorithm(tracts: GeoJsonFeature[], totalDistricts: number, maxIterations: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
     // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -582,14 +563,8 @@ export class GeodistrictAlgorithmService {
           // Calculate division ratio for this group
           const division = this.calculateOptimalDivision(group.totalDistricts);
           
-          // Divide this group
-          const divisionResult = algorithm === 'latlong'
-            ? this.latLongDivisionService.divideDistrictGroup(group, direction)
-            : algorithm === 'greedy-traversal'
-              ? this.divideDistrictGroupGreedyTraversal(group, direction)
-              : algorithm === 'geo-graph'
-                ? await this.divideDistrictGroupGeoGraph(group, direction)
-                : this.divideDistrictGroup(group, direction);
+          // Divide this group using latlong algorithm
+          const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, forceInvalidate).toPromise();
           newGroups.push(...divisionResult.groups);
           algorithmHistory.push(...divisionResult.history);
           
@@ -649,122 +624,6 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Divide a district group using greedy traversal algorithm
-   * @param group District group to divide
-   * @param direction Division direction (latitude or longitude)
-   * @returns Division result with new groups and history
-   */
-  private divideDistrictGroupGreedyTraversal(group: DistrictGroup, direction: 'latitude' | 'longitude'): {
-    groups: DistrictGroup[];
-    history: string[];
-    dividingLine?: number;
-  } {
-    const { totalDistricts } = group;
-
-    // Calculate how to divide the districts
-    const division = this.calculateOptimalDivision(totalDistricts);
-
-    // Calculate target population for each group
-    const totalPopulation = group.totalPopulation;
-    const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
-
-    // Sort tracts using greedy traversal
-    const sortedTracts = this.sortTractsByGreedyTraversal(group.censusTracts, direction);
-
-    // Update the group with sorted tracts
-    group.censusTracts = sortedTracts;
-
-    // Divide tracts by accumulating population
-    let cumulativePopulation = 0;
-    let divisionIndex = 0;
-    let bestDifference = Infinity;
-
-    for (let i = 0; i < sortedTracts.length; i++) {
-      cumulativePopulation += sortedTracts[i].properties?.POPULATION || 0;
-      const difference = Math.abs(cumulativePopulation - targetFirstGroupPopulation);
-
-      if (difference < bestDifference) {
-        bestDifference = difference;
-        divisionIndex = i + 1;
-      }
-    }
-
-    // Split tracts into two groups
-    const firstGroupTracts = sortedTracts.slice(0, divisionIndex);
-    const secondGroupTracts = sortedTracts.slice(divisionIndex);
-
-    // Validate contiguity of both groups
-    const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);
-    const secondGroupContiguous = this.validateContiguity(secondGroupTracts, `Second Group (Districts ${group.startDistrictNumber + division.first}-${group.endDistrictNumber})`);
-
-    if (!firstGroupContiguous || !secondGroupContiguous) {
-      console.warn(`⚠️  Greedy traversal division resulted in non-contiguous groups. This may indicate complex geographic barriers.`);
-    }
-
-    // Create new district groups
-    const firstGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber,
-      endDistrictNumber: group.startDistrictNumber + division.first - 1,
-      censusTracts: firstGroupTracts,
-      totalDistricts: division.first,
-      totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(firstGroupTracts),
-      centroid: this.calculateCentroid(firstGroupTracts)
-    };
-
-    const secondGroup: DistrictGroup = {
-      startDistrictNumber: group.startDistrictNumber + division.first,
-      endDistrictNumber: group.endDistrictNumber,
-      censusTracts: secondGroupTracts,
-      totalDistricts: division.second,
-      totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
-      bounds: this.calculateBounds(secondGroupTracts),
-      centroid: this.calculateCentroid(secondGroupTracts)
-    };
-
-    // Calculate how many tracts need to move to balance populations
-    const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
-    const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
-    const firstGroupDifference = firstGroup.totalPopulation - targetFirstGroupPopulation;
-    const secondGroupDifference = secondGroup.totalPopulation - targetSecondGroupPopulation;
-    
-    // Determine which group is over target and needs to give tracts
-    let tractsToMove = 0;
-    let moveDirection = '';
-    if (firstGroupDifference > 0 && secondGroupDifference < 0) {
-      // First group is over, second group is under - move from first to second
-      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-      tractsToMove = Math.round(populationToMove / averageTractPopulation);
-      moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
-    } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
-      // First group is under, second group is over - move from second to first
-      const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-      tractsToMove = Math.round(populationToMove / averageTractPopulation);
-      moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
-    }
-
-    if (tractsToMove > 0) {
-      console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-    }
-
-    const history = [
-      `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using greedy traversal into ${division.first} + ${division.second} districts`,
-      `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroup.totalPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
-      `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroup.totalPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
-    ];
-    
-    if (tractsToMove > 0) {
-      history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-    }
-
-    return {
-      groups: [firstGroup, secondGroup],
-      history
-    };
-  }
-
-
-  /**
-   * Divide a district group into two groups (original geographic algorithm)
    * @param group District group to divide
    * @param direction Division direction (latitude or longitude)
    * @returns Division result with new groups and history
@@ -988,44 +847,6 @@ export class GeodistrictAlgorithmService {
    * @param tracts Array of tract features
    * @param direction Sort direction preference
    * @returns Sorted array of tracts using greedy traversal
-   */
-  private sortTractsByGreedyTraversal(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    if (tracts.length <= 1) return tracts;
-
-    try {
-      // Build adjacency graph using northwest coordinates
-      const adjacencyGraph = this.buildAdjacencyGraph(tracts);
-
-      // Check if adjacency graph is viable
-      const totalAdjacencies = Array.from(adjacencyGraph.values()).reduce((sum, neighbors) => sum + neighbors.length, 0);
-      const averageAdjacencies = totalAdjacencies / tracts.length;
-
-      if (averageAdjacencies < 0.1) {  // Relaxed from 1.0 to 0.1
-        console.warn(`⚠️  Adjacency graph too sparse (${averageAdjacencies.toFixed(2)} avg neighbors), falling back to centroid sorting`);
-        return this.sortTractsByCentroid(tracts, direction);
-      }
-
-      // Find starting tract (NW-most for lat-sort; SW-most for long-sort)
-      const startTract = this.findStartingTract(tracts, direction);
-      if (!startTract) {
-        console.warn('Could not find starting tract, falling back to centroid sorting');
-        return this.sortTractsByCentroid(tracts, direction);
-      }
-
-      // Perform greedy traversal
-      const sortedTracts = this.performGreedyTraversal(tracts, adjacencyGraph, startTract, direction);
-
-      return sortedTracts;
-    } catch (error) {
-      console.error('❌ Error in greedy traversal, falling back to centroid sorting:', error);
-      return this.sortTractsByCentroid(tracts, direction);
-    }
-  }
-
-  /**
-   * Calculate the most northwest coordinate from a tract's polygon geometry
-   * @param tract Tract feature with geometry
-   * @returns Northwest coordinate {lat, lng}
    */
   private calculateNorthwestCoordinate(tract: GeoJsonFeature): { lat: number; lng: number } {
     if (!tract.geometry) {
@@ -5538,11 +5359,12 @@ export class GeodistrictAlgorithmService {
             console.log(`Total state population: ${totalStatePopulation.toLocaleString()}`);
             console.log(`Target population per district: ${targetDistrictPopulation.toLocaleString()}`);
 
-            // Sort tracts initially by latitude (north to south) using Brown S4
-            console.log(`🔄 Sorting tracts initially by latitude (north to south) using ${algorithm} algorithm`);
-            
-            // Use async/await properly with from() to convert Promise to Observable
-            return from(this.sortTractsByBrownS4(tracts, 'latitude')).pipe(
+            // Sort tracts initially by latitude (north to south) using latlong algorithm
+            console.log(`🔄 Sorting tracts initially by latitude (north to south) using latlong algorithm`);
+
+            // Use latlong sorting
+            const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
+            return of(sortedTracts).pipe(
               switchMap(sortedTracts => {
                 // Initialize with all tracts as a single district group
                 const initialGroup: DistrictGroup = {
@@ -5582,7 +5404,7 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type
    * @returns Division result
    */
-  private async runDivisionAlgorithmAsync(groups: DistrictGroup[], maxIterations: number, algorithm: string): Promise<{ districts: DistrictGroup[]; iterations: number; populationVariance: number }> {
+  private async runDivisionAlgorithmAsync(groups: DistrictGroup[], maxIterations: number, algorithm: AlgorithmType): Promise<{ districts: DistrictGroup[]; iterations: number; populationVariance: number }> {
     let currentGroups = [...groups];
     let iteration = 0;
 
@@ -5602,10 +5424,8 @@ export class GeodistrictAlgorithmService {
       const direction: 'latitude' | 'longitude' = iteration % 2 === 0 ? 'latitude' : 'longitude';
       console.log(`🧭 Division direction: ${direction}`);
 
-      // Divide the group using the selected algorithm
-      const divisionResult = algorithm === 'geo-graph'
-        ? await this.divideDistrictGroupGeoGraph(groupToDivide, direction)
-        : await this.divideDistrictGroupBrownS4(groupToDivide, direction);
+      // Divide the group using latlong algorithm
+      const divisionResult = await this.latLongDivisionService.divideDistrictGroup(groupToDivide, direction, false).toPromise();
       const newGroups = divisionResult.groups;
 
       // Remove the original group and add the new groups
@@ -5729,646 +5549,9 @@ export class GeodistrictAlgorithmService {
    * @param direction Sorting direction
    * @returns Sorted tracts using geo-graph traversal
    */
-  public async sortTractsByGeoGraph(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude'): Promise<GeoJsonFeature[]> {
-    if (tracts.length <= 1) return tracts;
-
-    console.log(`🔄 Starting Geo-Graph algorithm for ${tracts.length} tracts (${direction} direction)`);
-
-    // Get state from first tract
-    const state = tracts[0].properties?.STATE || '';
-    if (!state) {
-      throw new Error('Geo-graph algorithm failed: No state found in tract properties');
-    }
-
-    // Load S4 adjacency data
-    const adjacencyGraph = await this.loadS4AdjacencyData(state);
-
-    // Find starting tract based on direction
-    let startTract: GeoJsonFeature | null;
-    if (direction === 'latitude') {
-      // For latitude division: start from northwest-most tract
-      startTract = this.findNorthwestMostTract(tracts);
-      if (!startTract) {
-        throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
-      }
-      console.log(`📍 Starting tract (NW-most): ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
-    } else {
-      // For longitude division: start from southwest-most tract
-      startTract = this.findSouthwestMostTract(tracts);
-      if (!startTract) {
-        throw new Error('Geo-graph algorithm failed: Could not find southwest most tract');
-      }
-      console.log(`📍 Starting tract (SW-most): ${this.getTractId(startTract)} at (${this.getSouthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getSouthwestCoordinate(startTract).lng.toFixed(6)})`);
-    }
-
-    // Perform geo-graph traversal with zig-zag pattern
-    return this.geoGraphTraversalService.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
-  }
-
-  /**
-   * Execute geo-graph algorithm with step-by-step control
-   * @param tracts Array of tracts
-   * @param direction Sorting direction
-   * @param step Current step number
-   * @returns Step result with current state
-   */
-  public async executeGeoGraphStep(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude', step: number = 0): Promise<GeoGraphStepResult> {
-    if (tracts.length <= 1) {
-      return {
-        phase: 'phase1',
-        step: 0,
-        totalSteps: 1,
-        isComplete: true,
-        message: 'Only one tract, no sorting needed',
-        sortedTracts: tracts
-      };
-    }
-
-    console.log(`🔄 Executing Geo-Graph step ${step} for ${tracts.length} tracts`);
-
-    // Get state from first tract
-    const state = tracts[0].properties?.STATE || '';
-    if (!state) {
-      throw new Error('Geo-graph algorithm failed: No state found in tract properties');
-    }
-
-    // Load S4 adjacency data
-    const adjacencyGraph = await this.loadS4AdjacencyData(state);
-
-    // Find northwest most census tract as starting point
-    const startTract = this.findNorthwestMostTract(tracts);
-    if (!startTract) {
-      throw new Error('Geo-graph algorithm failed: Could not find northwest most tract');
-    }
-
-    if (step === 0) {
-      // Phase 1: Complete northwest expansion
-      const sortedTracts = await this.geoGraphTraversalService.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, direction);
-      
-      return {
-        phase: 'phase1',
-        step: 0,
-        totalSteps: 1,
-        isComplete: true,
-        message: `Phase 1 Complete: ${sortedTracts.length} tracts sorted using northwest expansion`,
-        sortedTracts: sortedTracts
-      };
-    } else {
-      // Phase 2: Divide into 2 groups and alternate latitude/longitude sorting
-      return await this.executePhase2Step(tracts, step);
-    }
-  }
-
-  /**
-   * Execute Phase 2: Recursive district division with alternating latitude/longitude sorting
-   * @param tracts Array of sorted tracts from Phase 1
-   * @param step Current step number (1-based for Phase 2)
-   * @returns Phase 2 step result
-   */
-  private async executePhase2Step(tracts: GeoJsonFeature[], step: number): Promise<GeoGraphStepResult> {
-    console.log(`📍 PHASE 2 Step ${step}: Recursive district division`);
-
-    // Calculate total population for division ratio
-    const totalPopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-    
-    // For demonstration, we'll simulate dividing into 2 districts
-    // In a real implementation, this would use the actual target district count
-    const targetDistricts = 2;
-    const division = this.calculateOptimalDivision(targetDistricts);
-    const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
-
-    console.log(`📊 Division ratio: ${division.ratio[0]}% / ${division.ratio[1]}% (${division.first} / ${division.second} districts)`);
-    console.log(`🎯 Target first group population: ${targetFirstGroupPopulation.toLocaleString()}`);
-
-    // Alternate between latitude and longitude sorting
-    const isLatitudeStep = step % 2 === 1; // Odd steps = latitude, Even steps = longitude
-    const sortDirection = isLatitudeStep ? 'latitude' : 'longitude';
-    const fillDirection = isLatitudeStep ? 'east/west' : 'north/south';
-
-    console.log(`🔄 Step ${step}: ${sortDirection} sorting (fills ${fillDirection})`);
-
-    // Sort tracts using geo-graph algorithm
-    let sortedTracts: GeoJsonFeature[];
-    try {
-      // Get state from first tract
-      const state = tracts[0].properties?.STATE || '';
-      if (state) {
-        // Load S4 adjacency data
-        const adjacencyGraph = await this.loadS4AdjacencyData(state);
-        
-        // Find appropriate starting tract based on direction
-        let startTract: GeoJsonFeature | null;
-        if (isLatitudeStep) {
-          startTract = this.findNorthwestMostTract(tracts);
-        } else {
-          startTract = this.findSouthwestMostTract(tracts);
-        }
-        
-        if (startTract) {
-          // Use geo-graph traversal for proper sorting
-          sortedTracts = this.geoGraphTraversalService.performGeoGraphTraversal(tracts, adjacencyGraph, startTract, sortDirection);
-        } else {
-          // Fallback to simple sorting
-          sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, sortDirection);
-        }
-      } else {
-        // Fallback to simple sorting
-        sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, sortDirection);
-      }
-    } catch (error) {
-      console.warn('⚠️ Error in geo-graph sorting, falling back to simple sorting:', error);
-      sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, sortDirection);
-    }
-
-    // Divide tracts by accumulating population
-    let accumulatedPopulation = 0;
-    let splitIndex = 0;
-
-    for (let i = 0; i < sortedTracts.length; i++) {
-      const tract = sortedTracts[i];
-      const tractPopulation = tract.properties?.POPULATION || 0;
-      
-      if (accumulatedPopulation + tractPopulation >= targetFirstGroupPopulation && splitIndex === 0) {
-        splitIndex = i;
-        break;
-      }
-      
-      accumulatedPopulation += tractPopulation;
-    }
-
-    // Ensure we have at least one tract in each group
-    if (splitIndex === 0) splitIndex = 1;
-    if (splitIndex >= sortedTracts.length) splitIndex = sortedTracts.length - 1;
-
-    let group1 = sortedTracts.slice(0, splitIndex);
-    let group2 = sortedTracts.slice(splitIndex);
-
-    // Identify and merge enclosed tracts with their containers
-    // This prevents isolated tracts from being separated from their containing tracts
-    const enclosedTracts = this.findContainedTracts(tracts, true);
-    if (enclosedTracts.length > 0) {
-      console.log(`🔍 Found ${enclosedTracts.length} enclosed tract(s), checking for group mismatches...`);
-      
-      // Create maps for quick lookup
-      const group1TractIds = new Set(group1.map(t => this.getTractId(t)));
-      const group2TractIds = new Set(group2.map(t => this.getTractId(t)));
-      const allTractMap = new Map<string, GeoJsonFeature>();
-      for (const tract of tracts) {
-        allTractMap.set(this.getTractId(tract), tract);
-      }
-      
-      let movedCount = 0;
-      for (const { container, contained } of enclosedTracts) {
-        const containerInGroup1 = group1TractIds.has(container);
-        const containerInGroup2 = group2TractIds.has(container);
-        const containedInGroup1 = group1TractIds.has(contained);
-        const containedInGroup2 = group2TractIds.has(contained);
-        
-        // If enclosed tract and container are in different groups, move enclosed to container's group
-        if (containerInGroup1 && containedInGroup2) {
-          // Move contained tract from group2 to group1
-          const containedTract = allTractMap.get(contained);
-          if (containedTract) {
-            group2 = group2.filter(t => this.getTractId(t) !== contained);
-            group1.push(containedTract);
-            group1TractIds.add(contained);
-            group2TractIds.delete(contained);
-            movedCount++;
-            console.log(`📦 Moving enclosed tract ${contained} from group 2 to group 1 (container ${container} is in group 1)`);
-          }
-        } else if (containerInGroup2 && containedInGroup1) {
-          // Move contained tract from group1 to group2
-          const containedTract = allTractMap.get(contained);
-          if (containedTract) {
-            group1 = group1.filter(t => this.getTractId(t) !== contained);
-            group2.push(containedTract);
-            group1TractIds.delete(contained);
-            group2TractIds.add(contained);
-            movedCount++;
-            console.log(`📦 Moving enclosed tract ${contained} from group 1 to group 2 (container ${container} is in group 2)`);
-          }
-        }
-      }
-      
-      if (movedCount > 0) {
-        console.log(`✅ Moved ${movedCount} enclosed tract(s) to be with their containers`);
-      }
-    }
-
-    const group1Population = group1.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-    const group2Population = group2.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-
-    console.log(`📊 ${sortDirection} division: ${group1.length} tracts (${group1Population.toLocaleString()} people) + ${group2.length} tracts (${group2Population.toLocaleString()} people)`);
-
-    const currentDistricts = [group1, group2];
-    const nextSortDirection = (step + 1) % 2 === 1 ? 'latitude' : 'longitude';
-    const nextFillDirection = nextSortDirection === 'latitude' ? 'east/west' : 'north/south';
-
-    // Calculate total steps needed (roughly log2 of target districts)
-    const totalSteps = Math.ceil(Math.log2(targetDistricts)) + 2; // Add buffer for demonstration
-
-    return {
-      phase: 'phase2',
-      step: step,
-      totalSteps: totalSteps,
-      isComplete: step >= totalSteps,
-      message: `Step ${step}: ${sortDirection} division complete (${fillDirection} fill). ${group1.length} + ${group2.length} tracts. Next: ${nextSortDirection} sorting (${nextFillDirection} fill)`,
-      sortedTracts: sortedTracts,
-      currentDistricts: currentDistricts,
-      nextAction: nextSortDirection === 'latitude' ? 'northwest' : 'southwest',
-      groupIndex: step % 2
-    };
-  }
-
-  /**
-   * Sort tracts using Brown S4 adjacency data
-   * @param tracts Array of tracts
-   * @param direction Sorting direction
-   * @returns Sorted tracts using S4 adjacency
-   */
-  public async sortTractsByBrownS4(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude'): Promise<GeoJsonFeature[]> {
-    if (tracts.length <= 1) return tracts;
-
-    console.log(`🔄 Starting Brown S4 adjacency-based sorting for ${tracts.length} tracts (${direction} direction)`);
-
-    try {
-      // Get state from first tract
-      const state = tracts[0].properties?.STATE || '';
-      if (!state) {
-        console.warn('⚠️  No state found in tract properties, falling back to greedy traversal');
-        return this.sortTractsByGreedyTraversal(tracts, direction);
-      }
-
-      // Load S4 adjacency data
-      const adjacencyGraph = await this.loadS4AdjacencyData(state);
-      
-      // Find starting tract (NW-most for lat-sort; SW-most for long-sort)
-      const startTract = this.findStartingTract(tracts, direction);
-      if (!startTract) {
-        console.warn('Could not find starting tract, falling back to greedy traversal');
-        return this.sortTractsByGreedyTraversal(tracts, direction);
-      }
-
-      console.log(`📍 Starting tract: ${this.getTractId(startTract)} at (${this.getNorthwestCoordinate(startTract).lat.toFixed(6)}, ${this.getNorthwestCoordinate(startTract).lng.toFixed(6)})`);
-
-      // Perform S4-based traversal
-      const sortedTracts = this.performS4Traversal(tracts, adjacencyGraph, startTract, direction);
-
-      console.log(`✅ Brown S4 traversal complete: ${sortedTracts.length} tracts sorted`);
-      return sortedTracts;
-    } catch (error) {
-      console.error('❌ Error in Brown S4 traversal, falling back to greedy traversal:', error);
-      return this.sortTractsByGreedyTraversal(tracts, direction);
-    }
-  }
-
-  /**
-   * Perform traversal using S4 adjacency data
-   * @param tracts Array of tracts
-   * @param adjacencyGraph S4 adjacency graph
-   * @param startTract Starting tract
-   * @param direction Traversal direction
-   * @returns Sorted tracts
-   */
-  private performS4Traversal(tracts: GeoJsonFeature[], adjacencyGraph: Map<string, string[]>, startTract: GeoJsonFeature, direction: 'latitude' | 'longitude'): GeoJsonFeature[] {
-    console.log(`🚀 Starting S4 traversal from ${this.getTractId(startTract)}`);
-
-    const tractMap = new Map<string, GeoJsonFeature>();
-    for (const tract of tracts) {
-      tractMap.set(this.getTractId(tract), tract);
-    }
-
-    const visited = new Set<string>();
-    const sortedTracts: GeoJsonFeature[] = [];
-    const queue: { tract: GeoJsonFeature; priority: number }[] = [];
-
-    // Initialize with starting tract
-    const startTractId = this.getTractId(startTract);
-    queue.push({ tract: startTract, priority: 0 });
-    visited.add(startTractId);
-    sortedTracts.push(startTract);
-
-    let iterationCount = 0;
-    while (queue.length > 0 && iterationCount < 1000) { // Safety limit
-      const { tract: currentTract } = queue.shift()!;
-      const currentTractId = this.getTractId(currentTract);
-      
-      // Get neighbors from S4 adjacency data
-      const neighbors = adjacencyGraph.get(currentTractId) || [];
-
-      if (iterationCount < 5) { // Log first few iterations
-        console.log(`🔄 S4 traversal iteration ${iterationCount}: processing tract ${currentTractId} with ${neighbors.length} neighbors`);
-      }
-
-      // Get unvisited neighbors and calculate directional scores
-      const candidateNeighbors = neighbors
-        .filter(neighborId => !visited.has(neighborId))
-        .map(neighborId => {
-          const neighborTract = tractMap.get(neighborId);
-          if (!neighborTract) return null;
-
-          const currentNorthwest = this.getNorthwestCoordinate(currentTract);
-          const neighborNorthwest = this.getNorthwestCoordinate(neighborTract);
-
-          // Calculate directional score (northeast bias)
-          const latDiff = neighborNorthwest.lat - currentNorthwest.lat;
-          const lngDiff = neighborNorthwest.lng - currentNorthwest.lng;
-          const epsilon = 0.1; // Scale factor for longitude
-
-          let score: number;
-          if (direction === 'latitude') {
-            // For lat-sort: prefer south (negative lat diff) then east (positive lng diff)
-            score = -latDiff + epsilon * lngDiff;
-          } else {
-            // For long-sort: prefer east (positive lng diff) then south (negative lat diff)
-            score = lngDiff + epsilon * (-latDiff);
-          }
-
-          return { tract: neighborTract, score };
-        })
-        .filter((item): item is { tract: GeoJsonFeature; score: number } => item !== null)
-        .sort((a, b) => b.score - a.score); // Sort by score descending (best first)
-
-      // Add neighbors to queue and mark as visited
-      for (const { tract: neighborTract } of candidateNeighbors) {
-        const neighborTractId = this.getTractId(neighborTract);
-        visited.add(neighborTractId);
-        sortedTracts.push(neighborTract);
-        queue.push({ tract: neighborTract, priority: queue.length + 1 });
-      }
-
-      iterationCount++;
-    }
-
-    if (iterationCount >= 1000) {
-      console.warn(`⚠️  S4 traversal stopped at iteration limit (1000)`);
-    }
-
-    // Handle any disconnected components
-    const unvisitedTracts = tracts.filter(tract => !visited.has(this.getTractId(tract)));
-    if (unvisitedTracts.length > 0) {
-      console.log(`⚠️  Found ${unvisitedTracts.length} disconnected tracts (${(unvisitedTracts.length / tracts.length * 100).toFixed(1)}%)`);
-
-      // If too many tracts are disconnected, fall back to centroid sorting
-      if (unvisitedTracts.length > tracts.length * 0.3) { // More than 30% disconnected
-        console.log(`🔄 Too many disconnected tracts, falling back to centroid sorting`);
-        return this.sortTractsByCentroid(tracts, direction);
-      }
-
-      // Sort disconnected tracts by centroid and add them
-      const sortedUnvisited = this.sortTractsByCentroid(unvisitedTracts, direction);
-      sortedTracts.push(...sortedUnvisited);
-    }
-
-    console.log(`✅ S4 traversal complete: ${sortedTracts.length} tracts processed`);
-    return sortedTracts;
-  }
-
-  /**
-   * Divide district group using Geo-Graph algorithm
-   * @param group District group to divide
-   * @param direction Division direction
-   * @returns Division result
-   */
-  private async divideDistrictGroupGeoGraph(group: DistrictGroup, direction: 'latitude' | 'longitude'): Promise<{ groups: DistrictGroup[]; history: string[]; dividingLine?: number }> {
-    console.log(`🔄 Using Geo-Graph algorithm for ${group.censusTracts.length} tracts (${group.totalDistricts} districts)`);
-
-    try {
-      // Sort tracts using Geo-Graph algorithm with proper zig-zag pattern
-      const sortedTracts = await this.sortTractsByGeoGraph(group.censusTracts, direction);
-
-      // Update the group with sorted tracts
-      group.censusTracts = sortedTracts;
-
-      // Calculate division ratio based on number of districts
-      const division = this.calculateOptimalDivision(group.totalDistricts);
-      const targetFirstGroupPopulation = (group.totalPopulation * division.ratio[0]) / 100;
-
-      console.log(`📊 Division ratio: ${division.ratio[0]}% / ${division.ratio[1]}% (${division.first} / ${division.second} districts)`);
-      console.log(`🎯 Target first group population: ${targetFirstGroupPopulation.toLocaleString()} (${((targetFirstGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%)`);
-
-      // Divide tracts by accumulating population using geo-graph sorted order
-      let accumulatedPopulation = 0;
-      let splitIndex = 0;
-
-      for (let i = 0; i < sortedTracts.length; i++) {
-        const tract = sortedTracts[i];
-        const tractPopulation = tract.properties?.POPULATION || 0;
-        
-        if (accumulatedPopulation + tractPopulation >= targetFirstGroupPopulation && splitIndex === 0) {
-          splitIndex = i;
-          break;
-        }
-        
-        accumulatedPopulation += tractPopulation;
-      }
-
-      // Ensure we have at least one tract in each group
-      if (splitIndex === 0) splitIndex = 1;
-      if (splitIndex >= sortedTracts.length) splitIndex = sortedTracts.length - 1;
-
-      const firstGroupTracts = sortedTracts.slice(0, splitIndex);
-      const secondGroupTracts = sortedTracts.slice(splitIndex);
-
-      const firstGroupPopulation = firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-      const secondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-
-      // Calculate population variance for quality assessment
-      const firstGroupVariance = Math.abs(firstGroupPopulation - targetFirstGroupPopulation) / targetFirstGroupPopulation;
-      const secondGroupVariance = Math.abs(secondGroupPopulation - (group.totalPopulation - targetFirstGroupPopulation)) / (group.totalPopulation - targetFirstGroupPopulation);
-      const totalVariance = (firstGroupVariance + secondGroupVariance) / 2;
-
-      // Calculate how many tracts need to move to balance populations
-      const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
-      const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
-      const firstGroupDifference = firstGroupPopulation - targetFirstGroupPopulation;
-      const secondGroupDifference = secondGroupPopulation - targetSecondGroupPopulation;
-      
-      // Determine which group is over target and needs to give tracts
-      let tractsToMove = 0;
-      let moveDirection = '';
-      if (firstGroupDifference > 0 && secondGroupDifference < 0) {
-        // First group is over, second group is under - move from first to second
-        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-        tractsToMove = Math.round(populationToMove / averageTractPopulation);
-        moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
-      } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
-        // First group is under, second group is over - move from second to first
-        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-        tractsToMove = Math.round(populationToMove / averageTractPopulation);
-        moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
-      }
-
-      console.log(`📊 Population distribution: ${firstGroupPopulation.toLocaleString()} (${((firstGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%) + ${secondGroupPopulation.toLocaleString()} (${((secondGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%)`);
-      console.log(`📊 Population variance: ${(totalVariance * 100).toFixed(2)}%`);
-      if (tractsToMove > 0) {
-        console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-      }
-
-      const firstGroup: DistrictGroup = {
-        startDistrictNumber: group.startDistrictNumber,
-        endDistrictNumber: group.startDistrictNumber + division.first - 1,
-        censusTracts: firstGroupTracts,
-        totalDistricts: division.first,
-        totalPopulation: firstGroupPopulation,
-        bounds: this.calculateBounds(firstGroupTracts),
-        centroid: this.calculateCentroid(firstGroupTracts)
-      };
-
-      const secondGroup: DistrictGroup = {
-        startDistrictNumber: group.startDistrictNumber + division.first,
-        endDistrictNumber: group.endDistrictNumber,
-        censusTracts: secondGroupTracts,
-        totalDistricts: division.second,
-        totalPopulation: secondGroupPopulation,
-        bounds: this.calculateBounds(secondGroupTracts),
-        centroid: this.calculateCentroid(secondGroupTracts)
-      };
-
-      console.log(
-        `✅ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using Geo-Graph into ${division.first} + ${division.second} districts`,
-        `Populations: ${firstGroupPopulation.toLocaleString()} + ${secondGroupPopulation.toLocaleString()} (variance: ${(totalVariance * 100).toFixed(2)}%)`
-      );
-
-      const history = [
-        `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using Geo-Graph into ${division.first} + ${division.second} districts`,
-        `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroupPopulation.toLocaleString()} people (${((firstGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%), ${firstGroupTracts.length} tracts`,
-        `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroupPopulation.toLocaleString()} people (${((secondGroupPopulation / group.totalPopulation) * 100).toFixed(1)}%), ${secondGroupTracts.length} tracts`,
-        `  - Population variance: ${(totalVariance * 100).toFixed(2)}%`
-      ];
-      
-      if (tractsToMove > 0) {
-        history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-      }
-
-      return { groups: [firstGroup, secondGroup], history };
-    } catch (error) {
-      console.error('❌ Error in Geo-Graph division, falling back to greedy traversal:', error);
-      return this.divideDistrictGroupGreedyTraversal(group, direction);
-    }
-  }
-
-  /**
-   * Divide district group using Brown S4 algorithm
-   * @param group District group to divide
-   * @param direction Division direction
-   * @returns Division result
-   */
-  private async divideDistrictGroupBrownS4(group: DistrictGroup, direction: 'latitude' | 'longitude'): Promise<{ groups: DistrictGroup[]; history: string[] }> {
-    console.log(`🔄 Using Brown S4 algorithm for ${group.censusTracts.length} tracts`);
-
-    try {
-      // Sort tracts using Brown S4 adjacency
-      const sortedTracts = await this.sortTractsByBrownS4(group.censusTracts, direction);
-
-      // Update the group with sorted tracts
-      group.censusTracts = sortedTracts;
-
-      // Divide tracts by accumulating population
-      const division = this.calculateOptimalDivision(group.totalDistricts);
-      const targetFirstGroupPopulation = (group.totalPopulation * division.ratio[0]) / 100;
-
-      let accumulatedPopulation = 0;
-      let splitIndex = 0;
-
-      for (let i = 0; i < sortedTracts.length; i++) {
-        const tract = sortedTracts[i];
-        const tractPopulation = tract.properties?.POPULATION || 0;
-        
-        if (accumulatedPopulation + tractPopulation >= targetFirstGroupPopulation && splitIndex === 0) {
-          splitIndex = i;
-          break;
-        }
-        
-        accumulatedPopulation += tractPopulation;
-      }
-
-      // Ensure we have at least one tract in each group
-      if (splitIndex === 0) splitIndex = 1;
-      if (splitIndex >= sortedTracts.length) splitIndex = sortedTracts.length - 1;
-
-      const firstGroupTracts = sortedTracts.slice(0, splitIndex);
-      const secondGroupTracts = sortedTracts.slice(splitIndex);
-
-      const firstGroupPopulation = firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-      const secondGroupPopulation = secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
-
-      // Calculate how many tracts need to move to balance populations
-      const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
-      const averageTractPopulation = group.totalPopulation / group.censusTracts.length;
-      const firstGroupDifference = firstGroupPopulation - targetFirstGroupPopulation;
-      const secondGroupDifference = secondGroupPopulation - targetSecondGroupPopulation;
-      
-      // Determine which group is over target and needs to give tracts
-      let tractsToMove = 0;
-      let moveDirection = '';
-      if (firstGroupDifference > 0 && secondGroupDifference < 0) {
-        // First group is over, second group is under - move from first to second
-        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-        tractsToMove = Math.round(populationToMove / averageTractPopulation);
-        moveDirection = direction === 'latitude' ? 'south to north' : 'west to east';
-      } else if (firstGroupDifference < 0 && secondGroupDifference > 0) {
-        // First group is under, second group is over - move from second to first
-        const populationToMove = Math.min(Math.abs(firstGroupDifference), Math.abs(secondGroupDifference));
-        tractsToMove = Math.round(populationToMove / averageTractPopulation);
-        moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
-      }
-
-      if (tractsToMove > 0) {
-        console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-      }
-
-      const firstGroup: DistrictGroup = {
-        startDistrictNumber: group.startDistrictNumber,
-        endDistrictNumber: group.startDistrictNumber + division.first - 1,
-        censusTracts: firstGroupTracts,
-        totalDistricts: division.first,
-        totalPopulation: firstGroupPopulation,
-        bounds: this.calculateBounds(firstGroupTracts),
-        centroid: this.calculateCentroid(firstGroupTracts)
-      };
-
-      const secondGroup: DistrictGroup = {
-        startDistrictNumber: group.startDistrictNumber + division.first,
-        endDistrictNumber: group.endDistrictNumber,
-        censusTracts: secondGroupTracts,
-        totalDistricts: division.second,
-        totalPopulation: secondGroupPopulation,
-        bounds: this.calculateBounds(secondGroupTracts),
-        centroid: this.calculateCentroid(secondGroupTracts)
-      };
-
-      console.log(
-        `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using Brown S4 into ${division.first} + ${division.second} districts`,
-        `Populations: ${firstGroupPopulation.toLocaleString()} + ${secondGroupPopulation.toLocaleString()}`
-      );
-
-      const history = [
-        `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} using Brown S4 into ${division.first} + ${division.second} districts`,
-        `  - First group: Districts ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber}, ${firstGroupPopulation.toLocaleString()} people, ${firstGroupTracts.length} tracts`,
-        `  - Second group: Districts ${secondGroup.startDistrictNumber}-${secondGroup.endDistrictNumber}, ${secondGroupPopulation.toLocaleString()} people, ${secondGroupTracts.length} tracts`
-      ];
-      
-      if (tractsToMove > 0) {
-        history.push(`  - To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-      }
-
-      return { groups: [firstGroup, secondGroup], history };
-    } catch (error) {
-      console.error('❌ Error in Brown S4 division, falling back to greedy traversal:', error);
-      return this.divideDistrictGroupGreedyTraversal(group, direction);
-    }
-  }
-
-  /**
-   * Public method to sort tracts by algorithm for debugging purposes
-   * @param tractsWithCentroids Array of tracts with centroids
-   * @param algorithm Algorithm to use for sorting
-   * @returns Sorted array of tracts with centroids
-   */
   public sortTractsByAlgorithm(
     tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
-    algorithm: 'geographic' | 'latlong' | 'greedy-traversal' | 'brown-s4' | 'geo-graph'
+    algorithm: 'latlong'
   ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
     if (!tractsWithCentroids || tractsWithCentroids.length === 0) {
       return [];
@@ -6376,34 +5559,8 @@ export class GeodistrictAlgorithmService {
 
     const tracts = tractsWithCentroids.map(item => item.tract);
 
-    let sortedTracts: GeoJsonFeature[];
-
-    switch (algorithm) {
-      case 'geographic':
-        sortedTracts = this.sortTractsGeographically(tracts, 'latitude');
-        break;
-      case 'latlong':
-        sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
-        break;
-      case 'greedy-traversal':
-        sortedTracts = this.sortTractsByGreedyTraversal(tracts, 'latitude');
-        break;
-      case 'brown-s4':
-        // Note: This method is async, but this public wrapper is synchronous.
-        // The TractDebugPageComponent handles the async call directly.
-        console.warn('Brown S4 algorithm is asynchronous and should be called directly for full functionality.');
-        sortedTracts = this.sortTractsByGreedyTraversal(tracts, 'latitude'); // Fallback for sync call
-        break;
-      case 'geo-graph':
-        // Note: This method is async, but this public wrapper is synchronous.
-        // The TractDebugPageComponent handles the async call directly.
-        console.warn('Geo-Graph algorithm is asynchronous and should be called directly for full functionality.');
-        sortedTracts = this.sortTractsByGreedyTraversal(tracts, 'latitude'); // Fallback for sync call
-        break;
-      default:
-        console.warn(`Unknown algorithm: ${algorithm}, falling back to geographic`);
-        sortedTracts = this.sortTractsGeographically(tracts, 'latitude');
-    }
+    // Only latlong algorithm is supported
+    const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
 
     // Map back to tracts with centroids
     return sortedTracts.map(tract => {

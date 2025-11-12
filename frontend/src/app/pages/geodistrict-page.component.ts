@@ -30,7 +30,7 @@ export class GeodistrictPageComponent implements OnInit {
     console.log(`🧮 Algorithm Version: ${VERSION_INFO.algorithmVersion}`);
     console.log('📍 New Geo-Graph Algorithm available');
     console.log('🔗 This algorithm uses Brown S4 adjacency data with zig-zag traversal pattern');
-    console.log('📊 Available algorithms: brown-s4 (default), geo-graph, greedy-traversal, geographic, latlong');
+    console.log('📊 Available algorithms: latlong (with caching)');
     console.log('✨ New Features:', VERSION_INFO.features);
   }
 }

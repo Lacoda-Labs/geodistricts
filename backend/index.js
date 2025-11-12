@@ -947,6 +947,149 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
   }
 });
 
+/**
+ * Cache latlong division step results
+ */
+app.post('/api/algorithm/latlong/cache', async (req, res) => {
+  try {
+    const { cacheKey, divisionResult, ttl } = req.body;
+
+    if (!cacheKey || !divisionResult) {
+      return res.status(400).json({ error: 'cacheKey and divisionResult are required' });
+    }
+
+    const cacheTtl = ttl || CACHE_TTL;
+
+    // Store in cache with latlong-specific source
+    const cacheEntry = {
+      data: divisionResult,
+      timestamp: Date.now(),
+      ttl: cacheTtl,
+      version: CACHE_VERSION,
+      source: 'latlong-division-cache',
+      attribution: 'Lat/long division algorithm cached result'
+    };
+
+    if (USE_LOCAL_CACHE) {
+      await localCache.setCache(cacheKey, cacheEntry, cacheTtl);
+    } else {
+      const docRef = firestore.collection('census_cache').doc(cacheKey);
+      await docRef.set(cacheEntry);
+    }
+
+    console.log(`💾 LATLONG CACHE: Successfully cached division result for key: ${cacheKey}, size: ${JSON.stringify(divisionResult).length} bytes`);
+
+    res.json({
+      status: 'success',
+      message: 'Division result cached successfully',
+      cacheKey
+    });
+  } catch (error) {
+    console.error('Error caching latlong division result:', error);
+    res.status(500).json({
+      error: 'Failed to cache division result',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get cached latlong division step results
+ */
+app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
+  try {
+    const { cacheKey } = req.params;
+
+    if (!cacheKey) {
+      return res.status(400).json({ error: 'cacheKey parameter is required' });
+    }
+
+    // Check cache
+    const cachedResult = await getFromCache(cacheKey);
+
+    if (cachedResult) {
+      console.log(`✅ LATLONG CACHE HIT: Retrieved division result for key: ${cacheKey}`);
+      return res.json({
+        status: 'success',
+        cached: true,
+        data: cachedResult
+      });
+    } else {
+      console.log(`❌ LATLONG CACHE MISS: No cached result for key: ${cacheKey}`);
+      return res.json({
+        status: 'miss',
+        cached: false,
+        message: 'No cached result found'
+      });
+    }
+  } catch (error) {
+    console.error('Error retrieving cached latlong division result:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve cached division result',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Clear latlong division cache (for debugging)
+ */
+app.delete('/api/algorithm/latlong/cache', async (req, res) => {
+  try {
+    const { key } = req.query;
+
+    if (USE_LOCAL_CACHE) {
+      if (key) {
+        await localCache.deleteCacheEntry(key);
+        res.json({
+          message: `Latlong cache entry ${key} cleared`,
+          cacheMode: 'LOCAL_FILES'
+        });
+      } else {
+        const deletedCount = await localCache.clearAllCache();
+        res.json({
+          message: `All latlong cache entries cleared (${deletedCount} files)`,
+          cacheMode: 'LOCAL_FILES',
+          deletedCount
+        });
+      }
+    } else {
+      if (key) {
+        await firestore.collection('census_cache').doc(key).delete();
+        res.json({
+          message: `Latlong cache entry ${key} cleared`,
+          cacheMode: 'FIRESTORE'
+        });
+      } else {
+        // Delete all latlong cache entries (those with 'latlong_division' prefix)
+        const snapshot = await firestore.collection('census_cache')
+          .where('source', '==', 'latlong-division-cache')
+          .get();
+
+        const batch = firestore.batch();
+
+        snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+        res.json({
+          message: `All latlong cache entries cleared (${snapshot.docs.length} documents)`,
+          cacheMode: 'FIRESTORE',
+          deletedCount: snapshot.docs.length
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error clearing latlong cache:', error);
+    res.status(500).json({
+      error: 'Failed to clear latlong cache',
+      cacheMode: USE_LOCAL_CACHE ? 'LOCAL_FILES' : 'FIRESTORE',
+      message: error.message
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
