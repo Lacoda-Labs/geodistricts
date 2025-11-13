@@ -34,7 +34,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm ci
+        npm ci --legacy-peer-deps
     - name: Run backend tests
       run: |
         cd backend
