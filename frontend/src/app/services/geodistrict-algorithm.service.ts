@@ -91,7 +91,7 @@ export type AlgorithmType = 'latlong' | 'geographic' | 'brown-s4' | 'geo-graph' 
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
-export const ALGORITHM_VERSION = '20251112-0800'; // Updated when balancing was added to large isolated component moves in latlong-division.service.ts
+export const ALGORITHM_VERSION = '20251113-1400'; // Updated for improved isolation detection using reachable count method after all steps
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -515,12 +515,22 @@ export class GeodistrictAlgorithmService {
     steps.push(this.createStep(iteration, steps.length, newGroups, `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
     currentGroups = newGroups;
 
+    // Check if all steps are complete (all groups are single districts)
+    const allStepsComplete = !currentGroups.some(group => group.totalDistricts > 1);
+
     // After each division step, check all district groups for disconnected components
     // This fixes isolated tracts and islands that may have been created across all groups
-    // Only run this check for step 4 (where the user reported issues with groups 1 and 5)
-    if (iteration === 4) {
+    // Run this check after step 4 and after all steps are complete
+    if (iteration === 4 || allStepsComplete) {
       console.log(`🔍 After step ${iteration}, checking all ${currentGroups.length} district groups for disconnected components...`);
       this.fixDisconnectedComponentsInAllGroups(currentGroups);
+    }
+
+    // After all steps are complete, also run fixIsolatedTractsAcrossAllGroups to catch any remaining issues
+    if (allStepsComplete) {
+      console.log(`🔍 After all steps complete, checking all ${currentGroups.length} district groups for isolated tracts...`);
+      const allTracts = currentGroups.flatMap(g => g.censusTracts);
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, allTracts, direction);
     }
 
     // Calculate final statistics
@@ -3163,59 +3173,28 @@ export class GeodistrictAlgorithmService {
         console.log(`🔍 Checking district group ${group.startDistrictNumber}-${group.endDistrictNumber} (${groupTracts.length} tracts) for contiguity...`);
       }
       
-      // First, check for isolated tracts: tracts where ALL adjacent tracts are in other groups
-      // This is the key check: a tract is isolated when all adjacent tracts are not in same district group
+      // Check for isolated tracts using reachable count method
+      // A tract is isolated if its reachable count is less than the max reachable count in the group
       const groupTractIds = new Set(groupTracts.map(t => this.getTractId(t)));
       const isolatedTracts: string[] = [];
       
-      // Build a map of which group each tract belongs to (for neighbor lookup) - only for problematic groups
-      const tractToGroupMap = new Map<string, DistrictGroup>();
-      const knownProblematicTracts = ['04013092719', '050604'];
-      const isProblematicGroup = group.startDistrictNumber === 1 || group.startDistrictNumber === 5;
+      // Calculate max reachable count for this group (main component size)
+      const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
       
-      if (isProblematicGroup) {
-        for (const g of districtGroups) {
-          for (const tract of g.censusTracts) {
-            tractToGroupMap.set(this.getTractId(tract), g);
-          }
-        }
-      }
-      
-      // Only check for isolated tracts in problematic groups or if group is small
-      if (isProblematicGroup || groupTracts.length <= 50) {
-        for (const tract of groupTracts) {
-          const tractId = this.getTractId(tract);
+      // Check each tract in this group for isolation
+      for (const tract of groupTracts) {
+        const tractId = this.getTractId(tract);
+        const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+        
+        // Tract is isolated if its reachable count is less than the max reachable count
+        if (reachableCount < maxReachableCount) {
+          isolatedTracts.push(tractId);
+          
           const neighbors = adjacencyGraph.get(tractId) || [];
-          
-          // Check if any neighbor is in the same group
           const neighborsInSameGroup = neighbors.filter(neighborId => groupTractIds.has(neighborId));
+          const neighborsInOtherGroups = neighbors.filter(neighborId => !groupTractIds.has(neighborId));
           
-          // If no neighbors in same group, the tract is isolated
-          if (neighborsInSameGroup.length === 0 && neighbors.length > 0) {
-            isolatedTracts.push(tractId);
-            
-            // Only log if it's a known problematic tract
-            if (knownProblematicTracts.some(pt => tractId.includes(pt))) {
-              const neighborsInOtherGroups = neighbors.filter(neighborId => !groupTractIds.has(neighborId));
-              console.log(`⚠️ TRACT ${tractId} IS ISOLATED in group ${group.startDistrictNumber}-${group.endDistrictNumber}: all ${neighbors.length} neighbors in other groups`);
-              
-              // Log which groups neighbors are in (simplified)
-              if (isProblematicGroup) {
-                const neighborGroups = new Map<string, number>();
-                for (const neighborId of neighborsInOtherGroups) {
-                  const neighborGroup = tractToGroupMap.get(neighborId);
-                  if (neighborGroup) {
-                    const groupKey = `${neighborGroup.startDistrictNumber}-${neighborGroup.endDistrictNumber}`;
-                    neighborGroups.set(groupKey, (neighborGroups.get(groupKey) || 0) + 1);
-                  }
-                }
-                if (neighborGroups.size > 0) {
-                  const groupsList = Array.from(neighborGroups.entries()).map(([g, count]) => `${g}(${count})`).join(', ');
-                  console.log(`   Neighbors in: ${groupsList}`);
-                }
-              }
-            }
-          }
+          console.log(`⚠️ TRACT ${tractId} IS ISOLATED in group ${group.startDistrictNumber}-${group.endDistrictNumber}: reachable count ${reachableCount} < max ${maxReachableCount} (${neighborsInSameGroup.length} neighbors in same group, ${neighborsInOtherGroups.length} in other groups)`);
         }
       }
       

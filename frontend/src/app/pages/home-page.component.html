@@ -1,8 +1,8 @@
-<div class="min-h-screen bg-white">
+<div class="min-h-screen ">
   <!-- Navigation -->
-  <nav class="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50">
+  <nav class="fixed top-0 left-0 right-0 backdrop-blur-sm border-b border-gray-200 z-50">
     <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-      <button
+      <button mat-button
       (click)="navigateToItem({id: 'home', label: 'Home', route: null})"
       class="text-gray-900 hover:text-gray-600 transition-colors">
       GeoDistricts
@@ -10,7 +10,7 @@
     
     <!-- Desktop Navigation -->
     <div class="hidden md:flex gap-8">
-      <button
+      <button mat-button
         *ngFor="let item of navItems"
         (click)="navigateToItem(item)"
         [class.text-gray-900]="activeSection === item.id"
@@ -38,17 +38,11 @@
     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 40;">
     <div class="mobile-menu-panel" (click)="$event.stopPropagation()">
       <div class="p-4">
-        <div class="flex justify-between items-center mb-8">
-          <h2 class="text-gray-900 text-xl font-semibold">Menu</h2>
-          <button class="mobile-menu-close-btn" (click)="closeMobileMenu()">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+        <div class="flex justify-between items-center mb-16">
+          .
         </div>
         <div class="flex flex-col gap-4">
-          <button *ngFor="let item of navItems" (click)="navigateToItem(item)"
+          <button mat-button *ngFor="let item of navItems" (click)="navigateToItem(item)"
             [class.text-gray-900]="activeSection === item.id" [class.text-gray-600]="activeSection !== item.id"
             class="text-left p-3 text-lg hover:bg-gray-100 rounded transition-colors">
             {{ item.label }}
@@ -61,7 +55,7 @@
   <main>
     <!-- Hero Section -->
     <section id="home">
-      <div class="pt-32 pb-20 px-6 text-center">
+      <div class="pt-32 pb-10 px-6 text-center">
         <div class="max-w-4xl mx-auto">
           <h1 class="text-gray-900 mb-6 text-4xl md:text-5xl font-bold">
             GeoDistricts
@@ -70,30 +64,22 @@
            The End of Gerrymandering.
           </h2>
 
-          <p class="text-gray-600 mb-12 max-w-2xl mx-auto text-lg">
-            Geographically drawn congressional districts.<br>No humans. <br>Just a protocol that is 100% objective and fair.
+          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
+            Geographically divided congressional districts.
+          </p>
+          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
+            No humans.
+          </p>
+          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
+            Just a protocol that is 100% objective and fair.
           </p>
 
-          <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <button mat-raised-button color="primary"
-              class="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all"
-              (click)="navigateToItem({id: 'what', label: 'What is it?', route: null})">
-              <span class="flex items-center">
-                Learn more
-                <mat-icon class="ml-2 group-hover:translate-x-1 transition-transform">arrow_forward</mat-icon>
-              </span>
-            </button>
-
-            <button mat-stroked-button color="primary" (click)="navigateToItem({id: 'try', label: 'Try it', route: '/geodistrict'})" class="px-6 py-3">
-              See it work
-            </button>
-          </div>
         </div>
       </div>
     </section>
 
     <!-- What Is It Section -->
-    <section id="what" class="py-20 px-6">
+    <section id="what" class="py-2 px-6">
       <div class="max-w-4xl mx-auto">
         <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">What is GeoDistricts?</h2>
 
@@ -144,122 +130,7 @@
       </div>
     </section>
 
-    <!-- Impact Section -->
-    <section id="impact" class="py-20 px-6">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">The Impact</h2>
-
-        <p class="text-gray-600 text-center mb-12 max-w-2xl mx-auto text-lg">
-          Comparing GeoDistricts maps to current gerrymandered districts reveals
-          significant shifts toward fair representation.
-        </p>
-
-        <mat-card class="p-6 mb-8">
-          <div class="text-center mb-6">
-            <div class="text-gray-500 mb-2">Net Change (Nationwide)</div>
-            <div class="text-gray-900 text-2xl font-bold">
-              <span class="text-blue-600">+{{ netSwing }}</span> seats toward fair representation
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4 text-center">
-            <div>
-              <div class="text-gray-500 mb-1">From R Gerrymanders</div>
-              <div class="text-blue-600 font-semibold">+{{ totalSwingD }} D seats</div>
-            </div>
-            <div>
-              <div class="text-gray-500 mb-1">From D Gerrymanders</div>
-              <div class="text-red-600 font-semibold">+{{ totalSwingR }} R seats</div>
-            </div>
-          </div>
-        </mat-card>
-
-        <div class="mb-6">
-          <mat-form-field class="w-full md:w-64">
-            <mat-label>Select a state</mat-label>
-            <mat-select [(value)]="selectedState">
-              <mat-option value="all">All States</mat-option>
-              <mat-option *ngFor="let state of stateData" [value]="state.state">
-                {{ state.state }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="space-y-4">
-          <mat-card *ngFor="let data of filteredData" class="p-6">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div class="flex items-center gap-3 mb-2">
-                  <h3 class="text-gray-900 text-xl font-semibold">{{ data.state }}</h3>
-                  <mat-chip *ngIf="data.swing > 0" [color]="data.direction === 'D' ? 'primary' : 'warn'"
-                    class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0">
-                    +{{ data.swing }} {{ data.direction }}
-                  </mat-chip>
-                </div>
-                <div class="text-gray-600">
-                  Current: {{ data.currentR }}R / {{ data.currentD }}D → GeoDistricts: {{ data.geoR }}R / {{ data.geoD
-                  }}D
-                </div>
-              </div>
-            </div>
-          </mat-card>
-        </div>
-      </div>
-    </section>
-
-    <!-- Try It Section -->
-    <section id="try" class="py-20 px-6 bg-gray-50">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">See it work</h2>
-
-        <p class="text-gray-600 text-center mb-12 max-w-2xl mx-auto text-lg">
-          Generate a GeoDistricts map for any state and see how objective
-          redistricting compares to current maps.
-        </p>
-
-        <mat-card class="p-8">
-          <div class="space-y-6">
-            <div>
-              <mat-form-field class="w-full">
-                <mat-label>Select a state</mat-label>
-                <mat-select [(value)]="tryItSelectedState">
-                  <mat-option *ngFor="let state of tryItStates" [value]="state">
-                    {{ state }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-            <button mat-raised-button color="primary" [disabled]="!tryItSelectedState || isGenerating"
-              class="w-full inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50"
-              (click)="handleGenerate()">
-              <mat-icon *ngIf="isGenerating" class="mr-2 animate-spin">refresh</mat-icon>
-              <span *ngIf="!isGenerating">Generate GeoDistricts Map</span>
-              <span *ngIf="isGenerating">Generating Map...</span>
-            </button>
-
-            <div *ngIf="generated" class="border-t border-gray-200 pt-6 mt-6">
-              <div class="bg-gray-50 rounded-lg p-6 text-center">
-                <h3 class="text-gray-900 mb-4 text-xl font-semibold">{{ tryItSelectedState }} - GeoDistricts Map</h3>
-                <div
-                  class="bg-white rounded border-2 border-dashed border-gray-300 h-64 flex items-center justify-center mb-4">
-                  <div class="text-gray-400">
-                    Interactive map visualization would appear here
-                  </div>
-                </div>
-                <p class="text-gray-600">
-                  This demo shows where the interactive map would be generated.
-                  The full implementation would display district boundaries,
-                  demographic data, and comparison metrics.
-                </p>
-              </div>
-            </div>
-          </div>
-        </mat-card>
-
-      </div>
-    </section>
+    
   </main>
 
   <footer class="border-t border-gray-200 py-12 px-6">

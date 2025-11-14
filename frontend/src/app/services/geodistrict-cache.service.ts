@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { GeodistrictResult, AlgorithmType, ALGORITHM_VERSION } from './geodistrict-algorithm.service';
+import { GeodistrictResult, AlgorithmType, ALGORITHM_VERSION, DistrictGroup, GeodistrictStep } from './geodistrict-algorithm.service';
+import { GeoJsonFeature } from './census.service';
 import { environment } from '../../environments/environment';
 import { Observable, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
@@ -41,6 +42,96 @@ export class GeodistrictCacheService {
   constructor(private http: HttpClient) {}
 
   /**
+   * Get unique tract ID from a tract feature
+   */
+  private getTractId(tract: GeoJsonFeature): string | null {
+    if (!tract || !tract.properties) return null;
+    // Try multiple possible ID fields
+    return tract.properties['GEOID'] || 
+           tract.properties['GISJOIN'] || 
+           tract.properties['TRACT_FIPS'] || 
+           (tract.properties['STATE_FIPS'] && tract.properties['COUNTY_FIPS'] && tract.properties['TRACT_FIPS']
+             ? `${tract.properties['STATE_FIPS']}${tract.properties['COUNTY_FIPS']}${tract.properties['TRACT_FIPS']}`
+             : null) ||
+           null;
+  }
+
+  /**
+   * Normalize result on frontend: extract tract geometries and replace with IDs
+   * This reduces payload size before sending to backend
+   */
+  private normalizeResultForCache(result: GeodistrictResult, state: string): { normalizedResult: any; tractMap: Array<[string, GeoJsonFeature]> } {
+    const tractMap = new Map<string, GeoJsonFeature>();
+    const tractIds = new Set<string>();
+
+    // Collect all unique tracts
+    const collectTracts = (groups: DistrictGroup[]) => {
+      if (!groups) return;
+      groups.forEach(group => {
+        if (group.censusTracts && Array.isArray(group.censusTracts)) {
+          group.censusTracts.forEach(tract => {
+            const tractId = this.getTractId(tract);
+            if (tractId && !tractIds.has(tractId)) {
+              tractIds.add(tractId);
+              tractMap.set(tractId, tract);
+            }
+          });
+        }
+      });
+    };
+
+    // Collect from finalDistricts
+    if (result.finalDistricts) {
+      collectTracts(result.finalDistricts);
+    }
+
+    // Collect from steps
+    if (result.steps) {
+      result.steps.forEach(step => {
+        if (step.districtGroups) {
+          collectTracts(step.districtGroups);
+        }
+      });
+    }
+
+    // Create normalized structure with only tract IDs
+    const normalizeGroup = (group: DistrictGroup) => ({
+      startDistrictNumber: group.startDistrictNumber,
+      endDistrictNumber: group.endDistrictNumber,
+      totalDistricts: group.totalDistricts,
+      totalPopulation: group.totalPopulation,
+      bounds: group.bounds,
+      centroid: group.centroid,
+      censusTractIds: group.censusTracts ? group.censusTracts.map(t => this.getTractId(t)).filter((id): id is string => id !== null) : []
+    });
+
+    const normalized: any = {
+      ...result,
+      _normalized: true,
+      _normalizedVersion: '2.0',
+      _state: state,
+      _tractCount: tractMap.size,
+      finalDistricts: result.finalDistricts ? result.finalDistricts.map(normalizeGroup) : result.finalDistricts,
+      steps: result.steps ? result.steps.map(step => ({
+        step: step.step,
+        level: step.level,
+        description: step.description,
+        totalGroups: step.totalGroups,
+        totalDistricts: step.totalDistricts,
+        divisionDirection: step.divisionDirection,
+        divisionLine: step.divisionLine,
+        divisionLines: step.divisionLines,
+        districtGroups: step.districtGroups ? step.districtGroups.map(normalizeGroup) : step.districtGroups
+      })) : result.steps
+    };
+
+    return {
+      normalizedResult: normalized,
+      tractMap: Array.from(tractMap.entries())
+    };
+  }
+
+  /**
    * Generate a cache key from options
    */
   private generateCacheKey(state: string, algorithm: AlgorithmType, maxIterations: number): string {
@@ -77,10 +168,15 @@ export class GeodistrictCacheService {
 
     // Try backend API (which uses Firestore)
     // Include algorithm version in query parameter for cache validation
+    const cacheUrl = `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}?algorithmVersion=${ALGORITHM_VERSION}`;
+    console.log(`🔍 Checking backend cache: ${cacheUrl}`);
+    
     return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(
-      `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}?algorithmVersion=${ALGORITHM_VERSION}`
+      cacheUrl
     ).pipe(
       map(response => {
+        console.log(`🔍 Cache response for ${key}: status=${response.status}, cached=${response.cached}, hasData=${!!response.data}, algorithmVersion=${response.algorithmVersion}`);
+        
         if (response.cached && response.data) {
           // Check algorithm version - if missing or doesn't match, invalidate cache
           if (!response.algorithmVersion) {
@@ -117,6 +213,7 @@ export class GeodistrictCacheService {
 
   /**
    * Store result in cache (async)
+   * Uses normalized caching: tract geometries stored separately at state level
    */
   set(state: string, algorithm: AlgorithmType, maxIterations: number, result: GeodistrictResult): Observable<void> {
     const key = this.generateCacheKey(state, algorithm, maxIterations);
@@ -125,21 +222,72 @@ export class GeodistrictCacheService {
     // Store in memory cache immediately (with version)
     this.memoryCache.set(key, { result, version: ALGORITHM_VERSION });
 
-    // Store via backend API (which uses Firestore)
-    return this.http.post<{ status: string; message: string; cacheKey: string }>(
-      `${this.API_BASE}/api/algorithm/${algorithm}/cache`,
-      {
-        cacheKey,
-        divisionResult: result,
-        ttl: null, // No TTL - persist until invalidated
-        algorithmVersion: ALGORITHM_VERSION // Include algorithm version for cache validation
+    // Normalize on frontend to reduce payload size BEFORE sending
+    const { normalizedResult, tractMap } = this.normalizeResultForCache(result, state);
+    
+    // Check normalized payload size
+    const normalizedPayload = {
+      cacheKey,
+      divisionResult: normalizedResult,
+      state: state,
+      ttl: null,
+      algorithmVersion: ALGORITHM_VERSION
+    };
+    const normalizedSize = JSON.stringify(normalizedPayload).length;
+    const normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
+    const originalSize = JSON.stringify({ cacheKey, divisionResult: result, state, ttl: null, algorithmVersion: ALGORITHM_VERSION }).length;
+    const originalSizeMB = (originalSize / (1024 * 1024)).toFixed(2);
+    
+    console.log(`📊 Frontend normalization: ${originalSizeMB} MB → ${normalizedSizeMB} MB (${((1 - normalizedSize / originalSize) * 100).toFixed(1)}% reduction, ${tractMap.length} tracts)`);
+    
+    if (normalizedSize > 30 * 1024 * 1024) {
+      console.warn(`⚠️ Normalized payload size (${normalizedSizeMB} MB) is still close to Cloud Run 32MB limit. Cache may fail.`);
+    }
+
+    // Include tract map in payload so backend can store it in state-level cache
+    const payload = {
+      ...normalizedPayload,
+      tractMap: tractMap // Include tract map for state-level caching
+    };
+
+    // Store via backend API (which uses Firestore with normalized caching)
+    return this.http.post<{ 
+      status: string; 
+      message: string; 
+      cacheKey: string; 
+      stateTractCacheKey?: string;
+      sizes?: {
+        originalMB: number;
+        normalizedMB: number;
+        tractCacheMB: number;
+        compressionRatio: number;
+        tractCount: number;
       }
+    }>(
+      `${this.API_BASE}/api/algorithm/${algorithm}/cache`,
+      payload
     ).pipe(
-      map(() => {
-        console.log(`💾 Cached result via backend API for ${key}`);
+      map((response) => {
+        if (response.sizes) {
+          console.log(`💾 Cached normalized result via backend API for ${key}`);
+          console.log(`   Algorithm cache: ${response.sizes.normalizedMB} MB, Tract cache: ${response.sizes.tractCacheMB} MB (${response.sizes.tractCount} tracts)`);
+          console.log(`   Total reduction: ${response.sizes.compressionRatio}% (${response.sizes.originalMB} MB → ${response.sizes.normalizedMB} MB algorithm cache)`);
+        } else {
+          console.log(`💾 Cached result via backend API for ${key}`);
+        }
       }),
       catchError(error => {
-        console.error(`❌ Error writing to backend cache for ${key}:`, error);
+        // Handle specific error types
+        if (error.status === 413) {
+          const errorMsg = error.error?.message || error.message || 'Request too large';
+          console.error(`❌ Cache request too large for ${key}: ${errorMsg}`);
+          console.warn(`⚠️ Result will only be available in memory cache (not persisted to Firestore)`);
+        } else if (error.status === 0) {
+          // CORS or network error
+          console.error(`❌ Network/CORS error writing to backend cache for ${key}:`, error);
+        } else {
+          console.error(`❌ Error writing to backend cache for ${key}:`, error);
+        }
         // Don't throw - memory cache is still available
         return of(undefined);
       })

@@ -47,16 +47,39 @@ const CACHE_VERSION = '1.0';
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:4200',
-    'https://geodistricts.org',
-    'https://www.geodistricts.org'
-  ],
-  credentials: true
-}));
+
+// CORS configuration - must be before other middleware
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:4200',
+      'https://geodistricts.org',
+      'https://www.geodistricts.org',
+      'http://localhost:4200' // Allow localhost for development
+    ];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS: Blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400 // 24 hours
+};
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
 app.use(morgan('combined'));
 // Increase body parser limit for large algorithm results (up to 200MB)
+// Note: Cloud Run has a 32MB limit, but we set this higher for internal processing
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
@@ -282,14 +305,15 @@ function ultraCompressGeoJson(geojson) {
 
 /**
  * Normalize and compress GeodistrictResult by:
- * 1. Creating a tract lookup table (store each tract geometry only once)
- * 2. Replacing full tract arrays with tract ID arrays in DistrictGroups
- * 3. Compressing coordinate precision
+ * 1. Extract all unique tracts and store them separately in state-level cache
+ * 2. Replace full tract arrays with tract ID arrays in DistrictGroups
+ * 3. Store only district group metadata (population, bounds, centroid) - NO tract geometries
+ * 4. Return normalized result with state reference for tract lookup
  */
-function compressGeodistrictResult(result) {
+function compressGeodistrictResult(result, state) {
   if (!result) return result;
   
-  // Step 1: Collect all unique tracts and create lookup table
+  // Step 1: Collect all unique tracts (for state-level cache)
   const tractMap = new Map(); // tractId -> compressed tract
   const tractIds = new Set();
   
@@ -327,46 +351,52 @@ function compressGeodistrictResult(result) {
     });
   }
   
-  // Step 2: Convert tract map to array for storage
-  const tractLookup = Array.from(tractMap.entries()).map(([id, tract]) => [id, tract]);
-  
-  // Step 3: Create normalized structure with tract IDs instead of full tracts
+  // Step 2: Create normalized structure with ONLY tract IDs and district group metadata
+  // NO tract geometries are stored in step data
   const normalized = {
     ...result,
     _normalized: true,
-    _tractLookup: tractLookup, // [tractId, compressedTract][]
+    _normalizedVersion: '2.0', // Version 2.0: state-level tract cache
+    _state: state, // Reference to state for tract cache lookup
+    _tractCount: tractMap.size, // Number of unique tracts (for validation)
     finalDistricts: result.finalDistricts ? result.finalDistricts.map(district => ({
-      ...district,
+      startDistrictNumber: district.startDistrictNumber,
+      endDistrictNumber: district.endDistrictNumber,
+      totalDistricts: district.totalDistricts,
+      totalPopulation: district.totalPopulation,
+      bounds: district.bounds,
+      centroid: district.centroid,
+      // Only store tract IDs - geometries come from state cache
       censusTractIds: district.censusTracts ? district.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
-      // Remove censusTracts - will be reconstructed from lookup
     })) : result.finalDistricts,
     steps: result.steps ? result.steps.map(step => ({
-      ...step,
+      step: step.step,
+      level: step.level,
+      description: step.description,
+      totalGroups: step.totalGroups,
+      totalDistricts: step.totalDistricts,
+      divisionDirection: step.divisionDirection,
+      divisionLine: step.divisionLine,
+      divisionLines: step.divisionLines,
+      // District groups with only metadata and tract IDs
       districtGroups: step.districtGroups ? step.districtGroups.map(group => ({
-        ...group,
+        startDistrictNumber: group.startDistrictNumber,
+        endDistrictNumber: group.endDistrictNumber,
+        totalDistricts: group.totalDistricts,
+        totalPopulation: group.totalPopulation,
+        bounds: group.bounds,
+        centroid: group.centroid,
+        // Only store tract IDs - geometries come from state cache
         censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
-        // Remove censusTracts - will be reconstructed from lookup
       })) : step.districtGroups
     })) : result.steps
   };
   
-  // Remove censusTracts from normalized structure (already replaced with IDs)
-  if (normalized.finalDistricts) {
-    normalized.finalDistricts.forEach(d => {
-      if (d.censusTracts) delete d.censusTracts;
-    });
-  }
-  if (normalized.steps) {
-    normalized.steps.forEach(s => {
-      if (s.districtGroups) {
-        s.districtGroups.forEach(g => {
-          if (g.censusTracts) delete g.censusTracts;
-        });
-      }
-    });
-  }
-  
-  return normalized;
+  // Return both normalized result and tract map for state-level caching
+  return {
+    normalizedResult: normalized,
+    tractMap: Array.from(tractMap.entries()) // [tractId, compressedTract][]
+  };
 }
 
 /**
@@ -401,23 +431,65 @@ function compressTract(tract) {
 }
 
 /**
- * Decompress GeodistrictResult by reconstructing tract arrays from lookup table
+ * Decompress GeodistrictResult by reconstructing tract arrays from state-level cache
+ * @param result Normalized result (without tract geometries)
+ * @param tractMap Map of tractId -> tract (from state-level cache)
  */
-function decompressGeodistrictResult(result) {
+function decompressGeodistrictResult(result, tractMap) {
   if (!result) return result;
   
   // If not normalized, return as-is
-  if (!result._normalized || !result._tractLookup) {
+  if (!result._normalized) {
     return result;
   }
   
-  // Rebuild tract lookup map
-  const tractMap = new Map(result._tractLookup);
+  // Handle old format (v1.0) with embedded tract lookup
+  if (result._tractLookup) {
+    const oldTractMap = new Map(result._tractLookup);
+    const reconstructTracts = (tractIds) => {
+      if (!Array.isArray(tractIds)) return [];
+      return tractIds.map(id => oldTractMap.get(id)).filter(Boolean);
+    };
+    
+    const decompressed = {
+      ...result,
+      finalDistricts: result.finalDistricts ? result.finalDistricts.map(district => ({
+        ...district,
+        censusTracts: reconstructTracts(district.censusTractIds || [])
+      })) : result.finalDistricts,
+      steps: result.steps ? result.steps.map(step => ({
+        ...step,
+        districtGroups: step.districtGroups ? step.districtGroups.map(group => ({
+          ...group,
+          censusTracts: reconstructTracts(group.censusTractIds || [])
+        })) : step.districtGroups
+      })) : result.steps
+    };
+    
+    // Clean up metadata
+    delete decompressed._normalized;
+    delete decompressed._tractLookup;
+    decompressed.finalDistricts?.forEach(d => { if (d.censusTractIds) delete d.censusTractIds; });
+    decompressed.steps?.forEach(s => {
+      s.districtGroups?.forEach(g => { if (g.censusTractIds) delete g.censusTractIds; });
+    });
+    
+    return decompressed;
+  }
+  
+  // Handle new format (v2.0) with state-level tract cache
+  if (!tractMap) {
+    console.warn('⚠️ No tract map provided for decompression - returning normalized result');
+    return result;
+  }
+  
+  // Rebuild tract lookup map from provided tractMap
+  const tractLookup = new Map(Array.isArray(tractMap) ? tractMap : Object.entries(tractMap));
   
   // Helper to reconstruct tract array from IDs
   const reconstructTracts = (tractIds) => {
     if (!Array.isArray(tractIds)) return [];
-    return tractIds.map(id => tractMap.get(id)).filter(Boolean);
+    return tractIds.map(id => tractLookup.get(id)).filter(Boolean);
   };
   
   // Reconstruct finalDistricts
@@ -438,7 +510,9 @@ function decompressGeodistrictResult(result) {
   
   // Remove normalization metadata
   delete decompressed._normalized;
-  delete decompressed._tractLookup;
+  delete decompressed._normalizedVersion;
+  delete decompressed._state;
+  delete decompressed._tractCount;
   if (decompressed.finalDistricts) {
     decompressed.finalDistricts.forEach(d => {
       if (d.censusTractIds) delete d.censusTractIds;
@@ -1176,13 +1250,35 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
 
 /**
  * Cache algorithm results (supports all algorithm types)
+ * Uses normalized caching: tract geometries stored separately at state level
  */
 app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
   try {
-    const { cacheKey, divisionResult, ttl } = req.body;
+    const { cacheKey, divisionResult, ttl, state } = req.body;
 
     if (!cacheKey || !divisionResult) {
       return res.status(400).json({ error: 'cacheKey and divisionResult are required' });
+    }
+
+    // Extract state from cacheKey if not provided (format: STATE_algorithm_maxIterations)
+    const stateCode = state || cacheKey.split('_')[0] || cacheKey.substring(0, 2);
+    if (!stateCode || stateCode.length < 2) {
+      return res.status(400).json({ error: 'State code is required (provide in body or ensure cacheKey starts with state code)' });
+    }
+
+    // Check request size before processing (Cloud Run has 32MB limit)
+    const requestSize = JSON.stringify(req.body).length;
+    const requestSizeMB = (requestSize / (1024 * 1024)).toFixed(2);
+    console.log(`📦 Cache request size: ${requestSizeMB} MB (${requestSize} bytes)`);
+    
+    if (requestSize > 32 * 1024 * 1024) {
+      console.error(`❌ Request too large: ${requestSizeMB} MB exceeds Cloud Run 32MB limit`);
+      return res.status(413).json({
+        error: 'Request too large',
+        message: `Request size (${requestSizeMB} MB) exceeds Cloud Run 32MB limit. Please compress data before sending.`,
+        requestSizeMB: parseFloat(requestSizeMB),
+        maxSizeMB: 32
+      });
     }
 
     // Use null TTL if explicitly set to null (no expiration), otherwise use provided TTL or default
@@ -1191,50 +1287,117 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
     const algorithm = req.params.algorithm || 'latlong';
     const algorithmVersion = req.body.algorithmVersion || 'unknown';
     
-    // Compress the result data to reduce size (especially GeoJSON geometries)
-    const compressedResult = compressGeodistrictResult(divisionResult);
+    // Check if data is already normalized by frontend
+    let normalizedResult, tractMap;
+    if (divisionResult._normalized && req.body.tractMap) {
+      // Frontend already normalized - use provided data
+      console.log(`✅ Using pre-normalized data from frontend (${divisionResult._tractCount || 0} tracts)`);
+      normalizedResult = divisionResult;
+      tractMap = req.body.tractMap; // Use tract map from frontend
+    } else {
+      // Normalize on backend: separate tract geometries from step data
+      const compressed = compressGeodistrictResult(divisionResult, stateCode);
+      normalizedResult = compressed.normalizedResult;
+      tractMap = compressed.tractMap;
+    }
     
-    // Store in cache with algorithm-specific source
-    const cacheEntry = {
-      data: compressedResult,
+    // Store state-level tract cache (tract geometries)
+    const stateTractCacheKey = `state_tracts_${stateCode}`;
+    const stateTractCacheEntry = {
+      data: tractMap,
       timestamp: Date.now(),
-      ttl: cacheTtl || null, // null means no expiration
+      ttl: null, // No expiration - tract geometries are static
       version: CACHE_VERSION,
-      algorithmVersion: algorithmVersion, // Store algorithm version for cache validation
+      source: 'state-tract-cache',
+      attribution: `Tract geometries for state ${stateCode}`,
+      compressed: true,
+      tractCount: tractMap.length
+    };
+    
+    // Store normalized algorithm result (without tract geometries)
+    const normalizedSize = JSON.stringify(normalizedResult).length;
+    const tractCacheSize = JSON.stringify(tractMap).length;
+    const originalSize = JSON.stringify(divisionResult).length;
+    const originalSizeMB = (originalSize / (1024 * 1024)).toFixed(2);
+    const normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
+    const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+    const compressionRatio = ((1 - normalizedSize / originalSize) * 100).toFixed(1);
+    
+    console.log(`📊 Normalization: ${originalSizeMB} MB → ${normalizedSizeMB} MB algorithm + ${tractCacheSizeMB} MB tracts (${compressionRatio}% reduction in algorithm cache)`);
+    
+    const algorithmCacheEntry = {
+      data: normalizedResult,
+      timestamp: Date.now(),
+      ttl: cacheTtl || null,
+      version: CACHE_VERSION,
+      algorithmVersion: algorithmVersion,
       source: `${algorithm}-algorithm-cache`,
-      attribution: `${algorithm} algorithm cached result`,
-      compressed: true // Flag to indicate data is compressed
+      attribution: `${algorithm} algorithm cached result (normalized)`,
+      compressed: true,
+      normalized: true,
+      state: stateCode,
+      tractCacheKey: stateTractCacheKey
     };
 
+    // Store both caches
     if (USE_LOCAL_CACHE) {
-      await localCache.setCache(cacheKey, cacheEntry, cacheTtl);
+      await localCache.setCache(stateTractCacheKey, stateTractCacheEntry, null);
+      await localCache.setCache(cacheKey, algorithmCacheEntry, cacheTtl);
+      console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (LOCAL)`);
     } else {
-      const docRef = firestore.collection('census_cache').doc(cacheKey);
-      await docRef.set(cacheEntry);
+      try {
+        // Store state tract cache
+        const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        await stateTractDocRef.set(stateTractCacheEntry);
+        
+        // Store algorithm cache
+        const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
+        await algorithmDocRef.set(algorithmCacheEntry);
+        
+        console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE)`);
+      } catch (firestoreError) {
+        // Check if it's a size-related error
+        if (firestoreError.message && firestoreError.message.includes('size')) {
+          console.error(`❌ Firestore document size limit exceeded`);
+          return res.status(413).json({
+            error: 'Document too large for Firestore',
+            message: `Data exceeds Firestore 1MB document limit.`,
+            normalizedSizeMB: parseFloat(normalizedSizeMB),
+            tractCacheSizeMB: parseFloat(tractCacheSizeMB),
+            maxSizeMB: 1
+          });
+        }
+        throw firestoreError;
+      }
     }
-
-    const originalSize = JSON.stringify(divisionResult).length;
-    const compressedSize = JSON.stringify(compressedResult).length;
-    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
-    console.log(`💾 ALGORITHM CACHE (${algorithm}): Successfully cached result for key: ${cacheKey}`);
-    console.log(`📊 Size: ${originalSize} bytes → ${compressedSize} bytes (${compressionRatio}% reduction)`);
 
     res.json({
       status: 'success',
-      message: 'Division result cached successfully',
-      cacheKey
+      message: 'Division result cached successfully (normalized)',
+      cacheKey,
+      stateTractCacheKey,
+      sizes: {
+        originalMB: parseFloat(originalSizeMB),
+        normalizedMB: parseFloat(normalizedSizeMB),
+        tractCacheMB: parseFloat(tractCacheSizeMB),
+        compressionRatio: parseFloat(compressionRatio),
+        tractCount: tractMap.length
+      }
     });
   } catch (error) {
-    console.error('Error caching latlong division result:', error);
+    console.error('❌ Error caching algorithm result:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       error: 'Failed to cache division result',
-      message: error.message
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
     });
   }
 });
 
 /**
  * Get cached algorithm results (supports all algorithm types)
+ * Handles normalized caching: fetches state-level tract cache and reconstructs full result
  */
 app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
   try {
@@ -1248,10 +1411,14 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
     const cachedEntry = await getFromCache(cacheKey);
     const algorithm = req.params.algorithm || 'latlong';
 
+    console.log(`🔍 CACHE LOOKUP (${algorithm}): Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
+
     if (cachedEntry) {
       // Check algorithm version - if it doesn't match, treat as cache miss
       const cachedVersion = cachedEntry.algorithmVersion;
       const requestedVersion = req.query.algorithmVersion || req.headers['x-algorithm-version'];
+      
+      console.log(`🔍 VERSION CHECK (${algorithm}): Cached=${cachedVersion}, Requested=${requestedVersion}`);
       
       // If no version is stored, treat as old cache (pre-versioning) and invalidate
       if (!cachedVersion) {
@@ -1285,12 +1452,31 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
         });
       }
       
-      // Decompress if needed
-      const decompressedResult = cachedEntry.compressed 
-        ? decompressGeodistrictResult(cachedEntry.data)
-        : cachedEntry.data;
+      // Handle normalized cache (v2.0) - fetch state-level tract cache
+      let decompressedResult;
+      if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
+        // Fetch state-level tract cache
+        const stateTractCache = await getFromCache(cachedEntry.tractCacheKey);
+        if (!stateTractCache || !stateTractCache.data) {
+          console.warn(`⚠️ State tract cache not found for key: ${cachedEntry.tractCacheKey}`);
+          return res.json({
+            status: 'miss',
+            cached: false,
+            message: 'State tract cache not found'
+          });
+        }
+        
+        // Decompress using state-level tract cache
+        decompressedResult = decompressGeodistrictResult(cachedEntry.data, stateTractCache.data);
+        console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved normalized result for key: ${cacheKey} with ${stateTractCache.tractCount || stateTractCache.data?.length || 0} tracts (algorithm version: ${cachedVersion || 'unknown'})`);
+      } else {
+        // Handle old format (v1.0) or non-normalized cache
+        decompressedResult = cachedEntry.compressed 
+          ? decompressGeodistrictResult(cachedEntry.data)
+          : cachedEntry.data;
+        console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved result for key: ${cacheKey} (algorithm version: ${cachedVersion || 'unknown'})`);
+      }
       
-      console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved result for key: ${cacheKey} (algorithm version: ${cachedVersion || 'unknown'})`);
       return res.json({
         status: 'success',
         cached: true,
@@ -1306,7 +1492,7 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error retrieving cached latlong division result:', error);
+    console.error('Error retrieving cached algorithm result:', error);
     res.status(500).json({
       error: 'Failed to retrieve cached division result',
       message: error.message

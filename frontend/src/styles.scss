@@ -5,11 +5,6 @@
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
-// Tailwind CSS directives
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 // Figma CSS Variables
 :root {
   --font-size: 16px;
@@ -39,7 +34,35 @@
   --radius: 0.625rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.15 0 0);
+    --foreground: oklch(0.95 0 0);
+    --card: oklch(0.2 0 0);
+    --card-foreground: oklch(0.95 0 0);
+    --popover: oklch(0.2 0 0);
+    --popover-foreground: oklch(0.95 0 0);
+    --primary: oklch(0.95 0 0);
+    --primary-foreground: oklch(0.15 0 0);
+    --secondary: oklch(0.3 0 0);
+    --secondary-foreground: oklch(0.95 0 0);
+    --muted: oklch(0.25 0 0);
+    --muted-foreground: oklch(0.7 0 0);
+    --accent: oklch(0.3 0 0);
+    --accent-foreground: oklch(0.95 0 0);
+    --destructive: #ef4444;
+    --destructive-foreground: oklch(0.95 0 0);
+    --border: rgba(255, 255, 255, 0.1);
+    --input-background: oklch(0.25 0 0);
+    --switch-background: oklch(0.4 0 0);
+  }
+}
+
+// Apply Material theme to html - it will automatically respect color-scheme
 html {
+  // Enable system theme detection
+  color-scheme: light dark;
+  
   @include mat.theme((
     color: (
       primary: mat.$azure-palette,
@@ -50,11 +73,12 @@ html {
   ));
 }
 
+
 body {
   // Default the application to a light color theme. This can be changed to
   // `dark` to enable the dark color theme, or to `light dark` to defer to the
   // user's system settings.
-  color-scheme: light;
+  color-scheme: light dark;
 
   // Set a default background, font and text colors for the application using
   // Angular Material's system-level CSS variables. Learn more about these
@@ -241,8 +265,9 @@ body {
   font-size: var(--text-base);
   font-weight: var(--font-normal);
   line-height: var(--leading-normal);
-  color: var(--gray-900);
-  background-color: var(--white);
+  // Use Material system variables for theme-aware colors
+  color: var(--mat-sys-on-surface, var(--gray-900));
+  background-color: var(--mat-sys-surface, var(--white));
 }
 
 /* Typography */
@@ -250,7 +275,8 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: var(--font-semibold);
   line-height: var(--leading-tight);
-  color: var(--gray-900);
+  // Use Material system variables for theme-aware colors
+  color: var(--mat-sys-on-surface, var(--gray-900));
 }
 
 h1 {
@@ -307,14 +333,14 @@ li {
 code {
   font-family: var(--font-family-mono);
   font-size: 0.875em;
-  background-color: var(--gray-100);
+  background-color: var(--mat-sys-surface-container-high, var(--gray-100));
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
 }
 
 pre {
   font-family: var(--font-family-mono);
-  background-color: var(--gray-100);
+  background-color: var(--mat-sys-surface-container-high, var(--gray-100));
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   overflow-x: auto;
@@ -357,14 +383,14 @@ pre {
 }
 
 .btn-secondary {
-  background-color: var(--white);
-  color: var(--gray-700);
-  border-color: var(--gray-300);
+  background-color: var(--mat-sys-surface, var(--white));
+  color: var(--mat-sys-on-surface, var(--gray-700));
+  border-color: var(--mat-sys-outline-variant, var(--gray-300));
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--gray-50);
-  border-color: var(--gray-400);
+  background-color: var(--mat-sys-surface-container-low, var(--gray-50));
+  border-color: var(--mat-sys-outline, var(--gray-400));
 }
 
 .btn-outline {
@@ -380,7 +406,7 @@ pre {
 
 /* Cards */
 .card {
-  background-color: var(--white);
+  background-color: var(--mat-sys-surface-container, var(--white));
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   overflow: hidden;
@@ -393,7 +419,7 @@ pre {
 
 .card-header {
   padding: var(--space-6);
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--mat-sys-outline-variant, var(--gray-200));
 }
 
 .card-body {
@@ -402,8 +428,8 @@ pre {
 
 .card-footer {
   padding: var(--space-6);
-  border-top: 1px solid var(--gray-200);
-  background-color: var(--gray-50);
+  border-top: 1px solid var(--mat-sys-outline-variant, var(--gray-200));
+  background-color: var(--mat-sys-surface-container-low, var(--gray-50));
 }
 
 /* Utilities */

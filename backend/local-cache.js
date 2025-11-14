@@ -40,6 +40,10 @@ function getCacheMetaPath(key) {
  * Check if cache entry is expired
  */
 function isCacheExpired(timestamp, ttl) {
+  // If TTL is null, cache never expires
+  if (ttl === null || ttl === undefined) {
+    return false;
+  }
   return Date.now() - timestamp > ttl;
 }
 
