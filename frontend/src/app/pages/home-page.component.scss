@@ -1,4 +1,16 @@
 // Home Page Component Styles
+
+// Apply Source Sans Pro Light font to home page
+:host {
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 300;
+  
+  h1, h2, h3, h4, h5, h6, p, button, span, div {
+    font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 300;
+  }
+}
+
 #what div {
   max-width: 350px;
 }
@@ -11,6 +23,7 @@
 #enter button {
   // color: var(--mat-sys-primary, #6366f1);
   font-size: 1rem;
+  font-weight: 400; // Source Sans Pro Regular
 }
 // Layout utilities
 .min-h-screen {
