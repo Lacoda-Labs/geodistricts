@@ -102,6 +102,15 @@ export class HomePageComponent {
     this.isMobileMenuOpen = false;
   }
 
+  getNavIcon(id: string): string {
+    const iconMap: { [key: string]: string } = {
+      'home': 'home',
+      'what': 'info',
+      'how': 'help_outline',
+      'try': 'play_arrow',
+    };
+    return iconMap[id] || 'circle';
+  }
 
 }
 

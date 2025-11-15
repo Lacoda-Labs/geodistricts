@@ -317,13 +317,16 @@
 }
 
 // Responsive utilities
+// Show on mobile, hide on desktop
+@media (min-width: 768px) {
+  .md\:hidden {
+    display: none;
+  }
+}
+
 @media (min-width: 768px) {
   .md\:flex {
     display: flex;
-  }
-
-  .md\:hidden {
-    display: none;
   }
 
   .md\:grid-cols-2 {
@@ -398,6 +401,97 @@
   svg {
     width: 20px;
     height: 20px;
+  }
+}
+
+// Bottom Navigation Bar (Material Design 3)
+.bottom-nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background-color: var(--mat-sys-surface, white);
+  border-top: 1px solid var(--mat-sys-outline-variant, #e5e7eb);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.bottom-nav-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  max-width: 100%;
+  height: 64px;
+  padding: 0 8px;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 8px 12px;
+  color: var(--mat-sys-on-surface-variant, #4b5563);
+  background-color: transparent;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    background-color: var(--mat-sys-surface-container-high, rgba(0, 0, 0, 0.04));
+  }
+
+  &:active {
+    background-color: var(--mat-sys-surface-container-highest, rgba(0, 0, 0, 0.08));
+  }
+
+  &.active {
+    color: var(--mat-sys-primary, #6366f1);
+
+    .bottom-nav-icon {
+      transform: scale(1.1);
+    }
+
+    .bottom-nav-label {
+      font-weight: 600;
+    }
+  }
+}
+
+.bottom-nav-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-nav-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  transition: font-weight 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+// Add padding to main content to prevent overlap with bottom nav on mobile only
+@media (max-width: 767px) {
+  main {
+    padding-bottom: 80px;
   }
 }
 

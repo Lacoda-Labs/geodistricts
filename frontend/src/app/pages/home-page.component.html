@@ -1,7 +1,7 @@
 <div class="min-h-screen ">
   <!-- Navigation -->
   <nav class="fixed top-0 left-0 right-0 backdrop-blur-sm border-b border-gray-200 z-50">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="max-w-6xl mx-auto px-6 py-2 flex items-center justify-between">
       <button mat-button
       (click)="navigateToItem({id: 'home', label: 'Home', route: null})"
       class="text-gray-900 hover:text-gray-600 transition-colors">
@@ -68,7 +68,7 @@
             Geographically divided congressional districts.
           </p>
           <p class="text-gray-600 max-w-2xl mx-auto text-lg">
-            No humans.
+            No humans. No bias.
           </p>
           <p class="text-gray-600 max-w-2xl mx-auto text-lg">
             Just a protocol that is 100% objective and fair.
@@ -138,4 +138,19 @@
       <p>© 2025 Lacoda Labs, Inc. All rights reserved.</p>
     </div>
   </footer>
+
+  <!-- Bottom Navigation Bar (Mobile Only) -->
+  <nav class="bottom-nav-bar md:hidden">
+    <div class="bottom-nav-container">
+      <button
+        *ngFor="let item of navItems"
+        mat-button
+        class="bottom-nav-item"
+        [class.active]="activeSection === item.id"
+        (click)="navigateToItem(item)">
+        <mat-icon class="bottom-nav-icon">{{ getNavIcon(item.id) }}</mat-icon>
+        <span class="bottom-nav-label">{{ item.label }}</span>
+      </button>
+    </div>
+  </nav>
 </div>
