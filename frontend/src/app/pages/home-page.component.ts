@@ -9,6 +9,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 
+declare global {
+  interface Window {
+    gtag: (command: string, action: string, parameters: any) => void;
+  }
+}
+
 
 @Component({
   selector: 'app-home-page',
@@ -84,6 +90,16 @@ export class HomePageComponent {
     this.closeMobileMenu();
 
     if (item.route) {
+      // Track "show me the maps" button click
+      if (item.route === '/geodistrict') {
+        if (typeof window !== 'undefined' && window.gtag) {
+          window.gtag('event', 'button_click', {
+            event_category: 'CTA',
+            event_label: 'Show me the maps',
+            button_location: 'home_page'
+          });
+        }
+      }
       // Navigate to route
       this.router.navigate([item.route]);
     } else {
