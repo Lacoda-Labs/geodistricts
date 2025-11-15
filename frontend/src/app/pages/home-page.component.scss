@@ -1,5 +1,17 @@
 // Home Page Component Styles
+#what div {
+  max-width: 350px;
+}
 
+.divider {
+  border-bottom: 1px solid #474747;
+  margin-bottom: 1rem;
+}
+
+#enter button {
+  // color: var(--mat-sys-primary, #6366f1);
+  font-size: 1rem;
+}
 // Layout utilities
 .min-h-screen {
   min-height: 100vh;
@@ -62,7 +74,7 @@
 }
 
 .pt-32 {
-  padding-top: 8rem;
+  padding-top: 4rem;
 }
 
 .pb-10 {
@@ -204,6 +216,10 @@
 
 .rounded {
   border-radius: 0.25rem;
+}
+
+.rounded-lg {
+  border-radius: 1rem;
 }
 
 .rounded-full {
@@ -494,4 +510,3 @@
     padding-bottom: 80px;
   }
 }
-

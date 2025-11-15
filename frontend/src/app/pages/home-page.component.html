@@ -1,56 +1,4 @@
 <div class="min-h-screen ">
-  <!-- Navigation -->
-  <nav class="fixed top-0 left-0 right-0 backdrop-blur-sm border-b border-gray-200 z-50">
-    <div class="max-w-6xl mx-auto px-6 py-2 flex items-center justify-between">
-      <button mat-button
-      (click)="navigateToItem({id: 'home', label: 'Home', route: null})"
-      class="text-gray-900 hover:text-gray-600 transition-colors">
-      GeoDistricts
-    </button>
-    
-    <!-- Desktop Navigation -->
-    <div class="hidden md:flex gap-8">
-      <button mat-button
-        *ngFor="let item of navItems"
-        (click)="navigateToItem(item)"
-        [class.text-gray-900]="activeSection === item.id"
-        [class.text-gray-600]="activeSection !== item.id"
-        class="hover:text-gray-900 transition-colors">
-        {{ item.label }}
-      </button>
-    </div>
-    
-     <!-- Mobile Navigation -->
-     <button
-       mat-icon-button
-       class="md:hidden"
-       (click)="toggleMobileMenu()">
-       <mat-icon>menu</mat-icon>
-     </button>
-
-    </div>
-  </nav>
-
-  <!-- Mobile Menu -->
-  <div class="md:hidden mobile-menu-overlay"
-    [class.mobile-menu-open]="isMobileMenuOpen"
-    (click)="closeMobileMenu()"
-    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 40;">
-    <div class="mobile-menu-panel" (click)="$event.stopPropagation()">
-      <div class="p-4">
-        <div class="flex justify-between items-center mb-16">
-          .
-        </div>
-        <div class="flex flex-col gap-4">
-          <button mat-button *ngFor="let item of navItems" (click)="navigateToItem(item)"
-            [class.text-gray-900]="activeSection === item.id" [class.text-gray-600]="activeSection !== item.id"
-            class="text-left p-3 text-lg hover:bg-gray-100 rounded transition-colors">
-            {{ item.label }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <main>
     <!-- Hero Section -->
@@ -60,19 +8,17 @@
           <h1 class="text-gray-900 mb-6 text-4xl md:text-5xl font-bold">
             GeoDistricts
           </h1>
-          <h2 class="text-gray-900 mb-6 text-2xl md:text-3xl font-bold">
-           The End of Gerrymandering.
+
+          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+            The End of Gerrymandering
+          </h2>
+          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+            Preserving Democracy
+          </h2>
+          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+            Protecting the Republic
           </h2>
 
-          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
-            Geographically divided congressional districts.
-          </p>
-          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
-            No humans. No bias.
-          </p>
-          <p class="text-gray-600 max-w-2xl mx-auto text-lg">
-            Just a protocol that is 100% objective and fair.
-          </p>
 
         </div>
       </div>
@@ -80,77 +26,38 @@
 
     <!-- What Is It Section -->
     <section id="what" class="py-2 px-6">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">What is GeoDistricts?</h2>
-
-        <p class="text-gray-600 text-center mb-16 max-w-2xl mx-auto text-lg">
-          An objective approach to congressional redistricting that removes human
-          subjectivity from the process. The GeoDistricts protocol defines rules for drawing district maps based
-          purely on geography and population.
+      <div class="max-w-4xl mx-auto bg-gray-100 rounded-lg p-4">
+        <!-- <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">What is GeoDistricts?</h2> -->
+        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
+          Geographically divided congressional districts.
+        </p>
+        <div class="divider"></div>
+        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
+          No humans. No bias.
+        </p>
+        <div class="divider"></div>
+        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
+          Just a protocol.
+        </p>
+        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
+          100% fair and objective.
         </p>
 
-        <div class="grid md:grid-cols-3 gap-12">
-          <div *ngFor="let feature of features" class="text-center">
-            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-900 text-white mb-4">
-              <mat-icon>{{ feature.icon }}</mat-icon>
-            </div>
-            <h3 class="text-gray-900 mb-2 text-xl font-semibold">{{ feature.title }}</h3>
-            <p class="text-gray-600">{{ feature.description }}</p>
-          </div>
-        </div>
       </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section id="how" class="py-20 px-6 bg-gray-50">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">How It Works</h2>
-
-        <p class="text-gray-600 text-center mb-16 max-w-2xl mx-auto text-lg">
-          Four simple steps from raw data to fair districts.
-        </p>
-
-        <div class="grid md:grid-cols-2 gap-8">
-          <div *ngFor="let step of steps; let i = index" class="relative">
-            <div class="flex gap-4">
-              <div class="text-gray-300 flex-shrink-0 text-2xl font-bold">
-                {{ step.number }}
-              </div>
-              <div>
-                <h3 class="text-gray-900 mb-2 text-xl font-semibold">{{ step.title }}</h3>
-                <p class="text-gray-600">{{ step.description }}</p>
-              </div>
-            </div>
-            <mat-icon *ngIf="i < steps.length - 1 && i % 2 === 0"
-              class="hidden md:block absolute -right-4 top-1/2 -translate-y-1/2 text-gray-300">
-              arrow_forward
-            </mat-icon>
-          </div>
-        </div>
-      </div>
+    <section id="enter" class="pt-32 py-2 px-6 text-center">
+      <button matButton="filled" (click)="navigateToItem({id: 'home', label: 'Home', route: '/geodistrict'})"
+        class="text-blue hover:text-gray-600 transition-colors">
+        show me the maps
+      </button>
     </section>
-
-    
   </main>
 
-  <footer class="border-t border-gray-200 py-12 px-6">
+  <footer class="hidden border-t border-gray-200 py-12 px-6">
     <div class="max-w-4xl mx-auto text-center text-gray-500">
       <p>© 2025 Lacoda Labs, Inc. All rights reserved.</p>
     </div>
   </footer>
 
-  <!-- Bottom Navigation Bar (Mobile Only) -->
-  <nav class="bottom-nav-bar md:hidden">
-    <div class="bottom-nav-container">
-      <button
-        *ngFor="let item of navItems"
-        mat-button
-        class="bottom-nav-item"
-        [class.active]="activeSection === item.id"
-        (click)="navigateToItem(item)">
-        <mat-icon class="bottom-nav-icon">{{ getNavIcon(item.id) }}</mat-icon>
-        <span class="bottom-nav-label">{{ item.label }}</span>
-      </button>
-    </div>
-  </nav>
 </div>
