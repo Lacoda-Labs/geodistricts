@@ -1,0 +1,78 @@
+// Material Theme from material-theme.json
+// This file defines Material Design 3 palettes based on the Material Theme Builder export
+
+@use '@angular/material' as mat;
+@use 'sass:map';
+
+// Primary Palette - Based on seed color #7AC4FF
+// Material Design 3 uses tonal palettes with specific key values
+$primary-tonal-palette: (
+  0: #000000,
+  10: #001E31,
+  20: #003350,
+  30: #004B72,
+  40: #006496,
+  50: #287DB4,
+  60: #4A97CF,
+  70: #67B2EC,
+  80: #91CDFF,
+  90: #CCE5FF,
+  95: #E7F2FF,
+  100: #FFFFFF,
+);
+
+// Secondary Palette
+$secondary-tonal-palette: (
+  0: #000000,
+  10: #0E1D29,
+  20: #24323E,
+  30: #3A4855,
+  40: #52606E,
+  50: #6A7987,
+  60: #8492A1,
+  70: #9EADBC,
+  80: #B9C8D8,
+  90: #D5E4F5,
+  95: #E7F2FF,
+  100: #FFFFFF,
+);
+
+// Tertiary Palette
+$tertiary-tonal-palette: (
+  0: #000000,
+  10: #211632,
+  20: #362B48,
+  30: #4D4160,
+  40: #665979,
+  50: #7F7192,
+  60: #998AAD,
+  70: #B4A5C9,
+  80: #D0C0E5,
+  90: #ECDCFF,
+  95: #F8EDFF,
+  100: #FFFFFF,
+);
+
+// Neutral Palette
+$neutral-tonal-palette: (
+  0: #000000,
+  10: #1A1C1E,
+  20: #2F3033,
+  30: #454749,
+  40: #5D5E61,
+  50: #76777A,
+  60: #909193,
+  70: #AAABAE,
+  80: #C6C6C9,
+  90: #E2E2E5,
+  95: #F1F0F3,
+  100: #FFFFFF,
+);
+
+// Export palettes for use in theme configuration
+// Angular Material 3 accepts tonal palette maps directly
+$custom-primary-palette: $primary-tonal-palette;
+$custom-secondary-palette: $secondary-tonal-palette;
+$custom-tertiary-palette: $tertiary-tonal-palette;
+$custom-neutral-palette: $neutral-tonal-palette;
+
