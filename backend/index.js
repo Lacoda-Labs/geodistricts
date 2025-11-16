@@ -1339,23 +1339,19 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
       tractCacheKey: stateTractCacheKey
     };
 
-    // Store both caches
-    if (USE_LOCAL_CACHE) {
-      await localCache.setCache(stateTractCacheKey, stateTractCacheEntry, null);
-      await localCache.setCache(cacheKey, algorithmCacheEntry, cacheTtl);
-      console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (LOCAL)`);
-    } else {
-      try {
-        // Store state tract cache
-        const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
-        await stateTractDocRef.set(stateTractCacheEntry);
-        
-        // Store algorithm cache
-        const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
-        await algorithmDocRef.set(algorithmCacheEntry);
-        
-        console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE)`);
-      } catch (firestoreError) {
+    // Algorithm cache should ALWAYS use Firestore (not local files) so localhost and production share the same cache
+    // Only census data cache uses local files in development
+    try {
+      // Store state tract cache
+      const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+      await stateTractDocRef.set(stateTractCacheEntry);
+      
+      // Store algorithm cache
+      const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
+      await algorithmDocRef.set(algorithmCacheEntry);
+      
+      console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE - shared between localhost and production)`);
+    } catch (firestoreError) {
         // Check if it's a size-related error
         if (firestoreError.message && firestoreError.message.includes('size')) {
           console.error(`❌ Firestore document size limit exceeded`);
@@ -1407,8 +1403,37 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       return res.status(400).json({ error: 'cacheKey parameter is required' });
     }
 
-    // Check cache
-    const cachedEntry = await getFromCache(cacheKey);
+    // Log cache mode for debugging
+    console.log(`🔍 ALGORITHM CACHE CHECK: Key=${cacheKey}, USE_LOCAL_CACHE=${USE_LOCAL_CACHE}, NODE_ENV=${process.env.NODE_ENV}, GOOGLE_CLOUD_PROJECT=${process.env.GOOGLE_CLOUD_PROJECT}`);
+
+    // Algorithm cache should ALWAYS use Firestore (not local files) so localhost and production share the same cache
+    // Only census data cache uses local files in development
+    let cachedEntry;
+    try {
+      console.log(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
+      const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+      
+      if (!doc.exists) {
+        console.log(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
+        cachedEntry = null;
+      } else {
+        const data = doc.data();
+        
+        // Check if expired
+        if (isCacheExpired(data.timestamp, data.ttl)) {
+          console.log(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
+          await firestore.collection('census_cache').doc(cacheKey).delete();
+          cachedEntry = null;
+        } else {
+          console.log(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
+          cachedEntry = data;
+        }
+      }
+    } catch (error) {
+      console.error('❌ FIRESTORE ALGORITHM CACHE ERROR: Failed to get from Firestore for key:', cacheKey);
+      console.error('❌ FIRESTORE ALGORITHM CACHE ERROR:', error.message);
+      cachedEntry = null;
+    }
     const algorithm = req.params.algorithm || 'latlong';
 
     console.log(`🔍 CACHE LOOKUP (${algorithm}): Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
@@ -1423,12 +1448,8 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       // If no version is stored, treat as old cache (pre-versioning) and invalidate
       if (!cachedVersion) {
         console.log(`🔄 ALGORITHM VERSION MISSING (${algorithm}): Old cache entry without version. Invalidating.`);
-        // Delete the outdated cache entry
-        if (USE_LOCAL_CACHE) {
-          await localCache.deleteCacheEntry(cacheKey);
-        } else {
-          await firestore.collection('census_cache').doc(cacheKey).delete();
-        }
+        // Delete the outdated cache entry (always use Firestore for algorithm cache)
+        await firestore.collection('census_cache').doc(cacheKey).delete();
         return res.json({
           status: 'miss',
           cached: false,
@@ -1439,12 +1460,8 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       // If versions don't match, invalidate
       if (requestedVersion && cachedVersion !== requestedVersion) {
         console.log(`🔄 ALGORITHM VERSION MISMATCH (${algorithm}): Cached version ${cachedVersion} != requested ${requestedVersion}. Invalidating cache.`);
-        // Delete the outdated cache entry
-        if (USE_LOCAL_CACHE) {
-          await localCache.deleteCacheEntry(cacheKey);
-        } else {
-          await firestore.collection('census_cache').doc(cacheKey).delete();
-        }
+        // Delete the outdated cache entry (always use Firestore for algorithm cache)
+        await firestore.collection('census_cache').doc(cacheKey).delete();
         return res.json({
           status: 'miss',
           cached: false,
@@ -1455,8 +1472,19 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       // Handle normalized cache (v2.0) - fetch state-level tract cache
       let decompressedResult;
       if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
-        // Fetch state-level tract cache
-        const stateTractCache = await getFromCache(cachedEntry.tractCacheKey);
+        // Fetch state-level tract cache (always use Firestore for algorithm cache)
+        let stateTractCache;
+        try {
+          const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+          if (stateTractDoc.exists) {
+            const stateTractData = stateTractDoc.data();
+            if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+              stateTractCache = stateTractData;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error fetching state tract cache:', error);
+        }
         if (!stateTractCache || !stateTractCache.data) {
           console.warn(`⚠️ State tract cache not found for key: ${cachedEntry.tractCacheKey}`);
           return res.json({
