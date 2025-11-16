@@ -349,7 +349,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Clear existing layers and reset tracking
     this.tractLayer.clearLayers();
-    this.tractGeoJsonLayers = [];
+    this.tractGeoJsonLayers.clear();
 
     const bounds = L.latLngBounds([]);
     let hasBounds = false;
