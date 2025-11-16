@@ -219,46 +219,96 @@ export class GeodistrictAlgorithmService {
           return of(cachedResult);
         }
 
-        // Otherwise, run the algorithm
-        // In production, always use backend proxy (which handles Secret Manager)
-        // In development, respect the useDirectAPI flag
-        const shouldUseDirectAPI = useDirectAPI && !environment.production;
-
-        // Choose data source based on environment and options
-        const dataSource$ = shouldUseDirectAPI
-          ? this.censusService.getTractDataWithBoundariesDirect(state, undefined, forceInvalidate)
-          : this.censusService.getTractDataWithBoundaries(state, undefined, forceInvalidate);
-
-        return dataSource$.pipe(
-          switchMap(data => {
-            if (!data.boundaries || !data.boundaries.features || data.boundaries.features.length === 0) {
-              throw new Error(`No tract boundaries found for state: ${state} (${shouldUseDirectAPI ? 'direct API' : 'backend proxy'} failed)`);
-            }
-
-            // Combine boundary and demographic data to ensure STATE property is set
-            const combinedTracts = this.combineTractData(data.demographic || [], data.boundaries.features);
-
-            // Get number of districts for this state
-            const totalDistricts = this.congressionalDistrictsService.getDistrictsForState(state);
-            if (!totalDistricts) {
-              throw new Error(`No congressional districts found for state: ${state}`);
-            }
-
-            // Execute only the first step of the algorithm
-            return this.executeGeodistrictAlgorithmFirstStep(combinedTracts, totalDistricts, algorithm, forceInvalidate).pipe(
-              switchMap(result => {
-                // Cache the result (async, but don't wait for it)
-                this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
-                  next: () => console.log(`💾 Cached result for ${state}`),
-                  error: (err) => console.error(`❌ Failed to cache result:`, err)
-                });
-                return of(result);
-              })
-            );
+        // Otherwise, execute algorithm on backend
+        // Use backend execution endpoint (algorithm runs on server)
+        const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+        const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute`;
+        
+        console.log(`🚀 Executing algorithm on backend: ${executeUrl}`);
+        
+        return this.http.post<{
+          result: GeodistrictResult;
+          executionTime: number;
+          cacheKey: string;
+          state: string;
+          totalDistricts: number;
+          tractCount: number;
+        }>(executeUrl, {
+          state,
+          maxIterations,
+          options: {
+            forceInvalidate: forceInvalidate || false
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }).pipe(
+          switchMap(response => {
+            console.log(`✅ Backend algorithm completed in ${response.executionTime}ms (${response.result.steps.length} steps)`);
+            
+            // Cache the result (async, but don't wait for it)
+            this.cacheService.set(state, algorithm, maxIterations, response.result).subscribe({
+              next: () => console.log(`💾 Cached result for ${state}`),
+              error: (err) => console.error(`❌ Failed to cache result:`, err)
+            });
+            
+            return of(response.result);
           }),
-          catchError(this.handleError)
+          catchError(error => {
+            console.error('❌ Backend algorithm execution failed:', error);
+            // Fallback to local execution if backend fails (for development/debugging)
+            if (!environment.production && useDirectAPI) {
+              console.warn('⚠️ Falling back to local algorithm execution');
+              return this.executeAlgorithmLocally(state, maxIterations, algorithm, forceInvalidate, useDirectAPI);
+            }
+            return this.handleError(error);
+          })
         );
       })
+    );
+  }
+
+  /**
+   * Fallback: Execute algorithm locally (for development/debugging)
+   */
+  private executeAlgorithmLocally(
+    state: string,
+    maxIterations: number,
+    algorithm: AlgorithmType,
+    forceInvalidate: boolean,
+    useDirectAPI: boolean
+  ): Observable<GeodistrictResult> {
+    const shouldUseDirectAPI = useDirectAPI && !environment.production;
+
+    const dataSource$ = shouldUseDirectAPI
+      ? this.censusService.getTractDataWithBoundariesDirect(state, undefined, forceInvalidate)
+      : this.censusService.getTractDataWithBoundaries(state, undefined, forceInvalidate);
+
+    return dataSource$.pipe(
+      switchMap(data => {
+        if (!data.boundaries || !data.boundaries.features || data.boundaries.features.length === 0) {
+          throw new Error(`No tract boundaries found for state: ${state}`);
+        }
+
+        const combinedTracts = this.combineTractData(data.demographic || [], data.boundaries.features);
+        const totalDistricts = this.congressionalDistrictsService.getDistrictsForState(state);
+        
+        if (!totalDistricts) {
+          throw new Error(`No congressional districts found for state: ${state}`);
+        }
+
+        return from(this.executeGeodistrictAlgorithm(combinedTracts, totalDistricts, maxIterations, algorithm, forceInvalidate)).pipe(
+          switchMap(result => {
+            this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
+              next: () => console.log(`💾 Cached result for ${state}`),
+              error: (err) => console.error(`❌ Failed to cache result:`, err)
+            });
+            return of(result);
+          })
+        );
+      }),
+      catchError(this.handleError)
     );
   }
 
@@ -522,13 +572,11 @@ export class GeodistrictAlgorithmService {
     // This fixes isolated tracts and islands that may have been created across all groups
     // Run this check after step 4 and after all steps are complete
     if (iteration === 4 || allStepsComplete) {
-      console.log(`🔍 After step ${iteration}, checking all ${currentGroups.length} district groups for disconnected components...`);
       this.fixDisconnectedComponentsInAllGroups(currentGroups);
     }
 
     // After all steps are complete, also run fixIsolatedTractsAcrossAllGroups to catch any remaining issues
     if (allStepsComplete) {
-      console.log(`🔍 After all steps complete, checking all ${currentGroups.length} district groups for isolated tracts...`);
       const allTracts = currentGroups.flatMap(g => g.censusTracts);
       currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, allTracts, direction);
     }
@@ -907,9 +955,7 @@ export class GeodistrictAlgorithmService {
       moveDirection = direction === 'latitude' ? 'north to south' : 'east to west';
     }
 
-    if (tractsToMove > 0) {
-      console.log(`📊 To balance variance: move ~${tractsToMove} tract(s) ${moveDirection} (avg tract pop: ${averageTractPopulation.toFixed(0)})`);
-    }
+    // Balance variance by moving tracts
 
     const history = [
       `Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Divided by ${direction} into ${division.first} + ${division.second} districts`,
@@ -1856,8 +1902,7 @@ export class GeodistrictAlgorithmService {
       }
     }
 
-    console.log(`📊 Divided ${tracts.length} tracts by entire geometry: ${firstGroupTracts.length} + ${secondGroupTracts.length} by ${direction} line at ${lineCoordinate.toFixed(6)}`);
-    console.log(`🔍 Found ${intersectingTracts.length} tracts that intersect the line`);
+    // Divided tracts by geometry
 
     // Debug: Check if tract 04013941000 is in the intersecting tracts
     const tract3941000 = intersectingTracts.find(t => {

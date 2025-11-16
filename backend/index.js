@@ -7,6 +7,8 @@ const { Firestore } = require('@google-cloud/firestore');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const compression = require('compression');
 const localCache = require('./local-cache');
+const { GeodistrictAlgorithmService, getDistrictsForState } = require('./services/geodistrict-algorithm');
+const latLongDivisionService = require('./services/latlong-division');
 require('dotenv').config();
 
 const app = express();
@@ -23,6 +25,40 @@ if (global.gc) {
 const firestore = new Firestore({
   projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
 });
+
+/**
+ * Test Firestore access on startup - exit if credentials are not available
+ */
+async function testFirestoreAccess() {
+  try {
+    console.log('🔍 Testing Firestore access...');
+    console.log(`   Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'}`);
+    console.log(`   GOOGLE_APPLICATION_CREDENTIALS: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || 'not set'}`);
+    
+    // Try to access Firestore - this will fail if credentials aren't available
+    const testDoc = await firestore.collection('census_cache').doc('_startup_test').get();
+    console.log('✅ Firestore access verified - credentials are available');
+  } catch (error) {
+    console.error('❌ FIRESTORE ACCESS ERROR:', error.message);
+    console.error('❌ Full error:', error);
+    
+    if (error.message && error.message.includes('Could not load the default credentials')) {
+      console.error('\n❌ FIRESTORE CREDENTIALS ERROR: Could not load default credentials');
+      console.error('❌ Please run: gcloud auth application-default login');
+      console.error('❌ Or set GOOGLE_APPLICATION_CREDENTIALS environment variable');
+      console.error('❌ Make sure Firestore API is enabled: gcloud services enable firestore.googleapis.com');
+      process.exit(1);
+    } else if (error.message && error.message.includes('PERMISSION_DENIED')) {
+      console.error('\n❌ FIRESTORE PERMISSION ERROR: Access denied');
+      console.error('❌ Make sure your account has Firestore permissions');
+      console.error('❌ Check: gcloud projects get-iam-policy geodistricts');
+      process.exit(1);
+    } else {
+      // Other errors (like network issues) are OK - we'll handle them at runtime
+      console.log('⚠️ Firestore test had an error (will continue):', error.message);
+    }
+  }
+}
 
 // Initialize Secret Manager
 const secretClient = new SecretManagerServiceClient();
@@ -1253,6 +1289,9 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
  * Uses normalized caching: tract geometries stored separately at state level
  */
 app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
+  // Declare size variables outside try block for error handler access
+  let normalizedSizeMB, tractCacheSizeMB;
+  
   try {
     const { cacheKey, divisionResult, ttl, state } = req.body;
 
@@ -1289,13 +1328,16 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
     
     // Check if data is already normalized by frontend
     let normalizedResult, tractMap;
-    if (divisionResult._normalized && req.body.tractMap) {
+    const isPreNormalized = divisionResult._normalized && req.body.tractMap && Array.isArray(req.body.tractMap) && req.body.tractMap.length > 0;
+    
+    if (isPreNormalized) {
       // Frontend already normalized - use provided data
-      console.log(`✅ Using pre-normalized data from frontend (${divisionResult._tractCount || 0} tracts)`);
+      console.log(`✅ Using pre-normalized data from frontend (${divisionResult._tractCount || 0} tracts, tractMap length: ${req.body.tractMap.length})`);
       normalizedResult = divisionResult;
       tractMap = req.body.tractMap; // Use tract map from frontend
     } else {
       // Normalize on backend: separate tract geometries from step data
+      console.log(`🔄 Normalizing on backend (pre-normalized: ${!!divisionResult._normalized}, tractMap provided: ${!!req.body.tractMap}, tractMap length: ${req.body.tractMap?.length || 0})`);
       const compressed = compressGeodistrictResult(divisionResult, stateCode);
       normalizedResult = compressed.normalizedResult;
       tractMap = compressed.tractMap;
@@ -1317,16 +1359,43 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
     // Store normalized algorithm result (without tract geometries)
     const normalizedSize = JSON.stringify(normalizedResult).length;
     const tractCacheSize = JSON.stringify(tractMap).length;
-    const originalSize = JSON.stringify(divisionResult).length;
+    
+    // Calculate original size: if pre-normalized, estimate by adding tract cache size
+    // Otherwise use the actual divisionResult size
+    let originalSize;
+    if (isPreNormalized) {
+      // For pre-normalized data, estimate original size by adding tract geometries back
+      originalSize = normalizedSize + tractCacheSize;
+    } else {
+      originalSize = JSON.stringify(divisionResult).length;
+    }
+    
     const originalSizeMB = (originalSize / (1024 * 1024)).toFixed(2);
-    const normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
-    const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+    normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
+    tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
     const compressionRatio = ((1 - normalizedSize / originalSize) * 100).toFixed(1);
     
     console.log(`📊 Normalization: ${originalSizeMB} MB → ${normalizedSizeMB} MB algorithm + ${tractCacheSizeMB} MB tracts (${compressionRatio}% reduction in algorithm cache)`);
     
+    // Check if normalized result is still too large for Firestore (1MB limit)
+    if (normalizedSize > 1024 * 1024) {
+      console.error(`❌ Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit`);
+      return res.status(413).json({
+        error: 'Document too large for Firestore',
+        message: `Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit.`,
+        normalizedSizeMB: parseFloat(normalizedSizeMB),
+        tractCacheSizeMB: parseFloat(tractCacheSizeMB),
+        maxSizeMB: 1
+      });
+    }
+    
+    // Remove undefined values from normalizedResult (Firestore doesn't allow undefined)
+    const cleanNormalizedResult = JSON.parse(JSON.stringify(normalizedResult, (key, value) => {
+      return value === undefined ? null : value;
+    }));
+    
     const algorithmCacheEntry = {
-      data: normalizedResult,
+      data: cleanNormalizedResult,
       timestamp: Date.now(),
       ttl: cacheTtl || null,
       version: CACHE_VERSION,
@@ -1339,33 +1408,16 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
       tractCacheKey: stateTractCacheKey
     };
 
-    // Algorithm cache should ALWAYS use Firestore (not local files) so localhost and production share the same cache
-    // Only census data cache uses local files in development
-    try {
-      // Store state tract cache
-      const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
-      await stateTractDocRef.set(stateTractCacheEntry);
-      
-      // Store algorithm cache
-      const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
-      await algorithmDocRef.set(algorithmCacheEntry);
-      
-      console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE - shared between localhost and production)`);
-    } catch (firestoreError) {
-        // Check if it's a size-related error
-        if (firestoreError.message && firestoreError.message.includes('size')) {
-          console.error(`❌ Firestore document size limit exceeded`);
-          return res.status(413).json({
-            error: 'Document too large for Firestore',
-            message: `Data exceeds Firestore 1MB document limit.`,
-            normalizedSizeMB: parseFloat(normalizedSizeMB),
-            tractCacheSizeMB: parseFloat(tractCacheSizeMB),
-            maxSizeMB: 1
-          });
-        }
-        throw firestoreError;
-      }
-    }
+    // Algorithm cache always uses Firestore (shared between localhost and production)
+    // Store state tract cache
+    const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+    await stateTractDocRef.set(stateTractCacheEntry);
+    
+    // Store algorithm cache
+    const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
+    await algorithmDocRef.set(algorithmCacheEntry, { ignoreUndefinedProperties: true });
+    
+    console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE - shared between localhost and production)`);
 
     res.json({
       status: 'success',
@@ -1381,6 +1433,17 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
       }
     });
   } catch (error) {
+    // Check if it's a size-related error
+    if (error.message && error.message.includes('size')) {
+      console.error(`❌ Firestore document size limit exceeded`);
+      return res.status(413).json({
+        error: 'Document too large for Firestore',
+        message: `Data exceeds Firestore 1MB document limit.`,
+        normalizedSizeMB: normalizedSizeMB ? parseFloat(normalizedSizeMB) : 0,
+        tractCacheSizeMB: tractCacheSizeMB ? parseFloat(tractCacheSizeMB) : 0,
+        maxSizeMB: 1
+      });
+    }
     console.error('❌ Error caching algorithm result:', error);
     console.error('Error stack:', error.stack);
     res.status(500).json({
@@ -1406,33 +1469,26 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
     // Log cache mode for debugging
     console.log(`🔍 ALGORITHM CACHE CHECK: Key=${cacheKey}, USE_LOCAL_CACHE=${USE_LOCAL_CACHE}, NODE_ENV=${process.env.NODE_ENV}, GOOGLE_CLOUD_PROJECT=${process.env.GOOGLE_CLOUD_PROJECT}`);
 
-    // Algorithm cache should ALWAYS use Firestore (not local files) so localhost and production share the same cache
-    // Only census data cache uses local files in development
+    // Algorithm cache always uses Firestore (shared between localhost and production)
     let cachedEntry;
-    try {
-      console.log(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
-      const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    console.log(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
+    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    
+    if (!doc.exists) {
+      console.log(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
+      cachedEntry = null;
+    } else {
+      const data = doc.data();
       
-      if (!doc.exists) {
-        console.log(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
+      // Check if expired
+      if (isCacheExpired(data.timestamp, data.ttl)) {
+        console.log(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
+        await firestore.collection('census_cache').doc(cacheKey).delete();
         cachedEntry = null;
       } else {
-        const data = doc.data();
-        
-        // Check if expired
-        if (isCacheExpired(data.timestamp, data.ttl)) {
-          console.log(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
-          await firestore.collection('census_cache').doc(cacheKey).delete();
-          cachedEntry = null;
-        } else {
-          console.log(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
-          cachedEntry = data;
-        }
+        console.log(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
+        cachedEntry = data;
       }
-    } catch (error) {
-      console.error('❌ FIRESTORE ALGORITHM CACHE ERROR: Failed to get from Firestore for key:', cacheKey);
-      console.error('❌ FIRESTORE ALGORITHM CACHE ERROR:', error.message);
-      cachedEntry = null;
     }
     const algorithm = req.params.algorithm || 'latlong';
 
@@ -1472,18 +1528,14 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       // Handle normalized cache (v2.0) - fetch state-level tract cache
       let decompressedResult;
       if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
-        // Fetch state-level tract cache (always use Firestore for algorithm cache)
+        // Fetch state-level tract cache (always uses Firestore)
         let stateTractCache;
-        try {
-          const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
-          if (stateTractDoc.exists) {
-            const stateTractData = stateTractDoc.data();
-            if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
-              stateTractCache = stateTractData;
-            }
+        const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+        if (stateTractDoc.exists) {
+          const stateTractData = stateTractDoc.data();
+          if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+            stateTractCache = stateTractData;
           }
-        } catch (error) {
-          console.error('❌ Error fetching state tract cache:', error);
         }
         if (!stateTractCache || !stateTractCache.data) {
           console.warn(`⚠️ State tract cache not found for key: ${cachedEntry.tractCacheKey}`);
@@ -1588,6 +1640,209 @@ app.delete('/api/algorithm/:algorithm/cache', async (req, res) => {
   }
 });
 
+// Initialize algorithm service
+const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService);
+
+/**
+ * POST /api/algorithm/:algorithm/execute
+ * Execute algorithm synchronously (returns complete result)
+ */
+app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
+  try {
+    const { state, maxIterations = 100, options = {} } = req.body;
+    const algorithm = req.params.algorithm || 'latlong';
+
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+
+    // Get number of districts for state
+    const totalDistricts = getDistrictsForState(state);
+    if (!totalDistricts) {
+      return res.status(400).json({ error: `Invalid state: ${state}` });
+    }
+
+    console.log(`🚀 Executing ${algorithm} algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations})`);
+
+    // Get tract data from census proxy
+    // First, get boundaries
+    const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
+    const boundariesResponse = await axios.get(boundariesUrl);
+    
+    if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
+      return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
+    }
+
+    // Get demographic data
+    const demographicUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}`;
+    const demographicResponse = await axios.get(demographicUrl);
+    
+    const demographicData = demographicResponse.data || [];
+    const boundaries = boundariesResponse.data;
+
+    // Combine boundary and demographic data
+    const tracts = boundaries.features.map(feature => {
+      const tractId = feature.properties?.TRACT_FIPS || feature.properties?.GEOID;
+      const demographic = demographicData.find(d => {
+        const dTractId = d.GEO_ID?.split('US')[1] || d.GEOID || d.TRACT_FIPS;
+        return dTractId === tractId;
+      });
+
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          ...demographic,
+          POPULATION: demographic?.B01001_001E || feature.properties?.POPULATION || 0,
+          STATE: state
+        }
+      };
+    });
+
+    if (tracts.length === 0) {
+      return res.status(404).json({ error: `No tracts found for state: ${state}` });
+    }
+
+    console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
+
+    // Execute algorithm
+    const startTime = Date.now();
+    const result = await algorithmService.executeGeodistrictAlgorithm(
+      tracts,
+      totalDistricts,
+      maxIterations,
+      algorithm,
+      options.forceInvalidate || false
+    );
+    const executionTime = Date.now() - startTime;
+
+    console.log(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
+
+    res.json({
+      result,
+      executionTime,
+      cacheKey: `${state}_${algorithm}_${maxIterations}`,
+      state,
+      totalDistricts,
+      tractCount: tracts.length
+    });
+  } catch (error) {
+    console.error('❌ Algorithm execution error:', error);
+    res.status(500).json({
+      error: 'Algorithm execution failed',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/:algorithm/execute/step-by-step
+ * Execute algorithm with step-by-step streaming (Server-Sent Events)
+ */
+app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
+  try {
+    const { state, maxIterations = 100, options = {} } = req.body;
+    const algorithm = req.params.algorithm || 'latlong';
+
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+
+    // Get number of districts for state
+    const totalDistricts = getDistrictsForState(state);
+    if (!totalDistricts) {
+      return res.status(400).json({ error: `Invalid state: ${state}` });
+    }
+
+    console.log(`🚀 Executing ${algorithm} algorithm step-by-step for ${state} (${totalDistricts} districts)`);
+
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+    // Get tract data from census proxy
+    try {
+      const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
+      const boundariesResponse = await axios.get(boundariesUrl);
+      
+      if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
+        res.write(`data: ${JSON.stringify({ error: `No tract boundaries found for state: ${state}` })}\n\n`);
+        res.end();
+        return;
+      }
+
+      // Get demographic data
+      const demographicUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}`;
+      const demographicResponse = await axios.get(demographicUrl);
+      
+      const demographicData = demographicResponse.data || [];
+      const boundaries = boundariesResponse.data;
+
+      // Combine boundary and demographic data
+      const tracts = boundaries.features.map(feature => {
+        const tractId = feature.properties?.TRACT_FIPS || feature.properties?.GEOID;
+        const demographic = demographicData.find(d => {
+          const dTractId = d.GEO_ID?.split('US')[1] || d.GEOID || d.TRACT_FIPS;
+          return dTractId === tractId;
+        });
+
+        return {
+          ...feature,
+          properties: {
+            ...feature.properties,
+            ...demographic,
+            POPULATION: demographic?.B01001_001E || feature.properties?.POPULATION || 0,
+            STATE: state
+          }
+        };
+      });
+
+      if (tracts.length === 0) {
+        res.write(`data: ${JSON.stringify({ error: `No tracts found for state: ${state}` })}\n\n`);
+        res.end();
+        return;
+      }
+
+      console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
+
+      // Execute algorithm step-by-step
+      const startTime = Date.now();
+      const stepGenerator = algorithmService.executeGeodistrictAlgorithmStepByStep(
+        tracts,
+        totalDistricts,
+        maxIterations,
+        algorithm,
+        null // onStep callback not needed for generator
+      );
+
+      // Stream steps
+      for await (const stepData of stepGenerator) {
+        res.write(`data: ${JSON.stringify(stepData)}\n\n`);
+      }
+
+      const executionTime = Date.now() - startTime;
+      console.log(`✅ Algorithm completed in ${executionTime}ms`);
+
+      // Send completion message
+      res.write(`data: ${JSON.stringify({ complete: true, executionTime })}\n\n`);
+      res.end();
+    } catch (error) {
+      console.error('❌ Algorithm execution error:', error);
+      res.write(`data: ${JSON.stringify({ error: error.message, stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined })}\n\n`);
+      res.end();
+    }
+  } catch (error) {
+    console.error('❌ Algorithm setup error:', error);
+    res.status(500).json({
+      error: 'Algorithm setup failed',
+      message: error.message
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -1599,8 +1854,12 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Start server after testing Firestore access
+(async () => {
+  await testFirestoreAccess();
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+})();
 
 module.exports = app;
