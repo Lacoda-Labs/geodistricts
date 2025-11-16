@@ -1,0 +1,94 @@
+<div class="page-container">
+  <div class="page-header">
+    <button mat-icon-button (click)="goHome()" class="home-button" aria-label="Home">
+      <mat-icon>home</mat-icon>
+    </button>
+    <div class="state-select-group">
+      <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
+        <option value="">Select State</option>
+        <option *ngFor="let state of states" [value]="state.code">
+          {{ state.name }} ({{ state.districts }} districts)
+        </option>
+      </select>
+    </div>
+    <nav class="header-nav">
+      <a href="#" class="header-link">Contribute</a>
+      <a href="#" class="header-link">About</a>
+    </nav>
+  </div>
+  <div class="body">
+  <section class="map-section">
+    <div class="map-container">
+      <div id="usMap" class="map"></div>
+    </div>
+  </section>
+
+  <section class="info-section">
+    <div class="info-header">
+      <div class="state-selection">
+        <div class="map-controls">
+          <mat-checkbox [(ngModel)]="showTractBoundaries" (change)="onTractBoundariesChange()"
+            class="tract-boundaries-checkbox">
+            tracts
+          </mat-checkbox>
+        </div>
+      </div>
+      <div class="step-controls" *ngIf="algorithmResult">
+        <mat-checkbox [(ngModel)]="showSteps" class="show-steps-checkbox">
+          Show steps
+        </mat-checkbox>
+        <div class="step-buttons" *ngIf="showSteps">
+          <button mat-button (click)="previousStep()" [disabled]="currentStepIndex <= 0" class="step-btn">
+            Prev
+          </button>
+          <span class="step-info">
+            Step {{ currentStepIndex + 1 }} of {{ algorithmResult.steps.length }}
+          </span>
+          <button mat-button (click)="nextStep()" [disabled]="!canRunNextStep" class="step-btn">
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-body">
+      <div class="tabs-container">
+        <div class="tabs-header">
+          <button *ngFor="let tab of ['Party', 'Population', 'Demographics']" [class.active]="activeTab === tab"
+            (click)="onTabChange(tab)" class="tab-button">
+            {{ tab }}
+          </button>
+        </div>
+        <div class="tabs-content" [style.transform]="isMobile() ? 'translateX(' + getTabOffset() + ')' : 'none'">
+          <div class="tab-panel" [class.active]="activeTab === 'Party'">
+            <h3>Party Comparison</h3>
+            <p>Comparing geodistricts with current maps - Party data</p>
+          </div>
+          <div class="tab-panel" [class.active]="activeTab === 'Population'">
+            <h3>Population Comparison</h3>
+            <p>Comparing geodistricts with current maps - Population data</p>
+          </div>
+          <div class="tab-panel" [class.active]="activeTab === 'Demographics'">
+            <h3>Demographics Comparison</h3>
+            <p>Comparing geodistricts with current maps - Demographics data</p>
+          </div>
+        </div>
+        <div class="carousel-dots" *ngIf="isMobile()">
+          <span *ngFor="let tab of ['Party', 'Population', 'Demographics']; let i = index"
+            [class.active]="activeTab === tab" class="dot">
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+  </div>
+  <div class="page-footer">
+    <div class="copyright">
+      © 2025 Lacoda Labs
+    </div>
+    <nav class="footer-nav">
+      <a href="#" class="footer-link">privacy</a>
+      <a href="#" class="footer-link">terms</a>
+    </nav>
+  </div>
+</div>
