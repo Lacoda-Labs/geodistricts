@@ -7,8 +7,10 @@ const { Firestore } = require('@google-cloud/firestore');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const compression = require('compression');
 const localCache = require('./local-cache');
+const cloudStorageCache = require('./services/cloud-storage-cache');
 const { GeodistrictAlgorithmService, getDistrictsForState } = require('./services/geodistrict-algorithm');
 const latLongDivisionService = require('./services/latlong-division');
+const voterRegistrationLoader = require('./services/voter-registration-loader');
 require('dotenv').config();
 
 const app = express();
@@ -27,7 +29,7 @@ const firestore = new Firestore({
 });
 
 /**
- * Test Firestore access on startup - exit if credentials are not available
+ * Test Firestore and Cloud Storage access on startup
  */
 async function testFirestoreAccess() {
   try {
@@ -38,6 +40,15 @@ async function testFirestoreAccess() {
     // Try to access Firestore - this will fail if credentials aren't available
     const testDoc = await firestore.collection('census_cache').doc('_startup_test').get();
     console.log('✅ Firestore access verified - credentials are available');
+    
+    // Test Cloud Storage access (non-blocking - will fallback to Firestore if unavailable)
+    try {
+      await cloudStorageCache.initialize();
+      console.log('✅ Cloud Storage access verified');
+    } catch (cloudError) {
+      console.warn('⚠️ Cloud Storage initialization warning:', cloudError.message);
+      console.warn('⚠️ Cloud Storage will be skipped if unavailable (fallback to Firestore chunking)');
+    }
   } catch (error) {
     console.error('❌ FIRESTORE ACCESS ERROR:', error.message);
     console.error('❌ Full error:', error);
@@ -200,78 +211,164 @@ function isCacheExpired(timestamp, ttl) {
 }
 
 /**
- * Get data from cache (local files or Firestore)
+ * Get data from cache (local files, Cloud Storage, or Firestore)
+ * Uses Cloud Storage for large files (> 1MB), Firestore for small metadata
  */
 async function getFromCache(key) {
   if (USE_LOCAL_CACHE) {
     return await localCache.getFromCache(key);
   } else {
     try {
+      // First check Firestore for metadata/reference
       console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
       
       const doc = await firestore.collection('census_cache').doc(key).get();
       
-      if (!doc.exists) {
-        console.log(`❌ FIRESTORE CACHE: No document found for key: ${key}`);
-        return null;
+      if (doc.exists) {
+        const data = doc.data();
+        
+        // Check if expired
+        if (isCacheExpired(data.timestamp, data.ttl)) {
+          console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
+          await firestore.collection('census_cache').doc(key).delete();
+          // Also delete from Cloud Storage if it exists there
+          if (data.cloudStoragePath) {
+            try {
+              await cloudStorageCache.delete(key);
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+          return null;
+        }
+        
+        // Check version
+        if (data.version !== CACHE_VERSION) {
+          console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
+          await firestore.collection('census_cache').doc(key).delete();
+          if (data.cloudStoragePath) {
+            try {
+              await cloudStorageCache.delete(key);
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+          return null;
+        }
+        
+        // If data is stored in Cloud Storage, fetch it
+        if (data.cloudStoragePath) {
+          console.log(`📦 CLOUD STORAGE: Fetching large file from ${data.cloudStoragePath}`);
+          const cloudData = await cloudStorageCache.get(key);
+          if (cloudData) {
+            return {
+              ...data,
+              data: cloudData.data // Replace reference with actual data
+            };
+          } else {
+            // Cloud Storage file missing, clean up Firestore reference
+            console.warn(`⚠️ Cloud Storage file missing for ${key}, cleaning up Firestore reference`);
+            await firestore.collection('census_cache').doc(key).delete();
+            return null;
+          }
+        }
+        
+        // Data stored directly in Firestore (small files)
+        console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
+        return data;
       }
       
-      const data = doc.data();
-      
-      // Check if expired
-      if (isCacheExpired(data.timestamp, data.ttl)) {
-        console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
-        await firestore.collection('census_cache').doc(key).delete();
-        return null;
+      // Not in Firestore, check Cloud Storage directly (for migration compatibility)
+      console.log(`🔍 CLOUD STORAGE: Checking for key: ${key}`);
+      const cloudData = await cloudStorageCache.get(key);
+      if (cloudData) {
+        console.log(`✅ CLOUD STORAGE HIT: Retrieved data for key: ${key}`);
+        return {
+          data: cloudData.data,
+          timestamp: cloudData.timestamp,
+          ttl: null,
+          version: CACHE_VERSION,
+          source: 'U.S. Census Bureau',
+          attribution: 'Data provided by the U.S. Census Bureau (public domain)',
+          cloudStoragePath: `gs://${process.env.CENSUS_DATA_BUCKET || 'geodistricts-census-data'}/${cloudStorageCache.getFilePath(key)}`
+        };
       }
       
-      // Check version
-      if (data.version !== CACHE_VERSION) {
-        console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
-        await firestore.collection('census_cache').doc(key).delete();
-        return null;
-      }
-      
-      console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
-      // Return the full cache entry (not just data.data) so algorithmVersion is available
-      return data;
+      console.log(`❌ CACHE MISS: No data found for key: ${key}`);
+      return null;
     } catch (error) {
-      console.error('❌ FIRESTORE CACHE ERROR: Failed to get from cache for key:', key);
-      console.error('❌ FIRESTORE CACHE ERROR:', error.message);
-      console.error('❌ FIRESTORE CACHE ERROR:', error);
+      console.error('❌ CACHE ERROR: Failed to get from cache for key:', key);
+      console.error('❌ CACHE ERROR:', error.message);
       return null;
     }
   }
 }
 
 /**
- * Store data in cache (local files or Firestore)
+ * Store data in cache (local files, Cloud Storage, or Firestore)
+ * Automatically uses Cloud Storage for large files (> 1MB), Firestore for small files
  */
 async function setCache(key, data, ttl = CACHE_TTL) {
   if (USE_LOCAL_CACHE) {
     return await localCache.setCache(key, data, ttl);
   } else {
     try {
-      console.log(`🔄 FIRESTORE CACHE: Attempting to cache data for key: ${key}`);
+      const dataSize = JSON.stringify(data).length;
+      const dataSizeMB = (dataSize / (1024 * 1024)).toFixed(2);
       
-      const cacheEntry = {
-        data: data,
-        timestamp: Date.now(),
-        ttl: ttl,
-        version: CACHE_VERSION,
-        source: 'U.S. Census Bureau',
-        attribution: 'Data provided by the U.S. Census Bureau (public domain)'
-      };
-      
-      const docRef = firestore.collection('census_cache').doc(key);
-      await docRef.set(cacheEntry);
-      
-      console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${JSON.stringify(data).length} bytes`);
-      console.log(`📊 FIRESTORE CACHE: Document path: census_cache/${key}`);
+      // Use Cloud Storage for large files (> 1MB)
+      if (dataSize > 1024 * 1024) {
+        console.log(`📦 CLOUD STORAGE: Storing large file (${dataSizeMB} MB) for key: ${key}`);
+        
+        // Store in Cloud Storage
+        const cloudStoragePath = await cloudStorageCache.set(key, data, {
+          ttl: ttl ? ttl.toString() : 'null',
+          source: 'U.S. Census Bureau'
+        });
+        
+        // Store metadata reference in Firestore
+        const cacheEntry = {
+          cloudStoragePath: cloudStoragePath,
+          timestamp: Date.now(),
+          ttl: ttl,
+          version: CACHE_VERSION,
+          source: 'U.S. Census Bureau',
+          attribution: 'Data provided by the U.S. Census Bureau (public domain)',
+          size: dataSize,
+          sizeMB: parseFloat(dataSizeMB),
+          storedIn: 'cloud-storage'
+        };
+        
+        const docRef = firestore.collection('census_cache').doc(key);
+        await docRef.set(cacheEntry);
+        
+        console.log(`✅ CLOUD STORAGE: Successfully cached ${dataSizeMB} MB for key: ${key}`);
+        console.log(`📊 CLOUD STORAGE: Path: ${cloudStoragePath}`);
+      } else {
+        // Store small files directly in Firestore
+        console.log(`🔄 FIRESTORE CACHE: Storing small file (${dataSizeMB} MB) for key: ${key}`);
+        
+        const cacheEntry = {
+          data: data,
+          timestamp: Date.now(),
+          ttl: ttl,
+          version: CACHE_VERSION,
+          source: 'U.S. Census Bureau',
+          attribution: 'Data provided by the U.S. Census Bureau (public domain)',
+          size: dataSize,
+          storedIn: 'firestore'
+        };
+        
+        const docRef = firestore.collection('census_cache').doc(key);
+        await docRef.set(cacheEntry);
+        
+        console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${dataSize} bytes`);
+        console.log(`📊 FIRESTORE CACHE: Document path: census_cache/${key}`);
+      }
     } catch (error) {
-      console.error('❌ FIRESTORE CACHE ERROR: Failed to cache data for key:', key);
-      console.error('❌ FIRESTORE CACHE ERROR:', error.message);
-      console.error('❌ FIRESTORE CACHE ERROR:', error);
+      console.error('❌ CACHE ERROR: Failed to cache data for key:', key);
+      console.error('❌ CACHE ERROR:', error.message);
+      console.error('❌ CACHE ERROR:', error);
     }
   }
 }
@@ -718,6 +815,25 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * GET /api/version
+ * Get backend version information
+ */
+app.get('/api/version', (req, res) => {
+  const packageJson = require('./package.json');
+  res.json({
+    version: packageJson.version || '1.0.0',
+    name: packageJson.name || 'geodistricts-api',
+    nodeVersion: process.version,
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      algorithmExecute: '/api/algorithm/:algorithm/execute',
+      algorithmStepByStep: '/api/algorithm/:algorithm/execute/step-by-step',
+      algorithmCache: '/api/algorithm/:algorithm/cache'
+    }
+  });
+});
+
+/**
  * Test cache connectivity (local files or Firestore)
  */
 app.get('/api/test/cache', async (req, res) => {
@@ -843,13 +959,30 @@ app.get('/api/census/counties', async (req, res) => {
       });
     }
     
+    // Convert state abbreviation to FIPS code if needed (Census API requires FIPS)
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+    
+    const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+    
     // Get county data
     queryParams.set('get', 'NAME,COUNTY');
     queryParams.set('for', 'county:*');
-    queryParams.set('in', `state:${state}`);
+    queryParams.set('in', `state:${stateFips}`);
     
     const apiUrl = `${CENSUS_API_BASE}/${ACS_YEAR}/${ACS_DATASET}?${queryParams.toString()}`;
-    console.log(`Fetching counties from Census API: ${apiUrl}`);
+    console.log(`Fetching counties from Census API: state="${state}" -> FIPS="${stateFips}", url: ${apiUrl}`);
     
     const response = await axios.get(apiUrl);
     
@@ -932,6 +1065,23 @@ app.get('/api/census/tract-data', async (req, res) => {
       });
     }
     
+    // Convert state abbreviation to FIPS code if needed (Census API requires FIPS)
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+    
+    const stateFips = /^\d{2}$/.test(params.state) ? params.state : (stateFipsMap[params.state.toUpperCase()] || params.state);
+    
     // Add variables
     if (params.variables && params.variables.length > 0) {
       queryParams.set('get', params.variables.join(','));
@@ -939,14 +1089,16 @@ app.get('/api/census/tract-data', async (req, res) => {
       queryParams.set('get', 'NAME,B01003_001E,B19013_001E,B01002_001E');
     }
     
-    // Add geography - now always requires state and county
+    // Add geography - now always requires state and county (use FIPS code for state)
     if (params.tract) {
       queryParams.set('for', `tract:${params.tract}`);
-      queryParams.set('in', `state:${params.state} county:${params.county}`);
+      queryParams.set('in', `state:${stateFips} county:${params.county}`);
     } else {
       queryParams.set('for', 'tract:*');
-      queryParams.set('in', `state:${params.state} county:${params.county}`);
+      queryParams.set('in', `state:${stateFips} county:${params.county}`);
     }
+    
+    console.log(`🔍 Census API query: state="${params.state}" -> FIPS="${stateFips}", county="${params.county}"`);
     
     const apiUrl = `${CENSUS_API_BASE}/${params.year}/${params.dataset}?${queryParams.toString()}`;
     console.log(`Fetching from Census API: ${apiUrl}`);
@@ -955,6 +1107,26 @@ app.get('/api/census/tract-data', async (req, res) => {
     console.log(`Census API response type:`, typeof response.data);
     console.log(`Census API response length:`, response.data ? response.data.length : 'null');
     console.log(`Census API response preview:`, JSON.stringify(response.data).substring(0, 500));
+    
+    // Check if response is an error message string
+    if (typeof response.data === 'string') {
+      console.error(`❌ Census API returned error string:`, response.data);
+      // Try to parse as JSON in case it's a JSON error message
+      try {
+        const errorData = JSON.parse(response.data);
+        console.error(`❌ Parsed error:`, errorData);
+        return res.status(500).json({ 
+          error: 'Census API error',
+          message: errorData.message || errorData.error || response.data
+        });
+      } catch (e) {
+        // Not JSON, return as-is
+        return res.status(500).json({ 
+          error: 'Census API error',
+          message: response.data
+        });
+      }
+    }
     
     const transformedData = transformCensusResponse(response.data, params);
     
@@ -981,8 +1153,25 @@ app.get('/api/census/tract-data', async (req, res) => {
  * Get tract count for a state/county
  */
 async function getTractCount(state, county) {
+  // Convert state abbreviation to FIPS code if needed
+  const stateFipsMap = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+    'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+    'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+    'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+    'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+    'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+    'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+    'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+    'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+    'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+    'DC': '11'
+  };
+  
+  const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+  
   const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-  let whereClause = `STATE_FIPS='${state}'`;
+  let whereClause = `STATE_FIPS='${stateFips}'`;
   if (county) {
     whereClause += ` AND COUNTY_FIPS='${county}'`;
   }
@@ -1104,11 +1293,31 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       return handleStreamingResponse(req, res, state, county, cacheKey, totalCount);
     }
     
+    // Convert state abbreviation to FIPS code if needed
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+    
+    // Use FIPS code if state is already a 2-digit code, otherwise convert
+    const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+    
     const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-    let whereClause = `STATE_FIPS='${state}'`;
+    let whereClause = `STATE_FIPS='${stateFips}'`;
     if (county) {
       whereClause += ` AND COUNTY_FIPS='${county}'`;
     }
+    
+    console.log(`🔍 TIGERweb query: state="${state}" -> FIPS="${stateFips}", where="${whereClause}"`);
     
     // For smaller datasets, use single request
     const params = new URLSearchParams({
@@ -1285,13 +1494,315 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
 });
 
 /**
+ * Helper function to cache algorithm results
+ * Uses normalized caching: tract geometries stored separately at state level
+ * @param {string} cacheKey - Cache key (e.g., "AZ_latlong_100")
+ * @param {object} divisionResult - Algorithm result to cache
+ * @param {string} stateCode - State code (e.g., "AZ")
+ * @param {string} algorithm - Algorithm type (e.g., "latlong")
+ * @param {string} algorithmVersion - Algorithm version
+ * @param {number|null} ttl - Time to live (null = no expiration)
+ * @param {Array} tractMap - Optional pre-normalized tract map from frontend
+ * @returns {Promise<{success: boolean, cacheKey: string, stateTractCacheKey: string, sizes?: object, error?: string}>}
+ */
+async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorithm, algorithmVersion, ttl = null, tractMap = null) {
+  try {
+    // Check if data is already normalized by frontend
+    let normalizedResult, finalTractMap;
+    const isPreNormalized = divisionResult._normalized && tractMap && Array.isArray(tractMap) && tractMap.length > 0;
+    
+    if (isPreNormalized) {
+      // Frontend already normalized - use provided data
+      console.log(`✅ Using pre-normalized data (${divisionResult._tractCount || 0} tracts, tractMap length: ${tractMap.length})`);
+      normalizedResult = divisionResult;
+      finalTractMap = tractMap;
+    } else {
+      // Normalize on backend: separate tract geometries from step data
+      console.log(`🔄 Normalizing on backend`);
+      const compressed = compressGeodistrictResult(divisionResult, stateCode);
+      normalizedResult = compressed.normalizedResult;
+      finalTractMap = compressed.tractMap;
+    }
+    
+    // Store normalized algorithm result (without tract geometries)
+    const normalizedSize = JSON.stringify(normalizedResult).length;
+    const tractCacheSize = JSON.stringify(finalTractMap).length;
+    const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+    
+    // Store state-level tract cache (tract geometries)
+    // Use Cloud Storage for large files (> 1MB) instead of Firestore chunking
+    const FIRESTORE_MAX_SIZE = 1024 * 1024; // 1MB
+    let useCloudStorage = tractCacheSize > FIRESTORE_MAX_SIZE;
+    const stateTractCacheKey = `state_tracts_${stateCode}`;
+    
+    if (useCloudStorage) {
+      // Store in Cloud Storage (no size limit, no chunking needed)
+      console.log(`📦 CLOUD STORAGE: Storing state tract cache (${tractCacheSizeMB} MB) for ${stateCode} in Cloud Storage`);
+      
+      try {
+        const cloudStoragePath = await cloudStorageCache.set(stateTractCacheKey, finalTractMap, {
+          state: stateCode,
+          tractCount: finalTractMap.length.toString(),
+          source: 'state-tract-cache'
+        });
+        
+        // Store metadata reference in Firestore
+        const metadataEntry = {
+          cloudStoragePath: cloudStoragePath,
+          timestamp: Date.now(),
+          ttl: null, // No expiration - tract geometries are static
+          version: CACHE_VERSION,
+          source: 'state-tract-cache-metadata',
+          attribution: `Tract geometries metadata for state ${stateCode}`,
+          chunked: false,
+          cloudStorage: true,
+          totalChunks: 0,
+          tractCount: finalTractMap.length,
+          state: stateCode,
+          size: tractCacheSize,
+          sizeMB: parseFloat(tractCacheSizeMB)
+        };
+        
+        const metadataDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        await metadataDocRef.set(metadataEntry);
+        
+        console.log(`💾 CLOUD STORAGE: Stored ${tractCacheSizeMB} MB tract cache for state ${stateCode} at ${cloudStoragePath}`);
+      } catch (error) {
+        console.error(`❌ CLOUD STORAGE: Failed to store tract cache for ${stateCode}:`, error.message);
+        // Fall back to Firestore chunking if Cloud Storage fails
+        console.log(`⚠️ Falling back to Firestore chunking for ${stateCode}`);
+        useCloudStorage = false;
+      }
+    }
+    
+    // Fallback: Use Firestore chunking for smaller files or if Cloud Storage fails
+    if (!useCloudStorage) {
+      const needsSplitting = tractCacheSize > FIRESTORE_MAX_SIZE;
+      
+      if (needsSplitting) {
+        // Split tract map into chunks that fit within Firestore's 1MB limit
+        console.log(`📦 Tract cache (${tractCacheSizeMB} MB) exceeds Firestore limit, splitting into chunks...`);
+        
+        const tractArray = Array.isArray(finalTractMap) ? finalTractMap : Array.from(finalTractMap.entries());
+        const chunks = [];
+        let currentChunk = [];
+        let currentChunkSize = 0;
+        // Use 70% of limit to account for Firestore document overhead (metadata fields, structure, etc.)
+        const CHUNK_DATA_SIZE_LIMIT = FIRESTORE_MAX_SIZE * 0.7; // ~700KB for data field
+        
+        for (const tract of tractArray) {
+          const tractSize = JSON.stringify(tract).length;
+          // Estimate full document size: data field + metadata overhead (~200 bytes)
+          const estimatedDocSize = currentChunkSize + tractSize + 200;
+          
+          if (estimatedDocSize > CHUNK_DATA_SIZE_LIMIT && currentChunk.length > 0) {
+            // Verify actual chunk document size before saving
+            const testChunkEntry = {
+              data: currentChunk,
+              timestamp: Date.now(),
+              ttl: null,
+              version: CACHE_VERSION,
+              source: 'state-tract-cache-chunk',
+              attribution: `Tract geometries chunk for state ${stateCode}`,
+              compressed: true,
+              chunkIndex: chunks.length,
+              totalChunks: 0, // Will be updated later
+              tractCount: currentChunk.length,
+              state: stateCode
+            };
+            const testChunkSize = JSON.stringify(testChunkEntry).length;
+            
+            // If still too large, remove last tract and try again
+            if (testChunkSize > FIRESTORE_MAX_SIZE && currentChunk.length > 1) {
+              const lastTract = currentChunk.pop();
+              currentChunkSize -= JSON.stringify(lastTract).length;
+              // Save chunk without the last tract
+              chunks.push([...currentChunk]);
+              // Start new chunk with the last tract
+              currentChunk = [lastTract];
+              currentChunkSize = JSON.stringify(lastTract).length;
+            } else {
+              // Save current chunk and start new one
+              chunks.push(currentChunk);
+              currentChunk = [tract];
+              currentChunkSize = tractSize;
+            }
+          } else {
+            currentChunk.push(tract);
+            currentChunkSize += tractSize;
+          }
+        }
+        
+        // Add final chunk
+        if (currentChunk.length > 0) {
+          chunks.push(currentChunk);
+        }
+        
+        // Verify all chunks are within size limit
+        const chunkSizes = chunks.map(c => {
+          const testEntry = {
+            data: c,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'state-tract-cache-chunk',
+            attribution: `Tract geometries chunk for state ${stateCode}`,
+            compressed: true,
+            chunkIndex: 0,
+            totalChunks: chunks.length,
+            tractCount: c.length,
+            state: stateCode
+          };
+          return JSON.stringify(testEntry).length;
+        });
+        
+        console.log(`📦 Split tract cache into ${chunks.length} chunks (${chunkSizes.map(s => (s / (1024 * 1024)).toFixed(2)).join(', ')} MB each)`);
+        
+        // Check if any chunk exceeds limit
+        const oversizedChunks = chunkSizes.filter(s => s > FIRESTORE_MAX_SIZE);
+        if (oversizedChunks.length > 0) {
+          console.error(`❌ ${oversizedChunks.length} chunks still exceed Firestore limit. Max chunk size: ${Math.max(...chunkSizes)} bytes`);
+          throw new Error(`Even after splitting, ${oversizedChunks.length} chunks exceed Firestore 1MB limit.`);
+        }
+        
+        // Store each chunk as a separate document
+        const batch = firestore.batch();
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkKey = `${stateTractCacheKey}_chunk_${i}`;
+          const chunkDocRef = firestore.collection('census_cache').doc(chunkKey);
+          const chunkEntry = {
+            data: chunks[i],
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'state-tract-cache-chunk',
+            attribution: `Tract geometries chunk ${i + 1}/${chunks.length} for state ${stateCode}`,
+            compressed: true,
+            chunkIndex: i,
+            totalChunks: chunks.length,
+            tractCount: chunks[i].length,
+            state: stateCode
+          };
+          batch.set(chunkDocRef, chunkEntry);
+        }
+        
+        // Store metadata document with chunk references
+        const metadataDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        const metadataEntry = {
+          timestamp: Date.now(),
+          ttl: null,
+          version: CACHE_VERSION,
+          source: 'state-tract-cache-metadata',
+          attribution: `Tract geometries metadata for state ${stateCode}`,
+          chunked: true,
+          totalChunks: chunks.length,
+          tractCount: tractArray.length,
+          state: stateCode,
+          chunkKeys: chunks.map((_, i) => `${stateTractCacheKey}_chunk_${i}`)
+        };
+        batch.set(metadataDocRef, metadataEntry);
+        
+        await batch.commit();
+        console.log(`💾 Stored tract cache as ${chunks.length} chunks for state ${stateCode}`);
+      } else {
+        // Store as single document (fits within 1MB limit)
+        const stateTractCacheEntry = {
+          data: finalTractMap,
+          timestamp: Date.now(),
+          ttl: null, // No expiration - tract geometries are static
+          version: CACHE_VERSION,
+          source: 'state-tract-cache',
+          attribution: `Tract geometries for state ${stateCode}`,
+          compressed: true,
+          tractCount: finalTractMap.length,
+          chunked: false
+        };
+        const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        await stateTractDocRef.set(stateTractCacheEntry);
+      }
+    }
+    
+    // Calculate original size: if pre-normalized, estimate by adding tract cache size
+    // Otherwise use the actual divisionResult size
+    let originalSize;
+    if (isPreNormalized) {
+      // For pre-normalized data, estimate original size by adding tract geometries back
+      originalSize = normalizedSize + tractCacheSize;
+    } else {
+      originalSize = JSON.stringify(divisionResult).length;
+    }
+    
+    const originalSizeMB = (originalSize / (1024 * 1024)).toFixed(2);
+    const normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
+    const finalTractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+    const compressionRatio = ((1 - normalizedSize / originalSize) * 100).toFixed(1);
+    
+    console.log(`📊 Normalization: ${originalSizeMB} MB → ${normalizedSizeMB} MB algorithm + ${finalTractCacheSizeMB} MB tracts (${compressionRatio}% reduction in algorithm cache)`);
+    
+    // Check if normalized result is still too large for Firestore (1MB limit)
+    if (normalizedSize > 1024 * 1024) {
+      console.error(`❌ Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit`);
+      throw new Error(`Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit.`);
+    }
+    
+    // Remove undefined values from normalizedResult (Firestore doesn't allow undefined)
+    const cleanNormalizedResult = JSON.parse(JSON.stringify(normalizedResult, (key, value) => {
+      return value === undefined ? null : value;
+    }));
+    
+    const cacheTtl = ttl === null ? null : (ttl || CACHE_TTL);
+    
+    const algorithmCacheEntry = {
+      data: cleanNormalizedResult,
+      timestamp: Date.now(),
+      ttl: cacheTtl || null,
+      version: CACHE_VERSION,
+      algorithmVersion: algorithmVersion,
+      source: `${algorithm}-algorithm-cache`,
+      attribution: `${algorithm} algorithm cached result (normalized)`,
+      compressed: true,
+      normalized: true,
+      state: stateCode,
+      tractCacheKey: stateTractCacheKey
+    };
+
+    // Algorithm cache always uses Firestore (shared between localhost and production)
+    // Note: State tract cache was already stored above (either as chunks or single document)
+    
+    // Store algorithm cache
+    const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
+    await algorithmDocRef.set(algorithmCacheEntry, { ignoreUndefinedProperties: true });
+    
+    console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${finalTractMap.length} tracts for state ${stateCode}`);
+    
+    return {
+      success: true,
+      cacheKey,
+      stateTractCacheKey,
+      sizes: {
+        originalMB: parseFloat(originalSizeMB),
+        normalizedMB: parseFloat(normalizedSizeMB),
+        tractCacheMB: parseFloat(finalTractCacheSizeMB),
+        compressionRatio: parseFloat(compressionRatio),
+        tractCount: finalTractMap.length
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error caching algorithm result:', error);
+    return {
+      success: false,
+      cacheKey,
+      stateTractCacheKey: `state_tracts_${stateCode}`,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Cache algorithm results (supports all algorithm types)
  * Uses normalized caching: tract geometries stored separately at state level
  */
 app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
-  // Declare size variables outside try block for error handler access
-  let normalizedSizeMB, tractCacheSizeMB;
-  
   try {
     const { cacheKey, divisionResult, ttl, state } = req.body;
 
@@ -1326,126 +1837,52 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
     const algorithm = req.params.algorithm || 'latlong';
     const algorithmVersion = req.body.algorithmVersion || 'unknown';
     
-    // Check if data is already normalized by frontend
-    let normalizedResult, tractMap;
-    const isPreNormalized = divisionResult._normalized && req.body.tractMap && Array.isArray(req.body.tractMap) && req.body.tractMap.length > 0;
+    // Use helper function to cache the result
+    const cacheResult = await cacheAlgorithmResult(
+      cacheKey,
+      divisionResult,
+      stateCode,
+      algorithm,
+      algorithmVersion,
+      cacheTtl,
+      req.body.tractMap // Pass tract map if provided by frontend
+    );
     
-    if (isPreNormalized) {
-      // Frontend already normalized - use provided data
-      console.log(`✅ Using pre-normalized data from frontend (${divisionResult._tractCount || 0} tracts, tractMap length: ${req.body.tractMap.length})`);
-      normalizedResult = divisionResult;
-      tractMap = req.body.tractMap; // Use tract map from frontend
-    } else {
-      // Normalize on backend: separate tract geometries from step data
-      console.log(`🔄 Normalizing on backend (pre-normalized: ${!!divisionResult._normalized}, tractMap provided: ${!!req.body.tractMap}, tractMap length: ${req.body.tractMap?.length || 0})`);
-      const compressed = compressGeodistrictResult(divisionResult, stateCode);
-      normalizedResult = compressed.normalizedResult;
-      tractMap = compressed.tractMap;
-    }
-    
-    // Store state-level tract cache (tract geometries)
-    const stateTractCacheKey = `state_tracts_${stateCode}`;
-    const stateTractCacheEntry = {
-      data: tractMap,
-      timestamp: Date.now(),
-      ttl: null, // No expiration - tract geometries are static
-      version: CACHE_VERSION,
-      source: 'state-tract-cache',
-      attribution: `Tract geometries for state ${stateCode}`,
-      compressed: true,
-      tractCount: tractMap.length
-    };
-    
-    // Store normalized algorithm result (without tract geometries)
-    const normalizedSize = JSON.stringify(normalizedResult).length;
-    const tractCacheSize = JSON.stringify(tractMap).length;
-    
-    // Calculate original size: if pre-normalized, estimate by adding tract cache size
-    // Otherwise use the actual divisionResult size
-    let originalSize;
-    if (isPreNormalized) {
-      // For pre-normalized data, estimate original size by adding tract geometries back
-      originalSize = normalizedSize + tractCacheSize;
-    } else {
-      originalSize = JSON.stringify(divisionResult).length;
-    }
-    
-    const originalSizeMB = (originalSize / (1024 * 1024)).toFixed(2);
-    normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
-    tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
-    const compressionRatio = ((1 - normalizedSize / originalSize) * 100).toFixed(1);
-    
-    console.log(`📊 Normalization: ${originalSizeMB} MB → ${normalizedSizeMB} MB algorithm + ${tractCacheSizeMB} MB tracts (${compressionRatio}% reduction in algorithm cache)`);
-    
-    // Check if normalized result is still too large for Firestore (1MB limit)
-    if (normalizedSize > 1024 * 1024) {
-      console.error(`❌ Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit`);
-      return res.status(413).json({
-        error: 'Document too large for Firestore',
-        message: `Normalized algorithm result (${normalizedSizeMB} MB) exceeds Firestore 1MB document limit.`,
-        normalizedSizeMB: parseFloat(normalizedSizeMB),
-        tractCacheSizeMB: parseFloat(tractCacheSizeMB),
-        maxSizeMB: 1
+    if (!cacheResult.success) {
+      // Handle errors from caching
+      if (cacheResult.error && cacheResult.error.includes('exceeds Firestore')) {
+        return res.status(413).json({
+          error: 'Document too large for Firestore',
+          message: cacheResult.error,
+          maxSizeMB: 1
+        });
+      }
+      return res.status(500).json({
+        error: 'Failed to cache division result',
+        message: cacheResult.error
       });
     }
     
-    // Remove undefined values from normalizedResult (Firestore doesn't allow undefined)
-    const cleanNormalizedResult = JSON.parse(JSON.stringify(normalizedResult, (key, value) => {
-      return value === undefined ? null : value;
-    }));
-    
-    const algorithmCacheEntry = {
-      data: cleanNormalizedResult,
-      timestamp: Date.now(),
-      ttl: cacheTtl || null,
-      version: CACHE_VERSION,
-      algorithmVersion: algorithmVersion,
-      source: `${algorithm}-algorithm-cache`,
-      attribution: `${algorithm} algorithm cached result (normalized)`,
-      compressed: true,
-      normalized: true,
-      state: stateCode,
-      tractCacheKey: stateTractCacheKey
-    };
-
-    // Algorithm cache always uses Firestore (shared between localhost and production)
-    // Store state tract cache
-    const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
-    await stateTractDocRef.set(stateTractCacheEntry);
-    
-    // Store algorithm cache
-    const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
-    await algorithmDocRef.set(algorithmCacheEntry, { ignoreUndefinedProperties: true });
-    
-    console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${tractMap.length} tracts for state ${stateCode} (FIRESTORE - shared between localhost and production)`);
-
     res.json({
       status: 'success',
       message: 'Division result cached successfully (normalized)',
-      cacheKey,
-      stateTractCacheKey,
-      sizes: {
-        originalMB: parseFloat(originalSizeMB),
-        normalizedMB: parseFloat(normalizedSizeMB),
-        tractCacheMB: parseFloat(tractCacheSizeMB),
-        compressionRatio: parseFloat(compressionRatio),
-        tractCount: tractMap.length
-      }
+      cacheKey: cacheResult.cacheKey,
+      stateTractCacheKey: cacheResult.stateTractCacheKey,
+      sizes: cacheResult.sizes
     });
   } catch (error) {
+    console.error('❌ Error caching algorithm result:', error);
+    console.error('Error stack:', error.stack);
+    
     // Check if it's a size-related error
-    if (error.message && error.message.includes('size')) {
-      console.error(`❌ Firestore document size limit exceeded`);
+    if (error.message && error.message.includes('exceeds Firestore')) {
       return res.status(413).json({
         error: 'Document too large for Firestore',
-        message: `Data exceeds Firestore 1MB document limit.`,
-        normalizedSizeMB: normalizedSizeMB ? parseFloat(normalizedSizeMB) : 0,
-        tractCacheSizeMB: tractCacheSizeMB ? parseFloat(tractCacheSizeMB) : 0,
+        message: error.message,
         maxSizeMB: 1
       });
     }
-    console.error('❌ Error caching algorithm result:', error);
-    console.error('Error stack:', error.stack);
+    
     res.status(500).json({
       error: 'Failed to cache division result',
       message: error.message,
@@ -1537,6 +1974,35 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
             stateTractCache = stateTractData;
           }
         }
+        
+        // Check if tract cache is chunked
+        if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
+          // Fetch all chunks and combine
+          console.log(`📦 Fetching ${stateTractCache.totalChunks} tract cache chunks...`);
+          const chunkPromises = stateTractCache.chunkKeys.map(chunkKey => 
+            firestore.collection('census_cache').doc(chunkKey).get()
+          );
+          const chunkDocs = await Promise.all(chunkPromises);
+          
+          // Combine all chunks into single array
+          const allTracts = [];
+          for (const chunkDoc of chunkDocs) {
+            if (chunkDoc.exists) {
+              const chunkData = chunkDoc.data();
+              if (chunkData.data && Array.isArray(chunkData.data)) {
+                allTracts.push(...chunkData.data);
+              }
+            }
+          }
+          
+          console.log(`✅ Combined ${allTracts.length} tracts from ${chunkDocs.length} chunks`);
+          stateTractCache = {
+            ...stateTractCache,
+            data: allTracts,
+            tractCount: allTracts.length
+          };
+        }
+        
         if (!stateTractCache || !stateTractCache.data) {
           console.warn(`⚠️ State tract cache not found for key: ${cachedEntry.tractCacheKey}`);
           return res.json({
@@ -1665,19 +2131,60 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
     console.log(`🚀 Executing ${algorithm} algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations})`);
 
     // Get tract data from census proxy
-    // First, get boundaries
-    const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
-    const boundariesResponse = await axios.get(boundariesUrl);
+    // First, get boundaries - force invalidate if cache is empty
+    let boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
+    console.log(`📡 Fetching boundaries from: ${boundariesUrl}`);
+    let boundariesResponse = await axios.get(boundariesUrl);
+    
+    console.log(`📦 Boundaries response status: ${boundariesResponse.status}`);
+    console.log(`📦 Boundaries response data type: ${typeof boundariesResponse.data}`);
+    console.log(`📦 Boundaries response has features: ${!!boundariesResponse.data?.features}`);
+    console.log(`📦 Boundaries features count: ${boundariesResponse.data?.features?.length || 0}`);
+    
+    // If cached data is empty, force invalidate and fetch fresh
+    if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
+      console.warn(`⚠️ Cached boundaries are empty, forcing fresh fetch...`);
+      boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`;
+      boundariesResponse = await axios.get(boundariesUrl);
+      console.log(`📦 Fresh boundaries features count: ${boundariesResponse.data?.features?.length || 0}`);
+    }
     
     if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
+      console.error(`❌ No tract boundaries found after fresh fetch - data:`, JSON.stringify(boundariesResponse.data).substring(0, 200));
       return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
     }
 
-    // Get demographic data
-    const demographicUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}`;
-    const demographicResponse = await axios.get(demographicUrl);
+    // Get demographic data - need to fetch for all counties in the state
+    // First, get all counties for the state
+    const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
+    console.log(`📡 Fetching counties from: ${countiesUrl}`);
+    const countiesResponse = await axios.get(countiesUrl);
     
-    const demographicData = demographicResponse.data || [];
+    const counties = countiesResponse.data || [];
+    console.log(`📊 Found ${counties.length} counties for state ${state}`);
+    
+    // Fetch tract data for each county and combine
+    // Force invalidate to bypass cached empty responses from when we used state abbreviations instead of FIPS codes
+    const demographicDataPromises = counties.map(county => {
+      const countyFips = county.COUNTY || county.county || county.fips;
+      const tractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}&county=${countyFips}&forceInvalidate=true`;
+      return axios.get(tractDataUrl).then(response => {
+        const data = response.data || [];
+        // If cached data was empty (2 bytes = "[]"), log a warning
+        if (Array.isArray(data) && data.length === 0) {
+          console.warn(`⚠️ Empty tract data for county ${countyFips} (may need fresh fetch)`);
+        }
+        return data;
+      }).catch(error => {
+        console.warn(`⚠️ Failed to fetch tract data for county ${countyFips}:`, error.message);
+        return [];
+      });
+    });
+    
+    const demographicDataArrays = await Promise.all(demographicDataPromises);
+    const demographicData = demographicDataArrays.flat();
+    
+    console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
     const boundaries = boundariesResponse.data;
 
     // Combine boundary and demographic data
@@ -1718,13 +2225,30 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
 
     console.log(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
 
+    // Cache the result automatically (async, don't wait for it)
+    const cacheKey = `${state}_${algorithm}_${maxIterations}`;
+    const algorithmVersion = '20251113-1400'; // Match frontend ALGORITHM_VERSION
+    
+    cacheAlgorithmResult(cacheKey, result, state, algorithm, algorithmVersion, null, null)
+      .then(cacheResult => {
+        if (cacheResult.success) {
+          console.log(`💾 Backend automatically cached result for ${state} (${cacheResult.sizes?.normalizedMB || 0} MB algorithm, ${cacheResult.sizes?.tractCacheMB || 0} MB tracts)`);
+        } else {
+          console.warn(`⚠️ Backend caching failed for ${state}: ${cacheResult.error}`);
+        }
+      })
+      .catch(err => {
+        console.error(`❌ Backend caching error for ${state}:`, err.message);
+      });
+
     res.json({
       result,
       executionTime,
-      cacheKey: `${state}_${algorithm}_${maxIterations}`,
+      cacheKey,
       state,
       totalDistricts,
-      tractCount: tracts.length
+      tractCount: tracts.length,
+      cached: true // Indicate that backend cached it
     });
   } catch (error) {
     console.error('❌ Algorithm execution error:', error);
@@ -1838,6 +2362,208 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
     console.error('❌ Algorithm setup error:', error);
     res.status(500).json({
       error: 'Algorithm setup failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * ============================================================================
+ * VOTER REGISTRATION DATA ENDPOINTS
+ * ============================================================================
+ */
+
+/**
+ * GET /api/voter-registration/states
+ * Get list of all states and their data source status
+ */
+app.get('/api/voter-registration/states', async (req, res) => {
+  try {
+    const allStates = voterRegistrationLoader.getAllStates();
+    const configuredStates = voterRegistrationLoader.getConfiguredStates();
+    
+    const states = allStates.map(state => ({
+      code: state,
+      fips: voterRegistrationLoader.getStateFipsCode(state),
+      configured: configuredStates.includes(state),
+      dataSource: voterRegistrationLoader.getStateDataSource(state),
+      loading: voterRegistrationLoader.isLoading(state)
+    }));
+
+    res.json({
+      states,
+      total: states.length,
+      configured: configuredStates.length,
+      unconfigured: states.length - configuredStates.length
+    });
+  } catch (error) {
+    console.error('Error getting states list:', error);
+    res.status(500).json({
+      error: 'Failed to get states list',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/voter-registration/:state
+ * Get voter registration data for a specific state
+ */
+app.get('/api/voter-registration/:state', async (req, res) => {
+  try {
+    const { state } = req.params;
+    const stateUpper = state.toUpperCase();
+
+    // Check cache first
+    const cacheKey = `voter_registration_${stateUpper}`;
+    const cached = await getFromCache(cacheKey);
+    
+    if (cached && cached.data) {
+      console.log(`✅ CACHE HIT: Voter registration data for ${state}`);
+      return res.json(cached.data);
+    }
+
+    // If not cached, check if data exists in storage
+    // For now, return status indicating data needs to be fetched
+    res.json({
+      state: stateUpper,
+      status: 'not_loaded',
+      message: `Voter registration data not yet loaded for ${state}. Use POST /api/voter-registration/:state/fetch to load data.`
+    });
+  } catch (error) {
+    console.error(`Error getting voter registration data for ${req.params.state}:`, error);
+    res.status(500).json({
+      error: 'Failed to get voter registration data',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/voter-registration/:state/fetch
+ * Fetch and store voter registration data for a specific state
+ */
+app.post('/api/voter-registration/:state/fetch', async (req, res) => {
+  try {
+    const { state } = req.params;
+    const stateUpper = state.toUpperCase();
+    const { forceRefresh = false } = req.body;
+
+    // Check if already loading
+    if (voterRegistrationLoader.isLoading(stateUpper)) {
+      return res.status(409).json({
+        error: 'Data is already being loaded',
+        message: `Voter registration data is currently being fetched for ${state}. Please wait.`
+      });
+    }
+
+    // Check cache if not forcing refresh
+    if (!forceRefresh) {
+      const cacheKey = `voter_registration_${stateUpper}`;
+      const cached = await getFromCache(cacheKey);
+      
+      if (cached && cached.data) {
+        console.log(`✅ CACHE HIT: Voter registration data for ${state}`);
+        return res.json({
+          ...cached.data,
+          cached: true,
+          message: 'Data retrieved from cache. Use forceRefresh=true to fetch fresh data.'
+        });
+      }
+    }
+
+    console.log(`📥 Fetching voter registration data for ${state}...`);
+
+    // Fetch data (this will be async, but we'll wait for it)
+    const voterData = await voterRegistrationLoader.fetchVoterRegistrationData(stateUpper);
+
+    // Store in cache
+    const cacheKey = `voter_registration_${stateUpper}`;
+    const dataSize = JSON.stringify(voterData).length;
+    
+    // Use Cloud Storage for large files (> 1MB), Firestore for small files
+    await setCache(cacheKey, voterData, CACHE_TTL);
+
+    console.log(`✅ Successfully fetched and cached voter registration data for ${state} (${(dataSize / 1024).toFixed(2)} KB)`);
+
+    res.json({
+      ...voterData,
+      cached: false,
+      message: 'Data successfully fetched and cached'
+    });
+
+  } catch (error) {
+    console.error(`Error fetching voter registration data for ${req.params.state}:`, error);
+    res.status(500).json({
+      error: 'Failed to fetch voter registration data',
+      message: error.message,
+      state: req.params.state.toUpperCase()
+    });
+  }
+});
+
+/**
+ * GET /api/voter-registration/:state/status
+ * Get loading status for a state
+ */
+app.get('/api/voter-registration/:state/status', async (req, res) => {
+  try {
+    const { state } = req.params;
+    const stateUpper = state.toUpperCase();
+    
+    const cacheKey = `voter_registration_${stateUpper}`;
+    const cached = await getFromCache(cacheKey);
+    
+    res.json({
+      state: stateUpper,
+      loading: voterRegistrationLoader.isLoading(stateUpper),
+      cached: !!cached,
+      dataSource: voterRegistrationLoader.getStateDataSource(stateUpper),
+      lastUpdated: cached ? new Date(cached.timestamp).toISOString() : null
+    });
+  } catch (error) {
+    console.error(`Error getting status for ${req.params.state}:`, error);
+    res.status(500).json({
+      error: 'Failed to get status',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/voter-registration/:state
+ * Delete cached voter registration data for a state
+ */
+app.delete('/api/voter-registration/:state', async (req, res) => {
+  try {
+    const { state } = req.params;
+    const stateUpper = state.toUpperCase();
+    const cacheKey = `voter_registration_${stateUpper}`;
+
+    // Delete from Firestore
+    try {
+      await firestore.collection('census_cache').doc(cacheKey).delete();
+    } catch (e) {
+      // Ignore if doesn't exist
+    }
+
+    // Delete from Cloud Storage if exists
+    try {
+      await cloudStorageCache.delete(cacheKey);
+    } catch (e) {
+      // Ignore if doesn't exist
+    }
+
+    console.log(`🗑️ Deleted cached voter registration data for ${state}`);
+
+    res.json({
+      state: stateUpper,
+      message: 'Cached data deleted successfully'
+    });
+  } catch (error) {
+    console.error(`Error deleting voter registration data for ${req.params.state}:`, error);
+    res.status(500).json({
+      error: 'Failed to delete cached data',
       message: error.message
     });
   }

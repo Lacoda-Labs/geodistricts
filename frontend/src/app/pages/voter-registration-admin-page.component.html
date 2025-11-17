@@ -1,0 +1,154 @@
+<div class="admin-page-container">
+  <div class="page-header">
+    <h1>Voter Registration Data Admin</h1>
+    <p class="subtitle">Manage voter registration party data for all states</p>
+  </div>
+
+  <div class="content-section">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="card-value">{{ states.length }}</div>
+          <div class="card-label">Total States</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="card-value">{{ getConfiguredCount() }}</div>
+          <div class="card-label">Configured</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="summary-card">
+        <mat-card-content>
+          <div class="card-value">{{ getCachedStatesCount() }}</div>
+          <div class="card-label">Cached</div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- State Selection and Actions -->
+    <mat-card class="action-card">
+      <mat-card-header>
+        <mat-card-title>Fetch Voter Registration Data</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="action-section">
+          <mat-form-field appearance="outline" class="state-select">
+            <mat-label>Select State</mat-label>
+            <mat-select [(ngModel)]="selectedState">
+              <mat-option *ngFor="let state of allStates" [value]="state.code">
+                {{ state.name }} ({{ state.code }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="button-group">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="fetchData(false)"
+              [disabled]="!selectedState || isStateLoading(selectedState) || fetchingState === selectedState">
+              <mat-icon *ngIf="!isStateLoading(selectedState) && fetchingState !== selectedState">download</mat-icon>
+              <mat-spinner *ngIf="isStateLoading(selectedState) || fetchingState === selectedState" diameter="20" class="inline-spinner"></mat-spinner>
+              Fetch Data
+            </button>
+
+            <button 
+              mat-raised-button 
+              color="accent" 
+              (click)="fetchData(true)"
+              [disabled]="!selectedState || isStateLoading(selectedState) || fetchingState === selectedState">
+              <mat-icon>refresh</mat-icon>
+              Force Refresh
+            </button>
+
+            <button 
+              mat-raised-button 
+              color="warn" 
+              (click)="deleteCachedData()"
+              [disabled]="!selectedState || !hasCachedData(selectedState)">
+              <mat-icon>delete</mat-icon>
+              Delete Cache
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected State Status -->
+        <div *ngIf="selectedState" class="state-status">
+          <h3>Status: {{ getStateName(selectedState) }}</h3>
+          <div *ngIf="getStateStatus(selectedState) as status" class="status-details">
+            <div class="status-item">
+              <span class="status-label">Data Source:</span>
+              <span class="status-value">
+                {{ status.dataSource?.name || 'Not configured' }}
+              </span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Cached:</span>
+              <mat-chip [color]="status.cached ? 'primary' : 'warn'">
+                {{ status.cached ? 'Yes' : 'No' }}
+              </mat-chip>
+            </div>
+            <div class="status-item" *ngIf="status.lastUpdated">
+              <span class="status-label">Last Updated:</span>
+              <span class="status-value">{{ status.lastUpdated | date:'medium' }}</span>
+            </div>
+            <div class="status-item" *ngIf="status.dataSource">
+              <span class="status-label">Granularity:</span>
+              <span class="status-value">{{ status.dataSource.granularity || 'Unknown' }}</span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Error Message -->
+    <mat-card *ngIf="errorMessage" class="error-card">
+      <mat-card-content>
+        <div class="error-message">
+          <mat-icon color="warn">error</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- States List -->
+    <mat-card class="states-list-card">
+      <mat-card-header>
+        <mat-card-title>All States</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div *ngIf="loadingStates" class="loading-indicator">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading states...</p>
+        </div>
+
+        <div *ngIf="!loadingStates" class="states-grid">
+          <div 
+            *ngFor="let state of states" 
+            class="state-item"
+            [class.selected]="selectedState === state.code"
+            [class.configured]="state.configured"
+            [class.cached]="hasCachedData(state.code)"
+            (click)="selectedState = state.code">
+            <div class="state-code">{{ state.code }}</div>
+            <div class="state-name">{{ getStateName(state.code) }}</div>
+            <div class="state-badges">
+              <mat-chip *ngIf="state.configured" color="primary" class="small-chip">Configured</mat-chip>
+              <mat-chip *ngIf="hasCachedData(state.code)" color="accent" class="small-chip">Cached</mat-chip>
+              <mat-chip *ngIf="isStateLoading(state.code)" color="warn" class="small-chip">
+                <mat-spinner diameter="16" class="inline-spinner"></mat-spinner>
+                Loading
+              </mat-chip>
+            </div>
+            <div *ngIf="getStateStatus(state.code)?.lastUpdated" class="state-updated">
+              Updated: {{ getStateStatus(state.code)?.lastUpdated | date:'short' }}
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+

@@ -182,9 +182,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.tractGeoJsonLayers.size > 0) {
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
         layer.setStyle({
-          color: districtColor,
-          weight: this.showTractBoundaries ? 1 : 0,
-          opacity: this.showTractBoundaries ? 0.8 : 0,
+          color: districtColor, // Border color matches fill color when unchecked (hidden)
+          weight: 1, // Always show borders
+          opacity: this.showTractBoundaries ? 0.8 : 0.7, // Match fill opacity when unchecked so border blends with fill
           fillOpacity: 0.7,
           fillColor: districtColor
         });
@@ -279,13 +279,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       algorithm: 'latlong' as AlgorithmType
     };
 
-    const subscription = this.geodistrictService.runGeodistrictAlgorithm(options).subscribe({
+    const subscription = this.geodistrictService.runGeodistrictAlgorithmStepByStep(options).subscribe({
       next: (result) => {
-        console.log('📊 Algorithm result:', {
-          steps: result.steps.length,
-          finalDistricts: result.finalDistricts?.length || 0,
-          lastStepGroups: result.steps[result.steps.length - 1]?.districtGroups?.length || 0
-        });
         this.algorithmResult = result;
         // Set to final step (all steps completed)
         this.currentStepIndex = result.steps.length - 1;
@@ -383,9 +378,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         if (tract.geometry) {
           const geoJson = L.geoJSON(tract.geometry, {
             style: {
-              color: color, // Border color matches district color
-              weight: this.showTractBoundaries ? 1 : 0, // Set weight to 0 when hiding to completely remove border
-              opacity: this.showTractBoundaries ? 0.8 : 0, // Set opacity to 0 when hiding
+              color: color, // Border color matches fill color when unchecked (hidden)
+              weight: 1, // Always show borders
+              opacity: this.showTractBoundaries ? 0.8 : 0.7, // Match fill opacity when unchecked so border blends with fill
               fillOpacity: 0.7,
               fillColor: color
             }

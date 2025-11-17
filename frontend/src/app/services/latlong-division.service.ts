@@ -102,11 +102,10 @@ export class LatLongDivisionService {
 
     return this.http.post(url, payload).pipe(
       map((response: any) => {
-        console.log(`💾 LATLONG CACHE: Stored result for key: ${cacheKey}`);
         return response;
       }),
       catchError(error => {
-        console.warn(`⚠️ LATLONG CACHE STORE FAILED: ${error.message}`);
+        console.error(`Cache store failed for ${cacheKey}:`, error);
         return of(null);
       })
     );
@@ -303,8 +302,6 @@ export class LatLongDivisionService {
    * Find optimal dividing line using iterative approach
    */
   private findOptimalDividingLine(tracts: GeoJsonFeature[], direction: 'latitude' | 'longitude', targetPopulation: number): number {
-    console.log(`🔍 Finding optimal ${direction} dividing line for target population: ${targetPopulation.toLocaleString()}`);
-
     // Get the range of coordinates for the direction using bounding boxes
     const bounds = tracts.map(tract => this.getTractBounds(tract));
 
@@ -317,8 +314,6 @@ export class LatLongDivisionService {
       maxCoord = Math.max(...bounds.map(b => b.maxLng));
     }
     const centerCoord = (minCoord + maxCoord) / 2;
-
-    console.log(`📍 Coordinate range: ${minCoord.toFixed(6)} to ${maxCoord.toFixed(6)}, center: ${centerCoord.toFixed(6)}`);
 
     // Start with center coordinate and iterate to find optimal position
     let currentLine = centerCoord;
@@ -334,8 +329,6 @@ export class LatLongDivisionService {
 
       const difference = Math.abs(firstGroupPopulation - targetPopulation);
 
-      console.log(`  Iteration ${iterations + 1}: Line at ${currentLine.toFixed(6)}, populations: ${firstGroupPopulation.toLocaleString()} vs ${secondGroupPopulation.toLocaleString()}, difference: ${difference.toLocaleString()}`);
-
       if (difference < bestDifference) {
         bestDifference = difference;
         bestLine = currentLine;
@@ -343,13 +336,11 @@ export class LatLongDivisionService {
 
       // If we're close enough, stop
       if (difference < targetPopulation * 0.005) { // Within 1% of target
-        console.log(`✅ Found optimal line at ${currentLine.toFixed(6)} within 1% tolerance`);
         break;
       }
 
       // Calculate adjustment based on population difference
       const populationDifference = firstGroupPopulation - targetPopulation;
-      const populationRatio = Math.abs(populationDifference) / targetPopulation;
 
       // Determine direction to move the line
       let adjustment: number;
@@ -363,13 +354,10 @@ export class LatLongDivisionService {
         adjustment = (populationDifference / targetPopulation) * (maxCoord - minCoord) * 0.1;
       }
 
-      console.log(`    Population difference: ${populationDifference.toLocaleString()}, adjustment: ${adjustment.toFixed(6)}`);
-
       // Prevent infinite loops by ensuring we don't go outside bounds
       const newLine = Math.max(minCoord, Math.min(maxCoord, currentLine + adjustment));
 
       if (Math.abs(newLine - currentLine) < tolerance) {
-        console.log(`✅ Converged at line ${currentLine.toFixed(6)}`);
         break;
       }
 
@@ -377,16 +365,12 @@ export class LatLongDivisionService {
       iterations++;
     }
 
-    console.log(`🎯 Final optimal ${direction} line: ${bestLine.toFixed(6)} (${iterations} iterations)`);
-
     // If we didn't converge well, try binary search as fallback
     if (bestDifference > targetPopulation * 0.05) { // If still >5% off target
-      console.log(`🔄 Iterative approach didn't converge well (${bestDifference.toLocaleString()} difference), trying binary search...`);
       const binarySearchLine = this.binarySearchOptimalLine(tracts, direction, targetPopulation, minCoord, maxCoord);
       const binarySearchDifference = Math.abs(this.calculatePopulationsByLine(tracts, direction, binarySearchLine).firstGroupPopulation - targetPopulation);
 
       if (binarySearchDifference < bestDifference) {
-        console.log(`✅ Binary search found better line: ${binarySearchLine.toFixed(6)} (difference: ${binarySearchDifference.toLocaleString()})`);
         return binarySearchLine;
       }
     }
@@ -554,31 +538,15 @@ export class LatLongDivisionService {
       const inFirst = firstGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
       const inSecond = secondGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
       
-      // Debug logging for specific tract
-      if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-        console.log(`🔍 DEBUG: Checking intersecting tract ${tractId}, inFirst: ${inFirst}, inSecond: ${inSecond}, neighbors: ${neighbors.length}`);
-      }
-      
       if (inSecond) {
         // We're in second group - find adjacent tracts in first group (opposite group)
         const neighborsInFirst = neighbors.filter(neighborId => 
           firstGroupTracts.some(t => algorithmService.getTractId(t) === neighborId)
         );
         
-        // Debug logging for specific tract
-        if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`🔍 DEBUG: ${tractId} in second group, neighborsInFirst: ${neighborsInFirst.join(', ')}`);
-        }
-        
         // Check if any adjacent tract in first group is isolated using the new method
         const isolatedNeighbors = neighborsInFirst.filter(neighborId => {
-          const isIsolated = algorithmService.isTractIsolated(neighborId, firstGroupTracts, adjacencyGraph);
-          if ((tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') && isIsolated) {
-            const reachableCount = algorithmService.calculateReachableTracts(neighborId, firstGroupTracts, adjacencyGraph);
-            const maxReachableCount = algorithmService.calculateMaxReachableCount(firstGroupTracts, adjacencyGraph);
-            console.log(`🔍 DEBUG: ${tractId} - Found isolated neighbor ${neighborId} in first group (reachable: ${reachableCount}/${maxReachableCount})`);
-          }
-          return isIsolated;
+          return algorithmService.isTractIsolated(neighborId, firstGroupTracts, adjacencyGraph);
         });
         
         if (isolatedNeighbors.length > 0) {
@@ -618,8 +586,6 @@ export class LatLongDivisionService {
           if (direction && algorithmService) {
             algorithmService.balanceTractMove(secondGroupTracts, firstGroupTracts, tracts, direction, totalPopulationMoved, 'second', 'first');
           }
-        } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`⚠️ DEBUG: ${tractId} - No isolated neighbors found in first group. neighborsInFirst: ${neighborsInFirst.length}`);
         }
       } else if (inFirst) {
         // We're in first group - check neighbors in second group (opposite group)
@@ -627,20 +593,9 @@ export class LatLongDivisionService {
           secondGroupTracts.some(t => algorithmService.getTractId(t) === neighborId)
         );
         
-        // Debug logging for specific tract
-        if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`🔍 DEBUG: ${tractId} in first group, neighborsInSecond: ${neighborsInSecond.join(', ')}`);
-        }
-        
         // Check if any adjacent tract in second group is isolated using the new method
         const isolatedNeighborsInSecond = neighborsInSecond.filter(neighborId => {
-          const isIsolated = algorithmService.isTractIsolated(neighborId, secondGroupTracts, adjacencyGraph);
-          if ((tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') && isIsolated) {
-            const reachableCount = algorithmService.calculateReachableTracts(neighborId, secondGroupTracts, adjacencyGraph);
-            const maxReachableCount = algorithmService.calculateMaxReachableCount(secondGroupTracts, adjacencyGraph);
-            console.log(`🔍 DEBUG: ${tractId} - Found isolated neighbor ${neighborId} in second group (reachable: ${reachableCount}/${maxReachableCount})`);
-          }
-          return isIsolated;
+          return algorithmService.isTractIsolated(neighborId, secondGroupTracts, adjacencyGraph);
         });
         
         if (isolatedNeighborsInSecond.length > 0) {
@@ -680,8 +635,6 @@ export class LatLongDivisionService {
           if (direction && algorithmService) {
             algorithmService.balanceTractMove(firstGroupTracts, secondGroupTracts, tracts, direction, totalPopulationMoved, 'first', 'second');
           }
-        } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`⚠️ DEBUG: ${tractId} - No isolated neighbors found in second group. neighborsInSecond: ${neighborsInSecond.length}`);
         }
       }
     }
@@ -705,11 +658,6 @@ export class LatLongDivisionService {
       
       const inFirst = firstGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
       const inSecond = secondGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
-      
-      // Debug logging for specific tract
-      if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-        console.log(`🔍 DEBUG (after fix): Checking intersecting tract ${tractId}, inFirst: ${inFirst}, inSecond: ${inSecond}, neighbors: ${neighbors.length}`);
-      }
       
       if (inSecond) {
         // We're in second group - find adjacent tracts in first group (opposite group)
@@ -990,11 +938,6 @@ export class LatLongDivisionService {
       const inFirst = firstGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
       const inSecond = secondGroupTracts.some(t => algorithmService.getTractId(t) === tractId);
       
-      // Debug logging for specific tract
-      if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-        console.log(`🔍 DEBUG (after variance): Checking intersecting tract ${tractId}, inFirst: ${inFirst}, inSecond: ${inSecond}, neighbors: ${neighbors.length}`);
-      }
-      
       if (inSecond) {
         // We're in second group - find adjacent tracts in first group (opposite group)
         const neighborsInFirst = neighbors.filter(neighborId => 
@@ -1050,20 +993,9 @@ export class LatLongDivisionService {
           secondGroupTracts.some(t => algorithmService.getTractId(t) === neighborId)
         );
         
-        // Debug logging for specific tract
-        if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`🔍 DEBUG (after variance): ${tractId} in first group, neighborsInSecond: ${neighborsInSecond.join(', ')}`);
-        }
-        
         // Check if any adjacent tract in second group is isolated using the new method
         const isolatedNeighborsInSecond = neighborsInSecond.filter(neighborId => {
-          const isIsolated = algorithmService.isTractIsolated(neighborId, secondGroupTracts, adjacencyGraph);
-          if ((tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') && isIsolated) {
-            const reachableCount = algorithmService.calculateReachableTracts(neighborId, secondGroupTracts, adjacencyGraph);
-            const maxReachableCount = algorithmService.calculateMaxReachableCount(secondGroupTracts, adjacencyGraph);
-            console.log(`🔍 DEBUG (after variance): ${tractId} - Found isolated neighbor ${neighborId} in second group (reachable: ${reachableCount}/${maxReachableCount})`);
-          }
-          return isIsolated;
+          return algorithmService.isTractIsolated(neighborId, secondGroupTracts, adjacencyGraph);
         });
         
         if (isolatedNeighborsInSecond.length > 0) {
@@ -1103,8 +1035,6 @@ export class LatLongDivisionService {
           if (direction && algorithmService) {
             algorithmService.balanceTractMove(firstGroupTracts, secondGroupTracts, tracts, direction, totalPopulationMoved, 'first', 'second');
           }
-        } else if (tractId.includes('002106') || tractId.includes('02106') || tractId.includes('050617') || tractId === '04013050617') {
-          console.log(`⚠️ DEBUG (after variance): ${tractId} - No isolated neighbors found in second group. neighborsInSecond: ${neighborsInSecond.length}`);
         }
       }
     }

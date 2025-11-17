@@ -14,8 +14,17 @@
 :host {
   font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 400;
-  
-  h1, h2, h3, h4, h5, h6, p, button, span, div {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  button,
+  span,
+  div {
     font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-weight: 400;
   }
@@ -39,6 +48,14 @@
   font-size: 1rem;
   font-weight: 400; // Source Sans Pro Regular
 }
+
+.alpha-release h2, .alpha-release p {
+  font-size: .75rem;
+  font-weight: 300;
+  color: var(--mat-sys-primary, #6366f1);
+  margin-bottom: 0;
+}
+
 // Layout utilities
 .min-h-screen {
   min-height: 100vh;
@@ -100,8 +117,16 @@
   padding-bottom: 5rem;
 }
 
-.pt-32 {
+.pt-8 {
+  padding-top: 2rem;
+}
+
+.pt-16 {
   padding-top: 4rem;
+}
+
+.pt-32 {
+  padding-top: 8rem;
 }
 
 .pb-10 {

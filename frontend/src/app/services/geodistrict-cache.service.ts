@@ -105,8 +105,12 @@ export class GeodistrictCacheService {
       censusTractIds: group.censusTracts ? group.censusTracts.map(t => this.getTractId(t)).filter((id): id is string => id !== null) : []
     });
 
+    // Create normalized structure - explicitly exclude censusTracts arrays
     const normalized: any = {
-      ...result,
+      totalPopulation: result.totalPopulation,
+      averagePopulation: result.averagePopulation,
+      populationVariance: result.populationVariance,
+      algorithmHistory: result.algorithmHistory || [],
       _normalized: true,
       _normalizedVersion: '2.0',
       _state: state,
@@ -169,25 +173,20 @@ export class GeodistrictCacheService {
     // Try backend API (which uses Firestore)
     // Include algorithm version in query parameter for cache validation
     const cacheUrl = `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}?algorithmVersion=${ALGORITHM_VERSION}`;
-    console.log(`🔍 Checking backend cache: ${cacheUrl}`);
     
     return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(
       cacheUrl
     ).pipe(
       map(response => {
-        console.log(`🔍 Cache response for ${key}: status=${response.status}, cached=${response.cached}, hasData=${!!response.data}, algorithmVersion=${response.algorithmVersion}`);
-        
         if (response.cached && response.data) {
           // Check algorithm version - if missing or doesn't match, invalidate cache
           if (!response.algorithmVersion) {
-            console.log(`🔄 Algorithm version missing: Old cache entry without version. Invalidating cache.`);
             // Invalidate this cache entry
             this.invalidate(state, algorithm, maxIterations).subscribe();
             return null;
           }
           
           if (response.algorithmVersion !== ALGORITHM_VERSION) {
-            console.log(`🔄 Algorithm version mismatch: cached=${response.algorithmVersion}, current=${ALGORITHM_VERSION}. Invalidating cache.`);
             // Invalidate this cache entry
             this.invalidate(state, algorithm, maxIterations).subscribe();
             return null;
@@ -196,15 +195,13 @@ export class GeodistrictCacheService {
           const result = response.data as GeodistrictResult;
           // Store in memory cache for faster access (with version)
           this.memoryCache.set(key, { result, version: response.algorithmVersion });
-          console.log(`✅ Backend cache hit for ${key} (algorithm version: ${response.algorithmVersion})`);
           return result;
         } else {
-          console.log(`❌ Cache miss for ${key}`);
           return null;
         }
       }),
       catchError(error => {
-        console.error(`❌ Error reading from backend cache for ${key}:`, error);
+        console.error(`Cache read error for ${key}:`, error);
         // Return null on error (fallback to no cache)
         return of(null);
       })

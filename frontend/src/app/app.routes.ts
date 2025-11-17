@@ -8,6 +8,7 @@ import { GeodistrictPageComponent } from './pages/geodistrict-page.component';
 import { TractDebugPageComponent } from './pages/tract-debug-page.component';
 import { AlgorithmComplexityPageComponent } from './pages/algorithm-complexity-page.component';
 import { MapsPageComponent } from './pages/maps-page.component';
+import { VoterRegistrationAdminPageComponent } from './pages/voter-registration-admin-page.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -20,5 +21,6 @@ export const routes: Routes = [
   { path: 'geodistrict', component: GeodistrictPageComponent },
   { path: 'tract-debug', component: TractDebugPageComponent },
   { path: 'algorithm-complexity', component: AlgorithmComplexityPageComponent },
+  { path: 'admin/voter-registration', component: VoterRegistrationAdminPageComponent },
   { path: '**', redirectTo: '/home' }
 ];

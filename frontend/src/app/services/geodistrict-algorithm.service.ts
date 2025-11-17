@@ -124,7 +124,44 @@ export class GeodistrictAlgorithmService {
     private latLongDivisionService: LatLongDivisionService,
     private cacheService: GeodistrictCacheService,
     private http: HttpClient
-  ) { }
+  ) {
+    // Check backend version on service initialization
+    this.checkBackendVersion();
+  }
+
+  /**
+   * Check backend version to confirm backend is up and running
+   */
+  private checkBackendVersion(): void {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const versionUrl = `${backendUrl}/api/version`;
+    
+    this.http.get<{
+      version: string;
+      name: string;
+      nodeVersion: string;
+      timestamp: string;
+      endpoints: {
+        algorithmExecute: string;
+        algorithmStepByStep: string;
+        algorithmCache: string;
+      };
+    }>(versionUrl).subscribe({
+      next: (versionInfo) => {
+        console.log('✅ Backend is up and running:', {
+          name: versionInfo.name,
+          version: versionInfo.version,
+          nodeVersion: versionInfo.nodeVersion,
+          timestamp: versionInfo.timestamp,
+          endpoints: versionInfo.endpoints
+        });
+      },
+      error: (error) => {
+        console.warn('⚠️ Backend version check failed:', error.message);
+        console.warn('⚠️ Backend may not be running or accessible at:', versionUrl);
+      }
+    });
+  }
 
   /**
    * Run the geodistrict algorithm for a given state
@@ -233,6 +270,7 @@ export class GeodistrictAlgorithmService {
           state: string;
           totalDistricts: number;
           tractCount: number;
+          cached?: boolean;
         }>(executeUrl, {
           state,
           maxIterations,
@@ -247,11 +285,16 @@ export class GeodistrictAlgorithmService {
           switchMap(response => {
             console.log(`✅ Backend algorithm completed in ${response.executionTime}ms (${response.result.steps.length} steps)`);
             
-            // Cache the result (async, but don't wait for it)
-            this.cacheService.set(state, algorithm, maxIterations, response.result).subscribe({
-              next: () => console.log(`💾 Cached result for ${state}`),
-              error: (err) => console.error(`❌ Failed to cache result:`, err)
-            });
+            // Only cache if backend didn't cache it (backend caches automatically)
+            if (!response.cached) {
+              console.log(`💾 Backend didn't cache result, caching on frontend...`);
+              this.cacheService.set(state, algorithm, maxIterations, response.result).subscribe({
+                next: () => console.log(`💾 Cached result for ${state}`),
+                error: (err) => console.error(`❌ Failed to cache result:`, err)
+              });
+            } else {
+              console.log(`✅ Backend already cached result for ${state}, skipping frontend cache`);
+            }
             
             return of(response.result);
           }),

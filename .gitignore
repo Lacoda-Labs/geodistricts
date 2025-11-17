@@ -76,5 +76,4 @@ frontend/src/config/api-keys.ts
 console.debug
 
 figma
-data/census-cache/*
-data/census-cache/census_counties_jb1w1n.meta.json
+data/census-cache/
