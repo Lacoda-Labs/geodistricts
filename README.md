@@ -1,6 +1,6 @@
 # GeoDistricts
 
-A modern web application built with Angular and Node.js, deployed on Google Cloud Run.
+A modern web application that demonstrates objective, geographically-based congressional district mapping. Built with Angular and Node.js, deployed on Google Cloud Run. GeoDistricts uses an algorithmic approach to create fair, unbiased congressional districts based solely on geographic and demographic data.
 
 ## 🚀 Quick Start
 
@@ -110,17 +110,18 @@ To set up GitHub Actions:
 
 ## 🧮 Geodistrict Algorithm
 
-This project includes an implementation of the "Fresh Approach" geodistricting algorithm that creates congressional districts using an objective, geographically-based method. The algorithm:
+This project implements a geographically-based geodistricting algorithm that creates congressional districts using an objective, algorithmic method. The algorithm:
 
 - Divides census tracts into district groups recursively
 - Alternates between latitude and longitude divisions
 - Maintains geographic contiguity
 - Balances population across districts
 - Provides step-by-step visualization
+- Uses publicly available U.S. Census Bureau data
 
 ### Accessing the Algorithm
 
-Navigate to `/geodistrict` in the application or click "Geodistrict Algorithm" in the navigation menu.
+Navigate to `/maps` or `/geodistrict` in the application to view and interact with the algorithm. The application provides interactive maps showing how districts are created using the algorithmic approach.
 
 ### API Key Setup
 
@@ -134,6 +135,12 @@ For direct Census API access (recommended), see [CENSUS_API_KEY_SETUP.md](CENSUS
 4. Add tests if applicable
 5. Submit a pull request
 
+## Privacy & Terms
+
+This application includes:
+- [Privacy Policy](/privacy) - Information about data collection and usage
+- [Terms of Service](/terms) - Terms and conditions for using the service
+
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
