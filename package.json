@@ -18,5 +18,5 @@
     },
     "keywords": ["angular", "nodejs", "express", "google-cloud-run"],
     "author": "",
-    "license": "ISC"
+    "license": "MIT"
   }

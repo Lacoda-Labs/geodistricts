@@ -9,6 +9,8 @@ import { TractDebugPageComponent } from './pages/tract-debug-page.component';
 import { AlgorithmComplexityPageComponent } from './pages/algorithm-complexity-page.component';
 import { MapsPageComponent } from './pages/maps-page.component';
 import { VoterRegistrationAdminPageComponent } from './pages/voter-registration-admin-page.component';
+import { PrivacyPageComponent } from './pages/privacy-page.component';
+import { TermsPageComponent } from './pages/terms-page.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -22,5 +24,7 @@ export const routes: Routes = [
   { path: 'tract-debug', component: TractDebugPageComponent },
   { path: 'algorithm-complexity', component: AlgorithmComplexityPageComponent },
   { path: 'admin/voter-registration', component: VoterRegistrationAdminPageComponent },
+  { path: 'privacy', component: PrivacyPageComponent },
+  { path: 'terms', component: TermsPageComponent },
   { path: '**', redirectTo: '/home' }
 ];
