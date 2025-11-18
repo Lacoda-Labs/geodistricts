@@ -217,8 +217,17 @@ class LatLongDivisionService {
     const firstGroupTracts = [];
     const secondGroupTracts = [];
     const intersectingTractIds = [];
+    const assignedTractIds = new Set(); // Track which tracts we've assigned to prevent duplicates
 
     for (const tract of tracts) {
+      const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+      
+      // Safety check: if we've already assigned this tract, skip it (shouldn't happen, but be safe)
+      if (assignedTractIds.has(tractId)) {
+        console.error(`⚠️ DIVISION ERROR: Tract ${tractId} appears multiple times in input tracts array!`);
+        continue;
+      }
+      
       const population = tract.properties?.POPULATION || 0;
       const bounds = this.getTractBounds(tract);
       
@@ -226,17 +235,22 @@ class LatLongDivisionService {
       let intersectsLine = false;
 
       if (direction === 'latitude') {
-        isEntirelyNorthOrWest = bounds.maxLat <= dividingLine;
-        intersectsLine = bounds.minLat < dividingLine && bounds.maxLat > dividingLine;
+        // Check if tract intersects the line (including edge cases where boundary equals the line)
+        intersectsLine = bounds.minLat <= dividingLine && bounds.maxLat >= dividingLine;
+        // A tract is entirely north/west only if it doesn't intersect and is strictly on one side
+        // Use strict < to avoid overlap with intersecting cases
+        isEntirelyNorthOrWest = !intersectsLine && bounds.maxLat < dividingLine;
       } else {
-        isEntirelyNorthOrWest = bounds.maxLng <= dividingLine;
-        intersectsLine = bounds.minLng < dividingLine && bounds.maxLng > dividingLine;
+        // Check if tract intersects the line (including edge cases where boundary equals the line)
+        intersectsLine = bounds.minLng <= dividingLine && bounds.maxLng >= dividingLine;
+        // A tract is entirely north/west only if it doesn't intersect and is strictly on one side
+        // Use strict < to avoid overlap with intersecting cases
+        isEntirelyNorthOrWest = !intersectsLine && bounds.maxLng < dividingLine;
       }
 
       if (intersectsLine) {
         // Tract intersects the line - assign based on centroid
         const centroid = calculateTractCentroid(tract);
-        const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
         
         if (direction === 'latitude') {
           if (centroid.lat <= dividingLine) {
@@ -252,11 +266,14 @@ class LatLongDivisionService {
           }
         }
         
+        assignedTractIds.add(tractId);
         intersectingTractIds.push(tractId);
       } else if (isEntirelyNorthOrWest) {
         firstGroupTracts.push(tract);
+        assignedTractIds.add(tractId);
       } else {
         secondGroupTracts.push(tract);
+        assignedTractIds.add(tractId);
       }
     }
 
@@ -282,6 +299,34 @@ class LatLongDivisionService {
    */
   async divideDistrictGroup(group, direction, forceRecalculate = false) {
     const { totalDistricts } = group;
+
+    // Validate input: check for duplicate tracts in the input group
+    const inputTractIds = new Set();
+    const duplicateTractIds = [];
+    for (const tract of group.censusTracts) {
+      const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+      if (inputTractIds.has(tractId)) {
+        duplicateTractIds.push(tractId);
+      }
+      inputTractIds.add(tractId);
+    }
+    if (duplicateTractIds.length > 0) {
+      console.error(`⚠️ DIVISION INPUT ERROR: Group ${group.startDistrictNumber}-${group.endDistrictNumber} contains ${duplicateTractIds.length} duplicate tracts: ${duplicateTractIds.slice(0, 5).join(', ')}${duplicateTractIds.length > 5 ? '...' : ''}`);
+      // Remove duplicates from input (keep first occurrence)
+      const seen = new Set();
+      group.censusTracts = group.censusTracts.filter(tract => {
+        const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+        if (seen.has(tractId)) {
+          return false;
+        }
+        seen.add(tractId);
+        return true;
+      });
+      // Recalculate population and bounds after deduplication
+      group.totalPopulation = group.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+      group.bounds = calculateBounds(group.censusTracts);
+      group.centroid = calculateCentroid(group.censusTracts);
+    }
 
     // Calculate how to divide the districts
     const division = this.calculateOptimalDivision(totalDistricts);

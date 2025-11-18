@@ -2,8 +2,10 @@ const s4DataLoader = require('./s4-data-loader');
 
 /**
  * Algorithm version - increment this when algorithm logic changes
+ * 20251117-2010: Fixed duplicate tract assignment bug in fixIsolatedTractsAcrossAllGroups
+ * 20251117-2245: Fixed tract intersection detection bug - tracts with boundaries exactly equal to dividing line were misclassified
  */
-const ALGORITHM_VERSION = '20251113-1400';
+const ALGORITHM_VERSION = '20251117-2245';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -168,6 +170,305 @@ class GeodistrictAlgorithmService {
   }
 
   /**
+   * Build adjacency graph for tracts using S4 data or geometric intersection
+   * @param {Array} tracts - Array of GeoJSON tract features
+   * @returns {Map<string, string[]>} - Adjacency graph (tractId -> [neighborIds])
+   */
+  buildGeometryAdjacencyGraph(tracts) {
+    if (tracts.length === 0) {
+      return new Map();
+    }
+
+    // Try to use S4 adjacency data if available
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      const cacheKey = state.toLowerCase();
+      const s4AdjacencyGraph = s4DataLoader.getS4AdjacencyData(cacheKey);
+      
+      if (s4AdjacencyGraph) {
+        const tractIds = new Set(tracts.map(t => getTractId(t)));
+        const graph = new Map();
+        
+        // Initialize all tracts
+        for (const tract of tracts) {
+          const id = getTractId(tract);
+          graph.set(id, []);
+        }
+        
+        // Populate adjacencies from S4 data
+        for (const tract of tracts) {
+          const id = getTractId(tract);
+          const s4Neighbors = s4AdjacencyGraph.get(id) || [];
+          
+          // Filter to only include neighbors that are in our tract set
+          const validNeighbors = s4Neighbors.filter(neighborId => tractIds.has(neighborId));
+          graph.set(id, validNeighbors);
+        }
+        
+        // Debug: Count total adjacency relationships
+        let totalAdjacencies = 0;
+        for (const [tractId, neighbors] of graph.entries()) {
+          totalAdjacencies += neighbors.length;
+        }
+        if (process.env.DEBUG_CACHE === 'true') {
+          console.log(`✅ Built adjacency graph using S4 data: ${totalAdjacencies} total relationships for ${tracts.length} tracts`);
+        }
+        
+        return graph;
+      }
+    }
+    
+    // Fallback: For now, return empty graph (geometric intersection would require additional libraries)
+    // In production, you'd want to implement geometric intersection here
+    const graph = new Map();
+    for (const tract of tracts) {
+      const id = getTractId(tract);
+      graph.set(id, []);
+    }
+    
+    if (process.env.DEBUG_CACHE === 'true') {
+      console.log(`⚠️ S4 adjacency data not available, using empty adjacency graph (geometric intersection not implemented)`);
+    }
+    
+    return graph;
+  }
+
+  /**
+   * Calculate the number of reachable tracts from a given tract using BFS
+   * This represents the size of the connected component containing the tract
+   * @param {string} tractId - Tract ID to start from
+   * @param {Array} groupTracts - All tracts in the group
+   * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts
+   * @returns {number} - Number of reachable tracts (including the tract itself)
+   */
+  calculateReachableTracts(tractId, groupTracts, adjacencyGraph) {
+    const groupTractIds = new Set(groupTracts.map(t => getTractId(t)));
+    
+    // BFS traversal to find all reachable tracts
+    const reachableTracts = new Set();
+    const queue = [tractId];
+    reachableTracts.add(tractId);
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      
+      for (const neighborId of neighbors) {
+        // Only include neighbors that are in this group
+        if (groupTractIds.has(neighborId) && !reachableTracts.has(neighborId)) {
+          reachableTracts.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    
+    return reachableTracts.size;
+  }
+
+  /**
+   * Calculate the maximum reachable count for all tracts in a group
+   * This represents the size of the main component
+   * @param {Array} groupTracts - All tracts in the group
+   * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts
+   * @returns {number} - Maximum reachable count (main component size)
+   */
+  calculateMaxReachableCount(groupTracts, adjacencyGraph) {
+    let maxReachableCount = 0;
+    for (const tract of groupTracts) {
+      const tractId = getTractId(tract);
+      const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+      if (reachableCount > maxReachableCount) {
+        maxReachableCount = reachableCount;
+      }
+    }
+    return maxReachableCount;
+  }
+
+  /**
+   * Fix isolated tracts across all groups after a division step
+   * This checks each group for isolated tracts and moves them to adjacent groups to connect them
+   * @param {Array} districtGroups - All district groups
+   * @param {Array} allTracts - All tracts in the dataset
+   * @param {string} direction - Division direction ('latitude' or 'longitude')
+   * @returns {Array} - Updated district groups with isolated tracts fixed
+   */
+  fixIsolatedTractsAcrossAllGroups(districtGroups, allTracts, direction) {
+    if (process.env.DEBUG_CACHE === 'true') {
+      console.log(`🔧 FIX ISOLATED TRACTS ACROSS ALL GROUPS: Checking ${districtGroups.length} groups for isolated tracts`);
+    }
+    
+    if (districtGroups.length < 2) {
+      // Need at least 2 groups to move tracts between them
+      return districtGroups;
+    }
+    
+    // Build adjacency graph for all tracts
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    
+    // Create a copy of groups to modify
+    const updatedGroups = districtGroups.map(group => ({
+      ...group,
+      censusTracts: [...group.censusTracts]
+    }));
+    
+    let totalMoved = 0;
+    
+    // Collect ALL unique tracts from all groups to ensure every tract is processed exactly once
+    // This prevents issues when tracts are moved between groups during processing
+    const allTractsMap = new Map(); // Map<tractId, tract>
+    const tractToGroupIndex = new Map(); // Map<tractId, currentGroupIndex>
+    
+    // Build initial map of all tracts and their current group assignments
+    for (let groupIndex = 0; groupIndex < updatedGroups.length; groupIndex++) {
+      const group = updatedGroups[groupIndex];
+      for (const tract of group.censusTracts) {
+        const tractId = getTractId(tract);
+        allTractsMap.set(tractId, tract);
+        tractToGroupIndex.set(tractId, groupIndex);
+      }
+    }
+    
+    // Process each tract exactly once
+    for (const [tractId, tract] of allTractsMap.entries()) {
+      // Find which group this tract currently belongs to (may have changed due to previous moves)
+      let currentGroupIndex = tractToGroupIndex.get(tractId);
+      if (currentGroupIndex === undefined) {
+        // Tract not found in any group - find it
+        for (let i = 0; i < updatedGroups.length; i++) {
+          if (updatedGroups[i].censusTracts.some(t => getTractId(t) === tractId)) {
+            currentGroupIndex = i;
+            tractToGroupIndex.set(tractId, i);
+            break;
+          }
+        }
+      }
+      
+      // If tract not found in any group, skip it (shouldn't happen, but be safe)
+      if (currentGroupIndex === undefined) {
+        console.warn(`⚠️ Tract ${tractId} not found in any group during isolation check`);
+        continue;
+      }
+      
+      const group = updatedGroups[currentGroupIndex];
+      
+      // Verify tract is actually in this group's censusTracts array
+      const tractInGroup = group.censusTracts.some(t => getTractId(t) === tractId);
+      if (!tractInGroup) {
+        // Tract was moved - update our tracking and continue
+        for (let i = 0; i < updatedGroups.length; i++) {
+          if (updatedGroups[i].censusTracts.some(t => getTractId(t) === tractId)) {
+            tractToGroupIndex.set(tractId, i);
+            currentGroupIndex = i;
+            break;
+          }
+        }
+        // If still not found, skip
+        if (!updatedGroups[currentGroupIndex]?.censusTracts.some(t => getTractId(t) === tractId)) {
+          continue;
+        }
+      }
+      
+      // Re-get group in case it changed
+      const currentGroup = updatedGroups[currentGroupIndex];
+      
+      // Calculate max reachable count for this group (main component size)
+      const maxReachableCount = this.calculateMaxReachableCount(currentGroup.censusTracts, adjacencyGraph);
+      
+      const reachableCount = this.calculateReachableTracts(tractId, currentGroup.censusTracts, adjacencyGraph);
+        
+      // Tract is isolated if its reachable count is less than the max reachable count
+      if (reachableCount < maxReachableCount) {
+        if (process.env.DEBUG_CACHE === 'true') {
+          console.log(`🔍 Found isolated tract ${tractId} in group ${currentGroup.startDistrictNumber}-${currentGroup.endDistrictNumber}: reachable count ${reachableCount} < max ${maxReachableCount}`);
+        }
+        
+        // Find neighbors of this tract
+        const neighbors = adjacencyGraph.get(tractId) || [];
+        
+        // Check which groups these neighbors belong to
+        const neighborGroups = new Map(); // Map<groupIndex, neighborCount>
+        
+        for (const neighborId of neighbors) {
+          // Find which group this neighbor belongs to
+          for (let otherGroupIndex = 0; otherGroupIndex < updatedGroups.length; otherGroupIndex++) {
+            const otherGroup = updatedGroups[otherGroupIndex];
+            if (otherGroup.censusTracts.some(t => getTractId(t) === neighborId)) {
+              neighborGroups.set(otherGroupIndex, (neighborGroups.get(otherGroupIndex) || 0) + 1);
+              break;
+            }
+          }
+        }
+        
+        // Find the best group to move this tract to
+        // Prefer groups where the tract would connect to the main component
+        let bestGroupIndex = -1;
+        let bestReachableCount = 0;
+        
+        for (const [otherGroupIndex, neighborCount] of neighborGroups.entries()) {
+          if (otherGroupIndex === currentGroupIndex) continue; // Don't move to same group
+          
+          const otherGroup = updatedGroups[otherGroupIndex];
+          const otherGroupTracts = [...otherGroup.censusTracts, tract];
+          
+          // Calculate what the reachable count would be if we moved this tract
+          const potentialReachableCount = this.calculateReachableTracts(tractId, otherGroupTracts, adjacencyGraph);
+          const otherGroupMaxReachableCount = this.calculateMaxReachableCount(otherGroupTracts, adjacencyGraph);
+          
+          // If moving to this group would connect the tract to the main component, it's a good candidate
+          if (potentialReachableCount >= otherGroupMaxReachableCount && potentialReachableCount > bestReachableCount) {
+            bestGroupIndex = otherGroupIndex;
+            bestReachableCount = potentialReachableCount;
+          }
+        }
+        
+        // If we found a good group to move to, move the tract
+        if (bestGroupIndex !== -1) {
+          const sourceGroup = updatedGroups[currentGroupIndex];
+          const targetGroup = updatedGroups[bestGroupIndex];
+          
+          // Remove from source group
+          const tractIndex = sourceGroup.censusTracts.findIndex(t => getTractId(t) === tractId);
+          if (tractIndex !== -1) {
+            const tractPopulation = tract.properties?.POPULATION || 0;
+            sourceGroup.censusTracts.splice(tractIndex, 1);
+            
+            // Update source group population and bounds
+            sourceGroup.totalPopulation = sourceGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+            sourceGroup.bounds = calculateBounds(sourceGroup.censusTracts);
+            sourceGroup.centroid = calculateCentroid(sourceGroup.censusTracts);
+            
+            // Add to target group
+            targetGroup.censusTracts.push(tract);
+            
+            // Update target group population and bounds
+            targetGroup.totalPopulation = targetGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+            targetGroup.bounds = calculateBounds(targetGroup.censusTracts);
+            targetGroup.centroid = calculateCentroid(targetGroup.censusTracts);
+            
+            // Update tracking
+            tractToGroupIndex.set(tractId, bestGroupIndex);
+            
+            totalMoved++;
+            console.log(`🔄 Moved isolated tract ${tractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} (reachable count: ${bestReachableCount})`);
+          }
+        } else {
+          if (process.env.DEBUG_CACHE === 'true') {
+            console.log(`⚠️ Could not find a suitable group to move isolated tract ${tractId} to`);
+          }
+        }
+      }
+    }
+    
+    if (totalMoved > 0) {
+      console.log(`✅ Fixed ${totalMoved} isolated tract(s) across all groups`);
+    } else if (process.env.DEBUG_CACHE === 'true') {
+      console.log(`✅ No isolated tracts found across all groups`);
+    }
+    
+    return updatedGroups;
+  }
+
+  /**
    * Execute the geodistrict algorithm
    * @param {Array} tracts - Array of GeoJSON tract features
    * @param {number} totalDistricts - Total number of districts to create
@@ -188,19 +489,37 @@ class GeodistrictAlgorithmService {
       }
     }
 
-    // Calculate total state population
-    const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    // Deduplicate tracts array - ensure each tract appears only once
+    const seenTractIds = new Set();
+    const uniqueTracts = [];
+    const duplicateTractIds = [];
+    for (const tract of tracts) {
+      const tractId = getTractId(tract);
+      if (seenTractIds.has(tractId)) {
+        duplicateTractIds.push(tractId);
+        continue;
+      }
+      seenTractIds.add(tractId);
+      uniqueTracts.push(tract);
+    }
+    if (duplicateTractIds.length > 0) {
+      console.error(`⚠️ INPUT ERROR: Input tracts array contains ${duplicateTractIds.length} duplicate tracts: ${duplicateTractIds.slice(0, 10).join(', ')}${duplicateTractIds.length > 10 ? '...' : ''}`);
+      console.error(`⚠️ Removing duplicates - using ${uniqueTracts.length} unique tracts instead of ${tracts.length} total`);
+    }
+
+    // Calculate total state population from unique tracts
+    const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const targetDistrictPopulation = totalStatePopulation / totalDistricts;
 
-    // Initialize with all tracts as a single district group
+    // Initialize with all unique tracts as a single district group
     const initialGroup = {
       startDistrictNumber: 1,
       endDistrictNumber: totalDistricts,
-      censusTracts: tracts,
+      censusTracts: uniqueTracts,
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
-      bounds: calculateBounds(tracts),
-      centroid: calculateCentroid(tracts)
+      bounds: calculateBounds(uniqueTracts),
+      centroid: calculateCentroid(uniqueTracts)
     };
 
     const steps = [];
@@ -260,14 +579,90 @@ class GeodistrictAlgorithmService {
 
       currentGroups = newGroups;
       
+      // Validate immediately after division (before fixing isolated tracts)
+      // This will catch if division itself is creating duplicates
+      const postDivisionTractToGroups = new Map(); // Map<tractId, [groupIndex, ...]>
+      for (let groupIndex = 0; groupIndex < currentGroups.length; groupIndex++) {
+        const group = currentGroups[groupIndex];
+        for (const tract of group.censusTracts) {
+          const tractId = getTractId(tract);
+          if (!postDivisionTractToGroups.has(tractId)) {
+            postDivisionTractToGroups.set(tractId, []);
+          }
+          postDivisionTractToGroups.get(tractId).push(groupIndex);
+        }
+      }
+      
+      // Check for duplicates created during division
+      let divisionDuplicates = 0;
+      for (const [tractId, groupIndices] of postDivisionTractToGroups.entries()) {
+        if (groupIndices.length > 1) {
+          divisionDuplicates++;
+          if (divisionDuplicates <= 5) { // Log first 5 only
+            console.error(`⚠️ DIVISION BUG: Tract ${tractId} assigned to ${groupIndices.length} groups during division step ${iteration}!`);
+          }
+        }
+      }
+      if (divisionDuplicates > 0) {
+        console.error(`⚠️ DIVISION BUG: ${divisionDuplicates} tracts assigned to multiple groups during division step ${iteration}`);
+      }
+      
+      // Fix isolated tracts after division (use uniqueTracts to ensure no duplicates in adjacency graph)
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
+      
       // Validate: Ensure all tracts are assigned to exactly one group
+      // First pass: identify duplicates
+      const tractToGroups = new Map(); // Map<tractId, [groupIndex, ...]>
+      for (let groupIndex = 0; groupIndex < currentGroups.length; groupIndex++) {
+        const group = currentGroups[groupIndex];
+        for (const tract of group.censusTracts) {
+          const tractId = getTractId(tract);
+          if (!tractToGroups.has(tractId)) {
+            tractToGroups.set(tractId, []);
+          }
+          tractToGroups.get(tractId).push(groupIndex);
+        }
+      }
+      
+      // Remove duplicates: keep tract in the first group it appears in, remove from others
+      let duplicatesFixed = 0;
+      for (const [tractId, groupIndices] of tractToGroups.entries()) {
+        if (groupIndices.length > 1) {
+          console.error(`⚠️ ERROR: Tract ${tractId} is assigned to ${groupIndices.length} groups! Fixing by keeping in first group only.`);
+          
+          // Keep in first group, remove from all others
+          for (let i = 1; i < groupIndices.length; i++) {
+            const groupIndex = groupIndices[i];
+            const group = currentGroups[groupIndex];
+            const tractIndex = group.censusTracts.findIndex(t => getTractId(t) === tractId);
+            
+            if (tractIndex !== -1) {
+              const tract = group.censusTracts[tractIndex];
+              const tractPopulation = tract.properties?.POPULATION || 0;
+              
+              // Remove from this group
+              group.censusTracts.splice(tractIndex, 1);
+              
+              // Update group population and bounds
+              group.totalPopulation = group.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+              group.bounds = calculateBounds(group.censusTracts);
+              group.centroid = calculateCentroid(group.censusTracts);
+              
+              duplicatesFixed++;
+            }
+          }
+        }
+      }
+      
+      if (duplicatesFixed > 0) {
+        console.log(`✅ Fixed ${duplicatesFixed} duplicate tract assignment(s)`);
+      }
+      
+      // Rebuild assignedTractIds set for missing tract check
       const assignedTractIds = new Set();
       for (const group of currentGroups) {
         for (const tract of group.censusTracts) {
           const tractId = getTractId(tract);
-          if (assignedTractIds.has(tractId)) {
-            console.error(`⚠️ ERROR: Tract ${tractId} is assigned to multiple groups!`);
-          }
           assignedTractIds.add(tractId);
         }
       }
@@ -314,9 +709,6 @@ class GeodistrictAlgorithmService {
           }
         }
       }
-      
-      // TODO: Fix isolated tracts and rebalance populations
-      // For now, we'll skip these steps to get basic algorithm working
       
       steps.push(createStep(iteration, iteration, currentGroups,
         `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
@@ -423,6 +815,9 @@ class GeodistrictAlgorithmService {
       }
 
       currentGroups = newGroups;
+      
+      // Fix isolated tracts after division (use uniqueTracts to ensure no duplicates in adjacency graph)
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
       
       const step = createStep(iteration, iteration, currentGroups,
         `Division ${iteration} by ${direction}`, direction, undefined, divisionLines);
