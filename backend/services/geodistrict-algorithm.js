@@ -4,8 +4,15 @@ const s4DataLoader = require('./s4-data-loader');
  * Algorithm version - increment this when algorithm logic changes
  * 20251117-2010: Fixed duplicate tract assignment bug in fixIsolatedTractsAcrossAllGroups
  * 20251117-2245: Fixed tract intersection detection bug - tracts with boundaries exactly equal to dividing line were misclassified
+ * 20251117-2300: Added final validation to catch and fix orphaned/missing tracts after algorithm completion
+ * 20251117-2310: Added simple tract count validation after each division step to immediately detect orphaned/duplicate tracts
+ * 20251117-2320: Changed intersection tract assignment - all intersecting tracts now assigned to south/east group, then isolation checked and rebalanced
+ * 20251117-2329: Fixed inverted north/south check - changed from maxLat < dividingLine to minLat > dividingLine for latitude division
+ * 20251117-2330: Disabled isolation checking and rebalancing logic for step-by-step debugging
+ * 20251117-2343: Fixed tract ID uniqueness - TRACT_FIPS alone is not unique across state, now using GEOID or STATE+COUNTY+TRACT
+ * 20251117-2350: Disabled deduplication by default for debugging - all tracts will be included (set DISABLE_DEDUP=false to enable)
  */
-const ALGORITHM_VERSION = '20251117-2245';
+const ALGORITHM_VERSION = '20251117-2350';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -33,9 +40,178 @@ function getDistrictsForState(state) {
 
 /**
  * Get tract ID from a GeoJSON feature
+ * IMPORTANT: Tract IDs must be unique across the entire state, not just within a county.
+ * TRACT_FIPS alone is not unique - it's only unique within a county.
+ * We need to use GEOID (which includes state+county+tract) or construct it from STATE+COUNTY+TRACT.
  */
 function getTractId(tract) {
-  return tract.properties?.TRACT_FIPS || tract.properties?.GEOID || tract.properties?.GEO_ID || null;
+  // Prefer GEOID as it's the full unique identifier (state+county+tract)
+  if (tract.properties?.GEOID) {
+    return tract.properties.GEOID;
+  }
+  
+  // If GEOID not available, try GEO_ID (may have "US" prefix)
+  if (tract.properties?.GEO_ID) {
+    // Remove "US" prefix if present
+    const geoId = tract.properties.GEO_ID;
+    if (geoId.startsWith('US')) {
+      return geoId.substring(2);
+    }
+    return geoId;
+  }
+  
+  // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS
+  // This ensures uniqueness across the entire state
+  if (tract.properties?.STATE_FIPS && tract.properties?.COUNTY_FIPS && tract.properties?.TRACT_FIPS) {
+    return `${tract.properties.STATE_FIPS}${tract.properties.COUNTY_FIPS}${tract.properties.TRACT_FIPS}`;
+  }
+  
+  // Last resort: use TRACT_FIPS alone (not ideal, but better than null)
+  if (tract.properties?.TRACT_FIPS) {
+    console.warn(`⚠️ Using non-unique TRACT_FIPS for tract ID: ${tract.properties.TRACT_FIPS} (missing STATE/COUNTY)`);
+    return tract.properties.TRACT_FIPS;
+  }
+  
+  return null;
+}
+
+/**
+ * Merge duplicate tracts with the same ID (e.g., MultiPolygon parts split into separate features)
+ * Returns array of unique tracts with merged geometries
+ * Set DISABLE_DEDUP=false to enable deduplication (currently disabled for debugging)
+ */
+const DISABLE_DEDUP = process.env.DISABLE_DEDUP !== 'false'; // Default to true (disabled) for debugging
+
+function deduplicateAndMergeTracts(tracts) {
+  // DISABLED: Skip deduplication for debugging (can enable by setting DISABLE_DEDUP=false)
+  if (DISABLE_DEDUP) {
+    console.log(`⚠️ DEDUPLICATION DISABLED: Returning all ${tracts.length} tracts without deduplication (set DISABLE_DEDUP=false to enable)`);
+    return tracts;
+  }
+
+  const seenTractIds = new Map(); // Map<tractId, tract> - store merged tract
+  const duplicateTractIds = [];
+  const nullTractIds = [];
+  
+  console.log(`📊 Starting deduplication: ${tracts.length} input tracts`);
+  
+  for (const tract of tracts) {
+    let tractId = getTractId(tract);
+    
+    // Check for null/undefined tract IDs - try to generate one from properties
+    if (!tractId || tractId === 'null' || tractId === 'undefined') {
+      // Try to construct an ID from available properties
+      let generatedId = null;
+      if (tract.properties) {
+        // Try STATE + COUNTY + TRACT
+        if (tract.properties.STATE && tract.properties.COUNTY && tract.properties.TRACT) {
+          generatedId = `${tract.properties.STATE}${tract.properties.COUNTY}${tract.properties.TRACT}`;
+        } else if (tract.properties.STATE_FIPS && tract.properties.COUNTY_FIPS && tract.properties.TRACT_FIPS) {
+          generatedId = `${tract.properties.STATE_FIPS}${tract.properties.COUNTY_FIPS}${tract.properties.TRACT_FIPS}`;
+        } else if (tract.geometry) {
+          // Fallback: use centroid coordinates as ID
+          const centroid = calculateTractCentroid(tract);
+          generatedId = `generated_${centroid.lat.toFixed(6)}_${centroid.lng.toFixed(6)}`;
+        }
+      }
+      
+      if (generatedId) {
+        // Use the generated ID
+        tractId = generatedId;
+        if (!tract.properties) tract.properties = {};
+        tract.properties.GENERATED_ID = generatedId;
+      } else {
+        // If we still can't generate an ID, log detailed info and skip
+        const tractInfo = {
+          hasProperties: !!tract.properties,
+          propertyKeys: tract.properties ? Object.keys(tract.properties) : [],
+          hasGeometry: !!tract.geometry,
+          geometryType: tract.geometry?.type,
+          sampleProperties: tract.properties ? {
+            TRACT_FIPS: tract.properties.TRACT_FIPS,
+            GEOID: tract.properties.GEOID,
+            GEO_ID: tract.properties.GEO_ID,
+            STATE_FIPS: tract.properties.STATE_FIPS,
+            COUNTY_FIPS: tract.properties.COUNTY_FIPS,
+            STATE: tract.properties.STATE,
+            COUNTY: tract.properties.COUNTY,
+            TRACT: tract.properties.TRACT
+          } : null
+        };
+        nullTractIds.push(tractInfo);
+        continue;
+      }
+    }
+    
+    if (seenTractIds.has(tractId)) {
+      duplicateTractIds.push(tractId);
+      // Merge geometries if this is a duplicate (MultiPolygon parts)
+      const existingTract = seenTractIds.get(tractId);
+      if (tract.geometry && existingTract.geometry) {
+        // Merge MultiPolygon geometries
+        if (existingTract.geometry.type === 'Polygon' && tract.geometry.type === 'Polygon') {
+          // Convert both to MultiPolygon
+          existingTract.geometry = {
+            type: 'MultiPolygon',
+            coordinates: [existingTract.geometry.coordinates, tract.geometry.coordinates]
+          };
+        } else if (existingTract.geometry.type === 'MultiPolygon' && tract.geometry.type === 'Polygon') {
+          // Add polygon to existing MultiPolygon
+          existingTract.geometry.coordinates.push(tract.geometry.coordinates);
+        } else if (existingTract.geometry.type === 'Polygon' && tract.geometry.type === 'MultiPolygon') {
+          // Convert existing to MultiPolygon and merge
+          existingTract.geometry = {
+            type: 'MultiPolygon',
+            coordinates: [existingTract.geometry.coordinates, ...tract.geometry.coordinates]
+          };
+        } else if (existingTract.geometry.type === 'MultiPolygon' && tract.geometry.type === 'MultiPolygon') {
+          // Merge two MultiPolygons
+          existingTract.geometry.coordinates.push(...tract.geometry.coordinates);
+        }
+        // Merge properties (prefer non-null values)
+        Object.keys(tract.properties || {}).forEach(key => {
+          if (tract.properties[key] !== null && tract.properties[key] !== undefined) {
+            if (!existingTract.properties[key] || existingTract.properties[key] === null) {
+              existingTract.properties[key] = tract.properties[key];
+            }
+          }
+        });
+      }
+      continue;
+    }
+    // Clone the tract to avoid mutating the original
+    seenTractIds.set(tractId, JSON.parse(JSON.stringify(tract)));
+  }
+  
+  const uniqueTracts = Array.from(seenTractIds.values());
+  
+  if (nullTractIds.length > 0) {
+    console.error(`⚠️ INPUT ERROR: Found ${nullTractIds.length} tracts with null/undefined IDs (these will be SKIPPED)`);
+    console.error(`   Sample null tract info:`, JSON.stringify(nullTractIds.slice(0, 3), null, 2));
+    console.error(`   ⚠️ WARNING: ${nullTractIds.length} tracts will be missing from the algorithm!`);
+  }
+  
+  if (duplicateTractIds.length > 0) {
+    const uniqueDuplicates = [...new Set(duplicateTractIds)];
+    console.log(`ℹ️ Found ${duplicateTractIds.length} duplicate tract features (${uniqueDuplicates.length} unique IDs) - merged into single features`);
+    console.log(`   Sample duplicate IDs: ${uniqueDuplicates.slice(0, 10).join(', ')}${uniqueDuplicates.length > 10 ? '...' : ''}`);
+    console.log(`   Using ${uniqueTracts.length} unique tracts instead of ${tracts.length} total features`);
+  }
+  
+  const totalSkipped = nullTractIds.length;
+  const totalMerged = duplicateTractIds.length;
+  const totalOutput = uniqueTracts.length;
+  
+  if (totalSkipped > 0 || totalMerged > 0 || totalOutput !== tracts.length) {
+    console.log(`📊 Deduplication Summary:`);
+    console.log(`   Input: ${tracts.length} tracts`);
+    console.log(`   Skipped (no ID): ${totalSkipped} tracts`);
+    console.log(`   Merged (duplicates): ${totalMerged} tracts`);
+    console.log(`   Output: ${totalOutput} unique tracts`);
+    console.log(`   Difference: ${tracts.length - totalOutput} tracts (${totalSkipped} skipped + ${totalMerged} merged)`);
+  }
+  
+  return uniqueTracts;
 }
 
 /**
@@ -489,23 +665,8 @@ class GeodistrictAlgorithmService {
       }
     }
 
-    // Deduplicate tracts array - ensure each tract appears only once
-    const seenTractIds = new Set();
-    const uniqueTracts = [];
-    const duplicateTractIds = [];
-    for (const tract of tracts) {
-      const tractId = getTractId(tract);
-      if (seenTractIds.has(tractId)) {
-        duplicateTractIds.push(tractId);
-        continue;
-      }
-      seenTractIds.add(tractId);
-      uniqueTracts.push(tract);
-    }
-    if (duplicateTractIds.length > 0) {
-      console.error(`⚠️ INPUT ERROR: Input tracts array contains ${duplicateTractIds.length} duplicate tracts: ${duplicateTractIds.slice(0, 10).join(', ')}${duplicateTractIds.length > 10 ? '...' : ''}`);
-      console.error(`⚠️ Removing duplicates - using ${uniqueTracts.length} unique tracts instead of ${tracts.length} total`);
-    }
+    // Deduplicate tracts array - merge duplicates (e.g., MultiPolygon parts)
+    const uniqueTracts = deduplicateAndMergeTracts(tracts);
 
     // Calculate total state population from unique tracts
     const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
@@ -578,6 +739,18 @@ class GeodistrictAlgorithmService {
       }
 
       currentGroups = newGroups;
+      
+      // Quick validation: Total tract count should match input count
+      const totalTractsAfterDivision = currentGroups.reduce((sum, group) => sum + group.censusTracts.length, 0);
+      const expectedTractCount = uniqueTracts.length;
+      if (totalTractsAfterDivision !== expectedTractCount) {
+        console.error(`⚠️ DIVISION COUNT MISMATCH: Expected ${expectedTractCount} tracts, found ${totalTractsAfterDivision} after division step ${iteration} (difference: ${totalTractsAfterDivision - expectedTractCount})`);
+        if (totalTractsAfterDivision < expectedTractCount) {
+          console.error(`   → Missing ${expectedTractCount - totalTractsAfterDivision} tract(s) - orphaned tracts detected!`);
+        } else {
+          console.error(`   → Extra ${totalTractsAfterDivision - expectedTractCount} tract(s) - duplicate tracts detected!`);
+        }
+      }
       
       // Validate immediately after division (before fixing isolated tracts)
       // This will catch if division itself is creating duplicates
@@ -720,6 +893,105 @@ class GeodistrictAlgorithmService {
       algorithmHistory.push(`Algorithm completed: ${currentGroups.length} districts created in ${iteration} iterations`);
     }
 
+    // Final validation: Check for orphaned/missing tracts and duplicates
+    const assignedTractIds = new Set();
+    const tractToGroups = new Map(); // Map<tractId, [groupIndex, ...]>
+    
+    for (let groupIndex = 0; groupIndex < currentGroups.length; groupIndex++) {
+      const group = currentGroups[groupIndex];
+      for (const tract of group.censusTracts) {
+        const tractId = getTractId(tract);
+        assignedTractIds.add(tractId);
+        if (!tractToGroups.has(tractId)) {
+          tractToGroups.set(tractId, []);
+        }
+        tractToGroups.get(tractId).push(groupIndex);
+      }
+    }
+    
+    // Check for duplicates
+    let finalDuplicatesFixed = 0;
+    for (const [tractId, groupIndices] of tractToGroups.entries()) {
+      if (groupIndices.length > 1) {
+        console.error(`⚠️ FINAL VALIDATION ERROR: Tract ${tractId} is assigned to ${groupIndices.length} groups! Fixing by keeping in first group only.`);
+        
+        // Keep in first group, remove from all others
+        for (let i = 1; i < groupIndices.length; i++) {
+          const groupIndex = groupIndices[i];
+          const group = currentGroups[groupIndex];
+          const tractIndex = group.censusTracts.findIndex(t => getTractId(t) === tractId);
+          
+          if (tractIndex !== -1) {
+            const tract = group.censusTracts[tractIndex];
+            const tractPopulation = tract.properties?.POPULATION || 0;
+            
+            // Remove from this group
+            group.censusTracts.splice(tractIndex, 1);
+            
+            // Update group population and bounds
+            group.totalPopulation = group.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+            group.bounds = calculateBounds(group.censusTracts);
+            group.centroid = calculateCentroid(group.censusTracts);
+            
+            finalDuplicatesFixed++;
+          }
+        }
+      }
+    }
+    
+    if (finalDuplicatesFixed > 0) {
+      console.log(`✅ Final validation: Fixed ${finalDuplicatesFixed} duplicate tract assignment(s)`);
+      algorithmHistory.push(`Final validation: Fixed ${finalDuplicatesFixed} duplicate tract assignment(s)`);
+    }
+    
+    // Check for missing/orphaned tracts
+    const allTractIds = new Set(uniqueTracts.map(t => getTractId(t)));
+    const missingTracts = [];
+    for (const tractId of allTractIds) {
+      if (!assignedTractIds.has(tractId)) {
+        missingTracts.push(tractId);
+      }
+    }
+    
+    if (missingTracts.length > 0) {
+      console.error(`⚠️ FINAL VALIDATION ERROR: ${missingTracts.length} tract(s) not assigned to any group!`);
+      
+      // Assign missing tracts to the nearest group based on centroid
+      for (const missingTractId of missingTracts) {
+        const missingTract = uniqueTracts.find(t => getTractId(t) === missingTractId);
+        if (missingTract) {
+          const tractCentroid = calculateTractCentroid(missingTract);
+          let nearestGroup = null;
+          let minDistance = Infinity;
+          
+          for (const group of currentGroups) {
+            const groupCentroid = group.centroid;
+            const distance = Math.sqrt(
+              Math.pow(tractCentroid.lat - groupCentroid.lat, 2) +
+              Math.pow(tractCentroid.lng - groupCentroid.lng, 2)
+            );
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestGroup = group;
+            }
+          }
+          
+          if (nearestGroup) {
+            nearestGroup.censusTracts.push(missingTract);
+            nearestGroup.totalPopulation += missingTract.properties?.POPULATION || 0;
+            nearestGroup.bounds = calculateBounds(nearestGroup.censusTracts);
+            nearestGroup.centroid = calculateCentroid(nearestGroup.censusTracts);
+            console.log(`🔧 Final fix: Assigned orphaned tract ${missingTractId} to group ${nearestGroup.startDistrictNumber}-${nearestGroup.endDistrictNumber}`);
+            algorithmHistory.push(`Final fix: Assigned orphaned tract ${missingTractId} to district ${nearestGroup.startDistrictNumber}`);
+          }
+        }
+      }
+      
+      if (missingTracts.length > 0) {
+        algorithmHistory.push(`Final validation: Fixed ${missingTracts.length} orphaned tract(s) by assigning to nearest district`);
+      }
+    }
+
     // Calculate final statistics
     const finalDistricts = currentGroups;
     const averagePopulation = totalStatePopulation / finalDistricts.length;
@@ -756,17 +1028,20 @@ class GeodistrictAlgorithmService {
       }
     }
 
-    const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    // Deduplicate tracts array - merge duplicates (e.g., MultiPolygon parts)
+    const uniqueTracts = deduplicateAndMergeTracts(tracts);
+
+    const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const targetDistrictPopulation = totalStatePopulation / totalDistricts;
 
     const initialGroup = {
       startDistrictNumber: 1,
       endDistrictNumber: totalDistricts,
-      censusTracts: tracts,
+      censusTracts: uniqueTracts,
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
-      bounds: calculateBounds(tracts),
-      centroid: calculateCentroid(tracts)
+      bounds: calculateBounds(uniqueTracts),
+      centroid: calculateCentroid(uniqueTracts)
     };
 
     const steps = [];
@@ -816,6 +1091,18 @@ class GeodistrictAlgorithmService {
 
       currentGroups = newGroups;
       
+      // Quick validation: Total tract count should match input count
+      const totalTractsAfterDivision = currentGroups.reduce((sum, group) => sum + group.censusTracts.length, 0);
+      const expectedTractCount = uniqueTracts.length;
+      if (totalTractsAfterDivision !== expectedTractCount) {
+        console.error(`⚠️ DIVISION COUNT MISMATCH: Expected ${expectedTractCount} tracts, found ${totalTractsAfterDivision} after division step ${iteration} (difference: ${totalTractsAfterDivision - expectedTractCount})`);
+        if (totalTractsAfterDivision < expectedTractCount) {
+          console.error(`   → Missing ${expectedTractCount - totalTractsAfterDivision} tract(s) - orphaned tracts detected!`);
+        } else {
+          console.error(`   → Extra ${totalTractsAfterDivision - expectedTractCount} tract(s) - duplicate tracts detected!`);
+        }
+      }
+      
       // Fix isolated tracts after division (use uniqueTracts to ensure no duplicates in adjacency graph)
       currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
       
@@ -824,6 +1111,104 @@ class GeodistrictAlgorithmService {
       steps.push(step);
       
       yield { step: iteration, data: step, isComplete: false };
+    }
+
+    // Final validation: Check for orphaned/missing tracts and duplicates
+    const assignedTractIds = new Set();
+    const tractToGroups = new Map(); // Map<tractId, [groupIndex, ...]>
+    
+    for (let groupIndex = 0; groupIndex < currentGroups.length; groupIndex++) {
+      const group = currentGroups[groupIndex];
+      for (const tract of group.censusTracts) {
+        const tractId = getTractId(tract);
+        assignedTractIds.add(tractId);
+        if (!tractToGroups.has(tractId)) {
+          tractToGroups.set(tractId, []);
+        }
+        tractToGroups.get(tractId).push(groupIndex);
+      }
+    }
+    
+    // Check for duplicates
+    let finalDuplicatesFixed = 0;
+    for (const [tractId, groupIndices] of tractToGroups.entries()) {
+      if (groupIndices.length > 1) {
+        console.error(`⚠️ FINAL VALIDATION ERROR: Tract ${tractId} is assigned to ${groupIndices.length} groups! Fixing by keeping in first group only.`);
+        
+        // Keep in first group, remove from all others
+        for (let i = 1; i < groupIndices.length; i++) {
+          const groupIndex = groupIndices[i];
+          const group = currentGroups[groupIndex];
+          const tractIndex = group.censusTracts.findIndex(t => getTractId(t) === tractId);
+          
+          if (tractIndex !== -1) {
+            const tract = group.censusTracts[tractIndex];
+            
+            // Remove from this group
+            group.censusTracts.splice(tractIndex, 1);
+            
+            // Update group population and bounds
+            group.totalPopulation = group.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+            group.bounds = calculateBounds(group.censusTracts);
+            group.centroid = calculateCentroid(group.censusTracts);
+            
+            finalDuplicatesFixed++;
+          }
+        }
+      }
+    }
+    
+    if (finalDuplicatesFixed > 0) {
+      console.log(`✅ Final validation: Fixed ${finalDuplicatesFixed} duplicate tract assignment(s)`);
+      algorithmHistory.push(`Final validation: Fixed ${finalDuplicatesFixed} duplicate tract assignment(s)`);
+    }
+    
+    // Check for missing/orphaned tracts
+    const allTractIds = new Set(uniqueTracts.map(t => getTractId(t)));
+    const missingTracts = [];
+    for (const tractId of allTractIds) {
+      if (!assignedTractIds.has(tractId)) {
+        missingTracts.push(tractId);
+      }
+    }
+    
+    if (missingTracts.length > 0) {
+      console.error(`⚠️ FINAL VALIDATION ERROR: ${missingTracts.length} tract(s) not assigned to any group!`);
+      
+      // Assign missing tracts to the nearest group based on centroid
+      for (const missingTractId of missingTracts) {
+        const missingTract = uniqueTracts.find(t => getTractId(t) === missingTractId);
+        if (missingTract) {
+          const tractCentroid = calculateTractCentroid(missingTract);
+          let nearestGroup = null;
+          let minDistance = Infinity;
+          
+          for (const group of currentGroups) {
+            const groupCentroid = group.centroid;
+            const distance = Math.sqrt(
+              Math.pow(tractCentroid.lat - groupCentroid.lat, 2) +
+              Math.pow(tractCentroid.lng - groupCentroid.lng, 2)
+            );
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestGroup = group;
+            }
+          }
+          
+          if (nearestGroup) {
+            nearestGroup.censusTracts.push(missingTract);
+            nearestGroup.totalPopulation += missingTract.properties?.POPULATION || 0;
+            nearestGroup.bounds = calculateBounds(nearestGroup.censusTracts);
+            nearestGroup.centroid = calculateCentroid(nearestGroup.censusTracts);
+            console.log(`🔧 Final fix: Assigned orphaned tract ${missingTractId} to group ${nearestGroup.startDistrictNumber}-${nearestGroup.endDistrictNumber}`);
+            algorithmHistory.push(`Final fix: Assigned orphaned tract ${missingTractId} to district ${nearestGroup.startDistrictNumber}`);
+          }
+        }
+      }
+      
+      if (missingTracts.length > 0) {
+        algorithmHistory.push(`Final validation: Fixed ${missingTracts.length} orphaned tract(s) by assigning to nearest district`);
+      }
     }
 
     // Calculate final statistics

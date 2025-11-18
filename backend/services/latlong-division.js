@@ -1,4 +1,5 @@
-const { calculateBounds, calculateCentroid, calculateTractCentroid } = require('./geodistrict-algorithm');
+const { calculateBounds, calculateCentroid, calculateTractCentroid, getTractId } = require('./geodistrict-algorithm');
+const s4DataLoader = require('./s4-data-loader');
 
 /**
  * LatLong Division Service
@@ -68,11 +69,13 @@ class LatLongDivisionService {
     const bounds = this.getTractBounds(tract);
     
     if (direction === 'latitude') {
-      // For latitude: "north" means maxLat <= lineCoordinate (tract is entirely north)
-      return bounds.maxLat <= lineCoordinate;
+      // For latitude: "north" means minLat > lineCoordinate (tract's southernmost point is above the line)
+      // This means the entire tract is north of the dividing line
+      return bounds.minLat > lineCoordinate;
     } else {
-      // For longitude: "west" means maxLng <= lineCoordinate (tract is entirely west)
-      return bounds.maxLng <= lineCoordinate;
+      // For longitude: "west" means maxLng < lineCoordinate (tract's easternmost point is west of the line)
+      // US longitudes are negative, so more negative = more west
+      return bounds.maxLng < lineCoordinate;
     }
   }
 
@@ -220,7 +223,7 @@ class LatLongDivisionService {
     const assignedTractIds = new Set(); // Track which tracts we've assigned to prevent duplicates
 
     for (const tract of tracts) {
-      const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+      const tractId = getTractId(tract) || 'unknown';
       
       // Safety check: if we've already assigned this tract, skip it (shouldn't happen, but be safe)
       if (assignedTractIds.has(tractId)) {
@@ -237,47 +240,215 @@ class LatLongDivisionService {
       if (direction === 'latitude') {
         // Check if tract intersects the line (including edge cases where boundary equals the line)
         intersectsLine = bounds.minLat <= dividingLine && bounds.maxLat >= dividingLine;
-        // A tract is entirely north/west only if it doesn't intersect and is strictly on one side
-        // Use strict < to avoid overlap with intersecting cases
-        isEntirelyNorthOrWest = !intersectsLine && bounds.maxLat < dividingLine;
+        // A tract is entirely NORTH if its southernmost point (minLat) is above the dividing line
+        // A tract is entirely SOUTH if its northernmost point (maxLat) is below the dividing line
+        // For firstGroup (north): minLat > dividingLine means entire tract is north of line
+        isEntirelyNorthOrWest = !intersectsLine && bounds.minLat > dividingLine;
       } else {
         // Check if tract intersects the line (including edge cases where boundary equals the line)
         intersectsLine = bounds.minLng <= dividingLine && bounds.maxLng >= dividingLine;
-        // A tract is entirely north/west only if it doesn't intersect and is strictly on one side
-        // Use strict < to avoid overlap with intersecting cases
+        // For longitude: US longitudes are negative (west of prime meridian)
+        // More negative = more west. So maxLng < dividingLine means entirely west
+        // Example: dividingLine = -100, maxLng = -120 means tract is entirely west
         isEntirelyNorthOrWest = !intersectsLine && bounds.maxLng < dividingLine;
       }
 
       if (intersectsLine) {
-        // Tract intersects the line - assign based on centroid
-        const centroid = calculateTractCentroid(tract);
-        
-        if (direction === 'latitude') {
-          if (centroid.lat <= dividingLine) {
-            firstGroupTracts.push(tract);
-          } else {
-            secondGroupTracts.push(tract);
-          }
-        } else {
-          if (centroid.lng <= dividingLine) {
-            firstGroupTracts.push(tract);
-          } else {
-            secondGroupTracts.push(tract);
-          }
-        }
-        
+        // Tract intersects the line - assign all to south/east group (secondGroup)
+        // This ensures we start with a contiguous assignment, then fix isolation if needed
+        secondGroupTracts.push(tract);
         assignedTractIds.add(tractId);
         intersectingTractIds.push(tractId);
+        // Debug logging for specific tract (check both full ID and last 6 digits which is the tract portion)
+        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
+        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
+          console.log(`🔍 DEBUG Tract ${tractId}: INTERSECTS line at ${dividingLine}, assigned to SOUTH group (secondGroup)`);
+          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
+          console.log(`   Direction: ${direction}, minLat > dividingLine: ${bounds.minLat > dividingLine}, maxLat < dividingLine: ${bounds.maxLat < dividingLine}`);
+        }
       } else if (isEntirelyNorthOrWest) {
         firstGroupTracts.push(tract);
         assignedTractIds.add(tractId);
+        // Debug logging for specific tract
+        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
+        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
+          console.log(`🔍 DEBUG Tract ${tractId}: ENTIRELY NORTH, assigned to NORTH group (firstGroup)`);
+          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
+          console.log(`   Direction: ${direction}, minLat > dividingLine: ${bounds.minLat > dividingLine}`);
+        }
       } else {
         secondGroupTracts.push(tract);
         assignedTractIds.add(tractId);
+        // Debug logging for specific tract
+        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
+        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
+          console.log(`🔍 DEBUG Tract ${tractId}: ENTIRELY SOUTH (else case), assigned to SOUTH group (secondGroup)`);
+          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
+          console.log(`   Direction: ${direction}, isEntirelyNorthOrWest=${isEntirelyNorthOrWest}, intersectsLine=${intersectsLine}`);
+          console.log(`   minLat > dividingLine: ${bounds.minLat > dividingLine}, maxLat < dividingLine: ${bounds.maxLat < dividingLine}`);
+        }
       }
     }
 
     return { firstGroupTracts, secondGroupTracts, intersectingTractIds };
+  }
+
+  /**
+   * Build adjacency graph for tracts using S4 data
+   */
+  buildAdjacencyGraph(tracts) {
+    if (tracts.length === 0) {
+      return new Map();
+    }
+
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      const cacheKey = state.toLowerCase();
+      const s4AdjacencyGraph = s4DataLoader.getS4AdjacencyData(cacheKey);
+      
+      if (s4AdjacencyGraph) {
+        const tractIds = new Set(tracts.map(t => getTractId(t)));
+        const graph = new Map();
+        
+        // Initialize all tracts
+        for (const tract of tracts) {
+          const id = getTractId(tract);
+          graph.set(id, []);
+        }
+        
+        // Populate adjacencies from S4 data
+        for (const tract of tracts) {
+          const id = getTractId(tract);
+          const s4Neighbors = s4AdjacencyGraph.get(id) || [];
+          
+          // Filter to only include neighbors that are in our tract set
+          const validNeighbors = s4Neighbors.filter(neighborId => tractIds.has(neighborId));
+          graph.set(id, validNeighbors);
+        }
+        
+        return graph;
+      }
+    }
+    
+    // Fallback: empty graph
+    const graph = new Map();
+    for (const tract of tracts) {
+      const id = getTractId(tract);
+      graph.set(id, []);
+    }
+    
+    return graph;
+  }
+
+  /**
+   * Calculate reachable tracts from a given tract using BFS
+   */
+  calculateReachableTracts(tractId, groupTracts, adjacencyGraph) {
+    const groupTractIds = new Set(groupTracts.map(t => getTractId(t)));
+    
+    const reachableTracts = new Set();
+    const queue = [tractId];
+    reachableTracts.add(tractId);
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      
+      for (const neighborId of neighbors) {
+        if (groupTractIds.has(neighborId) && !reachableTracts.has(neighborId)) {
+          reachableTracts.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    
+    return reachableTracts.size;
+  }
+
+  /**
+   * Calculate maximum reachable count (main component size) for a group
+   */
+  calculateMaxReachableCount(groupTracts, adjacencyGraph) {
+    let maxReachableCount = 0;
+    for (const tract of groupTracts) {
+      const tractId = getTractId(tract);
+      const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+      if (reachableCount > maxReachableCount) {
+        maxReachableCount = reachableCount;
+      }
+    }
+    return maxReachableCount;
+  }
+
+  /**
+   * Find isolated groups (connected components that are smaller than the main component)
+   */
+  findIsolatedGroups(groupTracts, allTracts, adjacencyGraph) {
+    if (groupTracts.length === 0) {
+      return [];
+    }
+
+    const maxReachableCount = this.calculateMaxReachableCount(groupTracts, adjacencyGraph);
+    const isolatedGroups = [];
+    const processedTracts = new Set();
+    
+    for (const tract of groupTracts) {
+      const tractId = getTractId(tract);
+      if (processedTracts.has(tractId)) {
+        continue;
+      }
+      
+      const reachableCount = this.calculateReachableTracts(tractId, groupTracts, adjacencyGraph);
+      
+      // If this component is smaller than the main component, it's isolated
+      if (reachableCount < maxReachableCount) {
+        // Find all tracts in this isolated component
+        const groupTractIds = new Set(groupTracts.map(t => getTractId(t)));
+        const isolatedTracts = new Set();
+        const queue = [tractId];
+        isolatedTracts.add(tractId);
+        processedTracts.add(tractId);
+        
+        while (queue.length > 0) {
+          const currentId = queue.shift();
+          const neighbors = adjacencyGraph.get(currentId) || [];
+          
+          for (const neighborId of neighbors) {
+            if (groupTractIds.has(neighborId) && !isolatedTracts.has(neighborId)) {
+              isolatedTracts.add(neighborId);
+              processedTracts.add(neighborId);
+              queue.push(neighborId);
+            }
+          }
+        }
+        
+        // Convert to array of tract objects
+        const isolatedTractArray = groupTracts.filter(t => isolatedTracts.has(getTractId(t)));
+        isolatedGroups.push(isolatedTractArray);
+      } else {
+        // Mark all tracts in main component as processed
+        const groupTractIds = new Set(groupTracts.map(t => getTractId(t)));
+        const mainComponent = new Set();
+        const queue = [tractId];
+        mainComponent.add(tractId);
+        processedTracts.add(tractId);
+        
+        while (queue.length > 0) {
+          const currentId = queue.shift();
+          const neighbors = adjacencyGraph.get(currentId) || [];
+          
+          for (const neighborId of neighbors) {
+            if (groupTractIds.has(neighborId) && !mainComponent.has(neighborId)) {
+              mainComponent.add(neighborId);
+              processedTracts.add(neighborId);
+              queue.push(neighborId);
+            }
+          }
+        }
+      }
+    }
+    
+    return isolatedGroups;
   }
 
   /**
@@ -359,6 +530,117 @@ class LatLongDivisionService {
     if (!firstGroupContiguous || !secondGroupContiguous) {
       console.warn(`⚠️  Lat/long division resulted in non-contiguous groups. This is expected for some geographic configurations.`);
     }
+
+    // DISABLED: Check for isolated groups in firstGroup and rebalance if needed
+    // This logic is disabled for step-by-step debugging
+    /*
+    const allTracts = group.censusTracts;
+    const adjacencyGraph = this.buildAdjacencyGraph(allTracts);
+    const isolatedGroups = this.findIsolatedGroups(firstGroupTracts, allTracts, adjacencyGraph);
+    
+    if (isolatedGroups.length > 0) {
+      // Move all isolated groups to secondGroup
+      const totalIsolatedTracts = isolatedGroups.reduce((sum, isolated) => sum + isolated.length, 0);
+      console.log(`🔧 Found ${isolatedGroups.length} isolated group(s) with ${totalIsolatedTracts} total tract(s) in first group, moving to second group and rebalancing`);
+      
+      // Track which tracts were isolated (so we don't move them back)
+      const isolatedTractIds = new Set();
+      for (const isolatedGroup of isolatedGroups) {
+        for (const tract of isolatedGroup) {
+          isolatedTractIds.add(getTractId(tract));
+        }
+      }
+      
+      // Move isolated tracts to secondGroup
+      for (const isolatedGroup of isolatedGroups) {
+        for (const tract of isolatedGroup) {
+          const tractId = getTractId(tract);
+          // Remove from firstGroup
+          const index = firstGroupTracts.findIndex(t => getTractId(t) === tractId);
+          if (index !== -1) {
+            firstGroupTracts.splice(index, 1);
+          }
+          // Add to secondGroup (avoid duplicates)
+          if (!secondGroupTracts.some(t => getTractId(t) === tractId)) {
+            secondGroupTracts.push(tract);
+          }
+        }
+      }
+      
+      // Move same number of tracts from secondGroup to firstGroup to balance
+      // Prefer tracts that are adjacent to firstGroup to maintain contiguity
+      // IMPORTANT: Don't move back the isolated tracts we just moved
+      const secondGroupTractIds = new Set(secondGroupTracts.map(t => getTractId(t)));
+      const firstGroupTractIds = new Set(firstGroupTracts.map(t => getTractId(t)));
+      
+      // Find tracts in secondGroup that are adjacent to firstGroup
+      const candidateTracts = [];
+      for (const tract of secondGroupTracts) {
+        const tractId = getTractId(tract);
+        const neighbors = adjacencyGraph.get(tractId) || [];
+        const hasFirstGroupNeighbor = neighbors.some(neighborId => firstGroupTractIds.has(neighborId));
+        if (hasFirstGroupNeighbor) {
+          candidateTracts.push(tract);
+        }
+      }
+      
+      // If we don't have enough adjacent tracts, use any tracts from secondGroup
+      const tractsToMove = [];
+      let remaining = totalIsolatedTracts;
+      
+      // First, try to use adjacent tracts
+      for (const tract of candidateTracts) {
+        if (remaining <= 0) break;
+        const tractId = getTractId(tract);
+        if (!tractsToMove.some(t => getTractId(t) === tractId)) {
+          tractsToMove.push(tract);
+          remaining--;
+        }
+      }
+      
+      // If we still need more, use any remaining tracts from secondGroup
+      // IMPORTANT: Don't move back the isolated tracts we just moved
+      if (remaining > 0) {
+        for (const tract of secondGroupTracts) {
+          if (remaining <= 0) break;
+          const tractId = getTractId(tract);
+          if (!tractsToMove.some(t => getTractId(t) === tractId) && 
+              !firstGroupTractIds.has(tractId) && 
+              !isolatedTractIds.has(tractId)) {
+            tractsToMove.push(tract);
+            remaining--;
+          }
+        }
+      }
+      
+      // Move tracts from secondGroup to firstGroup
+      for (const tract of tractsToMove) {
+        const tractId = getTractId(tract);
+        // Remove from secondGroup
+        const index = secondGroupTracts.findIndex(t => getTractId(t) === tractId);
+        if (index !== -1) {
+          secondGroupTracts.splice(index, 1);
+        }
+        // Add to firstGroup (avoid duplicates)
+        if (!firstGroupTracts.some(t => getTractId(t) === tractId)) {
+          firstGroupTracts.push(tract);
+        }
+      }
+      
+      if (remaining > 0) {
+        console.warn(`⚠️ REBALANCE WARNING: Could only move ${tractsToMove.length} of ${totalIsolatedTracts} requested tracts from second group to first group. Remaining: ${remaining}`);
+      }
+      
+      console.log(`✅ Rebalanced: Moved ${totalIsolatedTracts} isolated tract(s) to second group, moved ${tractsToMove.length} tract(s) from second group to first group`);
+      
+      // Validate tract count after rebalancing
+      const totalAfterRebalance = firstGroupTracts.length + secondGroupTracts.length;
+      const expectedTotal = group.censusTracts.length;
+      if (totalAfterRebalance !== expectedTotal) {
+        console.error(`⚠️ REBALANCE COUNT MISMATCH: Expected ${expectedTotal} tracts, found ${totalAfterRebalance} after rebalancing (difference: ${totalAfterRebalance - expectedTotal})`);
+      }
+    }
+    */
 
     // Create new district groups
     const firstGroup = {

@@ -9,7 +9,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, AlgorithmType, DistrictGroup } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, AlgorithmType, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 
 declare global {
@@ -50,6 +50,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private tractLayer: L.LayerGroup | null = null;
   private tractGeoJsonLayers: Map<L.GeoJSON, string> = new Map(); // Store layer -> color mapping
   private subscriptions: Subscription[] = [];
+  private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
+  private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
+  private divisionLineMarkers: L.Marker[] = []; // Track all division line markers
+  private animatedLineLayers: L.Layer[] = []; // Track animated line layers for cleanup
 
   // US States with their congressional district counts
   states = [
@@ -126,6 +130,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.clearDivisionLines();
     if (this.map) {
       this.map.remove();
     }
@@ -182,15 +187,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.tractGeoJsonLayers.size > 0) {
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
         layer.setStyle({
-          color: districtColor, // Border color matches fill color when unchecked (hidden)
-          weight: 1, // Always show borders
-          opacity: this.showTractBoundaries ? 0.8 : 0.7, // Match fill opacity when unchecked so border blends with fill
+          color: this.showTractBoundaries ? '#000000' : districtColor, // Black borders when checked, match fill when unchecked
+          weight: this.showTractBoundaries ? 2 : 1, // Thicker borders when checked
+          opacity: this.showTractBoundaries ? 1.0 : 0.3, // Full opacity when checked, subtle when unchecked
           fillOpacity: 0.7,
           fillColor: districtColor
         });
       });
-    } else if (this.algorithmResult) {
-      // If no layers exist yet, render them
+    } else if (this.algorithmResult && this.currentStep) {
+      // If no layers exist yet, render current step
       this.renderFinalDistricts();
     } else {
       this.tractLayer.clearLayers();
@@ -281,15 +286,29 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const subscription = this.geodistrictService.runGeodistrictAlgorithmStepByStep(options).subscribe({
       next: (result) => {
+        console.log('Algorithm result received:', result);
+        if (!result) {
+          this.errorMessage = 'Algorithm returned no result';
+          this.isLoading = false;
+          console.error('Algorithm returned null/undefined result');
+          return;
+        }
+        if (!result.steps || result.steps.length === 0) {
+          this.errorMessage = 'Algorithm returned no steps';
+          this.isLoading = false;
+          console.error('Algorithm returned empty steps array');
+          return;
+        }
         this.algorithmResult = result;
-        // Set to final step (all steps completed)
-        this.currentStepIndex = result.steps.length - 1;
+        // Set to first step (step 0 - initial state)
+        this.currentStepIndex = 0;
         this.currentStep = result.steps[this.currentStepIndex];
+        console.log(`✅ Algorithm completed: ${result.steps.length} steps, current step: ${this.currentStepIndex}`);
         this.isLoading = false;
         this.canRunNextStep = this.canExecuteNextStep(result);
-        // Render final districts on map (all steps calculated)
+        // Render first step on map
         setTimeout(() => {
-          this.renderFinalDistricts();
+          this.updateMapLayers();
         }, 200);
       },
       error: (error) => {
@@ -311,14 +330,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStepIndex--;
       this.currentStep = this.algorithmResult.steps[this.currentStepIndex];
       this.canRunNextStep = this.canExecuteNextStep(this.algorithmResult);
+      this.renderFinalDistricts(); // Re-render map for the new step
     }
   }
 
   nextStep(): void {
-    if (this.algorithmResult && this.canRunNextStep) {
+    if (this.algorithmResult && this.currentStepIndex < this.algorithmResult.steps.length - 1) {
       this.currentStepIndex++;
       this.currentStep = this.algorithmResult.steps[this.currentStepIndex];
-      this.canRunNextStep = this.canExecuteNextStep(this.algorithmResult);
+      this.renderFinalDistricts(); // Re-render map for the new step
     }
   }
 
@@ -340,19 +360,38 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private renderFinalDistricts(): void {
-    if (!this.map || !this.tractLayer || !this.algorithmResult) return;
+    if (!this.map) {
+      console.error('⚠️ Map not initialized');
+      return;
+    }
+    if (!this.tractLayer) {
+      console.error('⚠️ Tract layer not initialized');
+      return;
+    }
+    if (!this.algorithmResult) {
+      console.error('⚠️ Algorithm result not available');
+      return;
+    }
+
+    console.log('🖼️ Rendering districts on map...');
 
     // Clear existing layers and reset tracking
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.clearDivisionLines();
 
     const bounds = L.latLngBounds([]);
     let hasBounds = false;
 
-    // Use finalDistricts if available, otherwise use the last step's district groups
+    // Use current step's district groups if available, otherwise use finalDistricts
     let districtsToRender: DistrictGroup[] = [];
     
-    if (this.algorithmResult.finalDistricts && this.algorithmResult.finalDistricts.length > 0) {
+    if (this.currentStep && this.currentStep.districtGroups && this.currentStep.districtGroups.length > 0) {
+      // Render the current step's district groups
+      districtsToRender = this.currentStep.districtGroups;
+      console.log(`✅ Rendering step ${this.currentStepIndex + 1}: ${districtsToRender.length} district groups`);
+    } else if (this.algorithmResult.finalDistricts && this.algorithmResult.finalDistricts.length > 0) {
+      // Fallback to finalDistricts if no current step
       districtsToRender = this.algorithmResult.finalDistricts;
       console.log(`✅ Rendering ${districtsToRender.length} final districts`);
     } else if (this.algorithmResult.steps && this.algorithmResult.steps.length > 0) {
@@ -369,18 +408,34 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    let totalTracts = 0;
+
     // Render final districts (all steps calculated)
     districtsToRender.forEach((district, index) => {
       const color = this.getDistrictColor(index, districtsToRender.length);
       
+      if (!district.censusTracts || district.censusTracts.length === 0) {
+        console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
+        return;
+      }
+      
       // Add each tract in the district
       district.censusTracts.forEach((tract: GeoJsonFeature) => {
-        if (tract.geometry) {
+        if (!tract) {
+          console.warn('⚠️ Null tract found in district');
+          return;
+        }
+        if (!tract.geometry) {
+          console.warn('⚠️ Tract missing geometry:', tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown');
+          return;
+        }
+        
+        try {
           const geoJson = L.geoJSON(tract.geometry, {
             style: {
-              color: color, // Border color matches fill color when unchecked (hidden)
-              weight: 1, // Always show borders
-              opacity: this.showTractBoundaries ? 0.8 : 0.7, // Match fill opacity when unchecked so border blends with fill
+              color: this.showTractBoundaries ? '#000000' : color, // Black borders when checked, match fill when unchecked
+              weight: this.showTractBoundaries ? 2 : 1, // Thicker borders when checked
+              opacity: this.showTractBoundaries ? 1.0 : 0.3, // Full opacity when checked, subtle when unchecked
               fillOpacity: 0.7,
               fillColor: color
             }
@@ -394,21 +449,499 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
           this.tractLayer!.addLayer(geoJson);
           this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
+          totalTracts++;
 
           // Extend bounds
           const tractBounds = geoJson.getBounds();
-          if (tractBounds.isValid()) {
+          if (tractBounds && tractBounds.isValid()) {
             bounds.extend(tractBounds);
             hasBounds = true;
           }
+        } catch (error) {
+          console.error('⚠️ Error rendering tract:', error, tract);
         }
       });
     });
+
+    console.log(`✅ Rendered ${totalTracts} tracts across ${districtsToRender.length} districts`);
 
     // Fit map to show all districts
     if (hasBounds && bounds.isValid() && this.map) {
       this.map.fitBounds(bounds, { padding: [20, 20] });
     }
+
+    // Render division lines for current step and all previous steps
+    this.renderDivisionLines();
+  }
+
+  /**
+   * Clear all division lines from the map
+   */
+  private clearDivisionLines(): void {
+    // Remove all division line layers
+    this.divisionLineLayers.forEach(layer => {
+      if (this.map) {
+        this.map.removeLayer(layer);
+      }
+    });
+    this.divisionLineLayers = [];
+
+    // Remove all division line markers
+    this.divisionLineMarkers.forEach(marker => {
+      if (this.map) {
+        this.map.removeLayer(marker);
+      }
+    });
+    this.divisionLineMarkers = [];
+
+    // Clear animated layers
+    this.animatedLineLayers.forEach(layer => {
+      if (this.map) {
+        this.map.removeLayer(layer);
+      }
+    });
+    this.animatedLineLayers = [];
+
+    this.divisionLinesByStep.clear();
+  }
+
+  /**
+   * Render division lines for current step and all previous steps
+   */
+  private renderDivisionLines(): void {
+    if (!this.map || !this.algorithmResult || !this.currentStep) return;
+
+    // Clear existing division lines
+    this.clearDivisionLines();
+
+    // Add static lines for all previous steps
+    for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
+      const step = this.algorithmResult.steps[stepIdx];
+      if (step && step.divisionLines && step.divisionLines.length > 0) {
+        this.addStaticDivisionLinesForStep(step, stepIdx);
+      }
+    }
+
+    // Animate division lines for current step
+    if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
+      this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
+    }
+  }
+
+  /**
+   * Add static division lines for a previous step
+   */
+  private addStaticDivisionLinesForStep(step: GeodistrictStep, stepIdx: number): void {
+    if (!this.map || !step.divisionLines || step.divisionLines.length === 0) return;
+
+    const stepDivisionLines: L.Polyline[] = [];
+
+    for (const divLineInfo of step.divisionLines) {
+      const staticLine = this.createStaticDivisionLine(divLineInfo, stepIdx);
+      if (staticLine) {
+        stepDivisionLines.push(staticLine);
+      }
+    }
+
+    if (stepDivisionLines.length > 0) {
+      this.divisionLinesByStep.set(stepIdx, stepDivisionLines);
+    }
+  }
+
+  /**
+   * Animate division lines for the current step
+   */
+  private async animateCurrentStepDivisionLines(step: GeodistrictStep, stepIdx: number): Promise<void> {
+    if (!this.map || !step.divisionLines || step.divisionLines.length === 0) {
+      return;
+    }
+
+    const stepDivisionLines: L.Polyline[] = [];
+    const animationPromises: Promise<L.Polyline | null>[] = [];
+
+    // Start all animations for this step simultaneously
+    for (const divLineInfo of step.divisionLines) {
+      const animationPromise = this.createAnimatedDivisionLine(divLineInfo, stepIdx);
+      if (animationPromise) {
+        animationPromises.push(animationPromise);
+      }
+    }
+
+    // Wait for all animations to complete
+    if (animationPromises.length > 0) {
+      try {
+        const completedLines = await Promise.all(animationPromises);
+        stepDivisionLines.push(...completedLines.filter(line => line !== null) as L.Polyline[]);
+      } catch (error) {
+        console.error(`Error animating division lines for step ${stepIdx}:`, error);
+      }
+    }
+
+    // Store division lines for this step
+    if (stepDivisionLines.length > 0) {
+      this.divisionLinesByStep.set(stepIdx, stepDivisionLines);
+    }
+  }
+
+  /**
+   * Create a static division line (no animation)
+   */
+  private createStaticDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): L.Polyline | null {
+    try {
+      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+
+      // Get bounds from the previous step (where the parent group existed)
+      let groupBounds: L.LatLngBounds | null = null;
+      if (this.algorithmResult && stepIdx > 0) {
+        const prevStep = this.algorithmResult.steps[stepIdx - 1];
+        if (prevStep) {
+          const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
+            g.startDistrictNumber === parentGroup.startDistrictNumber &&
+            g.endDistrictNumber === parentGroup.endDistrictNumber
+          );
+
+          if (parentGroupInPrevStep && parentGroupInPrevStep.bounds) {
+            groupBounds = L.latLngBounds(
+              L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
+              L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
+            );
+          } else if (parentGroupInPrevStep) {
+            // Calculate bounds from tracts
+            groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+          }
+        }
+      }
+
+      if (!groupBounds || !groupBounds.isValid()) {
+        // Fallback: use map bounds
+        if (this.map) {
+          groupBounds = this.map.getBounds();
+        } else {
+          return null;
+        }
+      }
+
+      let lineCoordinates: L.LatLng[] | null = null;
+
+      if (direction === 'latitude') {
+        const minLng = groupBounds.getWest();
+        const maxLng = groupBounds.getEast();
+        const lineLat = divisionLine;
+        const south = groupBounds.getSouth();
+        const north = groupBounds.getNorth();
+
+        if (lineLat < south) {
+          lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
+        } else if (lineLat > north) {
+          lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
+        } else {
+          lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
+        }
+      } else {
+        const minLat = groupBounds.getSouth();
+        const maxLat = groupBounds.getNorth();
+        const lineLng = divisionLine;
+        const west = groupBounds.getWest();
+        const east = groupBounds.getEast();
+
+        if (lineLng < west) {
+          lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
+        } else if (lineLng > east) {
+          lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
+        } else {
+          lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
+        }
+      }
+
+      if (!lineCoordinates || lineCoordinates.some(coord => !coord || isNaN(coord.lat) || isNaN(coord.lng))) {
+        return null;
+      }
+
+      const divisionLineLayer = L.polyline(lineCoordinates, {
+        color: '#ff0000',
+        weight: 2,
+        opacity: 0.6,
+        dashArray: '10, 5'
+      });
+
+      divisionLineLayer.bindPopup(`
+        <strong>Division Line</strong><br>
+        Step ${stepIdx + 1}<br>
+        ${direction === 'latitude' ? 'Latitude' : 'Longitude'}: ${divisionLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}<br>
+        Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
+        Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
+      `);
+
+      divisionLineLayer.addTo(this.map!);
+      this.divisionLineLayers.push(divisionLineLayer);
+
+      return divisionLineLayer;
+    } catch (error) {
+      console.error(`Error creating static division line for step ${stepIdx}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Create and animate a single division line
+   */
+  private async createAnimatedDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): Promise<L.Polyline | null> {
+    try {
+      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+
+      // Get bounds from the previous step (where the parent group existed before division)
+      let groupBounds: L.LatLngBounds | null = null;
+      if (this.algorithmResult && stepIdx > 0) {
+        const prevStep = this.algorithmResult.steps[stepIdx - 1];
+        if (prevStep) {
+          const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
+            g.startDistrictNumber === parentGroup.startDistrictNumber &&
+            g.endDistrictNumber === parentGroup.endDistrictNumber
+          );
+
+          if (parentGroupInPrevStep && parentGroupInPrevStep.bounds) {
+            groupBounds = L.latLngBounds(
+              L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
+              L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
+            );
+          } else if (parentGroupInPrevStep) {
+            // Calculate bounds from tracts
+            groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+          }
+        }
+      }
+
+      if (!groupBounds || !groupBounds.isValid()) {
+        // Fallback: use map bounds
+        if (this.map) {
+          groupBounds = this.map.getBounds();
+        } else {
+          return null;
+        }
+      }
+
+      let lineCoordinates: L.LatLng[] | null = null;
+
+      if (direction === 'latitude') {
+        const minLng = groupBounds.getWest();
+        const maxLng = groupBounds.getEast();
+        const lineLat = divisionLine;
+        const south = groupBounds.getSouth();
+        const north = groupBounds.getNorth();
+
+        if (lineLat < south) {
+          lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
+        } else if (lineLat > north) {
+          lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
+        } else {
+          lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
+        }
+      } else {
+        const minLat = groupBounds.getSouth();
+        const maxLat = groupBounds.getNorth();
+        const lineLng = divisionLine;
+        const west = groupBounds.getWest();
+        const east = groupBounds.getEast();
+
+        if (lineLng < west) {
+          lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
+        } else if (lineLng > east) {
+          lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
+        } else {
+          lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
+        }
+      }
+
+      if (!lineCoordinates || lineCoordinates.some(coord => !coord || isNaN(coord.lat) || isNaN(coord.lng))) {
+        return null;
+      }
+
+      // Animate the drawing of the division line
+      if (this.map) {
+        const divisionLineLayer = await this.animateLineDrawing(lineCoordinates, this.map, {
+          duration: 1500, // 1.5 seconds animation
+          color: '#ff0000',
+          weight: 3,
+          dashArray: '10, 5',
+          dotSize: 10
+        });
+
+        // Bind popup to the animated line after animation completes
+        divisionLineLayer.bindPopup(`
+          <strong>Division Line</strong><br>
+          Step ${stepIdx + 1}<br>
+          ${direction === 'latitude' ? 'Latitude' : 'Longitude'}: ${divisionLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}<br>
+          Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
+          Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
+        `);
+
+        // Track the final line
+        this.divisionLineLayers.push(divisionLineLayer);
+
+        return divisionLineLayer;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error creating animated division line for step ${stepIdx}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Animate the drawing of a line with a moving dot effect
+   */
+  private animateLineDrawing(
+    coordinates: L.LatLng[],
+    map: L.Map,
+    options: {
+      duration?: number;
+      color?: string;
+      weight?: number;
+      dashArray?: string;
+      dotSize?: number;
+      onComplete?: () => void;
+    } = {}
+  ): Promise<L.Polyline> {
+    const {
+      duration = 2000,
+      color = '#ff0000',
+      weight = 3,
+      dashArray = '10, 5',
+      dotSize = 8,
+      onComplete
+    } = options;
+
+    return new Promise((resolve) => {
+      if (coordinates.length < 2) {
+        // Create final line immediately if not enough points
+        const finalLine = L.polyline(coordinates, { color, weight, opacity: 0.8, dashArray });
+        finalLine.addTo(map);
+        resolve(finalLine);
+        return;
+      }
+
+      // Calculate total distance for smooth animation
+      let totalDistance = 0;
+      const distances: number[] = [0];
+
+      for (let i = 1; i < coordinates.length; i++) {
+        const segmentDistance = coordinates[i - 1].distanceTo(coordinates[i]);
+        totalDistance += segmentDistance;
+        distances.push(totalDistance);
+      }
+
+      // Create animated dot (laser pointer)
+      const dotIcon = L.divIcon({
+        className: 'animated-line-dot',
+        html: `<div style="
+          width: ${dotSize}px;
+          height: ${dotSize}px;
+          background-color: ${color};
+          border: 2px solid white;
+          border-radius: 50%;
+          box-shadow: 0 0 10px ${color}, 0 0 20px ${color};
+          animation: pulse 0.5s infinite;
+        "></div>`,
+        iconSize: [dotSize, dotSize],
+        iconAnchor: [dotSize / 2, dotSize / 2]
+      });
+
+      const dotMarker = L.marker(coordinates[0], { icon: dotIcon });
+      dotMarker.addTo(map);
+      this.animatedLineLayers.push(dotMarker);
+
+      // Create the line that will be drawn progressively
+      const animatedLine = L.polyline([], {
+        color,
+        weight,
+        opacity: 0.9,
+        dashArray: undefined // No dash array during animation
+      });
+      animatedLine.addTo(map);
+      this.animatedLineLayers.push(animatedLine);
+
+      const startTime = Date.now();
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Find which segment we're currently on
+        const targetDistance = progress * totalDistance;
+        let segmentIndex = 0;
+
+        for (let i = 1; i < distances.length; i++) {
+          if (targetDistance <= distances[i]) {
+            segmentIndex = i - 1;
+            break;
+          }
+        }
+
+        // Calculate position within current segment
+        const segmentStartDistance = distances[segmentIndex];
+        const segmentEndDistance = distances[segmentIndex + 1];
+        const segmentProgress = (targetDistance - segmentStartDistance) / (segmentEndDistance - segmentStartDistance);
+
+        // Interpolate position
+        const startCoord = coordinates[segmentIndex];
+        const endCoord = coordinates[segmentIndex + 1];
+        const currentLat = startCoord.lat + (endCoord.lat - startCoord.lat) * segmentProgress;
+        const currentLng = startCoord.lng + (endCoord.lng - startCoord.lng) * segmentProgress;
+
+        const currentPos = L.latLng(currentLat, currentLng);
+
+        // Update dot position
+        dotMarker.setLatLng(currentPos);
+
+        // Update line geometry (include all points up to current position)
+        const lineCoords = coordinates.slice(0, segmentIndex + 1);
+        if (segmentIndex < coordinates.length - 1) {
+          lineCoords.push(currentPos);
+        }
+        animatedLine.setLatLngs(lineCoords);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Animation complete - replace with final line
+          map.removeLayer(dotMarker);
+          map.removeLayer(animatedLine);
+
+          // Create final static line
+          const finalLine = L.polyline(coordinates, { color, weight, opacity: 0.8, dashArray });
+          finalLine.addTo(map);
+
+          // Clean up animated layers
+          this.animatedLineLayers = this.animatedLineLayers.filter(layer =>
+            layer !== dotMarker && layer !== animatedLine
+          );
+
+          if (onComplete) onComplete();
+          resolve(finalLine);
+        }
+      };
+
+      // Start animation
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /**
+   * Calculate bounds for a group of tracts
+   */
+  private calculateGroupBounds(tracts: GeoJsonFeature[]): L.LatLngBounds {
+    const bounds = L.latLngBounds([]);
+    for (const tract of tracts) {
+      if (tract.geometry) {
+        const geoJson = L.geoJSON(tract.geometry);
+        const tractBounds = geoJson.getBounds();
+        if (tractBounds.isValid()) {
+          bounds.extend(tractBounds);
+        }
+      }
+    }
+    return bounds;
   }
 
   private getDistrictColor(districtIndex: number, totalDistricts: number): string {

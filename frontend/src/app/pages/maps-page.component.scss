@@ -51,15 +51,13 @@
   padding: 2px 16px;
   border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  justify-content: space-between;
 }
 
 .state-selection {
-  width: 100%;
   display: flex;
-  justify-content: flex-end;
   align-items: center;
 }
 
@@ -332,4 +330,28 @@
 :host ::ng-deep .leaflet-container {
   height: 100%;
   width: 100%;
+}
+
+// Animated line drawing effects
+:host ::ng-deep .animated-line-dot {
+  pointer-events: none !important;
+
+  div {
+    animation: pulse 0.5s infinite;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
