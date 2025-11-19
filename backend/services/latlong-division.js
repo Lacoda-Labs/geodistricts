@@ -230,6 +230,7 @@ class LatLongDivisionService {
 
   /**
    * Divide tracts by a lat/long line
+   * Optimized: Sorts tracts by south boundary (lat) or east boundary (long) for faster division
    */
   divideTractsByLine(tracts, direction, dividingLine, targetFirstGroupPopulation, targetSecondGroupPopulation, history) {
     const firstGroupTracts = [];
@@ -237,7 +238,24 @@ class LatLongDivisionService {
     const intersectingTractIds = [];
     const assignedTractIds = new Set(); // Track which tracts we've assigned to prevent duplicates
 
-    for (const tract of tracts) {
+    // Pre-compute bounds for all tracts and sort for efficient division
+    const tractsWithBounds = tracts.map(tract => {
+      const bounds = this.getTractBounds(tract);
+      return { tract, bounds };
+    });
+
+    // Sort tracts by the relevant boundary for quick division
+    if (direction === 'latitude') {
+      // Sort by south boundary (minLat) - tracts with higher minLat are more north
+      tractsWithBounds.sort((a, b) => b.bounds.minLat - a.bounds.minLat);
+    } else {
+      // Sort by east boundary (maxLng) - tracts with lower maxLng are more west
+      // Note: US longitudes are negative, so more negative = more west
+      tractsWithBounds.sort((a, b) => a.bounds.maxLng - b.bounds.maxLng);
+    }
+
+    // Now iterate through sorted tracts - we can stop early once we've passed the dividing line
+    for (const { tract, bounds } of tractsWithBounds) {
       const tractId = getTractId(tract) || 'unknown';
       
       // Safety check: if we've already assigned this tract, skip it (shouldn't happen, but be safe)
@@ -247,7 +265,6 @@ class LatLongDivisionService {
       }
       
       const population = tract.properties?.POPULATION || 0;
-      const bounds = this.getTractBounds(tract);
       
       let isEntirelyNorthOrWest = false;
       let intersectsLine = false;

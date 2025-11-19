@@ -2127,6 +2127,174 @@ app.delete('/api/algorithm/cache', async (req, res) => {
 const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService);
 
 /**
+ * POST /api/algorithm/latlong/divide
+ * Divide a district group using lat/long dividing lines
+ */
+app.post('/api/algorithm/latlong/divide', async (req, res) => {
+  try {
+    const { group, direction, forceRecalculate = false } = req.body;
+
+    if (!group) {
+      return res.status(400).json({ error: 'group is required' });
+    }
+
+    if (!direction || (direction !== 'latitude' && direction !== 'longitude')) {
+      return res.status(400).json({ error: 'direction must be "latitude" or "longitude"' });
+    }
+
+    console.log(`🔀 Dividing district group ${group.startDistrictNumber}-${group.endDistrictNumber} by ${direction}`);
+
+    // Use the backend's latLongDivisionService to compute the division
+    const result = await latLongDivisionService.divideDistrictGroup(group, direction, forceRecalculate);
+
+    res.json({
+      status: 'success',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error dividing district group:', error);
+    res.status(500).json({
+      error: 'Failed to divide district group',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    });
+  }
+});
+
+/**
+ * GET /api/algorithm/latlong/cache/:cacheKey
+ * Get cached latlong division result
+ */
+app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
+  try {
+    const { cacheKey } = req.params;
+
+    if (!cacheKey) {
+      return res.status(400).json({ error: 'cacheKey parameter is required' });
+    }
+
+    console.log(`🔍 LATLONG CACHE CHECK: Key=${cacheKey}`);
+
+    // Use Firestore for latlong cache (same as algorithm cache)
+    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    
+    if (!doc.exists) {
+      console.log(`❌ LATLONG CACHE MISS: No document found for key: ${cacheKey}`);
+      return res.json({
+        status: 'miss',
+        cached: false
+      });
+    }
+
+    const data = doc.data();
+    
+    // Check if expired
+    if (isCacheExpired(data.timestamp, data.ttl)) {
+      console.log(`⏰ LATLONG CACHE EXPIRED: Cache expired for key: ${cacheKey}, deleting`);
+      await firestore.collection('census_cache').doc(cacheKey).delete();
+      return res.json({
+        status: 'miss',
+        cached: false,
+        message: 'Cache entry expired'
+      });
+    }
+
+    // Check algorithm version if present
+    if (data.algorithmVersion) {
+      const cachedVersion = data.algorithmVersion;
+      const currentVersion = ALGORITHM_VERSION;
+      
+      if (cachedVersion !== currentVersion) {
+        console.log(`🔄 LATLONG CACHE VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating.`);
+        await firestore.collection('census_cache').doc(cacheKey).delete();
+        return res.json({
+          status: 'miss',
+          cached: false,
+          message: 'Cache entry outdated due to algorithm version change'
+        });
+      }
+    }
+
+    console.log(`✅ LATLONG CACHE HIT: Retrieved data for key: ${cacheKey}`);
+    
+    // Handle normalized cache if present
+    let divisionResult = data.divisionResult || data.data;
+    
+    if (data.normalized && data.tractCacheKey) {
+      // Fetch state-level tract cache and reconstruct
+      const stateTractDoc = await firestore.collection('census_cache').doc(data.tractCacheKey).get();
+      if (stateTractDoc.exists) {
+        const stateTractData = stateTractDoc.data();
+        if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+          // Reconstruct full result with tract geometries
+          // This is simplified - full implementation would reconstruct from normalized format
+          divisionResult = data.divisionResult || data.data;
+        }
+      }
+    }
+
+    res.json({
+      status: 'hit',
+      cached: true,
+      data: divisionResult,
+      algorithmVersion: data.algorithmVersion || 'unknown'
+    });
+  } catch (error) {
+    console.error('❌ Error retrieving latlong cache:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve cached result',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/latlong/cache
+ * Store latlong division result in cache
+ */
+app.post('/api/algorithm/latlong/cache', async (req, res) => {
+  try {
+    const { cacheKey, divisionResult, ttl, algorithmVersion } = req.body;
+
+    if (!cacheKey || !divisionResult) {
+      return res.status(400).json({ error: 'cacheKey and divisionResult are required' });
+    }
+
+    const cacheTtl = ttl || (24 * 60 * 60 * 1000); // Default 24 hours
+    const version = algorithmVersion || ALGORITHM_VERSION;
+
+    console.log(`💾 LATLONG CACHE STORE: Key=${cacheKey}, Version=${version}`);
+
+    // Store in Firestore with source identifier
+    const cacheData = {
+      divisionResult,
+      algorithmVersion: version,
+      timestamp: Date.now(),
+      ttl: cacheTtl,
+      source: 'latlong-division-cache'
+    };
+
+    await firestore.collection('census_cache').doc(cacheKey).set(cacheData);
+
+    console.log(`✅ LATLONG CACHE STORED: Key=${cacheKey}`);
+
+    res.json({
+      status: 'success',
+      message: 'Division result cached successfully',
+      cacheKey
+    });
+  } catch (error) {
+    console.error('❌ Error storing latlong cache:', error);
+    res.status(500).json({
+      error: 'Failed to cache division result',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+    });
+  }
+});
+
+/**
  * POST /api/algorithm/execute
  * Execute algorithm synchronously (returns complete result)
  */
