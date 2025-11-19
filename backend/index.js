@@ -2518,6 +2518,37 @@ app.post('/api/algorithm/execute', async (req, res) => {
       return res.status(404).json({ error: `No tracts found for state: ${state}` });
     }
 
+    // Load S4 adjacency data if available (needed for enclosed tract detection)
+    const s4DataLoader = require('./services/s4-data-loader');
+    try {
+      await s4DataLoader.loadS4AdjacencyData(state);
+      console.log(`✅ Loaded S4 adjacency data for ${state} before enclosed tract detection`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
+    }
+    
+    // Detect and store enclosed tract relationships
+    const { detectEnclosedTracts } = require('./services/geodistrict-algorithm');
+    const enclosedMap = detectEnclosedTracts(tracts);
+    
+    // Store enclosed/enclosing relationships in tract properties
+    for (const tract of tracts) {
+      const tractId = tract.properties?.GEOID || tract.properties?.GEO_ID?.split('US')[1] || tract.properties?.TRACT_FIPS;
+      if (enclosedMap.has(tractId)) {
+        tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
+      }
+      // Also store reverse relationship (which tracts this tract encloses)
+      const enclosedByThis = [];
+      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+        if (enclosingId === tractId) {
+          enclosedByThis.push(enclosedId);
+        }
+      }
+      if (enclosedByThis.length > 0) {
+        tract.properties.ENCLOSES = enclosedByThis;
+      }
+    }
+
     console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 
     // Execute algorithm
@@ -2680,6 +2711,38 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 
       if (tracts.length === 0) {
         return res.status(404).json({ error: `No tracts found for state: ${state}` });
+      }
+
+      // Load S4 adjacency data if available (needed for enclosed tract detection)
+      const s4DataLoader = require('./services/s4-data-loader');
+      const s4Loader = new s4DataLoader.S4DataLoader();
+      try {
+        await s4Loader.loadS4AdjacencyData(state);
+        console.log(`✅ Loaded S4 adjacency data for ${state} before enclosed tract detection`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
+      }
+      
+      // Detect and store enclosed tract relationships
+      const { detectEnclosedTracts } = require('./services/geodistrict-algorithm');
+      const enclosedMap = detectEnclosedTracts(tracts);
+      
+      // Store enclosed/enclosing relationships in tract properties
+      for (const tract of tracts) {
+        const tractId = tract.properties?.GEOID || tract.properties?.GEO_ID?.split('US')[1] || tract.properties?.TRACT_FIPS;
+        if (enclosedMap.has(tractId)) {
+          tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
+        }
+        // Also store reverse relationship (which tracts this tract encloses)
+        const enclosedByThis = [];
+        for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+          if (enclosingId === tractId) {
+            enclosedByThis.push(enclosedId);
+          }
+        }
+        if (enclosedByThis.length > 0) {
+          tract.properties.ENCLOSES = enclosedByThis;
+        }
       }
 
       console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
