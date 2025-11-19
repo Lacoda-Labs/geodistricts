@@ -24,9 +24,24 @@ class LatLongDivisionService {
   }
 
   /**
-   * Get tract bounds
+   * Get tract bounds - uses pre-calculated bounds if available, otherwise calculates from geometry
    */
   getTractBounds(tract) {
+    // Use pre-calculated bounds if available (performance optimization)
+    if (tract.properties && 
+        typeof tract.properties.MIN_LAT === 'number' &&
+        typeof tract.properties.MAX_LAT === 'number' &&
+        typeof tract.properties.MIN_LNG === 'number' &&
+        typeof tract.properties.MAX_LNG === 'number') {
+      return {
+        minLat: tract.properties.MIN_LAT,
+        maxLat: tract.properties.MAX_LAT,
+        minLng: tract.properties.MIN_LNG,
+        maxLng: tract.properties.MAX_LNG
+      };
+    }
+
+    // Fallback: calculate from geometry if bounds not pre-calculated
     if (!tract.geometry) {
       return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
     }
@@ -472,10 +487,15 @@ class LatLongDivisionService {
     const { totalDistricts } = group;
 
     // Validate input: check for duplicate tracts in the input group
+    // Use getTractId() for consistent tract ID extraction
     const inputTractIds = new Set();
     const duplicateTractIds = [];
     for (const tract of group.censusTracts) {
-      const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+      const tractId = getTractId(tract);
+      if (!tractId) {
+        console.warn(`⚠️ Tract missing ID, skipping duplicate check:`, tract);
+        continue;
+      }
       if (inputTractIds.has(tractId)) {
         duplicateTractIds.push(tractId);
       }
@@ -486,7 +506,11 @@ class LatLongDivisionService {
       // Remove duplicates from input (keep first occurrence)
       const seen = new Set();
       group.censusTracts = group.censusTracts.filter(tract => {
-        const tractId = tract.properties?.TRACT_FIPS || tract.properties?.GEOID || 'unknown';
+        const tractId = getTractId(tract);
+        if (!tractId) {
+          console.warn(`⚠️ Tract missing ID, keeping:`, tract);
+          return true; // Keep tracts without IDs (shouldn't happen, but be safe)
+        }
         if (seen.has(tractId)) {
           return false;
         }
@@ -497,6 +521,7 @@ class LatLongDivisionService {
       group.totalPopulation = group.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
       group.bounds = calculateBounds(group.censusTracts);
       group.centroid = calculateCentroid(group.censusTracts);
+      console.log(`✅ Removed ${duplicateTractIds.length} duplicate tracts, ${group.censusTracts.length} unique tracts remaining`);
     }
 
     // Calculate how to divide the districts

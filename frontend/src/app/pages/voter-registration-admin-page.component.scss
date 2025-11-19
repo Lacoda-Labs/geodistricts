@@ -1,16 +1,16 @@
 .admin-page-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 12px;
   font-family: 'Roboto', sans-serif;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 
   h1 {
-    margin: 0 0 8px 0;
-    font-size: 32px;
+    margin: 0 0 4px 0;
+    font-size: 24px;
     font-weight: 500;
     color: #1976d2;
   }
@@ -18,37 +18,38 @@
   .subtitle {
     margin: 0;
     color: #666;
-    font-size: 16px;
+    font-size: 12px;
   }
 }
 
 .content-section {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 
   .summary-card {
     text-align: center;
+    padding: 8px !important;
 
     .card-value {
-      font-size: 36px;
+      font-size: 24px;
       font-weight: 500;
       color: #1976d2;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
     .card-label {
-      font-size: 14px;
+      font-size: 11px;
       color: #666;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
   }
 }
@@ -57,54 +58,58 @@
   .action-section {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: 8px;
+    margin-bottom: 12px;
 
     .state-select {
       width: 100%;
-      max-width: 400px;
+      max-width: 300px;
     }
 
     .button-group {
       display: flex;
-      gap: 12px;
+      gap: 6px;
       flex-wrap: wrap;
 
       button {
-        min-width: 140px;
+        min-width: 100px;
+        padding: 4px 12px;
+        font-size: 13px;
       }
     }
   }
 
   .state-status {
-    margin-top: 24px;
-    padding-top: 24px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid #e0e0e0;
 
     h3 {
-      margin: 0 0 16px 0;
-      font-size: 20px;
+      margin: 0 0 8px 0;
+      font-size: 16px;
       font-weight: 500;
     }
 
     .status-details {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 6px;
 
       .status-item {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 6px;
 
         .status-label {
           font-weight: 500;
-          min-width: 120px;
+          min-width: 90px;
           color: #666;
+          font-size: 13px;
         }
 
         .status-value {
           color: #333;
+          font-size: 13px;
         }
       }
     }
@@ -129,28 +134,28 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
-    padding: 40px;
+    gap: 8px;
+    padding: 20px;
     color: #666;
   }
 
   .states-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
 
     .state-item {
-      padding: 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
       background: white;
 
       &:hover {
         border-color: #1976d2;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
       }
 
       &.selected {
@@ -159,43 +164,43 @@
       }
 
       &.configured {
-        border-left: 4px solid #4caf50;
+        border-left: 3px solid #4caf50;
       }
 
       &.cached {
-        border-right: 4px solid #ff9800;
+        border-right: 3px solid #ff9800;
       }
 
       .state-code {
-        font-size: 18px;
+        font-size: 14px;
         font-weight: 600;
         color: #1976d2;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
       }
 
       .state-name {
-        font-size: 14px;
+        font-size: 11px;
         color: #666;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
       }
 
       .state-badges {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
-        margin-bottom: 8px;
+        gap: 2px;
+        margin-bottom: 4px;
 
         .small-chip {
-          font-size: 11px;
-          height: 24px;
-          line-height: 24px;
+          font-size: 9px;
+          height: 18px;
+          line-height: 18px;
         }
       }
 
       .state-updated {
-        font-size: 11px;
+        font-size: 9px;
         color: #999;
-        margin-top: 8px;
+        margin-top: 4px;
       }
     }
   }
@@ -206,6 +211,231 @@
   margin-right: 8px;
 }
 
+.visualization-card {
+  margin-top: 12px;
+
+  .voter-data-visualization {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+
+    .stat-card {
+      padding: 10px;
+      border-radius: 4px;
+      background: #f5f5f5;
+      text-align: center;
+      border-left: 3px solid #1976d2;
+
+      &.democratic {
+        background: #e3f2fd;
+        border-left-color: #2196f3;
+      }
+
+      &.republican {
+        background: #ffebee;
+        border-left-color: #f44336;
+      }
+
+      &.other {
+        background: #f3e5f5;
+        border-left-color: #9c27b0;
+      }
+
+      .stat-label {
+        font-size: 10px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 4px;
+      }
+
+      .stat-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 2px;
+      }
+
+      .stat-percent {
+        font-size: 12px;
+        color: #666;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .party-breakdown {
+    h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .breakdown-bar {
+      display: flex;
+      height: 40px;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+      .breakdown-segment {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 11px;
+        transition: width 0.3s ease;
+        cursor: pointer;
+
+        &.democratic {
+          background: #2196f3;
+        }
+
+        &.republican {
+          background: #f44336;
+        }
+
+        &.other {
+          background: #9c27b0;
+        }
+
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+    }
+  }
+
+  .county-table-section {
+    h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+
+      .county-table {
+        width: 100%;
+        min-width: 700px;
+
+        th {
+          background: #f5f5f5;
+          font-weight: 600;
+          color: #333;
+          padding: 8px 12px;
+          font-size: 12px;
+        }
+
+        td {
+          padding: 6px 12px;
+          font-size: 12px;
+        }
+
+        .party-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .party-count {
+            font-weight: 500;
+            color: #333;
+            font-size: 12px;
+          }
+
+          .party-percent {
+            font-size: 10px;
+            color: #666;
+          }
+        }
+
+        .percent-bar {
+          position: relative;
+          height: 18px;
+          background: #f0f0f0;
+          border-radius: 3px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+
+          .percent-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+
+            &.democratic {
+              background: #2196f3;
+            }
+
+            &.republican {
+              background: #f44336;
+            }
+          }
+
+          .percent-text {
+            position: relative;
+            z-index: 1;
+            padding: 0 4px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #333;
+          }
+        }
+      }
+    }
+  }
+
+  .metadata-section {
+    padding: 8px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .metadata-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      .metadata-label {
+        font-weight: 500;
+        color: #666;
+        min-width: 90px;
+        font-size: 12px;
+      }
+
+      .metadata-value {
+        color: #333;
+        font-size: 12px;
+      }
+
+      .metadata-link {
+        color: #1976d2;
+        text-decoration: none;
+        font-size: 12px;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
 ::ng-deep {
   .mat-mdc-form-field {
     width: 100%;
@@ -213,6 +443,10 @@
 
   .mat-mdc-card {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .mat-mdc-table {
+    background: white;
   }
 }
 

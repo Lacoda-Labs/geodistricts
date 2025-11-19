@@ -11,8 +11,9 @@ const s4DataLoader = require('./s4-data-loader');
  * 20251117-2330: Disabled isolation checking and rebalancing logic for step-by-step debugging
  * 20251117-2343: Fixed tract ID uniqueness - TRACT_FIPS alone is not unique across state, now using GEOID or STATE+COUNTY+TRACT
  * 20251117-2350: Disabled deduplication by default for debugging - all tracts will be included (set DISABLE_DEDUP=false to enable)
+ * 20251119-0400: Fixed missing tracts in step 1 - added deduplication in step 0 initialization and improved duplicate detection in division service
  */
-const ALGORITHM_VERSION = '20251117-2350';
+const ALGORITHM_VERSION = '20251119-0400';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -343,6 +344,175 @@ function createStep(step, level, districtGroups, description, divisionDirection,
 class GeodistrictAlgorithmService {
   constructor(latLongDivisionService) {
     this.latLongDivisionService = latLongDivisionService;
+  }
+
+  /**
+   * Initialize algorithm and return step 0
+   * @param {Array} tracts - Array of GeoJSON tract features
+   * @param {number} totalDistricts - Total number of districts
+   * @param {number} maxIterations - Maximum iterations
+   * @param {string} algorithm - Algorithm type
+   * @returns {Promise<{step: Object, state: Object}>} Step 0 and algorithm state
+   */
+  async initializeAlgorithm(tracts, totalDistricts, maxIterations, algorithm = 'latlong') {
+    const state = tracts[0]?.properties?.['STATE'] || '';
+    if (state) {
+      try {
+        await s4DataLoader.loadS4AdjacencyData(state);
+      } catch (error) {
+        console.warn(`⚠️ Failed to preload S4 adjacency data:`, error);
+      }
+    }
+
+    // Deduplicate tracts array - merge duplicates (e.g., MultiPolygon parts)
+    // Always deduplicate for step 0 to ensure we start with unique tracts
+    let uniqueTracts = deduplicateAndMergeTracts(tracts);
+    
+    // If deduplication was disabled, manually remove duplicates by tract ID
+    if (DISABLE_DEDUP) {
+      console.log(`⚠️ Deduplication disabled, but removing duplicates for step 0 initialization`);
+      const seenIds = new Set();
+      const deduplicated = [];
+      for (const tract of uniqueTracts) {
+        const tractId = getTractId(tract);
+        if (!seenIds.has(tractId)) {
+          seenIds.add(tractId);
+          deduplicated.push(tract);
+        } else {
+          console.log(`⚠️ Removing duplicate tract: ${tractId}`);
+        }
+      }
+      uniqueTracts = deduplicated;
+      console.log(`✅ Deduplicated from ${tracts.length} to ${uniqueTracts.length} unique tracts`);
+    }
+
+    const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+    const targetDistrictPopulation = totalStatePopulation / totalDistricts;
+
+    const initialGroup = {
+      startDistrictNumber: 1,
+      endDistrictNumber: totalDistricts,
+      censusTracts: uniqueTracts,
+      totalDistricts: totalDistricts,
+      totalPopulation: totalStatePopulation,
+      bounds: calculateBounds(uniqueTracts),
+      centroid: calculateCentroid(uniqueTracts)
+    };
+
+    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude');
+
+    // Return step 0 and algorithm state
+    return {
+      step: initialStep,
+      state: {
+        uniqueTracts,
+        currentGroups: [initialGroup],
+        iteration: 0,
+        steps: [initialStep],
+        algorithmHistory: [],
+        totalStatePopulation,
+        targetDistrictPopulation,
+        maxIterations,
+        state,
+        algorithm
+      }
+    };
+  }
+
+  /**
+   * Execute the next step of the algorithm
+   * @param {Object} algorithmState - Current algorithm state
+   * @returns {Promise<{step: Object, state: Object, isComplete: boolean}>} Next step and updated state
+   */
+  async executeNextStep(algorithmState) {
+    const {
+      uniqueTracts,
+      currentGroups,
+      iteration,
+      steps,
+      algorithmHistory,
+      maxIterations,
+      state: stateCode
+    } = algorithmState;
+
+    // Check if algorithm is complete
+    if (!currentGroups.some(group => group.totalDistricts > 1) || iteration >= maxIterations) {
+      return {
+        step: null,
+        state: algorithmState,
+        isComplete: true
+      };
+    }
+
+    const nextIteration = iteration + 1;
+    const direction = nextIteration % 2 === 1 ? 'latitude' : 'longitude';
+    const newGroups = [];
+    const divisionLines = [];
+
+    for (const group of currentGroups) {
+      if (group.totalDistricts === 1) {
+        newGroups.push(group);
+      } else {
+        const division = calculateOptimalDivision(group.totalDistricts);
+        const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, false);
+        
+        if (divisionResult) {
+          newGroups.push(...divisionResult.groups);
+          algorithmHistory.push(...divisionResult.history);
+          
+          if (divisionResult.dividingLine !== undefined) {
+            divisionLines.push({
+              line: divisionResult.dividingLine,
+              direction: direction,
+              parentGroup: {
+                startDistrictNumber: group.startDistrictNumber,
+                endDistrictNumber: group.endDistrictNumber,
+                totalDistricts: group.totalDistricts
+              },
+              ratio: division.ratio,
+              intersectingTractIds: divisionResult.intersectingTractIds
+            });
+          }
+        }
+      }
+    }
+
+    let updatedGroups = newGroups;
+    
+    // Quick validation: Total tract count should match input count
+    const totalTractsAfterDivision = updatedGroups.reduce((sum, group) => sum + group.censusTracts.length, 0);
+    const expectedTractCount = uniqueTracts.length;
+    if (totalTractsAfterDivision !== expectedTractCount) {
+      console.error(`⚠️ DIVISION COUNT MISMATCH: Expected ${expectedTractCount} tracts, found ${totalTractsAfterDivision} after division step ${nextIteration} (difference: ${totalTractsAfterDivision - expectedTractCount})`);
+      if (totalTractsAfterDivision < expectedTractCount) {
+        console.error(`   → Missing ${expectedTractCount - totalTractsAfterDivision} tract(s) - orphaned tracts detected!`);
+      } else {
+        console.error(`   → Extra ${totalTractsAfterDivision - expectedTractCount} tract(s) - duplicate tracts detected!`);
+      }
+    }
+    
+    // Fix isolated tracts after division (use uniqueTracts to ensure no duplicates in adjacency graph)
+    updatedGroups = this.fixIsolatedTractsAcrossAllGroups(updatedGroups, uniqueTracts, direction);
+    
+    const step = createStep(nextIteration, nextIteration, updatedGroups,
+      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines);
+    
+    const updatedSteps = [...steps, step];
+    const updatedState = {
+      ...algorithmState,
+      currentGroups: updatedGroups,
+      iteration: nextIteration,
+      steps: updatedSteps,
+      algorithmHistory: [...algorithmHistory]
+    };
+
+    const isComplete = !updatedGroups.some(group => group.totalDistricts > 1) || nextIteration >= maxIterations;
+
+    return {
+      step,
+      state: updatedState,
+      isComplete
+    };
   }
 
   /**

@@ -36,7 +36,7 @@
         <div class="action-section">
           <mat-form-field appearance="outline" class="state-select">
             <mat-label>Select State</mat-label>
-            <mat-select [(ngModel)]="selectedState">
+            <mat-select [(ngModel)]="selectedState" (selectionChange)="onStateSelected()">
               <mat-option *ngFor="let state of allStates" [value]="state.code">
                 {{ state.name }} ({{ state.code }})
               </mat-option>
@@ -63,6 +63,16 @@
               Force Refresh
             </button>
 
+            <!-- run algorithm -->
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="runAlgorithm()"
+              [disabled]="!selectedState || isStateLoading(selectedState) || fetchingState === selectedState || runningAlgorithm">
+              <mat-icon *ngIf="!runningAlgorithm || algorithmState !== selectedState">play_arrow</mat-icon>
+              <mat-spinner *ngIf="runningAlgorithm && algorithmState === selectedState" diameter="20" class="inline-spinner"></mat-spinner>
+              {{ runningAlgorithm && algorithmState === selectedState ? 'Running...' : 'Run Algorithm' }}
+            </button>
             <button 
               mat-raised-button 
               color="warn" 
@@ -112,7 +122,159 @@
         </div>
       </mat-card-content>
     </mat-card>
+<mat-card *ngIf="selectedState && (voterData || loadingVoterData)" class="visualization-card">
+  <mat-card-header>
+    <mat-card-title>Voter Registration Data: {{ getStateName(selectedState) }}</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <div *ngIf="loadingVoterData" class="loading-indicator">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading voter registration data...</p>
+    </div>
 
+    <div *ngIf="!loadingVoterData && voterData" class="voter-data-visualization">
+      <!-- Summary Statistics -->
+      <div class="summary-stats">
+        <div class="stat-card">
+          <div class="stat-label">Total Voters</div>
+          <div class="stat-value">{{ formatNumber(getTotalVoters()) }}</div>
+        </div>
+        <div class="stat-card democratic">
+          <div class="stat-label">Democratic</div>
+          <div class="stat-value">{{ formatNumber(getTotalDemocratic()) }}</div>
+          <div class="stat-percent">{{ getDemocraticPercent().toFixed(1) }}%</div>
+        </div>
+        <div class="stat-card republican">
+          <div class="stat-label">Republican</div>
+          <div class="stat-value">{{ formatNumber(getTotalRepublican()) }}</div>
+          <div class="stat-percent">{{ getRepublicanPercent().toFixed(1) }}%</div>
+        </div>
+        <div class="stat-card other">
+          <div class="stat-label">Other</div>
+          <div class="stat-value">{{ formatNumber(getTotalOther()) }}</div>
+          <div class="stat-percent">{{ getOtherPercent().toFixed(1) }}%</div>
+        </div>
+      </div>
+
+      <!-- Party Breakdown Bar Chart -->
+      <div class="party-breakdown">
+        <h3>Party Breakdown</h3>
+        <div class="breakdown-bar">
+          <div class="breakdown-segment democratic" [style.width.%]="getDemocraticPercent()"
+            [matTooltip]="'Democratic: ' + formatNumber(getTotalDemocratic()) + ' (' + getDemocraticPercent().toFixed(1) + '%)'">
+            <span *ngIf="getDemocraticPercent() > 5">{{ getDemocraticPercent().toFixed(1) }}%</span>
+          </div>
+          <div class="breakdown-segment republican" [style.width.%]="getRepublicanPercent()"
+            [matTooltip]="'Republican: ' + formatNumber(getTotalRepublican()) + ' (' + getRepublicanPercent().toFixed(1) + '%)'">
+            <span *ngIf="getRepublicanPercent() > 5">{{ getRepublicanPercent().toFixed(1) }}%</span>
+          </div>
+          <div class="breakdown-segment other" [style.width.%]="getOtherPercent()"
+            [matTooltip]="'Other: ' + formatNumber(getTotalOther()) + ' (' + getOtherPercent().toFixed(1) + '%)'">
+            <span *ngIf="getOtherPercent() > 5">{{ getOtherPercent().toFixed(1) }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- County Data Table -->
+      <div class="county-table-section">
+        <h3>County Breakdown ({{ voterData.data?.length || 0 }} counties)</h3>
+        <div class="table-container">
+          <table mat-table [dataSource]="tableDataSource" class="county-table">
+            <!-- County Column -->
+            <ng-container matColumnDef="county">
+              <th mat-header-cell *matHeaderCellDef>County</th>
+              <td mat-cell *matCellDef="let county">{{ county.countyName }}</td>
+            </ng-container>
+
+            <!-- Total Voters Column -->
+            <ng-container matColumnDef="totalVoters">
+              <th mat-header-cell *matHeaderCellDef>Total Voters</th>
+              <td mat-cell *matCellDef="let county">{{ formatNumber(county.totalVoters) }}</td>
+            </ng-container>
+
+            <!-- Democratic Column -->
+            <ng-container matColumnDef="democraticVoters">
+              <th mat-header-cell *matHeaderCellDef>Democratic</th>
+              <td mat-cell *matCellDef="let county">
+                <div class="party-cell">
+                  <span class="party-count">{{ formatNumber(county.democraticVoters) }}</span>
+                  <span class="party-percent">({{ county.democraticPercent.toFixed(1) }}%)</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Republican Column -->
+            <ng-container matColumnDef="republicanVoters">
+              <th mat-header-cell *matHeaderCellDef>Republican</th>
+              <td mat-cell *matCellDef="let county">
+                <div class="party-cell">
+                  <span class="party-count">{{ formatNumber(county.republicanVoters) }}</span>
+                  <span class="party-percent">({{ county.republicanPercent.toFixed(1) }}%)</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Other Column -->
+            <ng-container matColumnDef="otherVoters">
+              <th mat-header-cell *matHeaderCellDef>Other</th>
+              <td mat-cell *matCellDef="let county">
+                <div class="party-cell">
+                  <span class="party-count">{{ formatNumber(county.otherVoters) }}</span>
+                  <span class="party-percent">({{ county.otherPercent.toFixed(1) }}%)</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Democratic Percent Column -->
+            <ng-container matColumnDef="democraticPercent">
+              <th mat-header-cell *matHeaderCellDef>Dem %</th>
+              <td mat-cell *matCellDef="let county">
+                <div class="percent-bar">
+                  <div class="percent-bar-fill democratic" [style.width.%]="county.democraticPercent"></div>
+                  <span class="percent-text">{{ county.democraticPercent.toFixed(1) }}%</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Republican Percent Column -->
+            <ng-container matColumnDef="republicanPercent">
+              <th mat-header-cell *matHeaderCellDef>Rep %</th>
+              <td mat-cell *matCellDef="let county">
+                <div class="percent-bar">
+                  <div class="percent-bar-fill republican" [style.width.%]="county.republicanPercent"></div>
+                  <span class="percent-text">{{ county.republicanPercent.toFixed(1) }}%</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="metadata-section">
+        <div class="metadata-item">
+          <span class="metadata-label">Data Source:</span>
+          <span class="metadata-value">{{ voterData.dataSource }}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Data Date:</span>
+          <span class="metadata-value">{{ voterData.dataDate | date:'medium' }}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Granularity:</span>
+          <span class="metadata-value">{{ voterData.granularity }}</span>
+        </div>
+        <div class="metadata-item" *ngIf="voterData.dataSourceUrl">
+          <span class="metadata-label">Source URL:</span>
+          <a [href]="voterData.dataSourceUrl" target="_blank" class="metadata-link">{{ voterData.dataSourceUrl }}</a>
+        </div>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
     <!-- States List -->
     <mat-card class="states-list-card">
       <mat-card-header>
@@ -131,7 +293,7 @@
             [class.selected]="selectedState === state.code"
             [class.configured]="state.configured"
             [class.cached]="hasCachedData(state.code)"
-            (click)="selectedState = state.code">
+            (click)="onStateItemClick(state.code)">
             <div class="state-code">{{ state.code }}</div>
             <div class="state-name">{{ getStateName(state.code) }}</div>
             <div class="state-badges">
@@ -149,6 +311,9 @@
         </div>
       </mat-card-content>
     </mat-card>
+
+    <!-- Voter Registration Data Visualization -->
+   
   </div>
 </div>
 

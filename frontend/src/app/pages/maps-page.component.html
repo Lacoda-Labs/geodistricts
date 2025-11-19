@@ -17,70 +17,109 @@
     </nav>
   </div>
   <div class="body">
-  <section class="map-section">
-    <div class="map-container">
-      <div id="usMap" class="map"></div>
-    </div>
-  </section>
+    <section class="map-section">
+      <div class="map-container">
+        <div id="usMap" class="map"></div>
+      </div>
+    </section>
 
-  <section class="info-section">
-    <div class="info-header">
-      <div class="state-selection">
-        <div class="map-controls">
-          <mat-checkbox [(ngModel)]="showTractBoundaries" (change)="onTractBoundariesChange()"
-            class="tract-boundaries-checkbox">
-            tracts
-          </mat-checkbox>
+    <section class="info-section">
+      <div class="info-header">
+        <div class="state-selection">
+          <div class="map-controls">
+            <mat-checkbox [(ngModel)]="showTractBoundaries" (change)="onTractBoundariesChange()"
+              class="tract-boundaries-checkbox">
+              tracts
+            </mat-checkbox>
+          </div>
+        </div>
+        <div class="step-controls" *ngIf="algorithmResult">
+          <!-- <mat-checkbox [(ngModel)]="showSteps" class="show-steps-checkbox">
+          steps
+        </mat-checkbox> -->
+          <!-- <div class="step-buttons" *ngIf="showSteps"> -->
+            <span class="step-info">Steps:</span>
+          <div class="step-buttons">
+            <button mat-button (click)="previousStep()" [disabled]="currentStepIndex <= 0" class="step-btn">
+              Prev
+            </button>
+            <span class="step-info">
+              Step {{ currentStepIndex + 1 }} of {{ getTotalSteps() || '?' }}
+            </span>
+            <button mat-button (click)="nextStep()" [disabled]="!canGoToNextStep()" class="step-btn">
+              Next
+            </button>
+          </div>
         </div>
       </div>
-      <div class="step-controls" *ngIf="algorithmResult">
-        <mat-checkbox [(ngModel)]="showSteps" class="show-steps-checkbox">
-          Show steps
-        </mat-checkbox>
-        <div class="step-buttons" *ngIf="showSteps">
-          <button mat-button (click)="previousStep()" [disabled]="currentStepIndex <= 0" class="step-btn">
-            Prev
-          </button>
-          <span class="step-info">
-            Step {{ currentStepIndex + 1 }} of {{ algorithmResult.steps.length }}
-          </span>
-          <button mat-button (click)="nextStep()" [disabled]="!canRunNextStep" class="step-btn">
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
 
-    <div class="info-body">
-      <div class="tabs-container">
-        <div class="tabs-header">
-          <button *ngFor="let tab of ['Party', 'Population', 'Demographics']" [class.active]="activeTab === tab"
-            (click)="onTabChange(tab)" class="tab-button">
-            {{ tab }}
-          </button>
+      <div class="info-body">
+        <div class="step-info-container" *ngIf="currentStep">
+          <div class="step-header">
+            <h3>Step {{ currentStep.step }}</h3>
+            <p class="step-description">{{ currentStep.description }}</p>
+            <div class="step-meta">
+              <span class="meta-item">Level: {{ currentStep.level }}</span>
+              <span class="meta-item" *ngIf="currentStep.divisionDirection">
+                Direction: {{ currentStep.divisionDirection }}
+              </span>
+              <span class="meta-item">Groups: {{ currentStep.totalGroups }}</span>
+              <span class="meta-item">Districts: {{ currentStep.totalDistricts }}</span>
+            </div>
+          </div>
+
+          <div class="district-groups-container">
+            <h4>District Groups</h4>
+            <div class="district-groups-list">
+              <div *ngFor="let group of currentStep.districtGroups; let i = index" class="district-group-card">
+                <div class="group-header">
+                  <span class="group-number">
+                    Districts {{ group.startDistrictNumber }}
+                    <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
+                      - {{ group.endDistrictNumber }}
+                    </span>
+                  </span>
+                  <span class="group-district-count">({{ group.totalDistricts }} district{{ group.totalDistricts !== 1 ? 's' : '' }})</span>
+                </div>
+                <div class="group-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">Tracts:</span>
+                    <span class="stat-value">{{ group.censusTracts.length }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Population:</span>
+                    <span class="stat-value">{{ group.totalPopulation.toLocaleString() }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Avg per District:</span>
+                    <span class="stat-value">{{ (group.totalPopulation / group.totalDistricts).toLocaleString() }}</span>
+                  </div>
+                </div>
+                <div class="group-bounds" *ngIf="group.bounds">
+                  <div class="bounds-row">
+                    <span class="bounds-label">Bounds:</span>
+                    <span class="bounds-value">
+                      {{ group.bounds.south.toFixed(4) }}°N - {{ group.bounds.north.toFixed(4) }}N,
+                      {{ group.bounds.west.toFixed(4) }}°W - {{ group.bounds.east.toFixed(4) }}W
+                    </span>
+                  </div>
+                  <div class="bounds-row" *ngIf="group.centroid">
+                    <span class="bounds-label">Centroid:</span>
+                    <span class="bounds-value">
+                      {{ group.centroid.lat.toFixed(4) }}°N, {{ group.centroid.lng.toFixed(4) }}°W
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="tabs-content" [style.transform]="isMobile() ? 'translateX(' + getTabOffset() + ')' : 'none'">
-          <div class="tab-panel" [class.active]="activeTab === 'Party'">
-            <h3>Party Comparison</h3>
-            <p>Comparing geodistricts with current maps - Party data</p>
-          </div>
-          <div class="tab-panel" [class.active]="activeTab === 'Population'">
-            <h3>Population Comparison</h3>
-            <p>Comparing geodistricts with current maps - Population data</p>
-          </div>
-          <div class="tab-panel" [class.active]="activeTab === 'Demographics'">
-            <h3>Demographics Comparison</h3>
-            <p>Comparing geodistricts with current maps - Demographics data</p>
-          </div>
-        </div>
-        <div class="carousel-dots" *ngIf="isMobile()">
-          <span *ngFor="let tab of ['Party', 'Population', 'Demographics']; let i = index"
-            [class.active]="activeTab === tab" class="dot">
-          </span>
+
+        <div class="no-step-info" *ngIf="!currentStep">
+          <p>Select a state and run the algorithm to see step and district group information.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
   </div>
   <div class="page-footer">
     <div class="copyright">

@@ -126,6 +126,15 @@ class S4DataLoader {
   }
 
   /**
+   * Get cached S4 adjacency data for a state (synchronous)
+   * @param {string} cacheKey - State abbreviation in lowercase (e.g., 'az')
+   * @returns {Map<string, string[]>|null} - Adjacency graph or null if not loaded
+   */
+  getS4AdjacencyData(cacheKey) {
+    return this.s4AdjacencyCache.get(cacheKey) || null;
+  }
+
+  /**
    * Clear cache (for testing/debugging)
    */
   clearCache() {

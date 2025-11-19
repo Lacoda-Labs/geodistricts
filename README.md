@@ -2,6 +2,8 @@
 
 A modern web application that demonstrates objective, geographically-based congressional district mapping. Built with Angular and Node.js, deployed on Google Cloud Run. GeoDistricts uses an algorithmic approach to create fair, unbiased congressional districts based solely on geographic and demographic data.
 
+![Voter Data Progress](https://img.shields.io/badge/Voter%20Data-5%2F50%20states-10%25-brightgreen) [![Help Wanted](https://img.shields.io/badge/Help%20Wanted-46%20states-orange)](.github/ISSUE_TEMPLATE/data-source-request.md)
+
 ## 🚀 Quick Start
 
 ```bash
@@ -125,15 +127,54 @@ Navigate to `/maps` or `/geodistrict` in the application to view and interact wi
 
 ### API Key Setup
 
-For direct Census API access (recommended), see [CENSUS_API_KEY_SETUP.md](CENSUS_API_KEY_SETUP.md) for detailed setup instructions.
+For direct Census API access (recommended), see [CENSUS_API_KEY_SETUP.md](doc/CENSUS_API_KEY_SETUP.md) for detailed setup instructions.
+
+## 🆘 Help Wanted: Voter Registration Data for All 50 States
+
+We need your help! To calculate party balance in geodistricts, we need voter registration party data for all 50 states + DC. Currently, we only have data sources for **5 states (10% complete)**.
+
+### How You Can Help
+
+1. **Find Data Sources**: Research your state's election office website for voter registration statistics
+2. **Create an Issue**: Use our [State Data Source Request template](.github/ISSUE_TEMPLATE/data-source-request.md)
+3. **Share Information**: Provide links, formats, costs, and access methods
+4. **Help Implement**: Optionally help implement the data loader (see [CONTRIBUTING.md](CONTRIBUTING.md))
+
+### What We Need
+
+For each state, we need:
+- **Geographic granularity**: Precinct or county level (preferably precinct)
+- **Data fields**: Total voters, Democratic, Republican, Other/Independent
+- **Format**: CSV, Excel, or API access
+- **Cost**: Free or low-cost preferred
+
+### Current Status
+
+- ✅ **Configured**: 5 states (AZ, CA, FL, NY, TX)
+- 🔍 **Help Needed**: 46 states
+
+See [State Data Sources Tracking](doc/STATE_DATA_SOURCES.md) for detailed status.
+
+### Resources
+
+- [Voter Registration Data Plan](doc/VOTER_REGISTRATION_DATA_PLAN.md) - Detailed requirements
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+- [Campaign Content Templates](doc/CAMPAIGN_CONTENT_TEMPLATES.md) - Social media templates
+
+**Contributors will be recognized in project documentation and social media (with permission).**
 
 ## Contributing
 
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+Quick start:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+**Priority**: Help us find voter registration data sources for all 50 states! See [Help Wanted](#-help-wanted-voter-registration-data-for-all-50-states) section above.
 
 ## Privacy & Terms
 

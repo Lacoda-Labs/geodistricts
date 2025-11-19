@@ -57,13 +57,19 @@ async function getFromCache(key) {
     const metaPath = getCacheMetaPath(key);
     const dataPath = getCacheFilePath(key);
     
-    console.log(`🔍 LOCAL CACHE: Checking cache for key: ${key}`);
+    // Only log cache checks in debug mode to reduce noise
+    if (process.env.DEBUG_CACHE === 'true') {
+      console.log(`🔍 LOCAL CACHE: Checking cache for key: ${key}`);
+    }
     
     // Check if metadata file exists
     try {
       await fs.access(metaPath);
     } catch (error) {
-      console.log(`❌ LOCAL CACHE: No metadata found for key: ${key}`);
+      // No metadata found is expected for uncached entries - only log in debug mode
+      if (process.env.DEBUG_CACHE === 'true') {
+        console.log(`❌ LOCAL CACHE: No metadata found for key: ${key}`);
+      }
       return null;
     }
     

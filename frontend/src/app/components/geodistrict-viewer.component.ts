@@ -1246,7 +1246,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.canRunNextStep = false;
     this.errorMessage = '';
 
-    const subscription = this.geodistrictService.executeNextStep(this.algorithmResult, this.selectedAlgorithm).subscribe({
+    const subscription = this.geodistrictService.executeNextStepLocally(this.algorithmResult, this.selectedAlgorithm).subscribe({
       next: (nextResult) => {
         this.algorithmResult = nextResult;
         this.currentStepIndex = nextResult.steps.length - 1;

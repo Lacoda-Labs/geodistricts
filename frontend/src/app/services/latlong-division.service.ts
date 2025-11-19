@@ -60,23 +60,13 @@ export class LatLongDivisionService {
    * Check if cached result exists for this division
    */
   private checkCache(cacheKey: string): Observable<any> {
-    // Include algorithm version in query parameter for cache validation
-    const url = `${this.backendUrl}/api/algorithm/latlong/cache/${encodeURIComponent(cacheKey)}?algorithmVersion=${ALGORITHM_VERSION}`;
+    // Backend handles version checking internally, no need to send version
+    const url = `${this.backendUrl}/api/algorithm/latlong/cache/${encodeURIComponent(cacheKey)}`;
     return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(url).pipe(
       map((response: any) => {
         if (response.cached && response.data) {
-          // Check algorithm version - if missing or doesn't match, invalidate cache
-          if (!response.algorithmVersion) {
-            console.log(`🔄 LATLONG CACHE: Algorithm version missing. Old cache entry without version. Treating as cache miss.`);
-            return null;
-          }
-          
-          if (response.algorithmVersion !== ALGORITHM_VERSION) {
-            console.log(`🔄 LATLONG CACHE: Algorithm version mismatch. cached=${response.algorithmVersion}, current=${ALGORITHM_VERSION}. Treating as cache miss.`);
-            return null;
-          }
-          
-          console.log(`✅ LATLONG CACHE HIT: Retrieved cached result for key: ${cacheKey} (algorithm version: ${response.algorithmVersion})`);
+          // Backend already validated version, but log it for debugging
+          console.log(`✅ LATLONG CACHE HIT: Retrieved cached result for key: ${cacheKey} (algorithm version: ${response.algorithmVersion || 'unknown'})`);
           return response.data;
         }
         return null;

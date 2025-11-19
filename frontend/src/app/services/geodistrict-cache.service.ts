@@ -171,30 +171,24 @@ export class GeodistrictCacheService {
     }
 
     // Try backend API (which uses Firestore)
-    // Include algorithm version in query parameter for cache validation
-    const cacheUrl = `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}?algorithmVersion=${ALGORITHM_VERSION}`;
+    // Backend handles version checking internally, no need to send version
+    const cacheUrl = `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}`;
     
     return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(
       cacheUrl
     ).pipe(
       map(response => {
         if (response.cached && response.data) {
-          // Check algorithm version - if missing or doesn't match, invalidate cache
-          if (!response.algorithmVersion) {
-            // Invalidate this cache entry
-            this.invalidate(state, algorithm, maxIterations).subscribe();
-            return null;
-          }
-          
-          if (response.algorithmVersion !== ALGORITHM_VERSION) {
-            // Invalidate this cache entry
-            this.invalidate(state, algorithm, maxIterations).subscribe();
+          // Backend already validated version, but check for frontend memory cache consistency
+          // If version doesn't match frontend's version, don't use it (backend should have filtered this)
+          if (response.algorithmVersion && response.algorithmVersion !== ALGORITHM_VERSION) {
+            console.warn(`⚠️ Version mismatch: backend returned ${response.algorithmVersion}, frontend expects ${ALGORITHM_VERSION}`);
             return null;
           }
           
           const result = response.data as GeodistrictResult;
-          // Store in memory cache for faster access (with version)
-          this.memoryCache.set(key, { result, version: response.algorithmVersion });
+          // Store in memory cache for faster access (with version from backend or use frontend version)
+          this.memoryCache.set(key, { result, version: response.algorithmVersion || ALGORITHM_VERSION });
           return result;
         } else {
           return null;

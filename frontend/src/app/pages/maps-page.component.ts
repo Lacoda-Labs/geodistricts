@@ -5,7 +5,6 @@ import { Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
@@ -28,7 +27,6 @@ declare global {
     MatButtonModule,
     MatIconModule,
     MatCheckboxModule,
-    MatTabsModule,
     MatChipsModule,
   ],
   templateUrl: './maps-page.component.html',
@@ -44,7 +42,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   currentStepIndex: number = 0;
   currentStep: GeodistrictStep | null = null;
   showSteps: boolean = false;
-  activeTab: string = 'Party';
   
   private map: L.Map | null = null;
   private tractLayer: L.LayerGroup | null = null;
@@ -54,6 +51,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
   private divisionLineMarkers: L.Marker[] = []; // Track all division line markers
   private animatedLineLayers: L.Layer[] = []; // Track animated line layers for cleanup
+  private loadedSteps: GeodistrictStep[] = []; // Store steps as they arrive
+  private totalSteps: number = 0; // Total number of steps (known when complete)
+  private isLoadingSteps: boolean = false; // Track if we're currently loading steps
 
   // US States with their congressional district counts
   states = [
@@ -120,11 +120,25 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (saved !== null) {
       this.showTractBoundaries = saved === 'true';
     }
+
+    // Load selected state from localStorage
+    const savedState = localStorage.getItem('selectedState');
+    if (savedState) {
+      this.selectedState = savedState;
+    }
   }
 
   ngAfterViewInit(): void {
     setTimeout(() => {
       this.initializeMap();
+      // If a state was saved, automatically run the algorithm after map is initialized
+      if (this.selectedState) {
+        // Wait a bit longer to ensure map is fully initialized
+        setTimeout(() => {
+          this.updateMapView();
+          this.runAlgorithm();
+        }, 300);
+      }
     }, 100);
   }
 
@@ -159,8 +173,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStateChange(): void {
     if (this.selectedState) {
+      // Persist selected state to localStorage
+      localStorage.setItem('selectedState', this.selectedState);
       this.updateMapView();
       this.runAlgorithm();
+    } else {
+      // Clear saved state if no state is selected
+      localStorage.removeItem('selectedState');
     }
   }
 
@@ -188,8 +207,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
         layer.setStyle({
           color: this.showTractBoundaries ? '#000000' : districtColor, // Black borders when checked, match fill when unchecked
-          weight: this.showTractBoundaries ? 2 : 1, // Thicker borders when checked
-          opacity: this.showTractBoundaries ? 1.0 : 0.3, // Full opacity when checked, subtle when unchecked
+          weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
+          opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
           fillOpacity: 0.7,
           fillColor: districtColor
         });
@@ -272,9 +291,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Reset state
     this.isLoading = true;
+    this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
+    this.loadedSteps = [];
+    this.currentStepIndex = 0;
+    this.currentStep = null;
+    this.totalSteps = 0;
 
     const options: GeodistrictOptions = {
       state: this.selectedState,
@@ -284,37 +309,56 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       algorithm: 'latlong' as AlgorithmType
     };
 
-    const subscription = this.geodistrictService.runGeodistrictAlgorithmStepByStep(options).subscribe({
-      next: (result) => {
-        console.log('Algorithm result received:', result);
-        if (!result) {
-          this.errorMessage = 'Algorithm returned no result';
-          this.isLoading = false;
-          console.error('Algorithm returned null/undefined result');
-          return;
-        }
-        if (!result.steps || result.steps.length === 0) {
-          this.errorMessage = 'Algorithm returned no steps';
-          this.isLoading = false;
-          console.error('Algorithm returned empty steps array');
-          return;
-        }
-        this.algorithmResult = result;
-        // Set to first step (step 0 - initial state)
+    console.log(`🚀 Initializing algorithm for ${this.selectedState}`);
+
+    // Initialize algorithm and load step 0
+    const subscription = this.geodistrictService.initializeAlgorithm(options).subscribe({
+      next: (stepData) => {
+        const { step, stepIndex, isComplete } = stepData;
+        console.log(`📥 Received step ${stepIndex}:`, step.description);
+
+        // Store the step
+        this.loadedSteps[stepIndex] = step;
+
+        // Display step 0 immediately
         this.currentStepIndex = 0;
-        this.currentStep = result.steps[this.currentStepIndex];
-        console.log(`✅ Algorithm completed: ${result.steps.length} steps, current step: ${this.currentStepIndex}`);
-        this.isLoading = false;
-        this.canRunNextStep = this.canExecuteNextStep(result);
-        // Render first step on map
+        this.currentStep = step;
+        this.isLoading = false; // Stop showing loading spinner after step 0
+        
+        // Create a minimal algorithmResult for rendering
+        this.algorithmResult = {
+          finalDistricts: step.districtGroups,
+          steps: [step],
+          totalPopulation: step.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0),
+          averagePopulation: 0,
+          populationVariance: 0,
+          algorithmHistory: []
+        };
+
+        console.log(`✅ Step 0 loaded: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
+        console.log(`🔍 Step 0 districtGroups:`, step.districtGroups);
+        console.log(`🔍 First district group tracts:`, step.districtGroups[0]?.censusTracts?.slice(0, 3));
+        
+        // Render step 0 on map - wait a bit longer to ensure map is ready
         setTimeout(() => {
-          this.updateMapLayers();
-        }, 200);
+          console.log(`🖼️ About to render step 0, map initialized: ${!!this.map}, tractLayer initialized: ${!!this.tractLayer}`);
+          console.log(`🖼️ currentStep:`, this.currentStep);
+          console.log(`🖼️ algorithmResult:`, this.algorithmResult);
+          if (!this.map || !this.tractLayer) {
+            console.error('⚠️ Map or tractLayer not initialized, retrying in 500ms...');
+            setTimeout(() => {
+              this.renderFinalDistricts();
+            }, 500);
+          } else {
+            this.renderFinalDistricts();
+          }
+        }, 500);
       },
       error: (error) => {
-        this.errorMessage = error.message || 'An error occurred while running the algorithm';
+        this.errorMessage = error.message || 'An error occurred while initializing the algorithm';
         this.isLoading = false;
-        console.error('Algorithm error:', error);
+        this.isLoadingSteps = false;
+        console.error('Algorithm initialization error:', error);
       }
     });
 
@@ -322,37 +366,108 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private canExecuteNextStep(result: GeodistrictResult): boolean {
+    if (!result) return false;
     return result.steps.length > 1 && this.currentStepIndex < result.steps.length - 1;
   }
 
+  getTotalSteps(): number {
+    return this.totalSteps || this.loadedSteps.filter(s => s !== undefined).length || 0;
+  }
+
+  canGoToNextStep(): boolean {
+    // Can go to next step if:
+    // 1. Next step is already loaded, OR
+    // 2. Algorithm is not complete (we can request next step)
+    const nextIndex = this.currentStepIndex + 1;
+    if (this.loadedSteps[nextIndex] !== undefined) {
+      return true;
+    }
+    // Check if algorithm is complete by looking at current step
+    if (this.currentStep) {
+      // If current step shows all groups have totalDistricts === 1, algorithm is complete
+      const allComplete = this.currentStep.districtGroups.every(g => g.totalDistricts === 1);
+      return !allComplete && !this.isLoading;
+    }
+    return false;
+  }
+
   previousStep(): void {
-    if (this.currentStepIndex > 0 && this.algorithmResult) {
+    if (this.currentStepIndex > 0) {
       this.currentStepIndex--;
-      this.currentStep = this.algorithmResult.steps[this.currentStepIndex];
-      this.canRunNextStep = this.canExecuteNextStep(this.algorithmResult);
-      this.renderFinalDistricts(); // Re-render map for the new step
+      const step = this.loadedSteps[this.currentStepIndex];
+      if (step) {
+        this.currentStep = step;
+        this.renderFinalDistricts(); // Re-render map for the new step
+      } else {
+        console.warn(`⚠️ Step ${this.currentStepIndex} not yet loaded`);
+        // Revert the index change
+        this.currentStepIndex++;
+      }
     }
   }
 
   nextStep(): void {
-    if (this.algorithmResult && this.currentStepIndex < this.algorithmResult.steps.length - 1) {
-      this.currentStepIndex++;
-      this.currentStep = this.algorithmResult.steps[this.currentStepIndex];
-      this.renderFinalDistricts(); // Re-render map for the new step
+    const nextIndex = this.currentStepIndex + 1;
+    const step = this.loadedSteps[nextIndex];
+    
+    if (step) {
+      // Step already loaded, just display it
+      this.currentStepIndex = nextIndex;
+      this.currentStep = step;
+      this.renderFinalDistricts();
+    } else {
+      // Step not loaded yet, request it from backend
+      console.log(`🚀 Requesting step ${nextIndex} from backend...`);
+      this.isLoading = true;
+      
+      const options: GeodistrictOptions = {
+        state: this.selectedState,
+        useDirectAPI: false,
+        forceInvalidate: false,
+        maxIterations: 100,
+        algorithm: 'latlong' as AlgorithmType
+      };
+
+      const subscription = this.geodistrictService.executeNextStep(options).subscribe({
+        next: (stepData) => {
+          const { step: newStep, stepIndex, isComplete } = stepData;
+          console.log(`📥 Received step ${stepIndex}:`, newStep.description);
+
+          // Store the step
+          this.loadedSteps[stepIndex] = newStep;
+          
+          // Display the step
+          this.currentStepIndex = stepIndex;
+          this.currentStep = newStep;
+          this.isLoading = false;
+
+          // Update algorithmResult
+          if (this.algorithmResult) {
+            this.algorithmResult.steps = this.loadedSteps.filter(s => s !== undefined);
+            this.algorithmResult.finalDistricts = newStep.districtGroups;
+          }
+
+          // Render the step on map
+          setTimeout(() => {
+            this.renderFinalDistricts();
+          }, 100);
+
+          // If complete, update total steps
+          if (isComplete) {
+            this.isLoadingSteps = false;
+            this.totalSteps = this.loadedSteps.filter(s => s !== undefined).length;
+            console.log(`✅ Algorithm completed: ${this.totalSteps} total steps`);
+          }
+        },
+        error: (error) => {
+          this.errorMessage = error.message || 'An error occurred while executing the next step';
+          this.isLoading = false;
+          console.error('Next step execution error:', error);
+        }
+      });
+
+      this.subscriptions.push(subscription);
     }
-  }
-
-  onTabChange(tab: string): void {
-    this.activeTab = tab;
-  }
-
-  isMobile(): boolean {
-    return window.innerWidth <= 768;
-  }
-
-  getTabOffset(): string {
-    const tabIndex = ['Party', 'Population', 'Demographics'].indexOf(this.activeTab);
-    return `-${tabIndex * 100}%`;
   }
 
   goHome(): void {
@@ -389,7 +504,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentStep && this.currentStep.districtGroups && this.currentStep.districtGroups.length > 0) {
       // Render the current step's district groups
       districtsToRender = this.currentStep.districtGroups;
-      console.log(`✅ Rendering step ${this.currentStepIndex + 1}: ${districtsToRender.length} district groups`);
+      console.log(`✅ Rendering step ${this.currentStepIndex}: ${districtsToRender.length} district groups`);
+      console.log(`🔍 First district group has ${districtsToRender[0]?.censusTracts?.length || 0} tracts`);
+      if (districtsToRender[0]?.censusTracts?.length > 0) {
+        console.log(`🔍 First tract sample:`, districtsToRender[0].censusTracts[0]);
+        console.log(`🔍 First tract has geometry:`, !!districtsToRender[0].censusTracts[0]?.geometry);
+      }
     } else if (this.algorithmResult.finalDistricts && this.algorithmResult.finalDistricts.length > 0) {
       // Fallback to finalDistricts if no current step
       districtsToRender = this.algorithmResult.finalDistricts;
@@ -425,24 +545,31 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           console.warn('⚠️ Null tract found in district');
           return;
         }
-        if (!tract.geometry) {
-          console.warn('⚠️ Tract missing geometry:', tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown');
+        // Check if tract has geometry (either as property or is itself a geometry)
+        const hasGeometry = !!(tract.geometry || (tract.type && (tract.type === 'Feature' || tract.type === 'Polygon' || tract.type === 'MultiPolygon')));
+        if (!hasGeometry) {
+          const tractId = tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown';
+          console.warn('⚠️ Tract missing geometry:', tractId, tract);
           return;
         }
         
         try {
-          const geoJson = L.geoJSON(tract.geometry, {
+          // Get tract properties for popup
+          const tractProperties = tract.properties || {};
+          
+          // Tracts should be GeoJSON Features - pass directly to L.geoJSON
+          const geoJson = L.geoJSON(tract, {
             style: {
               color: this.showTractBoundaries ? '#000000' : color, // Black borders when checked, match fill when unchecked
-              weight: this.showTractBoundaries ? 2 : 1, // Thicker borders when checked
-              opacity: this.showTractBoundaries ? 1.0 : 0.3, // Full opacity when checked, subtle when unchecked
+              weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
+              opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
               fillOpacity: 0.7,
               fillColor: color
             }
           }).bindPopup(`
             <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-            <strong>Tract ID:</strong> ${tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown'}<br>
-            <strong>Population:</strong> ${(tract.properties?.POPULATION || 0).toLocaleString()}<br>
+            <strong>Tract ID:</strong> ${tractProperties.TRACT_FIPS || tractProperties['GEOID'] || 'Unknown'}<br>
+            <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
             <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
             <strong>Tracts in District:</strong> ${district.censusTracts.length}
           `);
@@ -509,14 +636,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Render division lines for current step and all previous steps
    */
   private renderDivisionLines(): void {
-    if (!this.map || !this.algorithmResult || !this.currentStep) return;
+    if (!this.map || !this.currentStep) return;
 
     // Clear existing division lines
     this.clearDivisionLines();
 
     // Add static lines for all previous steps
     for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
-      const step = this.algorithmResult.steps[stepIdx];
+      const step = this.loadedSteps[stepIdx];
       if (step && step.divisionLines && step.divisionLines.length > 0) {
         this.addStaticDivisionLinesForStep(step, stepIdx);
       }
@@ -592,8 +719,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Get bounds from the previous step (where the parent group existed)
       let groupBounds: L.LatLngBounds | null = null;
-      if (this.algorithmResult && stepIdx > 0) {
-        const prevStep = this.algorithmResult.steps[stepIdx - 1];
+      if (stepIdx > 0) {
+        const prevStep = this.loadedSteps[stepIdx - 1];
         if (prevStep) {
           const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
             g.startDistrictNumber === parentGroup.startDistrictNumber &&
@@ -691,8 +818,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Get bounds from the previous step (where the parent group existed before division)
       let groupBounds: L.LatLngBounds | null = null;
-      if (this.algorithmResult && stepIdx > 0) {
-        const prevStep = this.algorithmResult.steps[stepIdx - 1];
+      if (stepIdx > 0) {
+        const prevStep = this.loadedSteps[stepIdx - 1];
         if (prevStep) {
           const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
             g.startDistrictNumber === parentGroup.startDistrictNumber &&

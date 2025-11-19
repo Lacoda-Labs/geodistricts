@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, throwError, of, from } from 'rxjs';
+import { Observable, throwError, of, from, Subject } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
@@ -91,7 +91,8 @@ export type AlgorithmType = 'latlong' | 'geographic' | 'brown-s4' | 'geo-graph' 
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
-export const ALGORITHM_VERSION = '20251113-1400'; // Updated for improved isolation detection using reachable count method after all steps
+// Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
+export const ALGORITHM_VERSION = '20251119-0400'; // Fixed missing tracts in step 1 - added deduplication in step 0 initialization and improved duplicate detection in division service
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -313,6 +314,89 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Initialize algorithm and load step 0
+   * Returns an Observable that emits step 0
+   */
+  initializeAlgorithm(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
+    const { state, maxIterations = 100, algorithm = 'latlong' } = options;
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute/step-by-step`;
+
+    console.log(`🚀 Initializing algorithm for ${state}: ${executeUrl}`);
+
+    return this.http.post<{
+      step: number;
+      data: GeodistrictStep;
+      isComplete: boolean;
+    }>(executeUrl, {
+      state,
+      maxIterations,
+      options: {}
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      map(response => {
+        console.log(`📥 Raw response from backend:`, response);
+        console.log(`📥 Response step:`, response.step);
+        console.log(`📥 Response data (step):`, response.data);
+        console.log(`📥 Step districtGroups:`, response.data?.districtGroups);
+        console.log(`📥 First district group:`, response.data?.districtGroups?.[0]);
+        console.log(`📥 First district group tracts count:`, response.data?.districtGroups?.[0]?.censusTracts?.length);
+        if (response.data?.districtGroups?.[0]?.censusTracts?.length > 0) {
+          console.log(`📥 First tract sample:`, response.data.districtGroups[0].censusTracts[0]);
+          console.log(`📥 First tract has geometry:`, !!response.data.districtGroups[0].censusTracts[0]?.geometry);
+        }
+        return {
+          step: response.data,
+          stepIndex: response.step,
+          isComplete: response.isComplete || false
+        };
+      }),
+      catchError(error => {
+        console.error('❌ Algorithm initialization failed:', error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
+   * Execute the next step of the algorithm
+   * Returns an Observable that emits the next step
+   */
+  executeNextStep(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
+    const { state, maxIterations = 100, algorithm = 'latlong' } = options;
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute/next-step`;
+
+    console.log(`🚀 Executing next step for ${state}: ${executeUrl}`);
+
+    return this.http.post<{
+      step: number;
+      data: GeodistrictStep;
+      isComplete: boolean;
+    }>(executeUrl, {
+      state,
+      maxIterations
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      map(response => ({
+        step: response.data,
+        stepIndex: response.step,
+        isComplete: response.isComplete || false
+      })),
+      catchError(error => {
+        console.error('❌ Next step execution failed:', error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
    * Fallback: Execute algorithm locally (for development/debugging)
    */
   private executeAlgorithmLocally(
@@ -474,12 +558,12 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Execute the next step of the geodistrict algorithm
+   * Execute the next step of the geodistrict algorithm locally (legacy method)
    * @param currentResult Current algorithm result
    * @param algorithm Algorithm type to use
    * @returns Updated algorithm result with next step
    */
-  executeNextStep(currentResult: GeodistrictResult, algorithm: AlgorithmType = 'latlong'): Observable<GeodistrictResult> {
+  executeNextStepLocally(currentResult: GeodistrictResult, algorithm: AlgorithmType = 'latlong'): Observable<GeodistrictResult> {
     return from(this.executeNextStepAsync(currentResult, algorithm)).pipe(
       switchMap(result => {
         // Extract state from result tracts and update cache
@@ -703,10 +787,18 @@ export class GeodistrictAlgorithmService {
 
       // Calculate and store northwest coordinate for performance optimization
       const northwestCoord = this.calculateNorthwestCoordinate(feature);
+      
+      // Calculate and store full bounds for performance optimization
+      const bounds = this.calculateTractBounds(feature);
+      
       feature.properties = {
         ...feature.properties,
         NORTHWEST_LAT: northwestCoord.lat,
-        NORTHWEST_LNG: northwestCoord.lng
+        NORTHWEST_LNG: northwestCoord.lng,
+        MIN_LAT: bounds.minLat,
+        MAX_LAT: bounds.maxLat,
+        MIN_LNG: bounds.minLng,
+        MAX_LNG: bounds.maxLng
       };
 
       return feature;
@@ -1053,7 +1145,7 @@ export class GeodistrictAlgorithmService {
     if (tracts.length <= 1) return tracts;
 
     // For lat/long algorithm, we don't need to sort tracts - we'll use the dividing line approach
-    // But we still need to ensure northwest coordinates are pre-calculated
+    // But we still need to ensure northwest coordinates and bounds are pre-calculated
     const sortedTracts = tracts.map(tract => {
       // Ensure northwest coordinates are available
       if (!tract.properties?.['NORTHWEST_LAT'] || !tract.properties?.['NORTHWEST_LNG']) {
@@ -1062,6 +1154,18 @@ export class GeodistrictAlgorithmService {
           ...tract.properties,
           NORTHWEST_LAT: northwestCoord.lat,
           NORTHWEST_LNG: northwestCoord.lng
+        };
+      }
+      // Ensure bounds are available
+      if (!tract.properties?.['MIN_LAT'] || !tract.properties?.['MAX_LAT'] || 
+          !tract.properties?.['MIN_LNG'] || !tract.properties?.['MAX_LNG']) {
+        const bounds = this.calculateTractBounds(tract);
+        tract.properties = {
+          ...tract.properties,
+          MIN_LAT: bounds.minLat,
+          MAX_LAT: bounds.maxLat,
+          MIN_LNG: bounds.minLng,
+          MAX_LNG: bounds.maxLng
         };
       }
       return tract;
@@ -1159,6 +1263,45 @@ export class GeodistrictAlgorithmService {
     }
 
     return { lat: northwestLat, lng: northwestLng };
+  }
+
+  /**
+   * Calculate full bounds (min/max lat/lng) for a tract
+   * @param tract Tract feature with geometry
+   * @returns Bounds object with minLat, maxLat, minLng, maxLng
+   */
+  private calculateTractBounds(tract: GeoJsonFeature): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+    if (!tract.geometry) {
+      return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
+    }
+
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+
+    if (tract.geometry.type === 'Polygon') {
+      for (const ring of tract.geometry.coordinates) {
+        for (const coord of ring) {
+          const [lng, lat] = coord;
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+        }
+      }
+    } else if (tract.geometry.type === 'MultiPolygon') {
+      for (const polygon of tract.geometry.coordinates) {
+        for (const ring of polygon) {
+          for (const coord of ring) {
+            const [lng, lat] = coord;
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLng = Math.min(minLng, lng);
+            maxLng = Math.max(maxLng, lng);
+          }
+        }
+      }
+    }
+
+    return { minLat, maxLat, minLng, maxLng };
   }
 
   /**

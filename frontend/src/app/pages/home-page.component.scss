@@ -30,8 +30,13 @@
   }
 
   h1 {
-    font-weight: 600;
+    font-weight: 200;
   }
+}
+
+.geodistricts-title {
+  font-weight: 200;
+  color: var(--mat-sys-primary, #6366f1);
 }
 
 #what div {

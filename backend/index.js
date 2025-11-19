@@ -8,7 +8,7 @@ const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const compression = require('compression');
 const localCache = require('./local-cache');
 const cloudStorageCache = require('./services/cloud-storage-cache');
-const { GeodistrictAlgorithmService, getDistrictsForState } = require('./services/geodistrict-algorithm');
+const { GeodistrictAlgorithmService, getDistrictsForState, ALGORITHM_VERSION } = require('./services/geodistrict-algorithm');
 const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
 require('dotenv').config();
@@ -220,7 +220,9 @@ async function getFromCache(key) {
   } else {
     try {
       // First check Firestore for metadata/reference
-      console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
+      if (process.env.DEBUG_CACHE === 'true') {
+        console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
+      }
       
       const doc = await firestore.collection('census_cache').doc(key).get();
       
@@ -258,7 +260,9 @@ async function getFromCache(key) {
         
         // If data is stored in Cloud Storage, fetch it
         if (data.cloudStoragePath) {
-          console.log(`📦 CLOUD STORAGE: Fetching large file from ${data.cloudStoragePath}`);
+          if (process.env.DEBUG_CACHE === 'true') {
+            console.log(`📦 CLOUD STORAGE: Fetching large file from ${data.cloudStoragePath}`);
+          }
           const cloudData = await cloudStorageCache.get(key);
           if (cloudData) {
             return {
@@ -274,15 +278,21 @@ async function getFromCache(key) {
         }
         
         // Data stored directly in Firestore (small files)
-        console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
+        if (process.env.DEBUG_CACHE === 'true') {
+          console.log(`✅ FIRESTORE CACHE HIT: Retrieved data for key: ${key}`);
+        }
         return data;
       }
       
       // Not in Firestore, check Cloud Storage directly (for migration compatibility)
-      console.log(`🔍 CLOUD STORAGE: Checking for key: ${key}`);
+      if (process.env.DEBUG_CACHE === 'true') {
+        console.log(`🔍 CLOUD STORAGE: Checking for key: ${key}`);
+      }
       const cloudData = await cloudStorageCache.get(key);
       if (cloudData) {
-        console.log(`✅ CLOUD STORAGE HIT: Retrieved data for key: ${key}`);
+        if (process.env.DEBUG_CACHE === 'true') {
+          console.log(`✅ CLOUD STORAGE HIT: Retrieved data for key: ${key}`);
+        }
         return {
           data: cloudData.data,
           timestamp: cloudData.timestamp,
@@ -294,7 +304,10 @@ async function getFromCache(key) {
         };
       }
       
-      console.log(`❌ CACHE MISS: No data found for key: ${key}`);
+      // Cache miss is expected for uncached entries - only log in debug mode
+      if (process.env.DEBUG_CACHE === 'true') {
+        console.log(`❌ CACHE MISS: No data found for key: ${key}`);
+      }
       return null;
     } catch (error) {
       console.error('❌ CACHE ERROR: Failed to get from cache for key:', key);
@@ -982,7 +995,9 @@ app.get('/api/census/counties', async (req, res) => {
     queryParams.set('in', `state:${stateFips}`);
     
     const apiUrl = `${CENSUS_API_BASE}/${ACS_YEAR}/${ACS_DATASET}?${queryParams.toString()}`;
-    console.log(`Fetching counties from Census API: state="${state}" -> FIPS="${stateFips}", url: ${apiUrl}`);
+    if (process.env.DEBUG_CENSUS_API === 'true') {
+      console.log(`Fetching counties from Census API: state="${state}" -> FIPS="${stateFips}", url: ${apiUrl}`);
+    }
     
     const response = await axios.get(apiUrl);
     
@@ -1098,15 +1113,22 @@ app.get('/api/census/tract-data', async (req, res) => {
       queryParams.set('in', `state:${stateFips} county:${params.county}`);
     }
     
-    console.log(`🔍 Census API query: state="${params.state}" -> FIPS="${stateFips}", county="${params.county}"`);
+    // Only log detailed API info in debug mode
+    if (process.env.DEBUG_CENSUS_API === 'true') {
+      console.log(`🔍 Census API query: state="${params.state}" -> FIPS="${stateFips}", county="${params.county}"`);
+    }
     
     const apiUrl = `${CENSUS_API_BASE}/${params.year}/${params.dataset}?${queryParams.toString()}`;
-    console.log(`Fetching from Census API: ${apiUrl}`);
+    if (process.env.DEBUG_CENSUS_API === 'true') {
+      console.log(`Fetching from Census API: ${apiUrl}`);
+    }
     
     const response = await axios.get(apiUrl);
-    console.log(`Census API response type:`, typeof response.data);
-    console.log(`Census API response length:`, response.data ? response.data.length : 'null');
-    console.log(`Census API response preview:`, JSON.stringify(response.data).substring(0, 500));
+    if (process.env.DEBUG_CENSUS_API === 'true') {
+      console.log(`Census API response type:`, typeof response.data);
+      console.log(`Census API response length:`, response.data ? response.data.length : 'null');
+      console.log(`Census API response preview:`, JSON.stringify(response.data).substring(0, 500));
+    }
     
     // Check if response is an error message string
     if (typeof response.data === 'string') {
@@ -1932,11 +1954,11 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
     console.log(`🔍 CACHE LOOKUP (${algorithm}): Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
 
     if (cachedEntry) {
-      // Check algorithm version - if it doesn't match, treat as cache miss
+      // Check algorithm version - compare against backend's current version
       const cachedVersion = cachedEntry.algorithmVersion;
-      const requestedVersion = req.query.algorithmVersion || req.headers['x-algorithm-version'];
+      const currentVersion = ALGORITHM_VERSION;
       
-      console.log(`🔍 VERSION CHECK (${algorithm}): Cached=${cachedVersion}, Requested=${requestedVersion}`);
+      console.log(`🔍 VERSION CHECK (${algorithm}): Cached=${cachedVersion || 'missing'}, Current=${currentVersion}`);
       
       // If no version is stored, treat as old cache (pre-versioning) and invalidate
       if (!cachedVersion) {
@@ -1951,8 +1973,8 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
       }
       
       // If versions don't match, invalidate
-      if (requestedVersion && cachedVersion !== requestedVersion) {
-        console.log(`🔄 ALGORITHM VERSION MISMATCH (${algorithm}): Cached version ${cachedVersion} != requested ${requestedVersion}. Invalidating cache.`);
+      if (cachedVersion !== currentVersion) {
+        console.log(`🔄 ALGORITHM VERSION MISMATCH (${algorithm}): Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache.`);
         // Delete the outdated cache entry (always use Firestore for algorithm cache)
         await firestore.collection('census_cache').doc(cacheKey).delete();
         return res.json({
@@ -2128,7 +2150,125 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
       return res.status(400).json({ error: `Invalid state: ${state}` });
     }
 
-    console.log(`🚀 Executing ${algorithm} algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations})`);
+    // Use backend's own algorithm version (source of truth)
+    const currentVersion = ALGORITHM_VERSION;
+    const cacheKey = `${state}_${algorithm}_${maxIterations}`;
+
+    console.log(`🚀 Executing ${algorithm} algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations}, version: ${currentVersion})`);
+
+    // Check cache first and validate version
+    let shouldExecute = true;
+    let cachedResult = null;
+    
+    try {
+      const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+      
+      if (doc.exists) {
+        const cachedEntry = doc.data();
+        
+        // Check if expired
+        if (!isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+          const cachedVersion = cachedEntry.algorithmVersion;
+          
+          console.log(`🔍 CACHE CHECK: Found cached result for ${cacheKey}, cached version: ${cachedVersion || 'missing'}, current version: ${currentVersion}`);
+          
+          // If no version is stored, treat as old cache and invalidate
+          if (!cachedVersion) {
+            console.log(`🔄 ALGORITHM VERSION MISSING: Old cache entry without version. Invalidating and re-executing.`);
+            await firestore.collection('census_cache').doc(cacheKey).delete();
+            // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
+            if (cachedEntry.tractCacheKey) {
+              try {
+                const tractCacheDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+                if (tractCacheDoc.exists) {
+                  const tractCacheData = tractCacheDoc.data();
+                  // Delete from Cloud Storage if it exists there
+                  if (tractCacheData?.cloudStoragePath) {
+                    try {
+                      await cloudStorageCache.delete(cachedEntry.tractCacheKey);
+                      console.log(`🗑️ Deleted state tract cache from Cloud Storage: ${cachedEntry.tractCacheKey}`);
+                    } catch (e) {
+                      console.warn(`⚠️ Failed to delete Cloud Storage cache: ${e.message}`);
+                    }
+                  }
+                  // Delete Firestore metadata
+                  await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).delete();
+                  console.log(`🗑️ Deleted state tract cache from Firestore: ${cachedEntry.tractCacheKey}`);
+                }
+              } catch (e) {
+                console.warn(`⚠️ Error deleting tract cache: ${e.message}`);
+              }
+            }
+            shouldExecute = true;
+          } else if (cachedVersion !== currentVersion) {
+            console.log(`🔄 ALGORITHM VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache and re-executing.`);
+            await firestore.collection('census_cache').doc(cacheKey).delete();
+            // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
+            if (cachedEntry.tractCacheKey) {
+              try {
+                const tractCacheDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+                if (tractCacheDoc.exists) {
+                  const tractCacheData = tractCacheDoc.data();
+                  // Delete from Cloud Storage if it exists there
+                  if (tractCacheData?.cloudStoragePath) {
+                    try {
+                      await cloudStorageCache.delete(cachedEntry.tractCacheKey);
+                      console.log(`🗑️ Deleted state tract cache from Cloud Storage: ${cachedEntry.tractCacheKey}`);
+                    } catch (e) {
+                      console.warn(`⚠️ Failed to delete Cloud Storage cache: ${e.message}`);
+                    }
+                  }
+                  // Delete Firestore metadata
+                  await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).delete();
+                  console.log(`🗑️ Deleted state tract cache from Firestore: ${cachedEntry.tractCacheKey}`);
+                }
+              } catch (e) {
+                console.warn(`⚠️ Error deleting tract cache: ${e.message}`);
+              }
+            }
+            shouldExecute = true;
+          } else {
+            // Version matches - try to return cached result
+            console.log(`✅ CACHE HIT: Version matches (${cachedVersion}), returning cached result`);
+            shouldExecute = false;
+            cachedResult = cachedEntry;
+          }
+        } else {
+          console.log(`⏰ CACHE EXPIRED: Cache entry expired, re-executing`);
+          shouldExecute = true;
+        }
+      } else {
+        console.log(`❌ CACHE MISS: No cached result found, executing algorithm`);
+        shouldExecute = true;
+      }
+    } catch (cacheError) {
+      console.warn(`⚠️ CACHE CHECK ERROR: ${cacheError.message}, proceeding with execution`);
+      shouldExecute = true;
+    }
+
+    // If we have a valid cached result, return it
+    if (!shouldExecute && cachedResult) {
+      // Need to decompress and return the full result
+      // For now, we'll execute anyway to ensure we return the full result
+      // In the future, we could decompress here, but for now let's just execute
+      // to keep the response format consistent
+      console.log(`⚠️ Cached result found but decompression needed - executing to ensure full result`);
+      shouldExecute = true;
+    }
+
+    if (!shouldExecute) {
+      // This path won't be taken for now since we're executing anyway
+      // But keeping the structure for future optimization
+      return res.json({
+        result: cachedResult.data,
+        executionTime: 0,
+        cacheKey,
+        state,
+        totalDistricts,
+        tractCount: 0,
+        cached: true
+      });
+    }
 
     // Get tract data from census proxy
     // First, get boundaries - force invalidate if cache is empty
@@ -2226,10 +2366,8 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
     console.log(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
 
     // Cache the result automatically (async, don't wait for it)
-    const cacheKey = `${state}_${algorithm}_${maxIterations}`;
-    const algorithmVersion = '20251113-1400'; // Match frontend ALGORITHM_VERSION
-    
-    cacheAlgorithmResult(cacheKey, result, state, algorithm, algorithmVersion, null, null)
+    // Use backend's own algorithm version when caching
+    cacheAlgorithmResult(cacheKey, result, state, algorithm, currentVersion, null, null)
       .then(cacheResult => {
         if (cacheResult.success) {
           console.log(`💾 Backend automatically cached result for ${state} (${cacheResult.sizes?.normalizedMB || 0} MB algorithm, ${cacheResult.sizes?.tractCacheMB || 0} MB tracts)`);
@@ -2264,6 +2402,20 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
  * POST /api/algorithm/:algorithm/execute/step-by-step
  * Execute algorithm with step-by-step streaming (Server-Sent Events)
  */
+// Store algorithm state in memory (keyed by state+algorithm+maxIterations)
+const algorithmStateStore = new Map();
+
+/**
+ * Generate a key for algorithm state storage
+ */
+function getAlgorithmStateKey(state, algorithm, maxIterations) {
+  return `${state}_${algorithm}_${maxIterations}`;
+}
+
+/**
+ * POST /api/algorithm/:algorithm/execute/step-by-step
+ * Initialize algorithm and return step 0 only
+ */
 app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
@@ -2279,13 +2431,7 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
       return res.status(400).json({ error: `Invalid state: ${state}` });
     }
 
-    console.log(`🚀 Executing ${algorithm} algorithm step-by-step for ${state} (${totalDistricts} districts)`);
-
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    console.log(`🚀 Initializing ${algorithm} algorithm for ${state} (${totalDistricts} districts)`);
 
     // Get tract data from census proxy
     try {
@@ -2293,16 +2439,40 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
       const boundariesResponse = await axios.get(boundariesUrl);
       
       if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
-        res.write(`data: ${JSON.stringify({ error: `No tract boundaries found for state: ${state}` })}\n\n`);
-        res.end();
-        return;
+        return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
       }
 
-      // Get demographic data
-      const demographicUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}`;
-      const demographicResponse = await axios.get(demographicUrl);
+      // Get demographic data - need to fetch for all counties in the state
+      // First, get all counties for the state
+      const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
+      console.log(`📡 Fetching counties from: ${countiesUrl}`);
+      const countiesResponse = await axios.get(countiesUrl);
       
-      const demographicData = demographicResponse.data || [];
+      const counties = countiesResponse.data || [];
+      console.log(`📊 Found ${counties.length} counties for state ${state}`);
+      
+      // Fetch tract data for each county and combine
+      // Force invalidate to bypass cached empty responses from when we used state abbreviations instead of FIPS codes
+      const demographicDataPromises = counties.map(county => {
+        const countyFips = county.COUNTY || county.county || county.fips;
+        const tractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}&county=${countyFips}&forceInvalidate=true`;
+        return axios.get(tractDataUrl).then(response => {
+          const data = response.data || [];
+          // If cached data was empty (2 bytes = "[]"), log a warning
+          if (Array.isArray(data) && data.length === 0) {
+            console.warn(`⚠️ Empty tract data for county ${countyFips} (may need fresh fetch)`);
+          }
+          return data;
+        }).catch(error => {
+          console.warn(`⚠️ Failed to fetch tract data for county ${countyFips}:`, error.message);
+          return [];
+        });
+      });
+      
+      const demographicDataArrays = await Promise.all(demographicDataPromises);
+      const demographicData = demographicDataArrays.flat();
+      
+      console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
       const boundaries = boundariesResponse.data;
 
       // Combine boundary and demographic data
@@ -2325,44 +2495,93 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
       });
 
       if (tracts.length === 0) {
-        res.write(`data: ${JSON.stringify({ error: `No tracts found for state: ${state}` })}\n\n`);
-        res.end();
-        return;
+        return res.status(404).json({ error: `No tracts found for state: ${state}` });
       }
 
       console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 
-      // Execute algorithm step-by-step
-      const startTime = Date.now();
-      const stepGenerator = algorithmService.executeGeodistrictAlgorithmStepByStep(
+      // Initialize algorithm and get step 0
+      const { step, state: algorithmState } = await algorithmService.initializeAlgorithm(
         tracts,
         totalDistricts,
         maxIterations,
-        algorithm,
-        null // onStep callback not needed for generator
+        algorithm
       );
 
-      // Stream steps
-      for await (const stepData of stepGenerator) {
-        res.write(`data: ${JSON.stringify(stepData)}\n\n`);
-      }
+      // Store algorithm state
+      const stateKey = getAlgorithmStateKey(state, algorithm, maxIterations);
+      algorithmStateStore.set(stateKey, algorithmState);
 
-      const executionTime = Date.now() - startTime;
-      console.log(`✅ Algorithm completed in ${executionTime}ms`);
+      console.log(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
 
-      // Send completion message
-      res.write(`data: ${JSON.stringify({ complete: true, executionTime })}\n\n`);
-      res.end();
+      // Return step 0
+      res.json({
+        step: 0,
+        data: step,
+        isComplete: false
+      });
     } catch (error) {
-      console.error('❌ Algorithm execution error:', error);
-      res.write(`data: ${JSON.stringify({ error: error.message, stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined })}\n\n`);
-      res.end();
+      console.error('❌ Algorithm initialization error:', error);
+      res.status(500).json({
+        error: 'Algorithm initialization failed',
+        message: error.message,
+        ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
+      });
     }
   } catch (error) {
     console.error('❌ Algorithm setup error:', error);
     res.status(500).json({
       error: 'Algorithm setup failed',
       message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/:algorithm/execute/next-step
+ * Execute the next step of the algorithm
+ */
+app.post('/api/algorithm/:algorithm/execute/next-step', async (req, res) => {
+  try {
+    const { state, maxIterations = 100 } = req.body;
+    const algorithm = req.params.algorithm || 'latlong';
+
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+
+    const stateKey = getAlgorithmStateKey(state, algorithm, maxIterations);
+    const algorithmState = algorithmStateStore.get(stateKey);
+
+    if (!algorithmState) {
+      return res.status(404).json({ error: 'Algorithm not initialized. Call /execute/step-by-step first.' });
+    }
+
+    console.log(`🚀 Executing next step for ${state} (iteration ${algorithmState.iteration + 1})`);
+
+    // Execute next step
+    const { step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState);
+
+    if (isComplete) {
+      // Remove state from store when complete
+      algorithmStateStore.delete(stateKey);
+      console.log(`✅ Algorithm completed after ${updatedState.iteration} iterations`);
+    } else {
+      // Update stored state
+      algorithmStateStore.set(stateKey, updatedState);
+    }
+
+    res.json({
+      step: updatedState.iteration,
+      data: step,
+      isComplete
+    });
+  } catch (error) {
+    console.error('❌ Next step execution error:', error);
+    res.status(500).json({
+      error: 'Next step execution failed',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
     });
   }
 });
@@ -2420,12 +2639,14 @@ app.get('/api/voter-registration/:state', async (req, res) => {
     
     if (cached && cached.data) {
       console.log(`✅ CACHE HIT: Voter registration data for ${state}`);
+      // Return the cached data (should already be in the correct format)
+      // cached.data should be the VoterRegistrationData object
       return res.json(cached.data);
     }
 
     // If not cached, check if data exists in storage
     // For now, return status indicating data needs to be fetched
-    res.json({
+    res.status(404).json({
       state: stateUpper,
       status: 'not_loaded',
       message: `Voter registration data not yet loaded for ${state}. Use POST /api/voter-registration/:state/fetch to load data.`
@@ -2512,20 +2733,38 @@ app.get('/api/voter-registration/:state/status', async (req, res) => {
     const stateUpper = state.toUpperCase();
     
     const cacheKey = `voter_registration_${stateUpper}`;
-    const cached = await getFromCache(cacheKey);
+    let cached = null;
+    let lastUpdated = null;
+    
+    try {
+      cached = await getFromCache(cacheKey);
+      if (cached && cached.timestamp) {
+        // Handle both number and Date timestamp formats
+        const timestamp = typeof cached.timestamp === 'number' 
+          ? cached.timestamp 
+          : (cached.timestamp instanceof Date ? cached.timestamp.getTime() : Date.parse(cached.timestamp));
+        lastUpdated = new Date(timestamp).toISOString();
+      }
+    } catch (cacheError) {
+      console.warn(`⚠️ Error checking cache for ${stateUpper}:`, cacheError.message);
+      // Continue without cache data
+    }
+    
+    const dataSource = voterRegistrationLoader.getStateDataSource(stateUpper);
     
     res.json({
       state: stateUpper,
       loading: voterRegistrationLoader.isLoading(stateUpper),
       cached: !!cached,
-      dataSource: voterRegistrationLoader.getStateDataSource(stateUpper),
-      lastUpdated: cached ? new Date(cached.timestamp).toISOString() : null
+      dataSource: dataSource || null,
+      lastUpdated: lastUpdated
     });
   } catch (error) {
     console.error(`Error getting status for ${req.params.state}:`, error);
     res.status(500).json({
       error: 'Failed to get status',
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
     });
   }
 });

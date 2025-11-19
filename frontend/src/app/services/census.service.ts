@@ -68,6 +68,13 @@ export interface GeoJsonFeature {
     SQMI?: number;
     ALAND?: number;
     AWATER?: number;
+    // Pre-calculated performance optimizations
+    NORTHWEST_LAT?: number; // Northernmost latitude (northwest corner)
+    NORTHWEST_LNG?: number; // Westernmost longitude (northwest corner)
+    MIN_LAT?: number; // Minimum latitude (southernmost point)
+    MAX_LAT?: number; // Maximum latitude (northernmost point)
+    MIN_LNG?: number; // Minimum longitude (westernmost point)
+    MAX_LNG?: number; // Maximum longitude (easternmost point)
     [key: string]: any;
   };
   geometry: {
