@@ -839,9 +839,9 @@ app.get('/api/version', (req, res) => {
     nodeVersion: process.version,
     timestamp: new Date().toISOString(),
     endpoints: {
-      algorithmExecute: '/api/algorithm/:algorithm/execute',
-      algorithmStepByStep: '/api/algorithm/:algorithm/execute/step-by-step',
-      algorithmCache: '/api/algorithm/:algorithm/cache'
+      algorithmExecute: '/api/algorithm/execute',
+      algorithmStepByStep: '/api/algorithm/execute/step-by-step',
+      algorithmCache: '/api/algorithm/cache'
     }
   });
 });
@@ -1521,13 +1521,12 @@ app.post('/api/census/cache/cleanup', async (req, res) => {
  * @param {string} cacheKey - Cache key (e.g., "AZ_latlong_100")
  * @param {object} divisionResult - Algorithm result to cache
  * @param {string} stateCode - State code (e.g., "AZ")
- * @param {string} algorithm - Algorithm type (e.g., "latlong")
  * @param {string} algorithmVersion - Algorithm version
  * @param {number|null} ttl - Time to live (null = no expiration)
  * @param {Array} tractMap - Optional pre-normalized tract map from frontend
  * @returns {Promise<{success: boolean, cacheKey: string, stateTractCacheKey: string, sizes?: object, error?: string}>}
  */
-async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorithm, algorithmVersion, ttl = null, tractMap = null) {
+async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorithmVersion, ttl = null, tractMap = null) {
   try {
     // Check if data is already normalized by frontend
     let normalizedResult, finalTractMap;
@@ -1824,7 +1823,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
  * Cache algorithm results (supports all algorithm types)
  * Uses normalized caching: tract geometries stored separately at state level
  */
-app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
+app.post('/api/algorithm/cache', async (req, res) => {
   try {
     const { cacheKey, divisionResult, ttl, state } = req.body;
 
@@ -1832,7 +1831,7 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
       return res.status(400).json({ error: 'cacheKey and divisionResult are required' });
     }
 
-    // Extract state from cacheKey if not provided (format: STATE_algorithm_maxIterations)
+    // Extract state from cacheKey if not provided (format: STATE_maxIterations)
     const stateCode = state || cacheKey.split('_')[0] || cacheKey.substring(0, 2);
     if (!stateCode || stateCode.length < 2) {
       return res.status(400).json({ error: 'State code is required (provide in body or ensure cacheKey starts with state code)' });
@@ -1856,7 +1855,6 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
     // Use null TTL if explicitly set to null (no expiration), otherwise use provided TTL or default
     const cacheTtl = ttl === null ? null : (ttl || CACHE_TTL);
 
-    const algorithm = req.params.algorithm || 'latlong';
     const algorithmVersion = req.body.algorithmVersion || 'unknown';
     
     // Use helper function to cache the result
@@ -1864,7 +1862,6 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
       cacheKey,
       divisionResult,
       stateCode,
-      algorithm,
       algorithmVersion,
       cacheTtl,
       req.body.tractMap // Pass tract map if provided by frontend
@@ -1917,7 +1914,7 @@ app.post('/api/algorithm/:algorithm/cache', async (req, res) => {
  * Get cached algorithm results (supports all algorithm types)
  * Handles normalized caching: fetches state-level tract cache and reconstructs full result
  */
-app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
+app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
   try {
     const { cacheKey } = req.params;
 
@@ -1949,9 +1946,7 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
         cachedEntry = data;
       }
     }
-    const algorithm = req.params.algorithm || 'latlong';
-
-    console.log(`🔍 CACHE LOOKUP (${algorithm}): Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
+    console.log(`🔍 CACHE LOOKUP: Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
 
     if (cachedEntry) {
       // Check algorithm version - compare against backend's current version
@@ -2071,7 +2066,7 @@ app.get('/api/algorithm/:algorithm/cache/:cacheKey', async (req, res) => {
 /**
  * Clear algorithm cache (for debugging, supports all algorithm types)
  */
-app.delete('/api/algorithm/:algorithm/cache', async (req, res) => {
+app.delete('/api/algorithm/cache', async (req, res) => {
   try {
     const { cacheKey } = req.body || {};
     const key = cacheKey || req.query.key;
@@ -2132,13 +2127,12 @@ app.delete('/api/algorithm/:algorithm/cache', async (req, res) => {
 const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService);
 
 /**
- * POST /api/algorithm/:algorithm/execute
+ * POST /api/algorithm/execute
  * Execute algorithm synchronously (returns complete result)
  */
-app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
+app.post('/api/algorithm/execute', async (req, res) => {
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
-    const algorithm = req.params.algorithm || 'latlong';
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -2152,9 +2146,9 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
 
     // Use backend's own algorithm version (source of truth)
     const currentVersion = ALGORITHM_VERSION;
-    const cacheKey = `${state}_${algorithm}_${maxIterations}`;
+    const cacheKey = `${state}_${maxIterations}`;
 
-    console.log(`🚀 Executing ${algorithm} algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations}, version: ${currentVersion})`);
+    console.log(`🚀 Executing algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations}, version: ${currentVersion})`);
 
     // Check cache first and validate version
     let shouldExecute = true;
@@ -2358,7 +2352,6 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
       tracts,
       totalDistricts,
       maxIterations,
-      algorithm,
       options.forceInvalidate || false
     );
     const executionTime = Date.now() - startTime;
@@ -2367,7 +2360,7 @@ app.post('/api/algorithm/:algorithm/execute', async (req, res) => {
 
     // Cache the result automatically (async, don't wait for it)
     // Use backend's own algorithm version when caching
-    cacheAlgorithmResult(cacheKey, result, state, algorithm, currentVersion, null, null)
+    cacheAlgorithmResult(cacheKey, result, state, currentVersion, null, null)
       .then(cacheResult => {
         if (cacheResult.success) {
           console.log(`💾 Backend automatically cached result for ${state} (${cacheResult.sizes?.normalizedMB || 0} MB algorithm, ${cacheResult.sizes?.tractCacheMB || 0} MB tracts)`);
@@ -2408,18 +2401,17 @@ const algorithmStateStore = new Map();
 /**
  * Generate a key for algorithm state storage
  */
-function getAlgorithmStateKey(state, algorithm, maxIterations) {
-  return `${state}_${algorithm}_${maxIterations}`;
+function getAlgorithmStateKey(state, maxIterations) {
+  return `${state}_${maxIterations}`;
 }
 
 /**
- * POST /api/algorithm/:algorithm/execute/step-by-step
+ * POST /api/algorithm/execute/step-by-step
  * Initialize algorithm and return step 0 only
  */
-app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
+app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
-    const algorithm = req.params.algorithm || 'latlong';
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -2431,7 +2423,7 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
       return res.status(400).json({ error: `Invalid state: ${state}` });
     }
 
-    console.log(`🚀 Initializing ${algorithm} algorithm for ${state} (${totalDistricts} districts)`);
+    console.log(`🚀 Initializing algorithm for ${state} (${totalDistricts} districts)`);
 
     // Get tract data from census proxy
     try {
@@ -2504,12 +2496,11 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
       const { step, state: algorithmState } = await algorithmService.initializeAlgorithm(
         tracts,
         totalDistricts,
-        maxIterations,
-        algorithm
+        maxIterations
       );
 
       // Store algorithm state
-      const stateKey = getAlgorithmStateKey(state, algorithm, maxIterations);
+      const stateKey = getAlgorithmStateKey(state, maxIterations);
       algorithmStateStore.set(stateKey, algorithmState);
 
       console.log(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
@@ -2538,19 +2529,18 @@ app.post('/api/algorithm/:algorithm/execute/step-by-step', async (req, res) => {
 });
 
 /**
- * POST /api/algorithm/:algorithm/execute/next-step
+ * POST /api/algorithm/execute/next-step
  * Execute the next step of the algorithm
  */
-app.post('/api/algorithm/:algorithm/execute/next-step', async (req, res) => {
+app.post('/api/algorithm/execute/next-step', async (req, res) => {
   try {
     const { state, maxIterations = 100 } = req.body;
-    const algorithm = req.params.algorithm || 'latlong';
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
     }
 
-    const stateKey = getAlgorithmStateKey(state, algorithm, maxIterations);
+    const stateKey = getAlgorithmStateKey(state, maxIterations);
     const algorithmState = algorithmStateStore.get(stateKey);
 
     if (!algorithmState) {

@@ -16,7 +16,6 @@ declare var L: any;
 })
 export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedState: string = 'AZ';
-  selectedAlgorithm: string = 'latlong';
   useDirectAPI: boolean = false;
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -206,7 +205,7 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       return;
     }
 
-    console.log(`Sorting ${this.stateData.features.length} tracts using ${this.selectedAlgorithm} algorithm`);
+    console.log(`Sorting ${this.stateData.features.length} tracts using latlong algorithm`);
 
     // Use the combined tract data from the service (includes demographic data and STATE property)
     const combinedTracts = this.geodistrictAlgorithmService.combineTractData(
@@ -235,52 +234,10 @@ export class TractDebugPageComponent implements OnInit, OnDestroy, AfterViewInit
       centroid: this.calculateTractCentroid(tract)
     }));
 
-    if (this.selectedAlgorithm === 'brown-s4') {
-      // Brown S4 is async, so we need to handle it differently
-      try {
-        console.log('🔄 Using Brown S4 algorithm for sorting...');
-        
-        // Brown S4 data is now available for all states
-        console.log(`🔄 Using Brown S4 data for state: ${this.selectedState}`);
-        const sortedTracts = await this.geodistrictAlgorithmService.sortTractsByBrownS4(
-          combinedTracts,
-          'latitude'
-        );
-        this.sortedTracts = sortedTracts;
-        console.log(`✅ Brown S4 sorting complete: ${this.sortedTracts.length} tracts sorted`);
-      } catch (error) {
-        console.error('❌ Brown S4 sorting failed, falling back to geographic:', error);
-        this.sortedTracts = this.geodistrictAlgorithmService.sortTractsByAlgorithm(
-          tractsWithCentroids,
-          'geographic'
-        ).map(item => item.tract);
-      }
-    } else if (this.selectedAlgorithm === 'geo-graph') {
-      // Geo-Graph is async and implements the specification-compliant zig-zag pattern
-      try {
-        console.log('🔄 Using Geo-Graph zig-zag sorting with Brown S4 adjacency...');
-        
-        // Geo-Graph data is now available for all states
-        console.log(`🔄 Using Geo-Graph data for state: ${this.selectedState}`);
-        const sortedTracts = await this.geodistrictAlgorithmService.sortTractsByGeoGraph(
-          combinedTracts,
-          'latitude'
-        );
-        this.sortedTracts = sortedTracts;
-        console.log(`✅ Geo-Graph sorting complete: ${this.sortedTracts.length} tracts sorted using zig-zag pattern`);
-      } catch (error) {
-        console.error('❌ Geo-Graph sorting failed, falling back to geographic:', error);
-        this.sortedTracts = this.geodistrictAlgorithmService.sortTractsByAlgorithm(
-          tractsWithCentroids,
-          'geographic'
-        ).map(item => item.tract);
-      }
-    } else {
-      this.sortedTracts = this.geodistrictAlgorithmService.sortTractsByAlgorithm(
-        tractsWithCentroids,
-        this.selectedAlgorithm as 'geographic' | 'latlong' | 'greedy-traversal'
-      ).map(item => item.tract);
-    }
+    // Use latlong algorithm for sorting
+    this.sortedTracts = this.geodistrictAlgorithmService.sortTractsByAlgorithm(
+      tractsWithCentroids
+    ).map(item => item.tract);
 
     console.log(`Sorted ${this.sortedTracts.length} tracts`);
     this.currentTractIndex = 0;

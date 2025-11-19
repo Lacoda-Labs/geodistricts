@@ -553,10 +553,9 @@ export class VoterRegistrationAdminPageComponent implements OnInit {
     this.algorithmState = this.selectedState;
     this.errorMessage = '';
 
-    const algorithm = 'latlong'; // Default algorithm
     const maxIterations = 100;
 
-    console.log(`🚀 Running ${algorithm} algorithm for ${this.selectedState}...`);
+    console.log(`🚀 Running algorithm for ${this.selectedState}...`);
 
     this.http.post<{
       result: any;
@@ -567,7 +566,7 @@ export class VoterRegistrationAdminPageComponent implements OnInit {
       tractCount: number;
       cached: boolean;
     }>(
-      `${environment.apiUrl}/algorithm/${algorithm}/execute`,
+      `${environment.apiUrl}/algorithm/execute`,
       {
         state: this.selectedState,
         maxIterations: maxIterations,

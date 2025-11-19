@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions, AlgorithmType, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, DistrictGroup, GeodistrictOptions, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
 import { GeoJsonFeature } from '../services/census.service';
 
@@ -27,7 +27,6 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
   selectedState: string = 'AZ';
   useDirectAPI: boolean = false; // Use backend proxy
   forceInvalidate: boolean = false; // Force refresh census cache
-  selectedAlgorithm: AlgorithmType = 'latlong'; // Default to latlong algorithm
   isLoading: boolean = false;
   errorMessage: string = '';
   canRunNextStep: boolean = false;
@@ -1210,8 +1209,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
       state: this.selectedState,
       useDirectAPI: this.useDirectAPI,
       forceInvalidate: this.forceInvalidate,
-      maxIterations: 100,
-      algorithm: this.selectedAlgorithm
+      maxIterations: 100
     };
 
     const subscription = this.geodistrictService.runGeodistrictAlgorithmStepByStep(options).subscribe({
@@ -1246,7 +1244,7 @@ export class GeodistrictViewerComponent implements OnInit, OnDestroy, AfterViewI
     this.canRunNextStep = false;
     this.errorMessage = '';
 
-    const subscription = this.geodistrictService.executeNextStepLocally(this.algorithmResult, this.selectedAlgorithm).subscribe({
+    const subscription = this.geodistrictService.executeNextStepLocally(this.algorithmResult).subscribe({
       next: (nextResult) => {
         this.algorithmResult = nextResult;
         this.currentStepIndex = nextResult.steps.length - 1;

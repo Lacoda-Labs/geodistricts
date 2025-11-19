@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { GeodistrictResult, AlgorithmType, ALGORITHM_VERSION, DistrictGroup, GeodistrictStep } from './geodistrict-algorithm.service';
+import { GeodistrictResult, ALGORITHM_VERSION, DistrictGroup, GeodistrictStep } from './geodistrict-algorithm.service';
 import { GeoJsonFeature } from './census.service';
 import { environment } from '../../environments/environment';
 import { Observable, of } from 'rxjs';
@@ -11,7 +11,6 @@ import { map, catchError } from 'rxjs/operators';
  */
 interface CacheKey {
   state: string;
-  algorithm: AlgorithmType;
   maxIterations: number;
 }
 
@@ -21,7 +20,6 @@ interface CacheKey {
 interface CacheDocument {
   result: GeodistrictResult;
   state: string;
-  algorithm: AlgorithmType;
   maxIterations: number;
   cachedAt: number;
   algorithmVersion: string; // Version of algorithm that generated this result
@@ -138,24 +136,24 @@ export class GeodistrictCacheService {
   /**
    * Generate a cache key from options
    */
-  private generateCacheKey(state: string, algorithm: AlgorithmType, maxIterations: number): string {
-    return `${state}:${algorithm}:${maxIterations}`;
+  private generateCacheKey(state: string, maxIterations: number): string {
+    return `${state}:${maxIterations}`;
   }
 
   /**
    * Get document ID from cache key
    */
-  private getDocId(state: string, algorithm: AlgorithmType, maxIterations: number): string {
+  private getDocId(state: string, maxIterations: number): string {
     // Firestore document IDs can't contain colons, so replace with underscore
-    return this.generateCacheKey(state, algorithm, maxIterations).replace(/:/g, '_');
+    return this.generateCacheKey(state, maxIterations).replace(/:/g, '_');
   }
 
   /**
    * Get cached result if available (async, returns Observable)
    */
-  get(state: string, algorithm: AlgorithmType, maxIterations: number): Observable<GeodistrictResult | null> {
-    const key = this.generateCacheKey(state, algorithm, maxIterations);
-    const cacheKey = this.getDocId(state, algorithm, maxIterations);
+  get(state: string, maxIterations: number): Observable<GeodistrictResult | null> {
+    const key = this.generateCacheKey(state, maxIterations);
+    const cacheKey = this.getDocId(state, maxIterations);
 
     // Check in-memory cache first
     const memoryCached = this.memoryCache.get(key);
@@ -172,7 +170,7 @@ export class GeodistrictCacheService {
 
     // Try backend API (which uses Firestore)
     // Backend handles version checking internally, no need to send version
-    const cacheUrl = `${this.API_BASE}/api/algorithm/${algorithm}/cache/${cacheKey}`;
+    const cacheUrl = `${this.API_BASE}/api/algorithm/cache/${cacheKey}`;
     
     return this.http.get<{ status: string; cached: boolean; data?: any; algorithmVersion?: string }>(
       cacheUrl
@@ -206,9 +204,9 @@ export class GeodistrictCacheService {
    * Store result in cache (async)
    * Uses normalized caching: tract geometries stored separately at state level
    */
-  set(state: string, algorithm: AlgorithmType, maxIterations: number, result: GeodistrictResult): Observable<void> {
-    const key = this.generateCacheKey(state, algorithm, maxIterations);
-    const cacheKey = this.getDocId(state, algorithm, maxIterations);
+  set(state: string, maxIterations: number, result: GeodistrictResult): Observable<void> {
+    const key = this.generateCacheKey(state, maxIterations);
+    const cacheKey = this.getDocId(state, maxIterations);
 
     // Store in memory cache immediately (with version)
     this.memoryCache.set(key, { result, version: ALGORITHM_VERSION });
@@ -255,7 +253,7 @@ export class GeodistrictCacheService {
         tractCount: number;
       }
     }>(
-      `${this.API_BASE}/api/algorithm/${algorithm}/cache`,
+      `${this.API_BASE}/api/algorithm/cache`,
       payload
     ).pipe(
       map((response) => {
@@ -288,15 +286,15 @@ export class GeodistrictCacheService {
   /**
    * Invalidate cache for a specific state and algorithm (async)
    */
-  invalidate(state: string, algorithm: AlgorithmType, maxIterations: number): Observable<void> {
-    const key = this.generateCacheKey(state, algorithm, maxIterations);
-    const cacheKey = this.getDocId(state, algorithm, maxIterations);
+  invalidate(state: string, maxIterations: number): Observable<void> {
+    const key = this.generateCacheKey(state, maxIterations);
+    const cacheKey = this.getDocId(state, maxIterations);
 
     // Remove from memory cache
     this.memoryCache.delete(key);
 
     // Remove via backend API (using request options for body)
-    return this.http.request('DELETE', `${this.API_BASE}/api/algorithm/${algorithm}/cache`, {
+    return this.http.request('DELETE', `${this.API_BASE}/api/algorithm/cache`, {
       body: { cacheKey },
       headers: { 'Content-Type': 'application/json' }
     }).pipe(

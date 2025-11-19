@@ -351,10 +351,9 @@ class GeodistrictAlgorithmService {
    * @param {Array} tracts - Array of GeoJSON tract features
    * @param {number} totalDistricts - Total number of districts
    * @param {number} maxIterations - Maximum iterations
-   * @param {string} algorithm - Algorithm type
    * @returns {Promise<{step: Object, state: Object}>} Step 0 and algorithm state
    */
-  async initializeAlgorithm(tracts, totalDistricts, maxIterations, algorithm = 'latlong') {
+  async initializeAlgorithm(tracts, totalDistricts, maxIterations) {
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
       try {
@@ -413,8 +412,7 @@ class GeodistrictAlgorithmService {
         totalStatePopulation,
         targetDistrictPopulation,
         maxIterations,
-        state,
-        algorithm
+        state
       }
     };
   }
@@ -819,11 +817,10 @@ class GeodistrictAlgorithmService {
    * @param {Array} tracts - Array of GeoJSON tract features
    * @param {number} totalDistricts - Total number of districts to create
    * @param {number} maxIterations - Maximum iterations
-   * @param {string} algorithm - Algorithm type ('latlong')
    * @param {boolean} forceInvalidate - Force recalculation
    * @returns {Promise<Object>} GeodistrictResult
    */
-  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, algorithm = 'latlong', forceInvalidate = false) {
+  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, forceInvalidate = false) {
     // Preload S4 adjacency data if available
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -1183,11 +1180,10 @@ class GeodistrictAlgorithmService {
    * @param {Array} tracts - Array of GeoJSON tract features
    * @param {number} totalDistricts - Total number of districts
    * @param {number} maxIterations - Maximum iterations
-   * @param {string} algorithm - Algorithm type
    * @param {Function} onStep - Callback for each step
    * @returns {Promise<Object>} Final result
    */
-  async *executeGeodistrictAlgorithmStepByStep(tracts, totalDistricts, maxIterations, algorithm = 'latlong', onStep) {
+  async *executeGeodistrictAlgorithmStepByStep(tracts, totalDistricts, maxIterations, onStep) {
     // Similar to executeGeodistrictAlgorithm but yields steps as they're created
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {

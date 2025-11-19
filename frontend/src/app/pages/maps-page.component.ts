@@ -8,7 +8,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, AlgorithmType, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 
 declare global {
@@ -305,8 +305,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       state: this.selectedState,
       useDirectAPI: false,
       forceInvalidate: false,
-      maxIterations: 100,
-      algorithm: 'latlong' as AlgorithmType
+      maxIterations: 100
     };
 
     console.log(`🚀 Initializing algorithm for ${this.selectedState}`);
@@ -425,7 +424,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         useDirectAPI: false,
         forceInvalidate: false,
         maxIterations: 100,
-        algorithm: 'latlong' as AlgorithmType
       };
 
       const subscription = this.geodistrictService.executeNextStep(options).subscribe({

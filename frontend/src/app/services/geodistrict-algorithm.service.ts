@@ -70,24 +70,7 @@ export interface GeodistrictOptions {
   useDirectAPI?: boolean;
   forceInvalidate?: boolean;
   maxIterations?: number;
-  algorithm?: AlgorithmType;
 }
-
-// Interface for steppable geo-graph algorithm results
-export interface GeoGraphStepResult {
-  phase: 'phase1' | 'phase2';
-  step: number;
-  totalSteps: number;
-  isComplete: boolean;
-  message: string;
-  sortedTracts: GeoJsonFeature[];
-  currentDistricts?: GeoJsonFeature[][];
-  nextAction?: 'northwest' | 'southwest';
-  groupIndex?: number;
-}
-
-// Algorithm types
-export type AlgorithmType = 'latlong' | 'geographic' | 'brown-s4' | 'geo-graph' | 'greedy-traversal';
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
@@ -170,7 +153,7 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   runGeodistrictAlgorithm(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'latlong' } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100 } = options;
 
     // In production, always use backend proxy (which handles Secret Manager)
     // In development, respect the useDirectAPI flag
@@ -197,7 +180,7 @@ export class GeodistrictAlgorithmService {
             const tractsWithPopulation = this.combineTractData(data.demographic, data.boundaries.features);
 
             // Run the algorithm
-            return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm, forceInvalidate));
+            return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, forceInvalidate));
           }),
           catchError(error => {
             console.warn(`Direct API failed for state ${state}, falling back to backend proxy:`, error);
@@ -213,7 +196,7 @@ export class GeodistrictAlgorithmService {
                 const tractsWithPopulation = this.combineTractData(data.demographic, data.boundaries.features);
 
                 // Run the algorithm
-                return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, algorithm, forceInvalidate));
+                return from(this.executeGeodistrictAlgorithm(tractsWithPopulation, totalDistricts, maxIterations, forceInvalidate));
               })
             );
           })
@@ -229,20 +212,20 @@ export class GeodistrictAlgorithmService {
    * @returns Observable of algorithm result with step-by-step execution
    */
   runGeodistrictAlgorithmStepByStep(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'latlong' } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100 } = options;
 
     // Handle cache invalidation if needed
     const invalidateCache$ = forceInvalidate
-      ? this.cacheService.invalidate(state, algorithm, maxIterations).pipe(map(() => null))
+      ? this.cacheService.invalidate(state, maxIterations).pipe(map(() => null))
       : of(null);
 
     // Check cache first (unless forceInvalidate is true)
     const cacheCheck$ = forceInvalidate
       ? of(null)
-      : this.cacheService.get(state, algorithm, maxIterations).pipe(
+      : this.cacheService.get(state, maxIterations).pipe(
           map(cachedResult => {
             if (cachedResult) {
-              console.log(`✅ Returning cached result for ${state} with ${algorithm} algorithm`);
+              console.log(`✅ Returning cached result for ${state}`);
               return cachedResult;
             }
             return null;
@@ -260,7 +243,7 @@ export class GeodistrictAlgorithmService {
         // Otherwise, execute algorithm on backend
         // Use backend execution endpoint (algorithm runs on server)
         const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-        const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute`;
+        const executeUrl = `${backendUrl}/api/algorithm/execute`;
         
         console.log(`🚀 Executing algorithm on backend: ${executeUrl}`);
         
@@ -289,7 +272,7 @@ export class GeodistrictAlgorithmService {
             // Only cache if backend didn't cache it (backend caches automatically)
             if (!response.cached) {
               console.log(`💾 Backend didn't cache result, caching on frontend...`);
-              this.cacheService.set(state, algorithm, maxIterations, response.result).subscribe({
+              this.cacheService.set(state, maxIterations, response.result).subscribe({
                 next: () => console.log(`💾 Cached result for ${state}`),
                 error: (err) => console.error(`❌ Failed to cache result:`, err)
               });
@@ -304,7 +287,7 @@ export class GeodistrictAlgorithmService {
             // Fallback to local execution if backend fails (for development/debugging)
             if (!environment.production && useDirectAPI) {
               console.warn('⚠️ Falling back to local algorithm execution');
-              return this.executeAlgorithmLocally(state, maxIterations, algorithm, forceInvalidate, useDirectAPI);
+              return this.executeAlgorithmLocally(state, maxIterations, forceInvalidate, useDirectAPI);
             }
             return this.handleError(error);
           })
@@ -318,9 +301,9 @@ export class GeodistrictAlgorithmService {
    * Returns an Observable that emits step 0
    */
   initializeAlgorithm(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
-    const { state, maxIterations = 100, algorithm = 'latlong' } = options;
+    const { state, maxIterations = 100 } = options;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute/step-by-step`;
+    const executeUrl = `${backendUrl}/api/algorithm/execute/step-by-step`;
 
     console.log(`🚀 Initializing algorithm for ${state}: ${executeUrl}`);
 
@@ -366,9 +349,9 @@ export class GeodistrictAlgorithmService {
    * Returns an Observable that emits the next step
    */
   executeNextStep(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
-    const { state, maxIterations = 100, algorithm = 'latlong' } = options;
+    const { state, maxIterations = 100 } = options;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const executeUrl = `${backendUrl}/api/algorithm/${algorithm}/execute/next-step`;
+    const executeUrl = `${backendUrl}/api/algorithm/execute/next-step`;
 
     console.log(`🚀 Executing next step for ${state}: ${executeUrl}`);
 
@@ -402,7 +385,6 @@ export class GeodistrictAlgorithmService {
   private executeAlgorithmLocally(
     state: string,
     maxIterations: number,
-    algorithm: AlgorithmType,
     forceInvalidate: boolean,
     useDirectAPI: boolean
   ): Observable<GeodistrictResult> {
@@ -425,9 +407,9 @@ export class GeodistrictAlgorithmService {
           throw new Error(`No congressional districts found for state: ${state}`);
         }
 
-        return from(this.executeGeodistrictAlgorithm(combinedTracts, totalDistricts, maxIterations, algorithm, forceInvalidate)).pipe(
+        return from(this.executeGeodistrictAlgorithm(combinedTracts, totalDistricts, maxIterations, forceInvalidate)).pipe(
           switchMap(result => {
-            this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
+            this.cacheService.set(state, maxIterations, result).subscribe({
               next: () => console.log(`💾 Cached result for ${state}`),
               error: (err) => console.error(`❌ Failed to cache result:`, err)
             });
@@ -446,11 +428,11 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Algorithm result with only the first step
    */
-  private executeGeodistrictAlgorithmFirstStep(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Observable<GeodistrictResult> {
-    return from(this.executeGeodistrictAlgorithmFirstStepAsync(tracts, totalDistricts, algorithm, forceInvalidate));
+  private executeGeodistrictAlgorithmFirstStep(tracts: GeoJsonFeature[], totalDistricts: number, forceInvalidate: boolean = false): Observable<GeodistrictResult> {
+    return from(this.executeGeodistrictAlgorithmFirstStepAsync(tracts, totalDistricts, forceInvalidate));
   }
 
-  private async executeGeodistrictAlgorithmFirstStepAsync(tracts: GeoJsonFeature[], totalDistricts: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
+  private async executeGeodistrictAlgorithmFirstStepAsync(tracts: GeoJsonFeature[], totalDistricts: number, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
     // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -465,8 +447,6 @@ export class GeodistrictAlgorithmService {
     // Calculate total state population
     const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
     const targetDistrictPopulation = totalStatePopulation / totalDistricts;
-
-    // Note: geo-graph and brown-s4 algorithms are now supported in first step mode
 
     // Sort tracts initially by latitude (north to south) using latlong algorithm
     const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
@@ -563,15 +543,15 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Updated algorithm result with next step
    */
-  executeNextStepLocally(currentResult: GeodistrictResult, algorithm: AlgorithmType = 'latlong'): Observable<GeodistrictResult> {
-    return from(this.executeNextStepAsync(currentResult, algorithm)).pipe(
+  executeNextStepLocally(currentResult: GeodistrictResult): Observable<GeodistrictResult> {
+    return from(this.executeNextStepAsync(currentResult)).pipe(
       switchMap(result => {
         // Extract state from result tracts and update cache
         const state = this.extractStateFromResult(result);
         if (state) {
           const maxIterations = 100; // Default, matches typical usage
           // Cache the result (async, but don't wait for it)
-          this.cacheService.set(state, algorithm, maxIterations, result).subscribe({
+          this.cacheService.set(state, maxIterations, result).subscribe({
             next: () => console.log(`💾 Updated cache for ${state} after next step`),
             error: (err) => console.error(`❌ Failed to update cache:`, err)
           });
@@ -631,7 +611,7 @@ export class GeodistrictAlgorithmService {
     return fipsToAbbrMap[fipsCode] || null;
   }
 
-  private async executeNextStepAsync(currentResult: GeodistrictResult, algorithm: AlgorithmType): Promise<GeodistrictResult> {
+  private async executeNextStepAsync(currentResult: GeodistrictResult): Promise<GeodistrictResult> {
     const steps = [...currentResult.steps];
     const algorithmHistory = [...currentResult.algorithmHistory];
     let currentGroups = [...currentResult.finalDistricts];
@@ -817,7 +797,7 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type to use
    * @returns Algorithm result
    */
-  private async executeGeodistrictAlgorithm(tracts: GeoJsonFeature[], totalDistricts: number, maxIterations: number, algorithm: AlgorithmType, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
+  private async executeGeodistrictAlgorithm(tracts: GeoJsonFeature[], totalDistricts: number, maxIterations: number, forceInvalidate: boolean = false): Promise<GeodistrictResult> {
     // Preload S4 adjacency data if available (needed for buildGeometryAdjacencyGraph)
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -5929,7 +5909,7 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   private runGeodistrictAlgorithmAsync(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100, algorithm = 'brown-s4' } = options;
+    const { state, useDirectAPI = false, forceInvalidate = false, maxIterations = 100 } = options;
 
     // In production, always use backend proxy (which handles Secret Manager)
     // In development, respect the useDirectAPI flag
@@ -5950,13 +5930,12 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   private runGeodistrictAlgorithmProxyAsync(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, forceInvalidate = false, maxIterations = 100, algorithm = 'brown-s4' } = options;
+    const { state, forceInvalidate = false, maxIterations = 100 } = options;
 
     const params = new URLSearchParams({
       state: state,
       forceInvalidate: forceInvalidate.toString(),
-      maxIterations: maxIterations.toString(),
-      algorithm: algorithm
+      maxIterations: maxIterations.toString()
     });
 
     const url = `${environment.apiUrl}/api/geodistrict?${params.toString()}`;
@@ -5977,7 +5956,7 @@ export class GeodistrictAlgorithmService {
    * @returns Observable with algorithm result
    */
   private runGeodistrictAlgorithmDirectAsync(options: GeodistrictOptions): Observable<GeodistrictResult> {
-    const { state, maxIterations = 100, algorithm = 'brown-s4' } = options;
+    const { state, maxIterations = 100 } = options;
 
     return this.congressionalDistrictsService.getTotalDistrictsForState(state).pipe(
       switchMap(totalDistricts => {
@@ -6013,7 +5992,7 @@ export class GeodistrictAlgorithmService {
                 };
 
                 // Run the division algorithm
-                return from(this.runDivisionAlgorithmAsync([initialGroup], maxIterations, algorithm)).pipe(
+                return from(this.runDivisionAlgorithmAsync([initialGroup], maxIterations)).pipe(
                   map(result => ({
                     finalDistricts: result.districts,
                     steps: [], // No step-by-step tracking for async version
@@ -6039,7 +6018,7 @@ export class GeodistrictAlgorithmService {
    * @param algorithm Algorithm type
    * @returns Division result
    */
-  private async runDivisionAlgorithmAsync(groups: DistrictGroup[], maxIterations: number, algorithm: AlgorithmType): Promise<{ districts: DistrictGroup[]; iterations: number; populationVariance: number }> {
+  private async runDivisionAlgorithmAsync(groups: DistrictGroup[], maxIterations: number): Promise<{ districts: DistrictGroup[]; iterations: number; populationVariance: number }> {
     let currentGroups = [...groups];
     let iteration = 0;
 
@@ -6188,8 +6167,7 @@ export class GeodistrictAlgorithmService {
    * @returns Sorted tracts using geo-graph traversal
    */
   public sortTractsByAlgorithm(
-    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>,
-    algorithm: AlgorithmType
+    tractsWithCentroids: Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }>
   ): Array<{ tract: GeoJsonFeature, centroid: { lat: number, lng: number } }> {
     if (!tractsWithCentroids || tractsWithCentroids.length === 0) {
       return [];
@@ -6197,51 +6175,14 @@ export class GeodistrictAlgorithmService {
 
     const tracts = tractsWithCentroids.map(item => item.tract);
 
-    // Handle different algorithm types
-    let sortedTracts: GeoJsonFeature[];
-    if (algorithm === 'latlong' || algorithm === 'geographic') {
-      sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
-    } else {
-      // For other algorithms, use latlong as fallback
-      sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
-    }
+    // Use latlong algorithm for sorting
+    const sortedTracts = this.sortTractsForLatLongAlgorithm(tracts, 'latitude');
 
     // Map back to tracts with centroids
     return sortedTracts.map(tract => {
       const originalItem = tractsWithCentroids.find(item => item.tract === tract);
       return originalItem || { tract, centroid: this.calculateTractCentroid(tract) };
     });
-  }
-
-  /**
-   * Sort tracts using Brown S4 adjacency data
-   * @param tracts Array of tracts
-   * @param direction Sorting direction
-   * @returns Sorted tracts using Brown S4 adjacency
-   */
-  public async sortTractsByBrownS4(
-    tracts: GeoJsonFeature[],
-    direction: 'latitude' | 'longitude'
-  ): Promise<GeoJsonFeature[]> {
-    // For now, use the latlong algorithm as a fallback
-    // TODO: Implement full Brown S4 adjacency-based sorting
-    return this.sortTractsForLatLongAlgorithm(tracts, direction);
-  }
-
-  /**
-   * Sort tracts using Geo-Graph algorithm with Brown S4 adjacency data
-   * Implements the zig-zag traversal pattern described in the algorithm specification
-   * @param tracts Array of tracts
-   * @param direction Sorting direction
-   * @returns Sorted tracts using geo-graph traversal
-   */
-  public async sortTractsByGeoGraph(
-    tracts: GeoJsonFeature[],
-    direction: 'latitude' | 'longitude'
-  ): Promise<GeoJsonFeature[]> {
-    // For now, use the latlong algorithm as a fallback
-    // TODO: Implement full geo-graph zig-zag traversal
-    return this.sortTractsForLatLongAlgorithm(tracts, direction);
   }
 
   private handleError(error: any): Observable<never> {
