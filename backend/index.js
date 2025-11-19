@@ -459,6 +459,9 @@ function ultraCompressGeoJson(geojson) {
 function compressGeodistrictResult(result, state) {
   if (!result) return result;
   
+  // Use the same getTractId function as normalizeStepData to ensure consistent IDs
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  
   // Step 1: Collect all unique tracts (for state-level cache)
   const tractMap = new Map(); // tractId -> compressed tract
   const tractIds = new Set();
@@ -545,18 +548,8 @@ function compressGeodistrictResult(result, state) {
   };
 }
 
-/**
- * Get unique tract ID from a tract feature
- */
-function getTractId(tract) {
-  if (!tract || !tract.properties) return null;
-  // Try multiple possible ID fields
-  return tract.properties.GISJOIN || 
-         tract.properties.GEOID || 
-         tract.properties.TRACT_FIPS || 
-         `${tract.properties.STATE_FIPS || ''}${tract.properties.COUNTY_FIPS || ''}${tract.properties.TRACT_FIPS || ''}` ||
-         null;
-}
+// Note: getTractId is now imported from geodistrict-algorithm.js to ensure consistent ID format
+// This function was removed to avoid ID format mismatches between normalization and reconstruction
 
 /**
  * Compress a single tract (reduce coordinate precision)
@@ -2715,9 +2708,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 
       // Load S4 adjacency data if available (needed for enclosed tract detection)
       const s4DataLoader = require('./services/s4-data-loader');
-      const s4Loader = new s4DataLoader.S4DataLoader();
       try {
-        await s4Loader.loadS4AdjacencyData(state);
+        await s4DataLoader.loadS4AdjacencyData(state);
         console.log(`✅ Loaded S4 adjacency data for ${state} before enclosed tract detection`);
       } catch (error) {
         console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
@@ -2873,6 +2865,104 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
         try {
           const tractCacheKey = `state_tracts_${state}`;
           const normalizedStep = normalizeStepData(step, tractCacheKey);
+          
+          // Store state tract cache if it doesn't exist or if algorithm version changed
+          // Check if state tract cache already exists and matches current algorithm version
+          const existingTractCache = await firestore.collection('census_cache').doc(tractCacheKey).get();
+          
+          const existingVersion = existingTractCache.exists ? existingTractCache.data()?.algorithmVersion : null;
+          const shouldRegenerateCache = !existingTractCache.exists || 
+            existingVersion !== ALGORITHM_VERSION;
+          
+          console.log(`🔍 State tract cache check: exists=${existingTractCache.exists}, version=${existingVersion || 'none'}, current=${ALGORITHM_VERSION}, shouldRegenerate=${shouldRegenerateCache}`);
+          
+          if (shouldRegenerateCache) {
+            if (existingTractCache.exists) {
+              console.log(`🔄 State tract cache version mismatch (${existingVersion || 'unknown'} != ${ALGORITHM_VERSION}), regenerating...`);
+              // Delete old Cloud Storage file if it exists
+              if (existingTractCache.data()?.cloudStorage && existingTractCache.data()?.cloudStoragePath) {
+                try {
+                  await cloudStorageCache.delete(tractCacheKey);
+                  console.log(`🗑️ Deleted old Cloud Storage cache for ${state}`);
+                } catch (deleteError) {
+                  console.warn(`⚠️ Failed to delete old Cloud Storage cache: ${deleteError.message}`);
+                }
+              }
+            } else {
+              console.log(`📦 Creating new state tract cache for ${state}`);
+            }
+            // Create tract map from the tracts we just loaded
+            const { getTractId } = require('./services/geodistrict-algorithm');
+            const tractMap = tracts.map(tract => {
+              const tractId = getTractId(tract);
+              return [tractId, tract];
+            }).filter(([id]) => id); // Filter out tracts without IDs
+            
+            console.log(`📊 Created tract map with ${tractMap.length} tracts. Sample IDs: ${tractMap.slice(0, 3).map(([id]) => id).join(', ')}`);
+            
+            // Store state tract cache using the same method as cacheAlgorithmResult
+            const tractCacheSize = JSON.stringify(tractMap).length;
+            const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+            const FIRESTORE_MAX_SIZE = 1024 * 1024; // 1MB
+            const useCloudStorage = tractCacheSize > FIRESTORE_MAX_SIZE;
+            
+            if (useCloudStorage) {
+            // Store in Cloud Storage
+            console.log(`📦 CLOUD STORAGE: Storing state tract cache (${tractCacheSizeMB} MB) for ${state} in Cloud Storage`);
+            try {
+              const cloudStoragePath = await cloudStorageCache.set(tractCacheKey, tractMap, {
+                state: state,
+                tractCount: tractMap.length.toString(),
+                source: 'state-tract-cache'
+              });
+              
+              // Store metadata reference in Firestore
+              const metadataEntry = {
+                cloudStoragePath: cloudStoragePath,
+                timestamp: Date.now(),
+                ttl: null, // No expiration - tract geometries are static
+                version: CACHE_VERSION,
+                algorithmVersion: ALGORITHM_VERSION, // Store algorithm version to detect ID format changes
+                source: 'state-tract-cache-metadata',
+                attribution: `Tract geometries metadata for state ${state}`,
+                chunked: false,
+                cloudStorage: true,
+                totalChunks: 0,
+                tractCount: tractMap.length,
+                state: state,
+                size: tractCacheSize,
+                sizeMB: parseFloat(tractCacheSizeMB)
+              };
+              
+              await firestore.collection('census_cache').doc(tractCacheKey).set(metadataEntry);
+              console.log(`💾 CLOUD STORAGE: Stored ${tractCacheSizeMB} MB tract cache for state ${state} at ${cloudStoragePath}`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to store state tract cache in Cloud Storage: ${error.message}`);
+            }
+          } else {
+            // Store directly in Firestore
+            const metadataEntry = {
+              data: tractMap,
+              timestamp: Date.now(),
+              ttl: null, // No expiration - tract geometries are static
+              version: CACHE_VERSION,
+              algorithmVersion: ALGORITHM_VERSION, // Store algorithm version to detect ID format changes
+              source: 'state-tract-cache',
+              attribution: `Tract geometries for state ${state}`,
+              chunked: false,
+              cloudStorage: false,
+              tractCount: tractMap.length,
+              state: state,
+              size: tractCacheSize,
+              sizeMB: parseFloat(tractCacheSizeMB)
+            };
+            
+            await firestore.collection('census_cache').doc(tractCacheKey).set(metadataEntry);
+            console.log(`💾 FIRESTORE: Stored ${tractCacheSizeMB} MB tract cache for state ${state} in Firestore`);
+            }
+          } else {
+            console.log(`✅ State tract cache already exists for ${state}, skipping storage`);
+          }
           
           const cacheData = {
             stepData: normalizedStep.normalized,
