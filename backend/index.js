@@ -1206,11 +1206,31 @@ async function getTractCount(state, county) {
  * Handle streaming response for large datasets
  */
 async function handleStreamingResponse(req, res, state, county, cacheKey, totalCount) {
+  // Convert state abbreviation to FIPS code if needed
+  const stateFipsMap = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+    'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+    'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+    'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+    'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+    'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+    'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+    'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+    'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+    'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+    'DC': '11'
+  };
+  
+  // Use FIPS code if state is already a 2-digit code, otherwise convert
+  const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+  
   const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-  let whereClause = `STATE_FIPS='${state}'`;
+  let whereClause = `STATE_FIPS='${stateFips}'`;
   if (county) {
     whereClause += ` AND COUNTY_FIPS='${county}'`;
   }
+  
+  console.log(`🔍 Streaming TIGERweb query: state="${state}" -> FIPS="${stateFips}", where="${whereClause}"`);
   
   // Set up streaming response
   res.setHeader('Content-Type', 'application/json');
@@ -2764,7 +2784,13 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                     const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
                     if (stateTractDoc.exists) {
                       const stateTractData = stateTractDoc.data();
-                      if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+                      // Check if state tract cache version matches current algorithm version
+                      const stateTractVersion = stateTractData.algorithmVersion;
+                      if (stateTractVersion !== ALGORITHM_VERSION) {
+                        console.log(`⚠️ State tract cache version mismatch (${stateTractVersion || 'none'} != ${ALGORITHM_VERSION}), skipping reconstruction - will use fresh tracts`);
+                        // Trigger immediate regeneration of state tract cache (don't wait, but start it)
+                        // The cacheStep0 function will handle the actual regeneration
+                      } else if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
                         // Get tract map and reconstruct
                         let tractMap = null;
                         if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
@@ -2796,7 +2822,11 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                         } else {
                           console.warn(`⚠️ RECONSTRUCTION: No tractMap available for reconstruction`);
                         }
+                      } else {
+                        console.log(`⚠️ State tract cache expired, skipping reconstruction - will use fresh tracts`);
                       }
+                    } else {
+                      console.log(`⚠️ State tract cache not found, skipping reconstruction - will use fresh tracts`);
                     }
                   } catch (reconstructError) {
                     console.warn(`⚠️ Failed to reconstruct step 0 from cache: ${reconstructError.message}`);
@@ -3062,9 +3092,18 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                   
                   if (stateTractDoc.exists) {
                     const stateTractData = stateTractDoc.data();
-                    if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+                    // Check if state tract cache version matches current algorithm version
+                    const stateTractVersion = stateTractData.algorithmVersion;
+                    if (stateTractVersion !== ALGORITHM_VERSION) {
+                      console.log(`⚠️ State tract cache version mismatch (${stateTractVersion || 'none'} != ${ALGORITHM_VERSION}) for step ${nextStepNumber}, cannot reconstruct - will need to re-execute step`);
+                      // Don't set stateTractCache, so we skip reconstruction
+                    } else if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
                       stateTractCache = stateTractData;
+                    } else {
+                      console.log(`⚠️ State tract cache expired for step ${nextStepNumber}, cannot reconstruct - will need to re-execute step`);
                     }
+                  } else {
+                    console.log(`⚠️ State tract cache not found for step ${nextStepNumber}, cannot reconstruct - will need to re-execute step`);
                   }
                   
                   // Get tract map from cache (handle different storage formats)
@@ -3112,9 +3151,20 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                   // Reconstruct step with tract geometries
                   if (tractMap) {
                     stepData = reconstructStepFromCache(stepData, tractMap);
+                    const totalReconstructed = stepData.districtGroups?.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0) || 0;
+                    if (totalReconstructed === 0) {
+                      console.warn(`⚠️ Step ${nextStepNumber} reconstruction resulted in 0 tracts - cache may have wrong ID format, will need to re-execute`);
+                      // Force re-execution by returning null or throwing
+                      throw new Error('Reconstruction failed - 0 tracts found');
+                    }
+                  } else {
+                    console.warn(`⚠️ No tractMap available for step ${nextStepNumber} reconstruction - will need to re-execute`);
+                    throw new Error('No tractMap available for reconstruction');
                   }
                 } catch (reconstructError) {
-                  console.warn(`⚠️ Failed to reconstruct step from cache: ${reconstructError.message}, returning normalized data`);
+                  console.warn(`⚠️ Failed to reconstruct step ${nextStepNumber} from cache: ${reconstructError.message}, will re-execute`);
+                  // Force re-execution by not returning cached data
+                  throw reconstructError;
                 }
               }
               
