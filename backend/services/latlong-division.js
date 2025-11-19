@@ -116,213 +116,110 @@ class LatLongDivisionService {
   }
 
   /**
-   * Find optimal dividing line using iterative approach
+   * Fast division using sorted tracts - no need to find dividing line
+   * Simply accumulate population until target is reached
+   * Returns the index where to split the sorted array
    */
-  findOptimalDividingLine(tracts, direction, targetPopulation) {
-    // Get the range of coordinates for the direction using bounding boxes
-    const bounds = tracts.map(tract => this.getTractBounds(tract));
-
-    let minCoord, maxCoord;
-    if (direction === 'latitude') {
-      minCoord = Math.min(...bounds.map(b => b.minLat));
-      maxCoord = Math.max(...bounds.map(b => b.maxLat));
-    } else {
-      minCoord = Math.min(...bounds.map(b => b.minLng));
-      maxCoord = Math.max(...bounds.map(b => b.maxLng));
-    }
-    const centerCoord = (minCoord + maxCoord) / 2;
-
-    // Start with center coordinate and iterate to find optimal position
-    let currentLine = centerCoord;
-    let bestLine = centerCoord;
-    let bestDifference = Infinity;
-    let iterations = 0;
-    const maxIterations = 20;
-    const tolerance = 0.0001; // About 10 meters
-
-    while (iterations < maxIterations) {
-      // Calculate populations on each side of the line
-      const { firstGroupPopulation } = this.calculatePopulationsByLine(tracts, direction, currentLine);
-
-      const difference = Math.abs(firstGroupPopulation - targetPopulation);
-
-      if (difference < bestDifference) {
-        bestDifference = difference;
-        bestLine = currentLine;
-      }
-
-      // If we're close enough, stop
-      if (difference < targetPopulation * 0.005) { // Within 0.5% of target
-        break;
-      }
-
-      // Calculate adjustment based on population difference
-      const populationDifference = firstGroupPopulation - targetPopulation;
-
-      // Determine direction to move the line
-      let adjustment;
-      if (direction === 'latitude') {
-        // For latitude: if first group has too many people, move line north (increase latitude)
-        adjustment = (populationDifference / targetPopulation) * (maxCoord - minCoord) * 0.1;
-      } else {
-        // For longitude: if first group has too many people, move line east (increase longitude)
-        adjustment = (populationDifference / targetPopulation) * (maxCoord - minCoord) * 0.1;
-      }
-
-      // Prevent infinite loops by ensuring we don't go outside bounds
-      const newLine = Math.max(minCoord, Math.min(maxCoord, currentLine + adjustment));
-
-      if (Math.abs(newLine - currentLine) < tolerance) {
-        break;
-      }
-
-      currentLine = newLine;
-      iterations++;
-    }
-
-    // If we didn't converge well, try binary search as fallback
-    if (bestDifference > targetPopulation * 0.05) { // If still >5% off target
-      const binarySearchLine = this.binarySearchOptimalLine(tracts, direction, targetPopulation, minCoord, maxCoord);
-      const binarySearchDifference = Math.abs(this.calculatePopulationsByLine(tracts, direction, binarySearchLine).firstGroupPopulation - targetPopulation);
-
-      if (binarySearchDifference < bestDifference) {
-        return binarySearchLine;
-      }
-    }
-
-    return bestLine;
-  }
-
-  /**
-   * Binary search for optimal dividing line
-   */
-  binarySearchOptimalLine(tracts, direction, targetPopulation, minCoord, maxCoord) {
-    let left = minCoord;
-    let right = maxCoord;
-    let bestLine = (left + right) / 2;
-    let bestDifference = Infinity;
-    const maxIterations = 50;
-    const tolerance = 0.0001;
-
-    for (let i = 0; i < maxIterations; i++) {
-      const mid = (left + right) / 2;
-      const { firstGroupPopulation } = this.calculatePopulationsByLine(tracts, direction, mid);
-      const difference = Math.abs(firstGroupPopulation - targetPopulation);
-
-      if (difference < bestDifference) {
-        bestDifference = difference;
-        bestLine = mid;
-      }
-
-      if (difference < targetPopulation * 0.01 || Math.abs(right - left) < tolerance) {
-        break;
-      }
-
-      if (firstGroupPopulation < targetPopulation) {
-        left = mid; // Move north/east (increase coordinate)
-      } else {
-        right = mid; // Move south/west (decrease coordinate)
-      }
-    }
-
-    return bestLine;
-  }
-
-  /**
-   * Divide tracts by a lat/long line
-   * Optimized: Sorts tracts by south boundary (lat) or east boundary (long) for faster division
-   */
-  divideTractsByLine(tracts, direction, dividingLine, targetFirstGroupPopulation, targetSecondGroupPopulation, history) {
-    const firstGroupTracts = [];
-    const secondGroupTracts = [];
-    const intersectingTractIds = [];
-    const assignedTractIds = new Set(); // Track which tracts we've assigned to prevent duplicates
-
-    // Pre-compute bounds for all tracts and sort for efficient division
+  findDivisionIndex(tracts, direction, targetPopulation) {
+    console.log(`📊 SORTING: Starting to sort ${tracts.length} tracts by ${direction === 'latitude' ? 'south boundary (minLat)' : 'east boundary (maxLng)'}`);
+    const sortStartTime = Date.now();
+    
+    // Pre-compute bounds and sort tracts
     const tractsWithBounds = tracts.map(tract => {
       const bounds = this.getTractBounds(tract);
-      return { tract, bounds };
+      const population = tract.properties?.POPULATION || 0;
+      return { tract, bounds, population };
     });
 
-    // Sort tracts by the relevant boundary for quick division
+    // Sort tracts by the relevant boundary
     if (direction === 'latitude') {
-      // Sort by south boundary (minLat) - tracts with higher minLat are more north
+      // Sort by south boundary (minLat) - descending (most north first)
       tractsWithBounds.sort((a, b) => b.bounds.minLat - a.bounds.minLat);
     } else {
-      // Sort by east boundary (maxLng) - tracts with lower maxLng are more west
+      // Sort by east boundary (maxLng) - ascending (most west first)
       // Note: US longitudes are negative, so more negative = more west
       tractsWithBounds.sort((a, b) => a.bounds.maxLng - b.bounds.maxLng);
     }
 
-    // Now iterate through sorted tracts - we can stop early once we've passed the dividing line
-    for (const { tract, bounds } of tractsWithBounds) {
-      const tractId = getTractId(tract) || 'unknown';
-      
-      // Safety check: if we've already assigned this tract, skip it (shouldn't happen, but be safe)
-      if (assignedTractIds.has(tractId)) {
-        console.error(`⚠️ DIVISION ERROR: Tract ${tractId} appears multiple times in input tracts array!`);
-        continue;
-      }
-      
-      const population = tract.properties?.POPULATION || 0;
-      
-      let isEntirelyNorthOrWest = false;
-      let intersectsLine = false;
+    const sortEndTime = Date.now();
+    console.log(`✅ SORTING: Completed in ${sortEndTime - sortStartTime}ms - sorted ${tractsWithBounds.length} tracts`);
 
-      if (direction === 'latitude') {
-        // Check if tract intersects the line (including edge cases where boundary equals the line)
-        intersectsLine = bounds.minLat <= dividingLine && bounds.maxLat >= dividingLine;
-        // A tract is entirely NORTH if its southernmost point (minLat) is above the dividing line
-        // A tract is entirely SOUTH if its northernmost point (maxLat) is below the dividing line
-        // For firstGroup (north): minLat > dividingLine means entire tract is north of line
-        isEntirelyNorthOrWest = !intersectsLine && bounds.minLat > dividingLine;
-      } else {
-        // Check if tract intersects the line (including edge cases where boundary equals the line)
-        intersectsLine = bounds.minLng <= dividingLine && bounds.maxLng >= dividingLine;
-        // For longitude: US longitudes are negative (west of prime meridian)
-        // More negative = more west. So maxLng < dividingLine means entirely west
-        // Example: dividingLine = -100, maxLng = -120 means tract is entirely west
-        isEntirelyNorthOrWest = !intersectsLine && bounds.maxLng < dividingLine;
-      }
+    // Accumulate population until we reach the target
+    console.log(`🔀 DIVISION: Starting population accumulation (target: ${targetPopulation.toLocaleString()})`);
+    const divisionStartTime = Date.now();
+    let accumulatedPopulation = 0;
+    let divisionIndex = 0;
 
-      if (intersectsLine) {
-        // Tract intersects the line - assign all to south/east group (secondGroup)
-        // This ensures we start with a contiguous assignment, then fix isolation if needed
-        secondGroupTracts.push(tract);
-        assignedTractIds.add(tractId);
-        intersectingTractIds.push(tractId);
-        // Debug logging for specific tract (check both full ID and last 6 digits which is the tract portion)
-        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
-        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
-          console.log(`🔍 DEBUG Tract ${tractId}: INTERSECTS line at ${dividingLine}, assigned to SOUTH group (secondGroup)`);
-          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
-          console.log(`   Direction: ${direction}, minLat > dividingLine: ${bounds.minLat > dividingLine}, maxLat < dividingLine: ${bounds.maxLat < dividingLine}`);
-        }
-      } else if (isEntirelyNorthOrWest) {
-        firstGroupTracts.push(tract);
-        assignedTractIds.add(tractId);
-        // Debug logging for specific tract
-        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
-        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
-          console.log(`🔍 DEBUG Tract ${tractId}: ENTIRELY NORTH, assigned to NORTH group (firstGroup)`);
-          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
-          console.log(`   Direction: ${direction}, minLat > dividingLine: ${bounds.minLat > dividingLine}`);
-        }
-      } else {
-        secondGroupTracts.push(tract);
-        assignedTractIds.add(tractId);
-        // Debug logging for specific tract
-        const tractPortion = tractId.length >= 6 ? tractId.slice(-6) : tractId;
-        if (tractId === '002000' || tractId.endsWith('002000') || tractPortion === '002000') {
-          console.log(`🔍 DEBUG Tract ${tractId}: ENTIRELY SOUTH (else case), assigned to SOUTH group (secondGroup)`);
-          console.log(`   Bounds: minLat=${bounds.minLat.toFixed(6)}, maxLat=${bounds.maxLat.toFixed(6)}, dividingLine=${dividingLine.toFixed(6)}`);
-          console.log(`   Direction: ${direction}, isEntirelyNorthOrWest=${isEntirelyNorthOrWest}, intersectsLine=${intersectsLine}`);
-          console.log(`   minLat > dividingLine: ${bounds.minLat > dividingLine}, maxLat < dividingLine: ${bounds.maxLat < dividingLine}`);
-        }
+    for (let i = 0; i < tractsWithBounds.length; i++) {
+      accumulatedPopulation += tractsWithBounds[i].population;
+      
+      // If we've reached or exceeded the target, this is our division point
+      if (accumulatedPopulation >= targetPopulation) {
+        divisionIndex = i + 1;
+        break;
       }
     }
 
-    return { firstGroupTracts, secondGroupTracts, intersectingTractIds };
+    // Ensure we have at least one tract in each group
+    if (divisionIndex === 0) {
+      divisionIndex = 1;
+    } else if (divisionIndex >= tractsWithBounds.length) {
+      divisionIndex = tractsWithBounds.length - 1;
+    }
+
+    const divisionEndTime = Date.now();
+    const firstGroupPopulation = accumulatedPopulation;
+    const secondGroupPopulation = tractsWithBounds.reduce((sum, item, idx) => 
+      idx >= divisionIndex ? sum + item.population : sum, 0);
+    
+    console.log(`✅ DIVISION: Completed in ${divisionEndTime - divisionStartTime}ms`);
+    console.log(`   - Division index: ${divisionIndex} of ${tractsWithBounds.length} tracts`);
+    console.log(`   - First group: ${divisionIndex} tracts, ${firstGroupPopulation.toLocaleString()} population`);
+    console.log(`   - Second group: ${tractsWithBounds.length - divisionIndex} tracts, ${secondGroupPopulation.toLocaleString()} population`);
+    console.log(`   - Population variance: ${Math.abs(firstGroupPopulation - targetPopulation).toLocaleString()} (${((Math.abs(firstGroupPopulation - targetPopulation) / targetPopulation) * 100).toFixed(2)}%)`);
+
+    return { divisionIndex, sortedTracts: tractsWithBounds };
+  }
+
+  /**
+   * Divide tracts using sorted array - extremely fast O(n) approach
+   * No need to check boundary intersections or find dividing lines
+   */
+  divideTractsBySortedArray(sortedTractsWithBounds, divisionIndex, direction) {
+    console.log(`✂️ SPLITTING: Splitting ${sortedTractsWithBounds.length} sorted tracts at index ${divisionIndex}`);
+    const splitStartTime = Date.now();
+    
+    const firstGroupTracts = sortedTractsWithBounds.slice(0, divisionIndex).map(item => item.tract);
+    const secondGroupTracts = sortedTractsWithBounds.slice(divisionIndex).map(item => item.tract);
+    
+    const splitEndTime = Date.now();
+    console.log(`✅ SPLITTING: Completed in ${splitEndTime - splitStartTime}ms`);
+    console.log(`   - First group: ${firstGroupTracts.length} tracts`);
+    console.log(`   - Second group: ${secondGroupTracts.length} tracts`);
+    
+    // Calculate dividing line for reporting (use boundary between the two groups)
+    const lastFirstGroupTract = sortedTractsWithBounds[divisionIndex - 1];
+    const firstSecondGroupTract = sortedTractsWithBounds[divisionIndex];
+    
+    let dividingLine;
+    if (lastFirstGroupTract && firstSecondGroupTract) {
+      if (direction === 'latitude') {
+        // For latitude: use the boundary between the two groups
+        dividingLine = (lastFirstGroupTract.bounds.minLat + firstSecondGroupTract.bounds.minLat) / 2;
+      } else {
+        // For longitude: use the boundary between the two groups
+        dividingLine = (lastFirstGroupTract.bounds.maxLng + firstSecondGroupTract.bounds.maxLng) / 2;
+      }
+    } else {
+      // Fallback
+      if (direction === 'latitude') {
+        dividingLine = lastFirstGroupTract?.bounds.minLat || 0;
+      } else {
+        dividingLine = lastFirstGroupTract?.bounds.maxLng || 0;
+      }
+    }
+    
+    return { firstGroupTracts, secondGroupTracts, dividingLine, intersectingTractIds: [] };
   }
 
   /**
@@ -549,21 +446,30 @@ class LatLongDivisionService {
     const targetFirstGroupPopulation = (totalPopulation * division.ratio[0]) / 100;
     const targetSecondGroupPopulation = group.totalPopulation - targetFirstGroupPopulation;
 
-    // Find the dividing line using iterative approach
-    const dividingLine = this.findOptimalDividingLine(group.censusTracts, direction, targetFirstGroupPopulation);
+    console.log(`🚀 DIVISION START: Dividing group ${group.startDistrictNumber}-${group.endDistrictNumber} by ${direction}`);
+    console.log(`   - Total tracts: ${group.censusTracts.length}`);
+    console.log(`   - Total population: ${totalPopulation.toLocaleString()}`);
+    console.log(`   - Target first group: ${targetFirstGroupPopulation.toLocaleString()} (${division.ratio[0]}%)`);
+    console.log(`   - Target second group: ${targetSecondGroupPopulation.toLocaleString()} (${division.ratio[1]}%)`);
+
+    // Fast division: find division index in sorted array
+    const { divisionIndex, sortedTracts } = this.findDivisionIndex(
+      group.censusTracts,
+      direction,
+      targetFirstGroupPopulation
+    );
 
     // Create history array
     const history = [];
 
-    // Divide tracts based on the dividing line
-    const { firstGroupTracts, secondGroupTracts, intersectingTractIds } = this.divideTractsByLine(
-      group.censusTracts,
-      direction,
-      dividingLine,
-      targetFirstGroupPopulation,
-      targetSecondGroupPopulation,
-      history
-    );
+    // Divide tracts using sorted array (extremely fast - no boundary checks needed)
+    const { firstGroupTracts, secondGroupTracts, dividingLine, intersectingTractIds } = 
+      this.divideTractsBySortedArray(sortedTracts, divisionIndex, direction);
+    
+    console.log(`✅ DIVISION COMPLETE: Successfully divided group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+    console.log(`   - Dividing line: ${dividingLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}`);
+    console.log(`   - First group: ${firstGroupTracts.length} tracts`);
+    console.log(`   - Second group: ${secondGroupTracts.length} tracts`);
 
     // Validate contiguity of both groups
     const firstGroupContiguous = this.validateContiguity(firstGroupTracts, `First Group (Districts ${group.startDistrictNumber}-${group.startDistrictNumber + division.first - 1})`);

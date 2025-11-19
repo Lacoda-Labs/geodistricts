@@ -12,8 +12,10 @@ const s4DataLoader = require('./s4-data-loader');
  * 20251117-2343: Fixed tract ID uniqueness - TRACT_FIPS alone is not unique across state, now using GEOID or STATE+COUNTY+TRACT
  * 20251117-2350: Disabled deduplication by default for debugging - all tracts will be included (set DISABLE_DEDUP=false to enable)
  * 20251119-0400: Fixed missing tracts in step 1 - added deduplication in step 0 initialization and improved duplicate detection in division service
+ * 20251119-0530: Optimized division algorithm - replaced iterative/binary search with fast linear scan of sorted tracts (O(n log n) instead of O(n * iterations))
+ * 20251119-0600: Fixed algorithm state initialization from cache - added missing fields (algorithmHistory, steps, totalStatePopulation, targetDistrictPopulation, state) and added detailed timing logs for performance analysis
  */
-const ALGORITHM_VERSION = '20251119-0400';
+const ALGORITHM_VERSION = '20251119-0600';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -446,6 +448,11 @@ class GeodistrictAlgorithmService {
     const direction = nextIteration % 2 === 1 ? 'latitude' : 'longitude';
     const newGroups = [];
     const divisionLines = [];
+    
+    // Ensure algorithmHistory is initialized (might be undefined if state was reconstructed from cache)
+    if (!algorithmHistory) {
+      algorithmState.algorithmHistory = [];
+    }
 
     for (const group of currentGroups) {
       if (group.totalDistricts === 1) {
@@ -456,7 +463,9 @@ class GeodistrictAlgorithmService {
         
         if (divisionResult) {
           newGroups.push(...divisionResult.groups);
-          algorithmHistory.push(...divisionResult.history);
+          if (divisionResult.history && divisionResult.history.length > 0) {
+            (algorithmHistory || algorithmState.algorithmHistory || []).push(...divisionResult.history);
+          }
           
           if (divisionResult.dividingLine !== undefined) {
             divisionLines.push({
@@ -478,6 +487,7 @@ class GeodistrictAlgorithmService {
     let updatedGroups = newGroups;
     
     // Quick validation: Total tract count should match input count
+    const validationStartTime = Date.now();
     const totalTractsAfterDivision = updatedGroups.reduce((sum, group) => sum + group.censusTracts.length, 0);
     const expectedTractCount = uniqueTracts.length;
     if (totalTractsAfterDivision !== expectedTractCount) {
@@ -488,13 +498,26 @@ class GeodistrictAlgorithmService {
         console.error(`   → Extra ${totalTractsAfterDivision - expectedTractCount} tract(s) - duplicate tracts detected!`);
       }
     }
+    const validationTime = Date.now() - validationStartTime;
+    if (validationTime > 10) {
+      console.log(`⏱️ VALIDATION: Completed in ${validationTime}ms`);
+    }
     
     // Fix isolated tracts after division (use uniqueTracts to ensure no duplicates in adjacency graph)
+    const fixIsolatedStartTime = Date.now();
     updatedGroups = this.fixIsolatedTractsAcrossAllGroups(updatedGroups, uniqueTracts, direction);
+    const fixIsolatedTime = Date.now() - fixIsolatedStartTime;
+    console.log(`⏱️ POST-DIVISION: Fix isolated tracts took ${fixIsolatedTime}ms`);
     
+    const createStepStartTime = Date.now();
     const step = createStep(nextIteration, nextIteration, updatedGroups,
       `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines);
+    const createStepTime = Date.now() - createStepStartTime;
+    if (createStepTime > 10) {
+      console.log(`⏱️ CREATE STEP: Completed in ${createStepTime}ms`);
+    }
     
+    const updateStateStartTime = Date.now();
     const updatedSteps = [...steps, step];
     const updatedState = {
       ...algorithmState,
@@ -503,6 +526,10 @@ class GeodistrictAlgorithmService {
       steps: updatedSteps,
       algorithmHistory: [...algorithmHistory]
     };
+    const updateStateTime = Date.now() - updateStateStartTime;
+    if (updateStateTime > 10) {
+      console.log(`⏱️ UPDATE STATE: Completed in ${updateStateTime}ms`);
+    }
 
     const isComplete = !updatedGroups.some(group => group.totalDistricts > 1) || nextIteration >= maxIterations;
 
@@ -637,9 +664,8 @@ class GeodistrictAlgorithmService {
    * @returns {Array} - Updated district groups with isolated tracts fixed
    */
   fixIsolatedTractsAcrossAllGroups(districtGroups, allTracts, direction) {
-    if (process.env.DEBUG_CACHE === 'true') {
-      console.log(`🔧 FIX ISOLATED TRACTS ACROSS ALL GROUPS: Checking ${districtGroups.length} groups for isolated tracts`);
-    }
+    console.log(`🔧 FIX ISOLATED: Starting isolation check for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+    const fixStartTime = Date.now();
     
     if (districtGroups.length < 2) {
       // Need at least 2 groups to move tracts between them
@@ -647,7 +673,11 @@ class GeodistrictAlgorithmService {
     }
     
     // Build adjacency graph for all tracts
+    console.log(`🔧 FIX ISOLATED: Building adjacency graph...`);
+    const graphStartTime = Date.now();
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    const graphEndTime = Date.now();
+    console.log(`✅ FIX ISOLATED: Adjacency graph built in ${graphEndTime - graphStartTime}ms`);
     
     // Create a copy of groups to modify
     const updatedGroups = districtGroups.map(group => ({
@@ -673,7 +703,18 @@ class GeodistrictAlgorithmService {
     }
     
     // Process each tract exactly once
+    console.log(`🔧 FIX ISOLATED: Processing ${allTractsMap.size} tracts for isolation check...`);
+    const processStartTime = Date.now();
+    let processedCount = 0;
+    const logInterval = Math.max(100, Math.floor(allTractsMap.size / 10)); // Log every 10% or every 100 tracts
+    
     for (const [tractId, tract] of allTractsMap.entries()) {
+      processedCount++;
+      if (processedCount % logInterval === 0) {
+        const elapsed = Date.now() - processStartTime;
+        console.log(`🔧 FIX ISOLATED: Processed ${processedCount}/${allTractsMap.size} tracts (${elapsed}ms elapsed)`);
+      }
+      
       // Find which group this tract currently belongs to (may have changed due to previous moves)
       let currentGroupIndex = tractToGroupIndex.get(tractId);
       if (currentGroupIndex === undefined) {
@@ -716,9 +757,17 @@ class GeodistrictAlgorithmService {
       const currentGroup = updatedGroups[currentGroupIndex];
       
       // Calculate max reachable count for this group (main component size)
+      const maxReachStartTime = Date.now();
       const maxReachableCount = this.calculateMaxReachableCount(currentGroup.censusTracts, adjacencyGraph);
+      const maxReachTime = Date.now() - maxReachStartTime;
       
+      const reachStartTime = Date.now();
       const reachableCount = this.calculateReachableTracts(tractId, currentGroup.censusTracts, adjacencyGraph);
+      const reachTime = Date.now() - reachStartTime;
+      
+      if (maxReachTime > 50 || reachTime > 50) {
+        console.log(`⏱️ FIX ISOLATED: Tract ${tractId} - maxReach: ${maxReachTime}ms, reach: ${reachTime}ms`);
+      }
         
       // Tract is isolated if its reachable count is less than the max reachable count
       if (reachableCount < maxReachableCount) {
@@ -803,10 +852,13 @@ class GeodistrictAlgorithmService {
       }
     }
     
+    const fixEndTime = Date.now();
+    const totalTime = fixEndTime - fixStartTime;
+    
     if (totalMoved > 0) {
-      console.log(`✅ Fixed ${totalMoved} isolated tract(s) across all groups`);
-    } else if (process.env.DEBUG_CACHE === 'true') {
-      console.log(`✅ No isolated tracts found across all groups`);
+      console.log(`✅ FIX ISOLATED: Fixed ${totalMoved} isolated tract(s) across all groups in ${totalTime}ms`);
+    } else {
+      console.log(`✅ FIX ISOLATED: No isolated tracts found - completed in ${totalTime}ms`);
     }
     
     return updatedGroups;
