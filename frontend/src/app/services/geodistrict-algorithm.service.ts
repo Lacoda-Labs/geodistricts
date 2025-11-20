@@ -26,6 +26,7 @@ export interface DistrictGroup {
     lat: number;
     lng: number;
   };
+  unionPolygon?: GeoJsonFeature; // Union polygon of all tracts in the district group
 }
 
 // Interface for a single division line within a step
@@ -75,7 +76,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251119-0400'; // Fixed missing tracts in step 1 - added deduplication in step 0 initialization and improved duplicate detection in division service
+export const ALGORITHM_VERSION = '20251119-1900'; // Added union polygon creation for district groups on backend
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -331,6 +332,8 @@ export class GeodistrictAlgorithmService {
           console.log(`📥 First tract sample:`, response.data.districtGroups[0].censusTracts[0]);
           console.log(`📥 First tract has geometry:`, !!response.data.districtGroups[0].censusTracts[0]?.geometry);
         }
+        
+        // Union polygons are created on the backend
         return {
           step: response.data,
           stepIndex: response.step,
@@ -367,11 +370,14 @@ export class GeodistrictAlgorithmService {
         'Content-Type': 'application/json'
       }
     }).pipe(
-      map(response => ({
-        step: response.data,
-        stepIndex: response.step,
-        isComplete: response.isComplete || false
-      })),
+      map(response => {
+        // Union polygons are created on the backend
+        return {
+          step: response.data,
+          stepIndex: response.step,
+          isComplete: response.isComplete || false
+        };
+      }),
       catchError(error => {
         console.error('❌ Next step execution failed:', error);
         return this.handleError(error);
@@ -1738,7 +1744,12 @@ export class GeodistrictAlgorithmService {
    * @param direction Division direction
    * @returns Step object
    */
+  /**
+   * Create a step object
+   * Union polygons are created on the backend, so groups should already have them
+   */
   private createStep(iteration: number, stepNumber: number, groups: DistrictGroup[], description: string, direction: string, divisionLine?: number, divisionLines?: DivisionLineInfo[]): GeodistrictStep {
+    // Union polygons are created on the backend, so groups should already have them
     return {
       step: stepNumber,
       level: iteration,

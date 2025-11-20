@@ -2541,26 +2541,63 @@ app.post('/api/algorithm/execute', async (req, res) => {
     }
     
     // Detect and store enclosed tract relationships
-    const { detectEnclosedTracts } = require('./services/geodistrict-algorithm');
+    const { detectEnclosedTracts, getTractId } = require('./services/geodistrict-algorithm');
     const enclosedMap = detectEnclosedTracts(tracts);
     
-    // Store enclosed/enclosing relationships in tract properties
-    for (const tract of tracts) {
-      const tractId = tract.properties?.GEOID || tract.properties?.GEO_ID?.split('US')[1] || tract.properties?.TRACT_FIPS;
-      if (enclosedMap.has(tractId)) {
-        tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
-      }
-      // Also store reverse relationship (which tracts this tract encloses)
-      const enclosedByThis = [];
-      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
-        if (enclosingId === tractId) {
-          enclosedByThis.push(enclosedId);
+      // Store enclosed/enclosing relationships in tract properties
+      // Also assign TRACT_GROUP_ID so enclosed and enclosing tracts always move together
+      // Use getTractId to ensure consistent ID format
+      const tractIdMap = new Map(); // Map<tractId, tract> for lookup
+      for (const tract of tracts) {
+        const tractId = getTractId(tract);
+        if (tractId) {
+          tractIdMap.set(tractId, tract);
         }
       }
-      if (enclosedByThis.length > 0) {
-        tract.properties.ENCLOSES = enclosedByThis;
+      
+      // Assign TRACT_GROUP_ID to link enclosed and enclosing tracts together
+      let nextGroupId = 1;
+      const groupIdMap = new Map(); // Map<tractId, groupId>
+      
+      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+        // Check if either tract already has a group ID
+        let groupId = groupIdMap.get(enclosedId) || groupIdMap.get(enclosingId);
+        if (!groupId) {
+          groupId = `group_${nextGroupId++}`;
+        }
+        // Assign same group ID to both
+        groupIdMap.set(enclosedId, groupId);
+        groupIdMap.set(enclosingId, groupId);
       }
-    }
+      
+      // Store metadata in tract properties
+      for (const tract of tracts) {
+        const tractId = getTractId(tract);
+        if (!tractId) continue;
+        
+        if (enclosedMap.has(tractId)) {
+          tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
+        }
+        // Also store reverse relationship (which tracts this tract encloses)
+        const enclosedByThis = [];
+        for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+          if (enclosingId === tractId) {
+            enclosedByThis.push(enclosedId);
+          }
+        }
+        if (enclosedByThis.length > 0) {
+          tract.properties.ENCLOSES = enclosedByThis;
+        }
+        // Store TRACT_GROUP_ID so they always move together
+        if (groupIdMap.has(tractId)) {
+          tract.properties.TRACT_GROUP_ID = groupIdMap.get(tractId);
+          if (tractId.includes('001700') || tractId.includes('002302')) {
+            console.log(`🔗 Assigned TRACT_GROUP_ID ${groupIdMap.get(tractId)} to tract ${tractId}`);
+          }
+        }
+      }
+      
+      console.log(`✅ Assigned ${nextGroupId - 1} tract group IDs for ${enclosedMap.size} enclosed tracts`);
 
     console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 
@@ -2736,12 +2773,40 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       }
       
       // Detect and store enclosed tract relationships
-      const { detectEnclosedTracts } = require('./services/geodistrict-algorithm');
+      const { detectEnclosedTracts, getTractId } = require('./services/geodistrict-algorithm');
       const enclosedMap = detectEnclosedTracts(tracts);
       
       // Store enclosed/enclosing relationships in tract properties
+      // Also assign TRACT_GROUP_ID so enclosed and enclosing tracts always move together
+      // Use getTractId to ensure consistent ID format
+      const tractIdMap = new Map(); // Map<tractId, tract> for lookup
       for (const tract of tracts) {
-        const tractId = tract.properties?.GEOID || tract.properties?.GEO_ID?.split('US')[1] || tract.properties?.TRACT_FIPS;
+        const tractId = getTractId(tract);
+        if (tractId) {
+          tractIdMap.set(tractId, tract);
+        }
+      }
+      
+      // Assign TRACT_GROUP_ID to link enclosed and enclosing tracts together
+      let nextGroupId = 1;
+      const groupIdMap = new Map(); // Map<tractId, groupId>
+      
+      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+        // Check if either tract already has a group ID
+        let groupId = groupIdMap.get(enclosedId) || groupIdMap.get(enclosingId);
+        if (!groupId) {
+          groupId = `group_${nextGroupId++}`;
+        }
+        // Assign same group ID to both
+        groupIdMap.set(enclosedId, groupId);
+        groupIdMap.set(enclosingId, groupId);
+      }
+      
+      // Store metadata in tract properties
+      for (const tract of tracts) {
+        const tractId = getTractId(tract);
+        if (!tractId) continue;
+        
         if (enclosedMap.has(tractId)) {
           tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
         }
@@ -2755,7 +2820,16 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
         if (enclosedByThis.length > 0) {
           tract.properties.ENCLOSES = enclosedByThis;
         }
+        // Store TRACT_GROUP_ID so they always move together
+        if (groupIdMap.has(tractId)) {
+          tract.properties.TRACT_GROUP_ID = groupIdMap.get(tractId);
+          if (tractId.includes('001700') || tractId.includes('002302')) {
+            console.log(`🔗 Assigned TRACT_GROUP_ID ${groupIdMap.get(tractId)} to tract ${tractId}`);
+          }
+        }
       }
+      
+      console.log(`✅ Assigned ${nextGroupId - 1} tract group IDs for ${enclosedMap.size} enclosed tracts`);
 
       console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 

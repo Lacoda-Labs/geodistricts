@@ -81,6 +81,13 @@ class S4DataLoader {
         skip_empty_lines: true
       });
       
+      // Debug: Check first few rows and column names
+      if (adjacencyData.length > 0) {
+        console.log(`🔍 DEBUG: First adjacency row keys: ${Object.keys(adjacencyData[0]).join(', ')}`);
+        console.log(`🔍 DEBUG: First adjacency row: ${JSON.stringify(adjacencyData[0])}`);
+        console.log(`🔍 DEBUG: Total adjacency rows: ${adjacencyData.length}`);
+      }
+      
       // Build adjacency graph
       const adjacencyGraph = new Map();
       const stateTractIds = new Set(stateTracts.map(t => t.GEOID));
@@ -91,18 +98,60 @@ class S4DataLoader {
       }
       
       // Build adjacency relationships
+      let matchedCount = 0;
+      let totalAdjRows = 0;
+      let sampleSourceIds = new Set();
+      let sampleNeighborIds = new Set();
+      let foundTestTracts = false;
+      
       for (const adj of adjacencyData) {
-        const sourceId = adj.SOURCE_TRACTID || adj.FID;
-        const neighborId = adj.NEIGHBOR_TRACTID || adj.NID;
+        totalAdjRows++;
+        // Try multiple possible column name variations (case-insensitive, with/without spaces)
+        const sourceId = adj.SOURCE_TRACTID || adj['SOURCE_TRACTID'] || adj.source_tractid || adj.Source_TractID || adj.FID || adj.fid || Object.values(adj)[0];
+        const neighborId = adj.NEIGHBOR_TRACTID || adj['NEIGHBOR_TRACTID'] || adj.neighbor_tractid || adj.Neighbor_TractID || adj.NID || adj.nid || Object.values(adj)[1];
+        
+        // Collect sample IDs for debugging
+        if (totalAdjRows <= 10) {
+          sampleSourceIds.add(sourceId);
+          sampleNeighborIds.add(neighborId);
+        }
+        
+        // Check for our test tracts
+        if ((sourceId === '04005001700' || sourceId === '04005002302' || neighborId === '04005001700' || neighborId === '04005002302') && !foundTestTracts) {
+          console.log(`🔍 DEBUG: Found test tract in adjacency data: source=${sourceId}, neighbor=${neighborId}`);
+          console.log(`🔍 DEBUG: sourceId in stateTractIds: ${stateTractIds.has(sourceId)}, neighborId in stateTractIds: ${stateTractIds.has(neighborId)}`);
+          foundTestTracts = true;
+        }
         
         if (stateTractIds.has(sourceId) && stateTractIds.has(neighborId) && sourceId !== neighborId) {
           const neighbors = adjacencyGraph.get(sourceId) || [];
           if (!neighbors.includes(neighborId)) {
             neighbors.push(neighborId);
             adjacencyGraph.set(sourceId, neighbors);
+            matchedCount++;
           }
         }
       }
+      
+      // Debug: Check sample IDs and state tract IDs
+      console.log(`🔍 DEBUG: Sample source IDs from adjacency data: ${Array.from(sampleSourceIds).slice(0, 5).join(', ')}`);
+      console.log(`🔍 DEBUG: Sample state tract IDs: ${Array.from(stateTractIds).slice(0, 5).join(', ')}`);
+      console.log(`🔍 DEBUG: Test tract 04005001700 in stateTractIds: ${stateTractIds.has('04005001700')}`);
+      console.log(`🔍 DEBUG: Test tract 04005002302 in stateTractIds: ${stateTractIds.has('04005002302')}`);
+      
+      // Debug: Check for specific tracts
+      const testTract1 = '04005001700';
+      const testTract2 = '04005002302';
+      if (stateTractIds.has(testTract1)) {
+        const neighbors1 = adjacencyGraph.get(testTract1) || [];
+        console.log(`🔍 DEBUG: Tract ${testTract1} has ${neighbors1.length} neighbors: ${neighbors1.slice(0, 5).join(', ')}${neighbors1.length > 5 ? '...' : ''}`);
+      }
+      if (stateTractIds.has(testTract2)) {
+        const neighbors2 = adjacencyGraph.get(testTract2) || [];
+        console.log(`🔍 DEBUG: Tract ${testTract2} has ${neighbors2.length} neighbors: ${neighbors2.slice(0, 5).join(', ')}${neighbors2.length > 5 ? '...' : ''}`);
+      }
+      
+      console.log(`🔍 DEBUG: Processed ${totalAdjRows} adjacency rows, matched ${matchedCount} relationships for ${stateTracts.length} tracts`);
       
       // Cache the result
       this.s4AdjacencyCache.set(cacheKey, adjacencyGraph);
@@ -145,4 +194,5 @@ class S4DataLoader {
 
 // Export singleton instance
 module.exports = new S4DataLoader();
+
 

@@ -120,25 +120,173 @@ class LatLongDivisionService {
    * Simply accumulate population until target is reached
    * Returns the index where to split the sorted array
    */
+  /**
+   * Get all tracts in the same tract group (for enclosed/enclosing tracts)
+   * @param {Object} tract - Tract to find group members for
+   * @param {Array} allTracts - All available tracts
+   * @returns {Array} All tracts in the same group (including the input tract)
+   */
+  getTractGroupMembers(tract, allTracts) {
+    const groupId = tract.properties?.TRACT_GROUP_ID;
+    if (!groupId) {
+      return [tract]; // No group, return just this tract
+    }
+    
+    // Find all tracts with the same TRACT_GROUP_ID
+    const groupMembers = allTracts.filter(t => t.properties?.TRACT_GROUP_ID === groupId);
+    return groupMembers.length > 0 ? groupMembers : [tract];
+  }
+
   findDivisionIndex(tracts, direction, targetPopulation) {
     console.log(`📊 SORTING: Starting to sort ${tracts.length} tracts by ${direction === 'latitude' ? 'south boundary (minLat)' : 'east boundary (maxLng)'}`);
     const sortStartTime = Date.now();
     
+    // Build tract group map for efficient lookup
+    const tractGroupMap = new Map(); // Map<tractId, Set<tractIds in group>>
+    for (const tract of tracts) {
+      const tractId = getTractId(tract);
+      const groupId = tract.properties?.TRACT_GROUP_ID;
+      if (groupId && tractId) {
+        if (!tractGroupMap.has(groupId)) {
+          tractGroupMap.set(groupId, new Set());
+        }
+        tractGroupMap.get(groupId).add(tractId);
+      }
+    }
+    
     // Pre-compute bounds and sort tracts
+    // For enclosed tracts, we want them to sort immediately before their enclosing tracts
     const tractsWithBounds = tracts.map(tract => {
       const bounds = this.getTractBounds(tract);
       const population = tract.properties?.POPULATION || 0;
-      return { tract, bounds, population };
+      const groupId = tract.properties?.TRACT_GROUP_ID;
+      const tractId = getTractId(tract);
+      const isEnclosed = tract.properties?.ENCLOSED_BY;
+      
+      // If this tract is enclosed, find its enclosing tract
+      let enclosingTract = null;
+      if (isEnclosed) {
+        enclosingTract = tracts.find(t => getTractId(t) === isEnclosed);
+      }
+      
+      // Determine sort value
+      let sortValue;
+      if (direction === 'latitude') {
+        // For latitude: use south boundary (minLat) - descending (most north first)
+        sortValue = bounds.minLat;
+        // If enclosed, use enclosing tract's minLat but subtract a tiny amount to ensure it sorts before
+        if (enclosingTract) {
+          const enclosingBounds = this.getTractBounds(enclosingTract);
+          sortValue = enclosingBounds.minLat - 0.000001; // Tiny offset to ensure enclosed sorts before enclosing
+        }
+      } else {
+        // For longitude: use east boundary (maxLng) - ascending (most west first)
+        sortValue = bounds.maxLng;
+        // If enclosed, use enclosing tract's maxLng but subtract a tiny amount to ensure it sorts before
+        if (enclosingTract) {
+          const enclosingBounds = this.getTractBounds(enclosingTract);
+          sortValue = enclosingBounds.maxLng - 0.000001; // Tiny offset to ensure enclosed sorts before enclosing
+        }
+      }
+      
+      // Debug logging for specific tracts
+      if (tractId && (tractId.includes('001700') || tractId.includes('002302'))) {
+        console.log(`📊 SORTING: Tract ${tractId} - isEnclosed=${!!isEnclosed}, enclosingTract=${isEnclosed || 'none'}, sortValue=${sortValue.toFixed(6)}`);
+      }
+      
+      return { tract, bounds, sortValue, population, groupId, isEnclosed, enclosingTractId: isEnclosed };
     });
 
     // Sort tracts by the relevant boundary
     if (direction === 'latitude') {
       // Sort by south boundary (minLat) - descending (most north first)
-      tractsWithBounds.sort((a, b) => b.bounds.minLat - a.bounds.minLat);
+      tractsWithBounds.sort((a, b) => b.sortValue - a.sortValue);
     } else {
       // Sort by east boundary (maxLng) - ascending (most west first)
       // Note: US longitudes are negative, so more negative = more west
-      tractsWithBounds.sort((a, b) => a.bounds.maxLng - b.bounds.maxLng);
+      tractsWithBounds.sort((a, b) => a.sortValue - b.sortValue);
+    }
+    
+    // Verify that enclosed tracts are immediately before their enclosing tracts
+    // Use a stable approach: after initial sort, move enclosed tracts to immediately before their enclosing tracts
+    // Process in multiple passes to handle cases where multiple enclosed tracts share the same enclosing tract
+    
+    // First, collect all enclosed tracts grouped by their enclosing tract
+    const enclosedByEnclosing = new Map(); // Map<enclosingTractId, Array<{item, index}>>
+    
+    for (let i = 0; i < tractsWithBounds.length; i++) {
+      const item = tractsWithBounds[i];
+      if (item.isEnclosed && item.enclosingTractId) {
+        if (!enclosedByEnclosing.has(item.enclosingTractId)) {
+          enclosedByEnclosing.set(item.enclosingTractId, []);
+        }
+        enclosedByEnclosing.get(item.enclosingTractId).push({ item, index: i });
+      }
+    }
+    
+    // Process each enclosing tract's enclosed tracts
+    // Sort by enclosing tract position (descending) to process from end to beginning
+    const enclosingTractPositions = Array.from(enclosedByEnclosing.keys()).map(enclosingTractId => {
+      const index = tractsWithBounds.findIndex(t => getTractId(t.tract) === enclosingTractId);
+      return { enclosingTractId, index };
+    }).filter(p => p.index !== -1).sort((a, b) => b.index - a.index);
+    
+    for (const { enclosingTractId, index: enclosingIndex } of enclosingTractPositions) {
+      const enclosedItems = enclosedByEnclosing.get(enclosingTractId);
+      if (!enclosedItems || enclosedItems.length === 0) continue;
+      
+      // Find all enclosed tracts that need to be moved
+      const itemsToMove = [];
+      for (const { item, index: currentIndex } of enclosedItems) {
+        // Check if this enclosed tract is already immediately before the enclosing tract
+        // We need to account for other enclosed tracts that might already be in position
+        const tractId = getTractId(item.tract);
+        const currentEnclosingIndex = tractsWithBounds.findIndex(t => getTractId(t.tract) === enclosingTractId);
+        
+        if (currentEnclosingIndex === -1) continue; // Enclosing tract not found (shouldn't happen)
+        
+        // Check if this enclosed tract is immediately before the enclosing tract
+        // Account for other enclosed tracts that might be between currentIndex and enclosingIndex
+        let isInCorrectPosition = false;
+        if (currentIndex < currentEnclosingIndex) {
+          // Check if there are any non-enclosed tracts between currentIndex and enclosingIndex
+          let hasNonEnclosedBetween = false;
+          for (let j = currentIndex + 1; j < currentEnclosingIndex; j++) {
+            if (!tractsWithBounds[j].isEnclosed || tractsWithBounds[j].enclosingTractId !== enclosingTractId) {
+              hasNonEnclosedBetween = true;
+              break;
+            }
+          }
+          isInCorrectPosition = !hasNonEnclosedBetween && currentIndex === currentEnclosingIndex - 1;
+        }
+        
+        if (!isInCorrectPosition) {
+          itemsToMove.push({ item, currentIndex, tractId });
+        }
+      }
+      
+      // Move all enclosed tracts to immediately before the enclosing tract
+      // Sort by current index (descending) to process from end to beginning
+      itemsToMove.sort((a, b) => b.currentIndex - a.currentIndex);
+      
+      for (const { item, currentIndex, tractId } of itemsToMove) {
+        // Remove from current position
+        const [removed] = tractsWithBounds.splice(currentIndex, 1);
+        
+        // Find the current position of the enclosing tract (may have shifted)
+        const currentEnclosingIndex = tractsWithBounds.findIndex(t => 
+          getTractId(t.tract) === enclosingTractId
+        );
+        
+        if (currentEnclosingIndex !== -1) {
+          // Insert immediately before the enclosing tract
+          tractsWithBounds.splice(currentEnclosingIndex, 0, removed);
+          
+          if (tractId && (tractId.includes('001700') || enclosingTractId.includes('002302'))) {
+            console.log(`📊 SORTING: Moved enclosed tract ${tractId} to immediately before enclosing tract ${enclosingTractId} (from index ${currentIndex} to ${currentEnclosingIndex})`);
+          }
+        }
+      }
     }
 
     const sortEndTime = Date.now();
@@ -189,8 +337,189 @@ class LatLongDivisionService {
     console.log(`✂️ SPLITTING: Splitting ${sortedTractsWithBounds.length} sorted tracts at index ${divisionIndex}`);
     const splitStartTime = Date.now();
     
-    const firstGroupTracts = sortedTractsWithBounds.slice(0, divisionIndex).map(item => item.tract);
-    const secondGroupTracts = sortedTractsWithBounds.slice(divisionIndex).map(item => item.tract);
+    // Build initial groups
+    let firstGroupTracts = sortedTractsWithBounds.slice(0, divisionIndex).map(item => item.tract);
+    let secondGroupTracts = sortedTractsWithBounds.slice(divisionIndex).map(item => item.tract);
+    
+    // Ensure tract groups move together - if a tract is in a group, move all group members together
+    const allTracts = sortedTractsWithBounds.map(item => item.tract);
+    const firstGroupTractIds = new Set(firstGroupTracts.map(t => getTractId(t)));
+    const secondGroupTractIds = new Set(secondGroupTracts.map(t => getTractId(t)));
+    
+    // Build group membership map
+    const groupMembersMap = new Map(); // Map<groupId, Set<tractIds>>
+    for (const tract of allTracts) {
+      const tractId = getTractId(tract);
+      const groupId = tract.properties?.TRACT_GROUP_ID;
+      if (groupId && tractId) {
+        if (!groupMembersMap.has(groupId)) {
+          groupMembersMap.set(groupId, new Set());
+        }
+        groupMembersMap.get(groupId).add(tractId);
+      }
+    }
+    
+    // Ensure all group members are in the same division group
+    const movedTracts = new Set();
+    const processedGroups = new Set();
+    
+    for (const tract of allTracts) {
+      const tractId = getTractId(tract);
+      const groupId = tract.properties?.TRACT_GROUP_ID;
+      if (!groupId || movedTracts.has(tractId) || processedGroups.has(groupId)) continue;
+      
+      const groupMembers = groupMembersMap.get(groupId);
+      if (!groupMembers || groupMembers.size <= 1) continue;
+      
+      processedGroups.add(groupId);
+      
+      // Count how many members are in each group
+      let firstGroupCount = 0;
+      let secondGroupCount = 0;
+      let enclosingTractInFirst = false;
+      let enclosingTractInSecond = false;
+      
+      for (const memberTract of allTracts) {
+        const memberId = getTractId(memberTract);
+        if (!groupMembers.has(memberId)) continue;
+        
+        if (firstGroupTractIds.has(memberId)) {
+          firstGroupCount++;
+          // Check if this is the enclosing tract
+          if (memberTract.properties?.ENCLOSES && memberTract.properties.ENCLOSES.length > 0) {
+            enclosingTractInFirst = true;
+          }
+        } else if (secondGroupTractIds.has(memberId)) {
+          secondGroupCount++;
+          // Check if this is the enclosing tract
+          if (memberTract.properties?.ENCLOSES && memberTract.properties.ENCLOSES.length > 0) {
+            enclosingTractInSecond = true;
+          }
+        }
+      }
+      
+      // Determine target group: prefer group with enclosing tract, or group with more members
+      let targetGroup = firstGroupCount >= secondGroupCount ? 'first' : 'second';
+      if (enclosingTractInFirst) targetGroup = 'first';
+      else if (enclosingTractInSecond) targetGroup = 'second';
+      
+      // Move all group members to the target group
+      for (const memberTract of allTracts) {
+        const memberId = getTractId(memberTract);
+        if (!groupMembers.has(memberId) || movedTracts.has(memberId)) continue;
+        
+        const inFirstGroup = firstGroupTractIds.has(memberId);
+        const inSecondGroup = secondGroupTractIds.has(memberId);
+        
+        if (targetGroup === 'first' && !inFirstGroup) {
+          // Move to first group
+          const index = secondGroupTracts.findIndex(t => getTractId(t) === memberId);
+          if (index !== -1) {
+            secondGroupTracts.splice(index, 1);
+            firstGroupTracts.push(memberTract);
+            firstGroupTractIds.add(memberId);
+            secondGroupTractIds.delete(memberId);
+            movedTracts.add(memberId);
+            if (memberId.includes('001700') || memberId.includes('002302')) {
+              console.log(`🔗 Moved tract ${memberId} to first group to keep tract group ${groupId} together`);
+            }
+          }
+        } else if (targetGroup === 'second' && !inSecondGroup) {
+          // Move to second group
+          const index = firstGroupTracts.findIndex(t => getTractId(t) === memberId);
+          if (index !== -1) {
+            firstGroupTracts.splice(index, 1);
+            secondGroupTracts.push(memberTract);
+            secondGroupTractIds.add(memberId);
+            firstGroupTractIds.delete(memberId);
+            movedTracts.add(memberId);
+            if (memberId.includes('001700') || memberId.includes('002302')) {
+              console.log(`🔗 Moved tract ${memberId} to second group to keep tract group ${groupId} together`);
+            }
+          }
+        }
+      }
+    }
+    
+    if (movedTracts.size > 0) {
+      console.log(`✅ Moved ${movedTracts.size} tract(s) to keep ${processedGroups.size} tract group(s) together`);
+    }
+    
+    // FALLBACK: After division, check if any tract groups were split and ensure they end up in the same group
+    // This is a safety check in case the sorting didn't work perfectly
+    console.log(`🔍 POST-DIVISION CHECK: Verifying all tract groups are intact...`);
+    const postDivisionMovedTracts = new Set();
+    const postDivisionProcessedGroups = new Set();
+    
+    for (const tract of allTracts) {
+      const tractId = getTractId(tract);
+      const groupId = tract.properties?.TRACT_GROUP_ID;
+      if (!groupId || postDivisionProcessedGroups.has(groupId)) continue;
+      
+      const groupMembers = groupMembersMap.get(groupId);
+      if (!groupMembers || groupMembers.size <= 1) continue;
+      
+      postDivisionProcessedGroups.add(groupId);
+      
+      // Check which groups the members are in
+      const membersInFirst = [];
+      const membersInSecond = [];
+      let enclosingTractInFirst = false;
+      let enclosingTractInSecond = false;
+      
+      for (const memberTract of allTracts) {
+        const memberId = getTractId(memberTract);
+        if (!groupMembers.has(memberId)) continue;
+        
+        if (firstGroupTractIds.has(memberId)) {
+          membersInFirst.push(memberTract);
+          if (memberTract.properties?.ENCLOSES && memberTract.properties.ENCLOSES.length > 0) {
+            enclosingTractInFirst = true;
+          }
+        } else if (secondGroupTractIds.has(memberId)) {
+          membersInSecond.push(memberTract);
+          if (memberTract.properties?.ENCLOSES && memberTract.properties.ENCLOSES.length > 0) {
+            enclosingTractInSecond = true;
+          }
+        }
+      }
+      
+      // If group is split, move all members to the group with the enclosing tract, or the larger group
+      if (membersInFirst.length > 0 && membersInSecond.length > 0) {
+        let targetGroup = 'first';
+        if (enclosingTractInSecond) targetGroup = 'second';
+        else if (enclosingTractInFirst) targetGroup = 'first';
+        else if (membersInSecond.length > membersInFirst.length) targetGroup = 'second';
+        
+        const tractsToMove = targetGroup === 'first' ? membersInSecond : membersInFirst;
+        const fromGroupTracts = targetGroup === 'first' ? secondGroupTracts : firstGroupTracts;
+        const toGroupTracts = targetGroup === 'first' ? firstGroupTracts : secondGroupTracts;
+        const fromGroupTractIds = targetGroup === 'first' ? secondGroupTractIds : firstGroupTractIds;
+        const toGroupTractIds = targetGroup === 'first' ? firstGroupTractIds : secondGroupTractIds;
+        
+        for (const tractToMove of tractsToMove) {
+          const memberId = getTractId(tractToMove);
+          if (postDivisionMovedTracts.has(memberId)) continue;
+          
+          const index = fromGroupTracts.findIndex(t => getTractId(t) === memberId);
+          if (index !== -1) {
+            fromGroupTracts.splice(index, 1);
+            toGroupTracts.push(tractToMove);
+            fromGroupTractIds.delete(memberId);
+            toGroupTractIds.add(memberId);
+            postDivisionMovedTracts.add(memberId);
+            
+            if (memberId.includes('001700') || memberId.includes('002302')) {
+              console.log(`🔍 POST-DIVISION CHECK: Moved tract ${memberId} to ${targetGroup} group to keep tract group ${groupId} together`);
+            }
+          }
+        }
+      }
+    }
+    
+    if (postDivisionMovedTracts.size > 0) {
+      console.log(`✅ POST-DIVISION CHECK: Moved ${postDivisionMovedTracts.size} tract(s) to keep ${postDivisionProcessedGroups.size} tract group(s) together`);
+    }
     
     const splitEndTime = Date.now();
     console.log(`✅ SPLITTING: Completed in ${splitEndTime - splitStartTime}ms`);

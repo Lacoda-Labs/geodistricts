@@ -12,6 +12,7 @@
     "@google-cloud/firestore": "^7.0.0",
     "@google-cloud/secret-manager": "^4.1.0",
     "@google-cloud/storage": "^7.0.0",
+    "@turf/turf": "^7.3.0",
     "axios": "^1.6.0",
     "compression": "^1.7.4",
     "cors": "^2.8.5",

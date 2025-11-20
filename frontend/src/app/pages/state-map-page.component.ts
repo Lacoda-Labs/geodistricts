@@ -174,6 +174,44 @@ import { CensusService, GeoJsonResponse, TractDivisionOptions, TractDivisionResu
       height: 600px;
     }
 
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      border-radius: 12px;
+    }
+
+    .loading-spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #e3f2fd;
+      border-top: 4px solid #2196f3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #1976d2;
+      margin: 0;
+    }
+
     .map {
       width: 100%;
       height: 100%;
@@ -647,6 +685,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   showTractBoundaries = true;
   showCountyBoundaries = true;
   loading = false;
+  isLoadingStateData = false; // Track initial state data loading
   tractCount = 0;
   isLoadingTracts = false;
   loadingProgress = '';
@@ -808,6 +847,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onStateChange() {
+    this.isLoadingStateData = true; // Show loading spinner immediately
     this.loadStateData();
     this.updateMapView();
   }
@@ -895,7 +935,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
       try {
         this.map = L.map('stateMap', {
           scrollWheelZoom: false
-        }).setView(stateCenter, 7);
+        }).setView(stateCenter, 5); // Reduced zoom level from 7 to 5
         console.log('Map created successfully:', this.map);
         
         // Add OpenStreetMap tiles
@@ -908,6 +948,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.countyLayer = L.layerGroup().addTo(this.map);
 
         console.log('Map initialized successfully for state:', this.getStateName(this.selectedState));
+        this.isLoadingStateData = true; // Show loading spinner immediately
         this.loadStateData();
         
         // Load tract boundaries and create districts
@@ -921,27 +962,38 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadStateData() {
+    // isLoadingStateData should already be set to true before calling this method
     this.loading = true;
     this.tractCount = 0;
     this.districtsResult = null; // Clear previous districts result
     
-    // Load real census tract data
-    this.censusService.getTractBoundaries(this.selectedState).subscribe({
-      next: (geojsonData: GeoJsonResponse) => {
-        if (geojsonData && geojsonData.features) {
-          this.tractCount = geojsonData.features.length;
-          console.log(`Loaded ${this.tractCount} census tracts for ${this.getStateName(this.selectedState)}`);
+    // Use setTimeout to ensure the UI has time to render the overlay
+    setTimeout(() => {
+      // Load real census tract data
+      this.censusService.getTractBoundaries(this.selectedState).subscribe({
+        next: (geojsonData: GeoJsonResponse) => {
+          if (geojsonData && geojsonData.features) {
+            this.tractCount = geojsonData.features.length;
+            console.log(`Loaded ${this.tractCount} census tracts for ${this.getStateName(this.selectedState)}`);
+          }
+          this.loading = false;
+          // Add a small delay before hiding to ensure overlay was visible
+          setTimeout(() => {
+            this.isLoadingStateData = false; // Hide loading spinner
+          }, 100);
+        },
+        error: (error) => {
+          console.error('Error loading state data:', error);
+          // Fallback to simulated count
+          this.tractCount = Math.floor(Math.random() * 5000) + 1000;
+          this.loading = false;
+          setTimeout(() => {
+            this.isLoadingStateData = false; // Hide loading spinner
+          }, 100);
+          console.log(`Using simulated count: ${this.tractCount} census tracts for ${this.getStateName(this.selectedState)}`);
         }
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error loading state data:', error);
-        // Fallback to simulated count
-        this.tractCount = Math.floor(Math.random() * 5000) + 1000;
-        this.loading = false;
-        console.log(`Using simulated count: ${this.tractCount} census tracts for ${this.getStateName(this.selectedState)}`);
-      }
-    });
+      });
+    }, 50); // Small delay to ensure UI renders
   }
 
   private updateMapLayers() {
@@ -971,7 +1023,7 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) return;
     
     const stateCenter = this.getStateCenter(this.selectedState);
-    this.map.setView(stateCenter, 7);
+    this.map.setView(stateCenter, 5); // Reduced zoom level from 7 to 5
     this.updateMapLayers();
   }
 

@@ -202,8 +202,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private updateMapLayers(): void {
     if (!this.map || !this.tractLayer) return;
 
-    // Update existing layer styles instead of re-rendering
-    if (this.tractGeoJsonLayers.size > 0) {
+    // When toggling between tracts and union polygons, we need to re-render
+    // because we're switching between different geometries
+    if (this.algorithmResult && this.currentStep) {
+      // Re-render to show either individual tracts or union polygons
+      this.renderFinalDistricts();
+    } else if (this.tractGeoJsonLayers.size > 0) {
+      // Fallback: update existing layer styles if no algorithm result
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
         layer.setStyle({
           color: this.showTractBoundaries ? '#000000' : districtColor, // Black borders when checked, match fill when unchecked
@@ -213,9 +218,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           fillColor: districtColor
         });
       });
-    } else if (this.algorithmResult && this.currentStep) {
-      // If no layers exist yet, render current step
-      this.renderFinalDistricts();
     } else {
       this.tractLayer.clearLayers();
     }
@@ -500,10 +502,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     let districtsToRender: DistrictGroup[] = [];
     
     if (this.currentStep && this.currentStep.districtGroups && this.currentStep.districtGroups.length > 0) {
+      // Union polygons are created on the backend
       // Render the current step's district groups
       districtsToRender = this.currentStep.districtGroups;
       console.log(`✅ Rendering step ${this.currentStepIndex}: ${districtsToRender.length} district groups`);
       console.log(`🔍 First district group has ${districtsToRender[0]?.censusTracts?.length || 0} tracts`);
+      console.log(`🔍 First district group has union polygon: ${!!districtsToRender[0]?.unionPolygon}`);
+      if (districtsToRender[0]?.unionPolygon) {
+        console.log(`🔍 Union polygon geometry type: ${districtsToRender[0].unionPolygon.geometry?.type}`);
+      }
+      console.log(`🔍 showTractBoundaries: ${this.showTractBoundaries}`);
       if (districtsToRender[0]?.censusTracts?.length > 0) {
         console.log(`🔍 First tract sample:`, districtsToRender[0].censusTracts[0]);
         console.log(`🔍 First tract has geometry:`, !!districtsToRender[0].censusTracts[0]?.geometry);
@@ -537,38 +545,23 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       
-      // Add each tract in the district
-      district.censusTracts.forEach((tract: GeoJsonFeature) => {
-        if (!tract) {
-          console.warn('⚠️ Null tract found in district');
-          return;
-        }
-        // Check if tract has geometry (either as property or is itself a geometry)
-        const hasGeometry = !!(tract.geometry || (tract.type && (tract.type === 'Feature' || tract.type === 'Polygon' || tract.type === 'MultiPolygon')));
-        if (!hasGeometry) {
-          const tractId = tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown';
-          console.warn('⚠️ Tract missing geometry:', tractId, tract);
-          return;
-        }
-        
+      // If showTractBoundaries is false and union polygon exists, render the union polygon
+      if (!this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry) {
+        console.log(`✅ Rendering union polygon for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
         try {
-          // Get tract properties for popup
-          const tractProperties = tract.properties || {};
+          const unionProperties = district.unionPolygon.properties || {};
           
-          // Tracts should be GeoJSON Features - pass directly to L.geoJSON
-          const geoJson = L.geoJSON(tract, {
+          const geoJson = L.geoJSON(district.unionPolygon, {
             style: {
-              color: this.showTractBoundaries ? '#000000' : color, // Black borders when checked, match fill when unchecked
-              weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
-              opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
+              color: color, // Match fill color for seamless appearance
+              weight: 2, // Slightly thicker border for district outline
+              opacity: 1.0, // Full opacity for district boundaries
               fillOpacity: 0.7,
               fillColor: color
             }
           }).bindPopup(`
             <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-            <strong>Tract ID:</strong> ${tractProperties.TRACT_FIPS || tractProperties['GEOID'] || 'Unknown'}<br>
-            <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
-            <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
+            <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
             <strong>Tracts in District:</strong> ${district.censusTracts.length}
           `);
 
@@ -577,15 +570,69 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           totalTracts++;
 
           // Extend bounds
-          const tractBounds = geoJson.getBounds();
-          if (tractBounds && tractBounds.isValid()) {
-            bounds.extend(tractBounds);
+          const unionBounds = geoJson.getBounds();
+          if (unionBounds && unionBounds.isValid()) {
+            bounds.extend(unionBounds);
             hasBounds = true;
           }
         } catch (error) {
-          console.error('⚠️ Error rendering tract:', error, tract);
+          console.error('⚠️ Error rendering union polygon:', error, district.unionPolygon);
+          // Fall through to render individual tracts if union fails
         }
-      });
+      } else {
+        // Render individual tracts (when showTractBoundaries is true or union polygon not available)
+        if (!this.showTractBoundaries) {
+          console.log(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon not available (has union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry})`);
+        }
+        district.censusTracts.forEach((tract: GeoJsonFeature) => {
+          if (!tract) {
+            console.warn('⚠️ Null tract found in district');
+            return;
+          }
+          // Check if tract has geometry (either as property or is itself a geometry)
+          const hasGeometry = !!(tract.geometry || (tract.type && (tract.type === 'Feature' || tract.type === 'Polygon' || tract.type === 'MultiPolygon')));
+          if (!hasGeometry) {
+            const tractId = tract.properties?.TRACT_FIPS || tract.properties?.['GEOID'] || 'Unknown';
+            console.warn('⚠️ Tract missing geometry:', tractId, tract);
+            return;
+          }
+          
+          try {
+            // Get tract properties for popup
+            const tractProperties = tract.properties || {};
+            
+            // Tracts should be GeoJSON Features - pass directly to L.geoJSON
+            const geoJson = L.geoJSON(tract, {
+              style: {
+                color: this.showTractBoundaries ? '#000000' : color, // Black borders when checked, match fill when unchecked
+                weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
+                opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
+                fillOpacity: 0.7,
+                fillColor: color
+              }
+            }).bindPopup(`
+              <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
+              <strong>Tract ID:</strong> ${tractProperties.TRACT_FIPS || tractProperties['GEOID'] || 'Unknown'}<br>
+              <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
+              <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
+              <strong>Tracts in District:</strong> ${district.censusTracts.length}
+            `);
+
+            this.tractLayer!.addLayer(geoJson);
+            this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
+            totalTracts++;
+
+            // Extend bounds
+            const tractBounds = geoJson.getBounds();
+            if (tractBounds && tractBounds.isValid()) {
+              bounds.extend(tractBounds);
+              hasBounds = true;
+            }
+          } catch (error) {
+            console.error('⚠️ Error rendering tract:', error, tract);
+          }
+        });
+      }
     });
 
     console.log(`✅ Rendered ${totalTracts} tracts across ${districtsToRender.length} districts`);

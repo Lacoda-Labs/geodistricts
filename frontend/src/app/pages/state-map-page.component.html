@@ -143,6 +143,14 @@
         <!-- Map will be rendered here -->
         <div id="stateMap" class="map"></div>
         
+        <!-- Loading Spinner Overlay -->
+        <div *ngIf="isLoadingStateData" class="loading-overlay">
+          <div class="loading-spinner-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading census data...</p>
+          </div>
+        </div>
+        
         <div class="map-overlay">
           <div class="map-info">
             <h3>{{ getStateName(selectedState) }} Census Tracts</h3>
