@@ -12,7 +12,7 @@
       </select>
     </div>
     <nav class="header-nav">
-      <a href="#" class="header-link">Contribute</a>
+      <!-- <a routerLink="/contribute" class="header-link">Contribute</a> -->
       <a href="#" class="header-link">About</a>
     </nav>
   </div>
@@ -20,6 +20,13 @@
     <section class="map-section">
       <div class="map-container">
         <div id="usMap" class="map"></div>
+        <!-- Loading Overlay -->
+        <div *ngIf="isLoading" class="loading-overlay">
+          <div class="loading-spinner-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading district data...</p>
+          </div>
+        </div>
       </div>
     </section>
 

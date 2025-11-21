@@ -11,6 +11,7 @@ import { MapsPageComponent } from './pages/maps-page.component';
 import { VoterRegistrationAdminPageComponent } from './pages/voter-registration-admin-page.component';
 import { PrivacyPageComponent } from './pages/privacy-page.component';
 import { TermsPageComponent } from './pages/terms-page.component';
+import { ContributePageComponent } from './pages/contribute-page.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -26,5 +27,6 @@ export const routes: Routes = [
   { path: 'admin/voter-registration', component: VoterRegistrationAdminPageComponent },
   { path: 'privacy', component: PrivacyPageComponent },
   { path: 'terms', component: TermsPageComponent },
+  { path: 'contribute', component: ContributePageComponent },
   { path: '**', redirectTo: '/home' }
 ];

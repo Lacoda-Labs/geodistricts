@@ -25,6 +25,49 @@
   position: relative;
 }
 
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.loading-spinner-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--mat-sys-outline-variant, #C2C7CE);
+  border-top-color: var(--mat-sys-primary, #2B638B);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: var(--mat-sys-on-surface-container, #181C20);
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
 .map {
   width: 100%;
   height: 100%;

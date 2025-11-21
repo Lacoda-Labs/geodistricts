@@ -1,0 +1,162 @@
+<div class="contribute-page">
+  <div class="page-header">
+    <div class="breadcrumb">
+      <a routerLink="/">Home</a>
+      <span class="separator">›</span>
+      <span class="current">Contribute</span>
+    </div>
+
+    <p class="page-description">
+      Some ways to contribute to the GeoDistricts project.
+    </p>
+  </div>
+
+  <div class="page-content">
+    <div class="content-section">
+      <!-- Development Section -->
+      <div class="info-card">
+        <div class="card-header" (click)="toggleSection('build')">
+          <div class="card-header-content">
+            <mat-icon class="card-icon">code</mat-icon>
+            <h2>Build</h2>
+          </div>
+          <mat-icon class="expand-icon" [class.expanded]="expandedSections['build']">
+            expand_more
+          </mat-icon>
+        </div>
+        <div class="card-content" [class.expanded]="expandedSections['build']">
+          <p>
+            This is an open-source project.
+          </p>
+          <div class="action-buttons">
+            <a mat-button [href]="githubUrl" target="_blank" rel="noopener" class="primary-button">
+              <mat-icon>code</mat-icon>
+              GitHub
+            </a>
+          </div>
+          <!-- <div class="card-footer">
+            <p class="footer-text">
+            </p>
+          </div> -->
+        </div>
+      </div>
+
+      <!-- Social Media Promotion Section -->
+      <div class="info-card">
+        <div class="card-header" (click)="toggleSection('share')">
+          <div class="card-header-content">
+            <mat-icon class="card-icon">share</mat-icon>
+            <h2>Share</h2>
+          </div>
+          <mat-icon class="expand-icon" [class.expanded]="expandedSections['share']">
+            expand_more
+          </mat-icon>
+        </div>
+        <div class="card-content" [class.expanded]="expandedSections['share']">
+          <p>
+            The algorithm works. The maps prove it. Now people need to see it.
+          </p>
+          <p>
+            Share GeoDistricts with your network. Show them what fair districting actually looks like.
+            Make gerrymandering impossible to ignore.
+          </p>
+          <div class="social-buttons">
+            <a mat-button [href]="socialLinks.x" target="_blank" rel="noopener" class="social-button x-button">
+              <mat-icon>close</mat-icon>
+              X
+            </a>
+            <a mat-button [href]="socialLinks.instagram" target="_blank" rel="noopener"
+              class="social-button instagram-button">
+              <mat-icon>photo_camera</mat-icon>
+              Instagram
+            </a>
+            <a mat-button [href]="socialLinks.tiktok" target="_blank" rel="noopener"
+              class="social-button tiktok-button">
+              <mat-icon>music_note</mat-icon>
+              TikTok
+            </a>
+            <a mat-button [href]="socialLinks.facebook" target="_blank" rel="noopener"
+              class="social-button facebook-button">
+              <mat-icon>thumb_up</mat-icon>
+              Facebook
+            </a>
+          </div>
+          <div class="card-footer">
+            <p class="footer-text">
+              Every share is a vote against gerrymandering. Every view is pressure on the system.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Donate Section -->
+      <div class="info-card">
+        <div class="card-header" (click)="toggleSection('fund')">
+          <div class="card-header-content">
+            <mat-icon class="card-icon">favorite</mat-icon>
+            <h2>Donate</h2>
+          </div>
+          <mat-icon class="expand-icon" [class.expanded]="expandedSections['fund']">
+            expand_more
+          </mat-icon>
+        </div>
+        <div class="card-content" [class.expanded]="expandedSections['fund']">
+          <p>
+            Servers cost money. Development takes time. Democracy is worth it.
+          </p>
+          <p>
+            Your dollars keep the infrastructure running, the maps loading, and the algorithm improving.
+            Every contribution directly funds the fight against gerrymandering.
+          </p>
+          <div class="donation-options">
+            <div class="donation-option" *ngIf="donationLinks.givesendgo">
+              <a mat-button [href]="donationLinks.givesendgo" target="_blank" rel="noopener" class="donation-button">
+                <mat-icon>account_balance</mat-icon>
+                GiveSendGo
+              </a>
+            </div>
+            <div class="donation-option" *ngIf="donationLinks.bitcoin">
+              <a mat-button [href]="'bitcoin:' + donationLinks.bitcoin" class="donation-button crypto-button">
+                <mat-icon>currency_bitcoin</mat-icon>
+                Bitcoin
+              </a>
+              <p class="crypto-address">{{ donationLinks.bitcoin }}</p>
+            </div>
+            <div class="donation-option" *ngIf="donationLinks.ethereum">
+              <a mat-button [href]="'ethereum:' + donationLinks.ethereum" class="donation-button crypto-button">
+                <mat-icon>currency_bitcoin</mat-icon>
+                Ethereum
+              </a>
+              <p class="crypto-address">{{ donationLinks.ethereum }}</p>
+            </div>
+            <div class="donation-option" *ngIf="donationLinks.solana">
+              <a mat-button [href]="'solana:' + donationLinks.solana" class="donation-button crypto-button">
+                <mat-icon>currency_bitcoin</mat-icon>
+                Solana
+              </a>
+              <p class="crypto-address">{{ donationLinks.solana }}</p>
+            </div>
+            <div class="donation-placeholder"
+              *ngIf="!donationLinks.givesendgo && !donationLinks.bitcoin && !donationLinks.ethereum && !donationLinks.solana">
+              <p class="placeholder-text">
+                Donation links will be available soon. Check back later or contact us for more information.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-info">
+      <div class="footer-links">
+        <a routerLink="/privacy">Privacy Policy</a>
+        <a routerLink="/terms">Terms of Service</a>
+        <a routerLink="/home">Home</a>
+      </div>
+    </div>
+  </div>
+</div>
