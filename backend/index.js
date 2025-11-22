@@ -1995,7 +1995,7 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
       // Handle normalized cache (v2.0) - fetch state-level tract cache
       let decompressedResult;
       if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
-        // Fetch state-level tract cache (always uses Firestore)
+        // Fetch state-level tract cache metadata (always uses Firestore)
         let stateTractCache;
         const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
         if (stateTractDoc.exists) {
@@ -2005,10 +2005,28 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
           }
         }
         
-        // Check if tract cache is chunked
-        if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
+        // Fetch actual tract data based on storage location
+        let tractData = null;
+        
+        // Check if tract cache is stored in Cloud Storage
+        if (stateTractCache && stateTractCache.cloudStorage && stateTractCache.cloudStoragePath) {
+          try {
+            console.log(`📦 CLOUD STORAGE: Fetching state tract cache from Cloud Storage for key: ${cachedEntry.tractCacheKey}, state: ${stateTractCache.state || 'unknown'}`);
+            const cloudStorageResult = await cloudStorageCache.get(cachedEntry.tractCacheKey);
+            if (cloudStorageResult && cloudStorageResult.data) {
+              tractData = cloudStorageResult.data;
+              console.log(`✅ CLOUD STORAGE: Retrieved ${Array.isArray(tractData) ? tractData.length : 'non-array'} tracts from Cloud Storage for state: ${stateTractCache.state || 'unknown'}`);
+            } else {
+              console.warn(`⚠️ CLOUD STORAGE: No data returned from Cloud Storage for key: ${cachedEntry.tractCacheKey}`);
+            }
+          } catch (cloudError) {
+            console.error(`❌ CLOUD STORAGE: Failed to fetch from Cloud Storage for key ${cachedEntry.tractCacheKey}:`, cloudError.message);
+          }
+        }
+        // Check if tract cache is chunked in Firestore
+        else if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
           // Fetch all chunks and combine
-          console.log(`📦 Fetching ${stateTractCache.totalChunks} tract cache chunks...`);
+          console.log(`📦 FIRESTORE: Fetching ${stateTractCache.totalChunks} tract cache chunks...`);
           const chunkPromises = stateTractCache.chunkKeys.map(chunkKey => 
             firestore.collection('census_cache').doc(chunkKey).get()
           );
@@ -2025,26 +2043,44 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
             }
           }
           
-          console.log(`✅ Combined ${allTracts.length} tracts from ${chunkDocs.length} chunks`);
-          stateTractCache = {
-            ...stateTractCache,
-            data: allTracts,
-            tractCount: allTracts.length
-          };
+          console.log(`✅ FIRESTORE: Combined ${allTracts.length} tracts from ${chunkDocs.length} chunks`);
+          tractData = allTracts;
+        }
+        // Check if tract cache is stored directly in Firestore document
+        else if (stateTractCache) {
+          if (stateTractCache.tractMap) {
+            tractData = stateTractCache.tractMap;
+          } else if (stateTractCache.data) {
+            tractData = stateTractCache.data;
+          }
         }
         
-        if (!stateTractCache || !stateTractCache.data) {
-          console.warn(`⚠️ State tract cache not found for key: ${cachedEntry.tractCacheKey}`);
+        if (!tractData || !Array.isArray(tractData) || tractData.length === 0) {
+          console.warn(`⚠️ State tract cache not found or empty for key: ${cachedEntry.tractCacheKey}, state: ${stateTractCache?.state || 'unknown'}`);
           return res.json({
             status: 'miss',
             cached: false,
-            message: 'State tract cache not found'
+            message: 'State tract cache not found or empty'
           });
         }
         
+        // Verify state code matches (safety check)
+        if (stateTractCache && stateTractCache.state) {
+          const expectedState = stateTractCache.state.toUpperCase();
+          const cacheKeyState = cachedEntry.tractCacheKey.replace('state_tracts_', '').toUpperCase();
+          if (expectedState !== cacheKeyState) {
+            console.error(`❌ STATE CODE MISMATCH: Metadata state (${expectedState}) != cache key state (${cacheKeyState}) for key: ${cachedEntry.tractCacheKey}`);
+            return res.json({
+              status: 'miss',
+              cached: false,
+              message: `State code mismatch: expected ${expectedState}, got ${cacheKeyState}`
+            });
+          }
+        }
+        
         // Decompress using state-level tract cache
-        decompressedResult = decompressGeodistrictResult(cachedEntry.data, stateTractCache.data);
-        console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved normalized result for key: ${cacheKey} with ${stateTractCache.tractCount || stateTractCache.data?.length || 0} tracts (algorithm version: ${cachedVersion || 'unknown'})`);
+        decompressedResult = decompressGeodistrictResult(cachedEntry.data, tractData);
+        console.log(`✅ ALGORITHM CACHE HIT (${algorithm}): Retrieved normalized result for key: ${cacheKey} with ${tractData.length} tracts for state: ${stateTractCache?.state || 'unknown'} (algorithm version: ${cachedVersion || 'unknown'})`);
       } else {
         // Handle old format (v1.0) or non-normalized cache
         decompressedResult = cachedEntry.compressed 

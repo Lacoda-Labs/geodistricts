@@ -65,7 +65,17 @@ class CloudStorageCache {
       const state = this.extractStateFromKey(cacheKey);
       return `boundaries/${state || 'unknown'}.json`;
     } else if (cacheKey.startsWith('state_tracts_')) {
-      const state = cacheKey.replace('state_tracts_', '');
+      // Extract state code: state_tracts_{stateCode} -> {stateCode}
+      // Take only the first 2 characters after the prefix to ensure we get just the state code
+      const statePart = cacheKey.replace('state_tracts_', '').toUpperCase();
+      // Extract just the state code (first 2 uppercase letters)
+      const stateMatch = statePart.match(/^([A-Z]{2})/);
+      const state = stateMatch ? stateMatch[1] : statePart.substring(0, 2);
+      if (!state || state.length !== 2) {
+        console.error(`❌ Invalid state code extracted from cache key: ${cacheKey}, got: ${state}`);
+        return `state-tracts/unknown.json`;
+      }
+      console.log(`📁 CLOUD STORAGE: File path for key ${cacheKey} -> state-tracts/${state}.json`);
       return `state-tracts/${state}.json`;
     } else if (cacheKey.startsWith('census_tract_data_')) {
       // Keep county-level data organized
@@ -99,6 +109,26 @@ class CloudStorageCache {
     await this.initialize();
 
     const filePath = this.getFilePath(cacheKey);
+    
+    // Validate state code consistency for state_tracts keys
+    if (cacheKey.startsWith('state_tracts_')) {
+      const extractedState = cacheKey.replace('state_tracts_', '').toUpperCase().substring(0, 2);
+      const metadataState = metadata.state ? metadata.state.toUpperCase() : null;
+      
+      if (metadataState && extractedState !== metadataState) {
+        console.error(`❌ STATE CODE MISMATCH: Cache key state (${extractedState}) != metadata state (${metadataState}) for key: ${cacheKey}`);
+        throw new Error(`State code mismatch: cache key has ${extractedState} but metadata has ${metadataState}`);
+      }
+      
+      // Ensure metadata has the correct state code
+      if (!metadataState) {
+        metadata.state = extractedState;
+        console.log(`📝 Added missing state code to metadata: ${extractedState} for key: ${cacheKey}`);
+      }
+      
+      console.log(`💾 CLOUD STORAGE: Storing state tract cache for state: ${extractedState}, key: ${cacheKey}, path: ${filePath}`);
+    }
+    
     const file = this.bucket.file(filePath);
 
     // Convert data to JSON string
@@ -133,11 +163,19 @@ class CloudStorageCache {
     await this.initialize();
 
     const filePath = this.getFilePath(cacheKey);
+    
+    // Log state code for state_tracts keys
+    if (cacheKey.startsWith('state_tracts_')) {
+      const extractedState = cacheKey.replace('state_tracts_', '').toUpperCase().substring(0, 2);
+      console.log(`📥 CLOUD STORAGE: Retrieving state tract cache for state: ${extractedState}, key: ${cacheKey}, path: ${filePath}`);
+    }
+    
     const file = this.bucket.file(filePath);
 
     try {
       const [exists] = await file.exists();
       if (!exists) {
+        console.log(`❌ CLOUD STORAGE: File not found at ${filePath} for key: ${cacheKey}`);
         return null;
       }
 
@@ -147,13 +185,27 @@ class CloudStorageCache {
 
       // Get metadata
       const [metadata] = await file.getMetadata();
-
-      console.log(`✅ Cloud Storage: Retrieved ${(contents.length / (1024 * 1024)).toFixed(2)} MB from gs://${BUCKET_NAME}/${filePath}`);
+      const fileMetadata = metadata.metadata || {};
+      
+      // Validate state code for state_tracts keys
+      if (cacheKey.startsWith('state_tracts_')) {
+        const extractedState = cacheKey.replace('state_tracts_', '').toUpperCase().substring(0, 2);
+        const metadataState = fileMetadata.state ? fileMetadata.state.toUpperCase() : null;
+        
+        if (metadataState && extractedState !== metadataState) {
+          console.error(`❌ STATE CODE MISMATCH ON RETRIEVAL: Cache key state (${extractedState}) != file metadata state (${metadataState}) for key: ${cacheKey}`);
+          throw new Error(`State code mismatch: expected ${extractedState} but file has ${metadataState}`);
+        }
+        
+        console.log(`✅ CLOUD STORAGE: Retrieved ${(contents.length / (1024 * 1024)).toFixed(2)} MB from gs://${BUCKET_NAME}/${filePath} for state: ${extractedState}`);
+      } else {
+        console.log(`✅ Cloud Storage: Retrieved ${(contents.length / (1024 * 1024)).toFixed(2)} MB from gs://${BUCKET_NAME}/${filePath}`);
+      }
 
       return {
         data,
-        metadata: metadata.metadata || {},
-        timestamp: parseInt(metadata.metadata?.timestamp || Date.now().toString()),
+        metadata: fileMetadata,
+        timestamp: parseInt(fileMetadata.timestamp || Date.now().toString()),
         size: contents.length
       };
     } catch (error) {
