@@ -1,0 +1,18 @@
+<div class="page-header">
+  <button mat-icon-button (click)="onHomeClick()" class="home-button" aria-label="Home">
+    <mat-icon>home</mat-icon>
+  </button>
+  <div class="state-select-group" *ngIf="showStateSelector">
+    <select id="stateSelect" [(ngModel)]="internalSelectedState" (change)="onStateChange()">
+      <option value="">Select State</option>
+      <option *ngFor="let state of states" [value]="state.code">
+        {{ state.name }} ({{ state.districts }} districts)
+      </option>
+    </select>
+  </div>
+  <nav class="header-nav">
+    <!-- <a routerLink="/contribute" class="header-link">Contribute</a> -->
+    <a href="#" class="header-link">About</a>
+  </nav>
+</div>
+

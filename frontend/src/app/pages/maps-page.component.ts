@@ -10,6 +10,7 @@ import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
+import { PageHeaderComponent } from '../components/page-header.component';
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ declare global {
     MatIconModule,
     MatCheckboxModule,
     MatChipsModule,
+    PageHeaderComponent,
   ],
   templateUrl: './maps-page.component.html',
   styleUrls: ['./maps-page.component.scss'],
@@ -169,6 +171,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Update layers based on checkbox state
     this.updateMapLayers();
+  }
+
+  onStateChangeFromHeader(state: string): void {
+    this.selectedState = state;
+    if (this.selectedState) {
+      // Persist selected state to localStorage
+      localStorage.setItem('selectedState', this.selectedState);
+      this.updateMapView();
+      this.runAlgorithm();
+    } else {
+      // Clear saved state if no state is selected
+      localStorage.removeItem('selectedState');
+    }
   }
 
   onStateChange(): void {

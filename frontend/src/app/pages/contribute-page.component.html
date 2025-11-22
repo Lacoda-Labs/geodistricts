@@ -1,4 +1,9 @@
 <div class="contribute-page">
+  <app-page-header
+    [showStateSelector]="false"
+    (homeClick)="goHome()">
+  </app-page-header>
+
   <div class="page-header">
     <div class="breadcrumb">
       <a routerLink="/">Home</a>

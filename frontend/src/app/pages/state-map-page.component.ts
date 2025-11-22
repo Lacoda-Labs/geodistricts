@@ -1,14 +1,15 @@
 import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import * as L from 'leaflet';
 import { CensusService, GeoJsonResponse, TractDivisionOptions, TractDivisionResult, RecursiveDivisionOptions, RecursiveDivisionResult, District, DivisionStep } from '../services/census.service';
+import { PageHeaderComponent } from '../components/page-header.component';
 
 @Component({
   selector: 'app-state-map-page',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent],
   templateUrl: './state-map-page.component.html',
   styles: [`
     .state-map-page {
@@ -723,9 +724,13 @@ export class StateMapPageComponent implements OnInit, AfterViewInit, OnDestroy {
     '48': 'Texas'
   };
 
-  constructor(private censusService: CensusService) {
+  constructor(private censusService: CensusService, private router: Router) {
     // Make census service available globally for debugging
     (window as any).censusService = this.censusService;
+  }
+
+  goHome(): void {
+    this.router.navigate(['/home']);
   }
 
   ngOnInit() {

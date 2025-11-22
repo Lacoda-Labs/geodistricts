@@ -1,21 +1,11 @@
 <div class="page-container">
-  <div class="page-header">
-    <button mat-icon-button (click)="goHome()" class="home-button" aria-label="Home">
-      <mat-icon>home</mat-icon>
-    </button>
-    <div class="state-select-group">
-      <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
-        <option value="">Select State</option>
-        <option *ngFor="let state of states" [value]="state.code">
-          {{ state.name }} ({{ state.districts }} districts)
-        </option>
-      </select>
-    </div>
-    <nav class="header-nav">
-      <!-- <a routerLink="/contribute" class="header-link">Contribute</a> -->
-      <a href="#" class="header-link">About</a>
-    </nav>
-  </div>
+  <app-page-header
+    [showStateSelector]="true"
+    [states]="states"
+    [selectedState]="selectedState"
+    (stateChange)="onStateChangeFromHeader($event)"
+    (homeClick)="goHome()">
+  </app-page-header>
   <div class="body">
     <section class="map-section">
       <div class="map-container">

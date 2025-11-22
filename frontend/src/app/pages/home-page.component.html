@@ -1,21 +1,27 @@
 <div class="page-container">
+  <app-page-header
+    [showStateSelector]="true"
+    [states]="states"
+    [selectedState]="selectedState"
+    (homeClick)="goHome()">
+  </app-page-header>
 
   <main class="main-content">
     <!-- Hero Section -->
     <section id="home">
-      <div class="pt-8 pb-4 px-6 text-center">
+      <div class="pt-4 pb-4 px-6 text-center">
         <div class="max-w-4xl mx-auto">
           <h1 class="geodistricts-title mb-6 text-4xl md:text-5xl font-bold">
             GeoDistricts
           </h1>
 
-          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+          <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
             The End of Gerrymandering
           </h2>
-          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+          <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
             Protecting the Republic
           </h2>
-          <h2 class="text-gray-900 mb-6 text-xl md:text-2xl font-bold">
+          <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
             Preserving Democracy
           </h2>
 

@@ -1,13 +1,14 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { PageHeaderComponent } from '../components/page-header.component';
 
 @Component({
   selector: 'app-contribute-page',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, RouterModule, MatButtonModule, MatIconModule, PageHeaderComponent],
   templateUrl: './contribute-page.component.html',
   styleUrls: ['./contribute-page.component.scss'],
 })
@@ -37,10 +38,14 @@ export class ContributePageComponent {
     solana: '', // Add Solana address when available
   };
 
-  constructor() {}
+  constructor(private router: Router) {}
 
   toggleSection(section: string): void {
     this.expandedSections[section] = !this.expandedSections[section];
+  }
+
+  goHome(): void {
+    this.router.navigate(['/home']);
   }
 }
 

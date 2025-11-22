@@ -1,14 +1,20 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router, RouterModule } from '@angular/router';
 import { GeodistrictViewerComponent } from '../components/geodistrict-viewer.component';
+import { PageHeaderComponent } from '../components/page-header.component';
 import { VERSION_INFO } from '../../version';
 
 @Component({
   selector: 'app-geodistrict-page',
   standalone: true,
-  imports: [CommonModule, GeodistrictViewerComponent],
+  imports: [CommonModule, RouterModule, GeodistrictViewerComponent, PageHeaderComponent],
   template: `
     <div class="geodistrict-page">
+      <app-page-header
+        [showStateSelector]="false"
+        (homeClick)="goHome()">
+      </app-page-header>
       <app-geodistrict-viewer></app-geodistrict-viewer>
     </div>
   `,
@@ -21,7 +27,11 @@ import { VERSION_INFO } from '../../version';
   `]
 })
 export class GeodistrictPageComponent implements OnInit {
-  constructor() {}
+  constructor(private router: Router) {}
+  
+  goHome(): void {
+    this.router.navigate(['/home']);
+  }
   
   ngOnInit() {
     console.log('🚀 GeoDistricts Page Loaded');

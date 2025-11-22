@@ -1,0 +1,80 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.home-button {
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  width: 18px;
+  height: 18px;
+  min-width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  ::ng-deep .mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  &:hover {
+    color: var(--mat-sys-primary, #2B638B);
+  }
+}
+
+.state-select-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 300px;
+
+  select {
+    padding: 4px 8px;
+    border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+    border-radius: 4px;
+    background-color: var(--mat-sys-surface, white);
+    color: var(--mat-sys-on-surface, #181C20);
+    font-size: 0.75rem; // xs font
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    width: 100%;
+
+    &:hover {
+      border-color: var(--mat-sys-outline, #72787E);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mat-sys-primary, #2B638B);
+    }
+  }
+}
+
+.header-nav {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.header-link {
+  font-size: 0.75rem; // xs font
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--mat-sys-primary, #2B638B);
+  }
+}
+
