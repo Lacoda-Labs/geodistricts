@@ -14,6 +14,7 @@ import { PageHeaderComponent } from '../components/page-header.component';
 })
 export class ContributePageComponent {
   githubUrl = 'https://github.com/Lacoda-Labs/geodistricts';
+  githubPagesUrl = 'https://lacoda-labs.github.io/geodistricts/'
   
   // Track expanded state for accordion
   expandedSections: { [key: string]: boolean } = {

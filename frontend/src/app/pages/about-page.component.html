@@ -1,0 +1,174 @@
+<div class="about-page">
+  <app-page-header
+    [showStateSelector]="false"
+    (homeClick)="goHome()">
+  </app-page-header>
+
+  <div class="page-header">
+    <div class="breadcrumb">
+      <a routerLink="/">Home</a>
+      <span class="separator">›</span>
+      <span class="current">About</span>
+    </div>
+
+    <h1>About GeoDistricts</h1>
+    <p class="page-description">
+      A modern web application that demonstrates objective, geographically-based congressional district mapping.
+      Built to create fair, unbiased congressional districts based solely on geographic and demographic data.
+    </p>
+  </div>
+
+  <div class="page-content">
+    <div class="content-section">
+      <!-- What is GeoDistricts -->
+      <div class="info-card">
+        <h2>What is GeoDistricts?</h2>
+        <p>
+          GeoDistricts is an open-source project that uses an algorithmic approach to create fair, unbiased congressional districts.
+          Instead of allowing politicians to draw district boundaries that favor their party (gerrymandering), GeoDistricts uses
+          objective geographic and demographic data to automatically generate district maps.
+        </p>
+        <p>
+          The algorithm divides states into congressional districts based on:
+        </p>
+        <ul>
+          <li><strong>Population equality:</strong> Districts are balanced to have nearly equal populations (target: &lt;1% variance)</li>
+          <li><strong>Geographic principles:</strong> Uses latitude and longitude divisions to ensure fair geographic distribution</li>
+          <li><strong>Census data:</strong> Relies on publicly available U.S. Census Bureau data for accuracy and transparency</li>
+          <li><strong>Objective methodology:</strong> No human intervention—the algorithm runs deterministically</li>
+        </ul>
+      </div>
+
+      <!-- The Problem -->
+      <div class="info-card">
+        <h2>The Problem We're Solving</h2>
+        <p>
+          Gerrymandering is the practice of manipulating electoral district boundaries to favor one political party over another.
+          When politicians draw district lines based on voter registration data, they can create districts that guarantee their party's
+          victory, undermining the democratic process.
+        </p>
+        <p>
+          The United States Constitution gives states authority to manage how they elect representatives, but this power has been
+          abused through gerrymandering. GeoDistricts provides an objective, algorithmic solution that eliminates this manipulation.
+        </p>
+      </div>
+
+      <!-- How It Works -->
+      <div class="info-card">
+        <h2>How It Works</h2>
+        <p>
+          Our algorithm uses a hierarchical division strategy to create districts:
+        </p>
+        <ul>
+          <li><strong>County-Level Division:</strong> First, counties are sorted geographically and divided into balanced groups by population</li>
+          <li><strong>Tract-Level Refinement:</strong> Within each county group, census tracts are sorted geographically and divided to achieve precise population targets</li>
+          <li><strong>Alternating Divisions:</strong> Each iteration alternates between dividing by latitude and longitude to ensure balanced geographic distribution</li>
+          <li><strong>Population Balancing:</strong> The algorithm continues dividing until each district group contains exactly one district, maintaining population equality throughout</li>
+        </ul>
+        <p>
+          The process is fully transparent—you can view step-by-step visualizations of how districts are created for any state.
+        </p>
+        <div class="action-buttons">
+          <a mat-button routerLink="/geodistrict" class="primary-button">
+            <mat-icon>map</mat-icon>
+            Try the Algorithm
+          </a>
+          <a mat-button routerLink="/maps" class="secondary-button">
+            <mat-icon>explore</mat-icon>
+            View Maps
+          </a>
+        </div>
+      </div>
+
+      <!-- Technology -->
+      <div class="info-card">
+        <h2>Technology</h2>
+        <p>
+          GeoDistricts is built with modern web technologies:
+        </p>
+        <ul>
+          <li><strong>Frontend:</strong> Angular with Material Design components</li>
+          <li><strong>Backend:</strong> Node.js API server</li>
+          <li><strong>Data Sources:</strong> U.S. Census Bureau API and TIGER/Line shapefiles</li>
+          <li><strong>Deployment:</strong> Google Cloud Run</li>
+        </ul>
+        <p>
+          The project is open source and available on GitHub. We welcome contributions from developers, data researchers, and anyone
+          interested in making democracy more fair.
+        </p>
+        <div class="action-buttons">
+          <a mat-button [href]="githubUrl" target="_blank" rel="noopener" class="primary-button">
+            <mat-icon>code</mat-icon>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- Data Sources -->
+      <div class="info-card">
+        <h2>Data Sources</h2>
+        <p>
+          GeoDistricts uses publicly available data from trusted sources:
+        </p>
+        <ul>
+          <li><strong>Population Data:</strong> U.S. Census Bureau API (api.census.gov)</li>
+          <li><strong>Boundary Data:</strong> TIGER/Line shapefiles from the Census Bureau</li>
+          <li><strong>District Counts:</strong> Official congressional district apportionments (435 total, allocated by state)</li>
+        </ul>
+        <p>
+          All data is publicly available and verifiable. We do not use proprietary or private data sources.
+        </p>
+      </div>
+
+      <!-- Open Source -->
+      <div class="info-card">
+        <h2>Open Source & Contributing</h2>
+        <p>
+          GeoDistricts is an open-source project licensed under the MIT License. We believe that transparency is essential
+          for building trust in democratic processes.
+        </p>
+        <p>
+          We welcome contributions! Whether you're a developer, data researcher, or just someone who cares about fair elections,
+          there are many ways to help:
+        </p>
+        <ul>
+          <li>Contribute code improvements and features</li>
+          <li>Help find voter registration data sources for all 50 states</li>
+          <li>Share the project with others</li>
+          <li>Report bugs or suggest improvements</li>
+        </ul>
+        <div class="action-buttons">
+          <a mat-button routerLink="/contribute" class="primary-button">
+            <mat-icon>handshake</mat-icon>
+            Learn How to Contribute
+          </a>
+        </div>
+      </div>
+
+      <!-- Mission -->
+      <div class="info-card">
+        <h2>Our Mission</h2>
+        <p>
+          Democracy works best when every vote counts equally. By eliminating gerrymandering through objective, algorithmic
+          district creation, we aim to restore fairness to the electoral process.
+        </p>
+        <p>
+          No centralized state authority can be compromised into gerrymandering when districts are created by an open,
+          transparent algorithm. This is our vision for a more democratic future.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-info">
+      <div class="footer-links">
+        <a routerLink="/contribute">Contribute</a>
+        <a routerLink="/privacy">Privacy Policy</a>
+        <a routerLink="/terms">Terms of Service</a>
+        <a routerLink="/home">Home</a>
+      </div>
+    </div>
+  </div>
+</div>
+
