@@ -31,11 +31,7 @@
           </div>
         </div>
         <div class="step-controls" *ngIf="algorithmResult">
-          <!-- <mat-checkbox [(ngModel)]="showSteps" class="show-steps-checkbox">
-          steps
-        </mat-checkbox> -->
-          <!-- <div class="step-buttons" *ngIf="showSteps"> -->
-            <span class="step-info">Steps:</span>
+          <span class="step-info">Steps:</span>
           <div class="step-buttons">
             <button mat-button (click)="previousStep()" [disabled]="currentStepIndex <= 0" class="step-btn">
               Prev

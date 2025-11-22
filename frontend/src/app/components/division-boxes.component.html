@@ -1,0 +1,20 @@
+<div class="division-boxes-container" #container>
+  <div class="boxes-wrapper">
+    <!-- Render all visible boxes -->
+    <div
+      *ngFor="let box of visibleBoxes"
+      [ngStyle]="getBoxStyle(box)"
+      class="district-box"
+      [class.complete]="box.isComplete">
+      {{ box.districtCount }}
+    </div>
+
+    <!-- Render animated division lines -->
+    <div
+      *ngFor="let line of animatedDivisionLines"
+      [ngStyle]="getDivisionLineStyle(line)"
+      class="division-line"
+      [class.animating]="line.progress < 1">
+    </div>
+  </div>
+</div>
