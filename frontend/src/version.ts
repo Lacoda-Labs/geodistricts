@@ -1,7 +1,7 @@
 // Build version information
 export const BUILD_VERSION = '2025-11-12-latlong-cached';
 export const BUILD_DATE = new Date().toISOString();
-export const ALGORITHM_VERSION = 'latlong-cached-v1.0';
+export const ALGORITHM_VERSION = '20251122-0827';
 
 export const VERSION_INFO = {
   buildVersion: BUILD_VERSION,

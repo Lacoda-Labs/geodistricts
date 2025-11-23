@@ -7,10 +7,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { Subscription } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
+import { environment } from '../../environments/environment';
 
 declare global {
   interface Window {
@@ -44,10 +46,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   currentStepIndex: number = 0;
   currentStep: GeodistrictStep | null = null;
   showSteps: boolean = false;
+  isDetectingIsolation: boolean = false;
+  isolatedTractIds: Set<string> = new Set(); // Track isolated tract IDs
+  isolatedTractsData: { isolatedTractsByGroup: { [groupIndex: string]: string[] }, isolatedTractIds: string[], groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }> } | null = null;
+  bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
+  isMovingBridgeTracts: boolean = false;
+  isMovingIsolatedTracts: boolean = false;
+  bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
+  isDetectingBridge: boolean = false;
   
   private map: L.Map | null = null;
   private tractLayer: L.LayerGroup | null = null;
   private tractGeoJsonLayers: Map<L.GeoJSON, string> = new Map(); // Store layer -> color mapping
+  private tractIdToLayer: Map<string, L.GeoJSON> = new Map(); // Store tract ID -> layer mapping for popup access
   private subscriptions: Subscription[] = [];
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
@@ -56,6 +67,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadedSteps: GeodistrictStep[] = []; // Store steps as they arrive
   private totalSteps: number = 0; // Total number of steps (known when complete)
   private isLoadingSteps: boolean = false; // Track if we're currently loading steps
+  private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
 
   // US States with their congressional district counts
   states = [
@@ -113,7 +125,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
-    private router: Router
+    private router: Router,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
@@ -413,6 +426,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const step = this.loadedSteps[this.currentStepIndex];
       if (step) {
         this.currentStep = step;
+        this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
+        this.isolatedTractsData = null;
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
         console.warn(`⚠️ Step ${this.currentStepIndex} not yet loaded`);
@@ -454,6 +471,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           // Display the step
           this.currentStepIndex = stepIndex;
           this.currentStep = newStep;
+          this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
+          this.isolatedTractsData = null;
+          this.bridgeTractIds.clear();
+          this.bridgeTractsData = null;
           this.isLoading = false;
 
           // Update algorithmResult
@@ -508,6 +529,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear existing layers and reset tracking
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
     const bounds = L.latLngBounds([]);
@@ -616,22 +638,53 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             // Get tract properties for popup
             const tractProperties = tract.properties || {};
             
+            // Check if tract is isolated or a bridge tract
+            const tractId = this.getTractId(tract);
+            const isIsolated = this.isolatedTractIds.has(tractId);
+            const isBridge = this.bridgeTractIds.has(tractId);
+            
+            // Debug: Log first few isolated tracts being rendered
+            if (isIsolated && this.isolatedTractIds.size > 0) {
+              const isolatedArray = Array.from(this.isolatedTractIds);
+              const firstIsolated = isolatedArray[0];
+              if (tractId === firstIsolated || tractId === isolatedArray[1] || tractId === isolatedArray[2]) {
+                console.log(`🎨 Rendering isolated tract: ${tractId}, isIsolated: ${isIsolated}, in Set: ${this.isolatedTractIds.has(tractId)}`);
+              }
+            }
+            
+            const tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
+            
+            // Determine border weight and color: bridge tracts get white 3px border
+            let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
+            let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
+            if (isBridge) {
+              borderWeight = 3.0; // 3px for bridge tracts
+              borderColor = '#ffffff'; // White border for bridge tracts
+            } else if (isIsolated) {
+              borderWeight = this.showTractBoundaries ? 0.5 : 0.5;
+            }
+            
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
               style: {
-                color: this.showTractBoundaries ? '#000000' : color, // Black borders when checked, match fill when unchecked
-                weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
-                opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
-                fillOpacity: 0.7,
-                fillColor: color
+                color: borderColor,
+                weight: borderWeight,
+                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : 0.2), // Full opacity for bridge tracts when boundaries not shown
+                fillOpacity: isIsolated ? 0.9 : 0.7, // Higher opacity for isolated tracts
+                fillColor: tractColor
               }
             }).bindPopup(`
               <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
               <strong>Tract ID:</strong> ${tractProperties.TRACT_FIPS || tractProperties['GEOID'] || 'Unknown'}<br>
+              ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
+              ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
               <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
               <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
               <strong>Tracts in District:</strong> ${district.censusTracts.length}
             `);
+            
+            // Store tract ID to layer mapping for popup access
+            this.tractIdToLayer.set(tractId, geoJson);
 
             this.tractLayer!.addLayer(geoJson);
             this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
@@ -1135,6 +1188,457 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Generate distinct colors for each district
     const hue = (districtIndex * 360) / totalDistricts;
     return `hsl(${hue}, 70%, 50%)`;
+  }
+
+  /**
+   * Detect isolated tracts in the current step's district groups
+   */
+  detectIsolatedTracts(): void {
+    if (!this.currentStep || !this.algorithmResult) {
+      console.warn('No current step or algorithm result available');
+      return;
+    }
+
+    // Collect all tracts from all district groups
+    const allTracts: GeoJsonFeature[] = [];
+    for (const group of this.currentStep.districtGroups) {
+      allTracts.push(...group.censusTracts);
+    }
+
+    if (allTracts.length === 0) {
+      console.warn('No tracts available for isolation detection');
+      return;
+    }
+
+    this.isDetectingIsolation = true;
+    this.isolatedTractIds.clear();
+
+    const subscription = this.geodistrictService.detectIsolatedTracts(
+      this.currentStep.districtGroups,
+      allTracts
+    ).subscribe({
+      next: (result) => {
+        console.log(`🔍 Detection complete: ${result.totalIsolated} isolated tracts found in ${result.groupsWithIsolation} groups`);
+        console.log(`🔍 Isolated tract IDs (first 10):`, result.isolatedTractIds.slice(0, 10));
+        
+        // Store isolated tract IDs and full data
+        this.isolatedTractIds = new Set(result.isolatedTractIds);
+        this.isolatedTractsData = {
+          isolatedTractsByGroup: result.isolatedTractsByGroup,
+          isolatedTractIds: result.isolatedTractIds,
+          groupStats: result.groupStats || []
+        };
+        // Clear bridge tracts when new isolation is detected
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
+        
+        // Debug: Check if we can match any tract IDs
+        if (this.currentStep && this.currentStep.districtGroups.length > 0) {
+          const sampleTract = this.currentStep.districtGroups[0].censusTracts[0];
+          if (sampleTract) {
+            const sampleId = this.getTractId(sampleTract);
+            console.log(`🔍 Sample tract ID format:`, sampleId);
+            console.log(`🔍 Sample tract properties:`, Object.keys(sampleTract.properties || {}));
+            console.log(`🔍 Is sample tract isolated?`, this.isolatedTractIds.has(sampleId));
+          }
+        }
+        
+        // Re-render to highlight isolated tracts
+        this.renderFinalDistricts();
+        
+        this.isDetectingIsolation = false;
+      },
+      error: (error) => {
+        console.error('Error detecting isolated tracts:', error);
+        this.errorMessage = error.message || 'Failed to detect isolated tracts';
+        this.isDetectingIsolation = false;
+      }
+    });
+
+    this.subscriptions.push(subscription);
+  }
+
+  /**
+   * Get tract ID from a GeoJSON feature
+   * IMPORTANT: Must match backend getTractId logic for proper ID matching
+   */
+  private getTractId(tract: GeoJsonFeature): string {
+    // Prefer GEOID as it's the full unique identifier (state+county+tract)
+    if (tract.properties?.['GEOID']) {
+      return tract.properties['GEOID'];
+    }
+    
+    // If GEOID not available, try GEO_ID (may have "US" prefix)
+    if (tract.properties?.['GEO_ID']) {
+      const geoId = tract.properties['GEO_ID'];
+      if (typeof geoId === 'string' && geoId.startsWith('US')) {
+        return geoId.substring(2);
+      }
+      return geoId;
+    }
+    
+    // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS
+    if (tract.properties?.['STATE_FIPS'] && tract.properties?.['COUNTY_FIPS'] && tract.properties?.['TRACT_FIPS']) {
+      return `${tract.properties['STATE_FIPS']}${tract.properties['COUNTY_FIPS']}${tract.properties['TRACT_FIPS']}`;
+    }
+    
+    // Last resort: use TRACT_FIPS alone
+    if (tract.properties?.['TRACT_FIPS']) {
+      return tract.properties['TRACT_FIPS'];
+    }
+    
+    return '';
+  }
+
+  /**
+   * Check if a tract is isolated
+   */
+  private isTractIsolated(tract: GeoJsonFeature): boolean {
+    const tractId = this.getTractId(tract);
+    return this.isolatedTractIds.has(tractId);
+  }
+
+  /**
+   * Darken a color by reducing lightness
+   */
+  private darkenColor(color: string, amount: number = 0.3): string {
+    // Handle HSL colors
+    if (color.startsWith('hsl(')) {
+      const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+      if (match) {
+        const hue = parseInt(match[1]);
+        const saturation = parseInt(match[2]);
+        const lightness = Math.max(10, parseInt(match[3]) - (amount * 100));
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+      }
+    }
+    // Fallback: return a darker shade
+    return color;
+  }
+
+  /**
+   * Detect bridge tracts that could connect isolated tracts
+   */
+  detectBridgeTracts(): void {
+    if (!this.currentStep || !this.algorithmResult || !this.isolatedTractsData) {
+      console.warn('No current step, algorithm result, or isolated tracts data available');
+      return;
+    }
+
+    // Collect all tracts from all district groups
+    const allTracts: GeoJsonFeature[] = [];
+    for (const group of this.currentStep.districtGroups) {
+      allTracts.push(...group.censusTracts);
+    }
+
+    if (allTracts.length === 0) {
+      console.warn('No tracts available for bridge tract detection');
+      return;
+    }
+
+    this.isDetectingBridge = true;
+    this.bridgeTractIds.clear();
+
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const detectUrl = `${backendUrl}/api/algorithm/detect-bridge-tracts`;
+
+    console.log(`🌉 Detecting bridge tracts for ${Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length} groups with isolated tracts`);
+
+    this.http.post<{
+      bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> };
+      totalBridgeTracts: number;
+    }>(detectUrl, {
+      districtGroups: this.currentStep.districtGroups,
+      allTracts,
+      isolatedTractsByGroup: this.isolatedTractsData.isolatedTractsByGroup
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).subscribe({
+      next: (result) => {
+        console.log(`🌉 Bridge detection complete: ${result.totalBridgeTracts} bridge tracts found`);
+        
+        // Store bridge tract IDs
+        const allBridgeTractIds = new Set<string>();
+        for (const bridges of Object.values(result.bridgeTractsByIsolatedGroup)) {
+          for (const bridge of bridges) {
+            allBridgeTractIds.add(bridge.tractId);
+          }
+        }
+        this.bridgeTractIds = allBridgeTractIds;
+        this.bridgeTractsData = result;
+        
+        // Re-render to highlight bridge tracts
+        this.renderFinalDistricts();
+        
+        this.isDetectingBridge = false;
+      },
+      error: (error) => {
+        console.error('Error detecting bridge tracts:', error);
+        this.errorMessage = error.error?.message || error.message || 'Failed to detect bridge tracts';
+        this.isDetectingBridge = false;
+      }
+    });
+  }
+
+  /**
+   * Move isolated tracts to opposite groups and re-run isolation detection
+   */
+  moveIsolatedTracts(): void {
+    if (!this.isolatedTractsData || !this.currentStep) {
+      console.warn('Cannot move isolated tracts: missing data');
+      return;
+    }
+
+    // Get all isolated tract IDs grouped by their isolated group index
+    const isolatedTractsByGroup: { [groupIndex: string]: string[] } = {};
+    
+    for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
+      isolatedTractsByGroup[groupIndexStr] = tractIds;
+    }
+
+    if (Object.keys(isolatedTractsByGroup).length === 0) {
+      console.warn('No isolated tracts to move');
+      return;
+    }
+
+    this.isMovingIsolatedTracts = true;
+
+    // Get all tracts for the request
+    const allTracts: any[] = [];
+    for (const group of this.currentStep.districtGroups) {
+      allTracts.push(...group.censusTracts);
+    }
+
+    // Move isolated tracts from each group
+    // For now, we'll move all isolated tracts from the first group with isolated tracts
+    // In the future, we could move from all groups at once
+    const firstIsolatedGroupIndex = parseInt(Object.keys(isolatedTractsByGroup)[0]);
+    const isolatedTractIds = isolatedTractsByGroup[firstIsolatedGroupIndex.toString()];
+
+    console.log(`🔄 Moving ${isolatedTractIds.length} isolated tract(s) from group ${firstIsolatedGroupIndex}`);
+
+    const subscription = this.geodistrictService.moveIsolatedTractsToOppositeGroup(
+      this.currentStep.districtGroups,
+      allTracts,
+      firstIsolatedGroupIndex,
+      isolatedTractIds,
+      this.currentStep.divisionLines
+    ).subscribe({
+      next: (result) => {
+        console.log(`✅ Isolated tracts moved. New isolation: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
+        
+        // Update current step with new district groups
+        if (this.currentStep) {
+          this.currentStep.districtGroups = result.districtGroups;
+        }
+        
+        // Update isolated tracts data
+        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
+        this.isolatedTractsData = {
+          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+          isolatedTractIds: result.isolationResult.isolatedTractIds
+        };
+        
+        // Clear bridge tracts (will need to re-detect)
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
+        
+        // Re-render map with updated groups
+        this.renderFinalDistricts();
+        
+        this.isMovingIsolatedTracts = false;
+      },
+      error: (error) => {
+        console.error('Error moving isolated tracts:', error);
+        this.errorMessage = error.error?.message || error.message || 'Failed to move isolated tracts';
+        this.isMovingIsolatedTracts = false;
+      }
+    });
+  }
+
+  /**
+   * Move bridge tracts to isolated groups and re-run isolation detection
+   */
+  moveBridgeTracts(): void {
+    if (!this.bridgeTractsData || !this.currentStep || !this.isolatedTractsData) {
+      console.warn('Cannot move bridge tracts: missing data');
+      return;
+    }
+
+    // Get all bridge tract IDs to move
+    const allBridgeTractIds: string[] = [];
+    const isolatedGroupIndices: number[] = [];
+    
+    for (const [isolatedGroupIndexStr, bridges] of Object.entries(this.bridgeTractsData.bridgeTractsByIsolatedGroup)) {
+      const isolatedGroupIndex = parseInt(isolatedGroupIndexStr);
+      isolatedGroupIndices.push(isolatedGroupIndex);
+      
+      for (const bridge of bridges) {
+        allBridgeTractIds.push(bridge.tractId);
+      }
+    }
+
+    if (allBridgeTractIds.length === 0) {
+      console.warn('No bridge tracts to move');
+      return;
+    }
+
+    // For now, move all bridge tracts to their respective isolated groups
+    // If multiple isolated groups, we'll move to the first one (or could be smarter)
+    const targetIsolatedGroupIndex = isolatedGroupIndices[0];
+
+    console.log(`🔄 Moving ${allBridgeTractIds.length} bridge tract(s) to group ${targetIsolatedGroupIndex}`);
+
+    this.isMovingBridgeTracts = true;
+
+    // Get all tracts for the request
+    const allTracts: any[] = [];
+    for (const group of this.currentStep.districtGroups) {
+      allTracts.push(...group.censusTracts);
+    }
+
+    if (!this.currentStep) {
+      this.isMovingBridgeTracts = false;
+      return;
+    }
+
+    const subscription = this.geodistrictService.moveBridgeTractsAndRecheck(
+      this.currentStep.districtGroups,
+      allTracts,
+      targetIsolatedGroupIndex,
+      allBridgeTractIds,
+      this.currentStep.divisionLines
+    ).subscribe({
+      next: (result) => {
+        console.log(`✅ Bridge tracts moved. New isolation: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
+        
+        // Update current step with new district groups
+        if (this.currentStep) {
+          this.currentStep.districtGroups = result.districtGroups;
+        }
+        
+        // Update isolated tracts data
+        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
+        this.isolatedTractsData = {
+          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+          isolatedTractIds: result.isolationResult.isolatedTractIds
+        };
+        
+        // Clear bridge tracts (will need to re-detect)
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
+        
+        // Re-render map with updated groups
+        this.renderFinalDistricts();
+        
+        this.isMovingBridgeTracts = false;
+      },
+      error: (error) => {
+        console.error('Error moving bridge tracts:', error);
+        this.errorMessage = error.error?.message || error.message || 'Failed to move bridge tracts';
+        this.isMovingBridgeTracts = false;
+      }
+    });
+  }
+
+  /**
+   * Get isolated tracts list for display
+   */
+  getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> {
+    if (!this.isolatedTractsData || !this.currentStep) {
+      return [];
+    }
+
+    const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> = [];
+    
+    for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
+      const groupIndex = parseInt(groupIndexStr);
+      const group = this.currentStep.districtGroups[groupIndex];
+      const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
+      
+      for (const tractId of tractIds) {
+        // Check if tract is enclosed by looking for it in the district groups
+        let isEnclosed = false;
+        if (group) {
+          const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
+          if (tract) {
+            // Check for TRACT_GROUP_ID (enclosed tracts have this property)
+            // or ENCLOSED_BY property
+            isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
+          }
+        }
+        list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+      }
+    }
+    
+    return list;
+  }
+
+  /**
+   * Get bridge tracts list for display (grouped by isolated tract they bridge)
+   */
+  getBridgeTractsList(): Array<{bridgeTractId: string, fromGroupIndex: number, fromGroupLabel: string, isolatedGroupIndex: number, isolatedGroupLabel: string, adjacentIsolatedCount: number}> {
+    if (!this.bridgeTractsData || !this.currentStep) {
+      return [];
+    }
+
+    const list: Array<{bridgeTractId: string, fromGroupIndex: number, fromGroupLabel: string, isolatedGroupIndex: number, isolatedGroupLabel: string, adjacentIsolatedCount: number}> = [];
+    
+    for (const [isolatedGroupIndexStr, bridges] of Object.entries(this.bridgeTractsData.bridgeTractsByIsolatedGroup)) {
+      const isolatedGroupIndex = parseInt(isolatedGroupIndexStr);
+      const isolatedGroup = this.currentStep.districtGroups[isolatedGroupIndex];
+      const isolatedGroupLabel = isolatedGroup ? `Districts ${isolatedGroup.startDistrictNumber}${isolatedGroup.endDistrictNumber !== isolatedGroup.startDistrictNumber ? `-${isolatedGroup.endDistrictNumber}` : ''}` : `Group ${isolatedGroupIndex}`;
+      
+      for (const bridge of bridges) {
+        const fromGroup = this.currentStep.districtGroups[bridge.fromGroupIndex];
+        const fromGroupLabel = fromGroup ? `Districts ${fromGroup.startDistrictNumber}${fromGroup.endDistrictNumber !== fromGroup.startDistrictNumber ? `-${fromGroup.endDistrictNumber}` : ''}` : `Group ${bridge.fromGroupIndex}`;
+        
+        list.push({
+          bridgeTractId: bridge.tractId,
+          fromGroupIndex: bridge.fromGroupIndex,
+          fromGroupLabel,
+          isolatedGroupIndex,
+          isolatedGroupLabel,
+          adjacentIsolatedCount: bridge.adjacentIsolatedCount
+        });
+      }
+    }
+    
+    return list;
+  }
+
+  /**
+   * Get bridge tracts for a specific isolated group
+   */
+  getBridgeTractsForGroup(isolatedGroupIndex: number): Array<{bridgeTractId: string, fromGroupIndex: number, fromGroupLabel: string, isolatedGroupIndex: number, isolatedGroupLabel: string, adjacentIsolatedCount: number}> {
+    return this.getBridgeTractsList().filter(bridge => bridge.isolatedGroupIndex === isolatedGroupIndex);
+  }
+
+  /**
+   * Show popup for a tract when clicking on table row
+   */
+  showTractPopup(tractId: string): void {
+    const layer = this.tractIdToLayer.get(tractId);
+    if (layer && this.map) {
+      // Get the bounds of the tract and open popup
+      const bounds = layer.getBounds();
+      if (bounds && bounds.isValid()) {
+        // Open popup at the center of the tract
+        const center = bounds.getCenter();
+        layer.openPopup(center);
+        // Pan map to show the tract if it's not visible
+        if (!this.map.getBounds().contains(center)) {
+          this.map.setView(center, Math.max(this.map.getZoom(), 10));
+        }
+      } else {
+        // Fallback: try to open popup at map center
+        layer.openPopup();
+      }
+    } else {
+      console.warn(`Tract layer not found for ID: ${tractId}`);
+    }
   }
 }
 

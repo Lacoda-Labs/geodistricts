@@ -38,6 +38,10 @@ export interface DivisionLineInfo {
     endDistrictNumber: number;
     totalDistricts: number;
   };
+  siblingGroups?: Array<{ // Groups that resulted from this division (siblings)
+    startDistrictNumber: number;
+    endDistrictNumber: number;
+  }>;
   ratio: [number, number]; // Division ratio [first%, second%]
   intersectingTractIds?: string[]; // IDs of tracts that intersect this division line
 }
@@ -76,7 +80,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251119-1900'; // Added union polygon creation for district groups on backend
+export const ALGORITHM_VERSION = '20251122-2327'; // DG tracking in tract properties, swap logic for moving isolated tracts
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -6207,6 +6211,137 @@ export class GeodistrictAlgorithmService {
     }
 
     return throwError(() => new Error(errorMessage));
+  }
+
+  /**
+   * Detect isolated tracts in the current district groups without fixing them
+   * @param districtGroups Current district groups
+   * @param allTracts All tracts in the dataset
+   * @returns Observable with detection results
+   */
+  detectIsolatedTracts(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[]): Observable<{
+    isolatedTractsByGroup: { [groupIndex: string]: string[] };
+    isolatedTractIds: string[];
+    totalIsolated: number;
+    groupsWithIsolation: number;
+    groupStats: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
+  }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const detectUrl = `${backendUrl}/api/algorithm/detect-isolated-tracts`;
+
+    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups`);
+
+    return this.http.post<{
+      isolatedTractsByGroup: { [groupIndex: string]: string[] };
+      isolatedTractIds: string[];
+      totalIsolated: number;
+      groupsWithIsolation: number;
+      groupStats: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
+    }>(detectUrl, {
+      districtGroups,
+      allTracts
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      catchError(error => {
+        console.error('Error detecting isolated tracts:', error);
+        return throwError(() => new Error(error.error?.message || error.message || 'Failed to detect isolated tracts'));
+      })
+    );
+  }
+
+  /**
+   * Move bridge tracts to sibling group and re-run isolation detection
+   */
+  moveBridgeTractsAndRecheck(
+    districtGroups: any[],
+    allTracts: any[],
+    isolatedGroupIndex: number,
+    bridgeTractIds: string[],
+    divisionLines?: DivisionLineInfo[]
+  ): Observable<{
+    districtGroups: any[];
+    isolationResult: {
+      isolatedTractsByGroup: { [groupIndex: string]: string[] };
+      isolatedTractIds: string[];
+      totalIsolated: number;
+      groupsWithIsolation: number;
+    };
+  }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const moveUrl = `${backendUrl}/api/algorithm/move-bridge-tracts`;
+    return this.http.post<{
+      districtGroups: any[];
+      isolationResult: {
+        isolatedTractsByGroup: { [groupIndex: string]: string[] };
+        isolatedTractIds: string[];
+        totalIsolated: number;
+        groupsWithIsolation: number;
+      };
+    }>(moveUrl, {
+      districtGroups,
+      allTracts,
+      isolatedGroupIndex,
+      bridgeTractIds,
+      divisionLines
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      catchError(error => {
+        console.error('Error moving bridge tracts:', error);
+        return throwError(() => new Error(error.error?.message || error.message || 'Failed to move bridge tracts'));
+      })
+    );
+  }
+
+  /**
+   * Move isolated tracts to opposite group and re-run isolation detection
+   */
+  moveIsolatedTractsToOppositeGroup(
+    districtGroups: any[],
+    allTracts: any[],
+    isolatedGroupIndex: number,
+    isolatedTractIds: string[],
+    divisionLines?: DivisionLineInfo[]
+  ): Observable<{
+    districtGroups: any[];
+    isolationResult: {
+      isolatedTractsByGroup: { [groupIndex: string]: string[] };
+      isolatedTractIds: string[];
+      totalIsolated: number;
+      groupsWithIsolation: number;
+    };
+  }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const moveUrl = `${backendUrl}/api/algorithm/move-isolated-tracts`;
+    return this.http.post<{
+      districtGroups: any[];
+      isolationResult: {
+        isolatedTractsByGroup: { [groupIndex: string]: string[] };
+        isolatedTractIds: string[];
+        totalIsolated: number;
+        groupsWithIsolation: number;
+      };
+    }>(moveUrl, {
+      districtGroups,
+      allTracts,
+      isolatedGroupIndex,
+      isolatedTractIds,
+      divisionLines
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      catchError(error => {
+        console.error('Error moving isolated tracts:', error);
+        return throwError(() => new Error(error.error?.message || error.message || 'Failed to move isolated tracts'));
+      })
+    );
   }
 }
 

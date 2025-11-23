@@ -28,6 +28,12 @@
               class="tract-boundaries-checkbox">
               tracts
             </mat-checkbox>
+            <button mat-button (click)="detectIsolatedTracts()" 
+                    [disabled]="!currentStep || isDetectingIsolation" 
+                    class="detect-isolation-btn"
+                    *ngIf="algorithmResult">
+              {{ isDetectingIsolation ? 'Detecting...' : 'Detect Isolation' }}
+            </button>
           </div>
         </div>
         <div class="step-controls" *ngIf="algorithmResult">
@@ -48,6 +54,74 @@
 
       <div class="info-body">
         <div class="step-info-container" *ngIf="currentStep">
+          <!-- Isolated Tracts Table -->
+          <div class="isolated-tracts-container" *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length > 0">
+            <div class="isolated-tracts-header">
+              <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
+              <div class="header-buttons">
+                <button mat-button (click)="moveIsolatedTracts()" 
+                        [disabled]="isMovingIsolatedTracts" 
+                        class="move-isolated-btn">
+                  {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
+                </button>
+                <button mat-button (click)="detectBridgeTracts()" 
+                        [disabled]="isDetectingBridge" 
+                        class="detect-bridge-btn"
+                        *ngIf="!bridgeTractsData">
+                  {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
+                </button>
+                <button mat-button (click)="moveBridgeTracts()" 
+                        [disabled]="isMovingBridgeTracts || !bridgeTractsData" 
+                        class="move-bridge-btn"
+                        *ngIf="bridgeTractsData">
+                  {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
+                </button>
+              </div>
+            </div>
+            <div class="isolated-tracts-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tract ID</th>
+                    <th>Group</th>
+                    <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)" class="tract-row-clickable">
+                    <td class="tract-id-cell">
+                      {{ item.tractId }}
+                      <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                    </td>
+                    <td>{{ item.groupLabel }}</td>
+                    <td *ngIf="bridgeTractsData">
+                      <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" 
+                            class="bridge-tract-info"
+                            (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                        {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount }} adjacent)
+                      </span>
+                      <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- No Isolation Message -->
+          <div class="no-isolation-message" *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+            <div class="no-isolation-content">
+              <p class="no-isolation-title">No isolation tracts found</p>
+              <div class="group-stats-list">
+                <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
+                  <span class="group-label">District {{ stat.groupLabel }}:</span>
+                  <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
+                  <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="step-header">
             <h3>Step {{ currentStep.step }}</h3>
             <p class="step-description">{{ currentStep.description }}</p>
@@ -61,7 +135,7 @@
             </div>
           </div>
 
-          <div class="district-groups-container">
+          <div class="district-groups-container" style="display: none;">
             <h4>District Groups</h4>
             <div class="district-groups-list">
               <div *ngFor="let group of currentStep.districtGroups; let i = index" class="district-group-card">

@@ -2544,36 +2544,30 @@ app.post('/api/algorithm/execute', async (req, res) => {
     console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
     const boundaries = boundariesResponse.data;
 
-    // Combine boundary and demographic data
-    const tracts = boundaries.features.map(feature => {
-      const tractId = feature.properties?.TRACT_FIPS || feature.properties?.GEOID;
-      const demographic = demographicData.find(d => {
-        const dTractId = d.GEO_ID?.split('US')[1] || d.GEOID || d.TRACT_FIPS;
-        return dTractId === tractId;
-      });
-
-      return {
-        ...feature,
-        properties: {
-          ...feature.properties,
-          ...demographic,
-          POPULATION: demographic?.B01001_001E || feature.properties?.POPULATION || 0,
-          STATE: state
-        }
-      };
-    });
-
-    if (tracts.length === 0) {
-      return res.status(404).json({ error: `No tracts found for state: ${state}` });
-    }
-
-    // Load S4 adjacency data if available (needed for enclosed tract detection)
+    // Load S4 adjacency data BEFORE creating canonical tract model (needed for attachment)
     const s4DataLoader = require('./services/s4-data-loader');
     try {
       await s4DataLoader.loadS4AdjacencyData(state);
-      console.log(`✅ Loaded S4 adjacency data for ${state} before enclosed tract detection`);
+      console.log(`✅ Loaded S4 adjacency data for ${state} before creating canonical tract model`);
     } catch (error) {
       console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
+    }
+
+    // Use canonical tract model: Census API is PRIMARY source, TIGER polygons and S4 data are attached
+    // This uses a Map keyed by tract ID to prevent duplicates
+    const { createCanonicalTractMap } = require('./services/canonical-tract-loader');
+    const canonicalResult = createCanonicalTractMap(demographicData, boundaries, state);
+    
+    // Use the GeoJSON features array for compatibility with existing code
+    const tracts = canonicalResult.geoJsonFeatures;
+    
+    console.log(`📊 Canonical tract model: ${canonicalResult.stats.totalCanonicalTracts} tracts, ${canonicalResult.stats.tractsWithGeometry} with geometry`);
+    if (canonicalResult.stats.tractsWithoutGeometry > 0) {
+      console.warn(`⚠️ ${canonicalResult.stats.tractsWithoutGeometry} tracts have no geometry (missing TIGER polygons)`);
+    }
+
+    if (tracts.length === 0) {
+      return res.status(404).json({ error: `No tracts found for state: ${state}` });
     }
     
     // Detect and store enclosed tract relationships
@@ -2776,36 +2770,30 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
       const boundaries = boundariesResponse.data;
 
-      // Combine boundary and demographic data
-      const tracts = boundaries.features.map(feature => {
-        const tractId = feature.properties?.TRACT_FIPS || feature.properties?.GEOID;
-        const demographic = demographicData.find(d => {
-          const dTractId = d.GEO_ID?.split('US')[1] || d.GEOID || d.TRACT_FIPS;
-          return dTractId === tractId;
-        });
-
-        return {
-          ...feature,
-          properties: {
-            ...feature.properties,
-            ...demographic,
-            POPULATION: demographic?.B01001_001E || feature.properties?.POPULATION || 0,
-            STATE: state
-          }
-        };
-      });
-
-      if (tracts.length === 0) {
-        return res.status(404).json({ error: `No tracts found for state: ${state}` });
-      }
-
-      // Load S4 adjacency data if available (needed for enclosed tract detection)
+      // Load S4 adjacency data BEFORE creating canonical tract model (needed for attachment)
       const s4DataLoader = require('./services/s4-data-loader');
       try {
         await s4DataLoader.loadS4AdjacencyData(state);
-        console.log(`✅ Loaded S4 adjacency data for ${state} before enclosed tract detection`);
+        console.log(`✅ Loaded S4 adjacency data for ${state} before creating canonical tract model`);
       } catch (error) {
         console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
+      }
+
+      // Use canonical tract model: Census API is PRIMARY source, TIGER polygons and S4 data are attached
+      // This uses a Map keyed by tract ID to prevent duplicates
+      const { createCanonicalTractMap } = require('./services/canonical-tract-loader');
+      const canonicalResult = createCanonicalTractMap(demographicData, boundaries, state);
+      
+      // Use the GeoJSON features array for compatibility with existing code
+      const tracts = canonicalResult.geoJsonFeatures;
+      
+      console.log(`📊 Canonical tract model: ${canonicalResult.stats.totalCanonicalTracts} tracts, ${canonicalResult.stats.tractsWithGeometry} with geometry`);
+      if (canonicalResult.stats.tractsWithoutGeometry > 0) {
+        console.warn(`⚠️ ${canonicalResult.stats.tractsWithoutGeometry} tracts have no geometry (missing TIGER polygons)`);
+      }
+
+      if (tracts.length === 0) {
+        return res.status(404).json({ error: `No tracts found for state: ${state}` });
       }
       
       // Detect and store enclosed tract relationships
@@ -3001,6 +2989,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       console.log(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
 
       // Cache step 0 result (async, don't wait)
+      // Note: canonicalResult is in scope from the parent function
       const cacheStep0 = async () => {
         try {
           const tractCacheKey = `state_tracts_${state}`;
@@ -3031,14 +3020,48 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
             } else {
               console.log(`📦 Creating new state tract cache for ${state}`);
             }
-            // Create tract map from the tracts we just loaded
-            const { getTractId } = require('./services/geodistrict-algorithm');
-            const tractMap = tracts.map(tract => {
-              const tractId = getTractId(tract);
-              return [tractId, tract];
-            }).filter(([id]) => id); // Filter out tracts without IDs
             
-            console.log(`📊 Created tract map with ${tractMap.length} tracts. Sample IDs: ${tractMap.slice(0, 3).map(([id]) => id).join(', ')}`);
+            // Create tract map from the canonical tract model
+            // Use the canonical tractMap (Map) which has the full structure (censusData, s4Adjacency, etc.)
+            // Convert Map to array of [id, tract] pairs for caching
+            // The canonical model ensures no duplicates (Map enforces uniqueness by tract ID)
+            const { getTractId } = require('./services/geodistrict-algorithm');
+            
+            // Use canonicalResult.tractMap if available (full canonical structure)
+            // Otherwise fall back to creating map from geoJsonFeatures
+            let tractMap;
+            if (canonicalResult && canonicalResult.tractMap) {
+              // Convert canonical Map to array of [id, tract] pairs
+              // The canonical tract has: tractId, censusData, geometry, s4Adjacency, properties
+              tractMap = Array.from(canonicalResult.tractMap.entries()).map(([tractId, canonicalTract]) => {
+                // Convert canonical tract to GeoJSON feature format for compatibility
+                // But preserve all canonical data in properties
+                const geoJsonFeature = {
+                  type: 'Feature',
+                  geometry: canonicalTract.geometry,
+                  properties: {
+                    ...canonicalTract.properties,
+                    // Preserve canonical structure metadata
+                    _canonicalTractId: canonicalTract.tractId,
+                    _hasCensusData: !!canonicalTract.censusData,
+                    _hasS4Adjacency: !!canonicalTract.s4Adjacency
+                  }
+                };
+                return [tractId, geoJsonFeature];
+              }).filter(([id]) => id); // Filter out tracts without IDs
+              
+              console.log(`📊 Created tract map from canonical model: ${tractMap.length} tracts (canonical structure preserved)`);
+            } else {
+              // Fallback: create map from geoJsonFeatures (legacy behavior)
+              tractMap = tracts.map(tract => {
+                const tractId = getTractId(tract);
+                return [tractId, tract];
+              }).filter(([id]) => id); // Filter out tracts without IDs
+              
+              console.log(`📊 Created tract map from geoJsonFeatures: ${tractMap.length} tracts (legacy format)`);
+            }
+            
+            console.log(`📊 Sample tract IDs: ${tractMap.slice(0, 3).map(([id]) => id).join(', ')}`);
             
             // Store state tract cache using the same method as cacheAlgorithmResult
             const tractCacheSize = JSON.stringify(tractMap).length;
@@ -3373,24 +3396,44 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
 /**
  * Remove all undefined values from an object (recursively)
  * Firestore doesn't allow undefined values
+ * Also removes complex nested objects that Firestore can't store (like GeoJSON geometries)
  */
-function removeUndefinedValues(obj) {
+function removeUndefinedValues(obj, depth = 0) {
+  // Prevent infinite recursion with depth limit
+  if (depth > 10) {
+    return null;
+  }
+  
   if (obj === null || obj === undefined) {
     return null;
   }
   
+  // Handle arrays
   if (Array.isArray(obj)) {
-    return obj.map(item => removeUndefinedValues(item)).filter(item => item !== null && item !== undefined);
+    return obj.map(item => removeUndefinedValues(item, depth + 1)).filter(item => item !== null && item !== undefined);
   }
   
+  // Handle primitives
   if (typeof obj !== 'object') {
     return obj;
+  }
+  
+  // Handle Date objects - convert to timestamp
+  if (obj instanceof Date) {
+    return obj.getTime();
+  }
+  
+  // Skip complex nested objects that Firestore can't handle
+  // Check for GeoJSON-like structures (objects with 'type' and 'geometry' or 'coordinates')
+  if (obj.type && (obj.geometry || obj.coordinates)) {
+    // This looks like a GeoJSON feature or geometry - skip it
+    return null;
   }
   
   const cleaned = {};
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined) {
-      const cleanedValue = removeUndefinedValues(value);
+      const cleanedValue = removeUndefinedValues(value, depth + 1);
       if (cleanedValue !== undefined && cleanedValue !== null) {
         cleaned[key] = cleanedValue;
       }
@@ -3401,6 +3444,7 @@ function removeUndefinedValues(obj) {
 
 /**
  * Normalize step data for caching (extract tract IDs, reference existing state tract cache)
+ * Removes all nested GeoJSON geometries and complex objects that Firestore can't store
  */
 function normalizeStepData(step, tractCacheKey) {
   if (!step || !step.districtGroups) {
@@ -3412,14 +3456,37 @@ function normalizeStepData(step, tractCacheKey) {
   // Create normalized step with only tract IDs
   // Tract geometries are already stored in state-level cache from initialization
   const normalized = {
-    ...step,
+    step: step.step,
+    level: step.level,
+    description: step.description,
+    totalGroups: step.totalGroups,
+    totalDistricts: step.totalDistricts,
+    divisionDirection: step.divisionDirection,
+    divisionLine: step.divisionLine,
+    // Normalize divisionLines - keep only simple properties, remove any nested geometries
+    divisionLines: step.divisionLines ? step.divisionLines.map(line => ({
+      line: line.line,
+      direction: line.direction,
+      parentGroup: line.parentGroup ? {
+        startDistrictNumber: line.parentGroup.startDistrictNumber,
+        endDistrictNumber: line.parentGroup.endDistrictNumber,
+        totalDistricts: line.parentGroup.totalDistricts
+      } : undefined,
+      ratio: line.ratio,
+      intersectingTractIds: line.intersectingTractIds
+    })) : step.divisionLines,
     districtGroups: step.districtGroups.map(group => {
       const normalizedGroup = {
-        ...group,
+        startDistrictNumber: group.startDistrictNumber,
+        endDistrictNumber: group.endDistrictNumber,
+        totalDistricts: group.totalDistricts,
+        totalPopulation: group.totalPopulation,
+        bounds: group.bounds, // Simple object with numbers
+        centroid: group.centroid, // Simple object with numbers
         censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
       };
-      // Remove censusTracts property (don't set to undefined - Firestore doesn't allow undefined)
-      delete normalizedGroup.censusTracts;
+      // Explicitly exclude unionPolygon and censusTracts (they contain nested GeoJSON that Firestore can't store)
+      // Don't set to undefined - Firestore doesn't allow undefined
       return normalizedGroup;
     })
   };
@@ -3597,6 +3664,220 @@ app.get('/api/voter-registration/states', async (req, res) => {
     console.error('Error getting states list:', error);
     res.status(500).json({
       error: 'Failed to get states list',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/detect-isolated-tracts
+ * Detect isolated tracts in the current district groups without fixing them
+ */
+app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
+  try {
+    const { districtGroups, allTracts } = req.body;
+
+    if (!districtGroups || !Array.isArray(districtGroups)) {
+      return res.status(400).json({ error: 'districtGroups array is required' });
+    }
+
+    if (!allTracts || !Array.isArray(allTracts)) {
+      return res.status(400).json({ error: 'allTracts array is required' });
+    }
+
+    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+
+    // Call the detection method
+    const detectionResult = algorithmService.detectIsolatedTracts(districtGroups, allTracts);
+
+    // Convert Sets to Arrays for JSON serialization
+    const isolatedTractsByGroup = {};
+    detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+      isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
+    });
+
+    const isolatedTractIds = Array.from(detectionResult.isolatedTractIds);
+
+    res.json({
+      isolatedTractsByGroup,
+      isolatedTractIds,
+      totalIsolated: isolatedTractIds.length,
+      groupsWithIsolation: Object.keys(isolatedTractsByGroup).length,
+      groupStats: detectionResult.groupStats || []
+    });
+  } catch (error) {
+    console.error('Error detecting isolated tracts:', error);
+    res.status(500).json({
+      error: 'Failed to detect isolated tracts',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/detect-bridge-tracts
+ * Detect bridge tracts that could connect isolated tracts
+ */
+app.post('/api/algorithm/detect-bridge-tracts', async (req, res) => {
+  try {
+    const { districtGroups, allTracts, isolatedTractsByGroup } = req.body;
+
+    if (!districtGroups || !Array.isArray(districtGroups)) {
+      return res.status(400).json({ error: 'districtGroups array is required' });
+    }
+
+    if (!allTracts || !Array.isArray(allTracts)) {
+      return res.status(400).json({ error: 'allTracts array is required' });
+    }
+
+    if (!isolatedTractsByGroup || typeof isolatedTractsByGroup !== 'object') {
+      return res.status(400).json({ error: 'isolatedTractsByGroup object is required' });
+    }
+
+    console.log(`🌉 Detecting bridge tracts for ${Object.keys(isolatedTractsByGroup).length} groups with isolated tracts`);
+
+    // Convert isolatedTractsByGroup back to Map format
+    const isolatedTractsByGroupMap = new Map();
+    for (const [groupIndexStr, tractIds] of Object.entries(isolatedTractsByGroup)) {
+      const groupIndex = parseInt(groupIndexStr);
+      isolatedTractsByGroupMap.set(groupIndex, new Set(tractIds));
+    }
+
+    // Call the detection method
+    const bridgeResult = algorithmService.detectBridgeTracts(districtGroups, allTracts, isolatedTractsByGroupMap);
+
+    // Convert Map to object for JSON serialization
+    const bridgeTractsByIsolatedGroup = {};
+    bridgeResult.bridgeTractsByIsolatedGroup.forEach((bridgeTracts, groupIndex) => {
+      bridgeTractsByIsolatedGroup[groupIndex] = bridgeTracts;
+    });
+
+    res.json({
+      bridgeTractsByIsolatedGroup,
+      totalBridgeTracts: Object.values(bridgeTractsByIsolatedGroup).reduce((sum, bridges) => sum + bridges.length, 0)
+    });
+  } catch (error) {
+    console.error('Error detecting bridge tracts:', error);
+    res.status(500).json({
+      error: 'Failed to detect bridge tracts',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/move-bridge-tracts
+ * Move bridge tracts to isolated group and re-run isolation detection
+ */
+app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
+  try {
+    const { districtGroups, allTracts, isolatedGroupIndex, bridgeTractIds, divisionLines } = req.body;
+
+    if (!districtGroups || !Array.isArray(districtGroups)) {
+      return res.status(400).json({ error: 'districtGroups array is required' });
+    }
+
+    if (!allTracts || !Array.isArray(allTracts)) {
+      return res.status(400).json({ error: 'allTracts array is required' });
+    }
+
+    if (typeof isolatedGroupIndex !== 'number' || isolatedGroupIndex < 0) {
+      return res.status(400).json({ error: 'isolatedGroupIndex number is required' });
+    }
+
+    if (!bridgeTractIds || !Array.isArray(bridgeTractIds)) {
+      return res.status(400).json({ error: 'bridgeTractIds array is required' });
+    }
+
+    console.log(`🔄 Moving ${bridgeTractIds.length} bridge tract(s) to sibling group of isolated group ${isolatedGroupIndex}`);
+
+    // Call the move method with divisionLines (sibling relationships) if provided
+    const result = algorithmService.moveBridgeTractsAndRecheck(
+      districtGroups,
+      allTracts,
+      isolatedGroupIndex,
+      bridgeTractIds,
+      divisionLines || null
+    );
+
+    // Convert isolation result Map to object for JSON serialization
+    const isolatedTractsByGroup = {};
+    result.isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+      isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
+    });
+
+    res.json({
+      districtGroups: result.districtGroups,
+      isolationResult: {
+        isolatedTractsByGroup,
+        isolatedTractIds: Array.from(result.isolationResult.isolatedTractIds),
+        totalIsolated: result.isolationResult.isolatedTractIds.size,
+        groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
+      }
+    });
+  } catch (error) {
+    console.error('Error moving bridge tracts:', error);
+    res.status(500).json({
+      error: 'Failed to move bridge tracts',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/move-isolated-tracts
+ * Move isolated tracts to opposite group (group with adjacent neighbors) and re-run isolation detection
+ */
+app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
+  try {
+    const { districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines } = req.body;
+
+    if (!districtGroups || !Array.isArray(districtGroups)) {
+      return res.status(400).json({ error: 'districtGroups array is required' });
+    }
+
+    if (!allTracts || !Array.isArray(allTracts)) {
+      return res.status(400).json({ error: 'allTracts array is required' });
+    }
+
+    if (typeof isolatedGroupIndex !== 'number' || isolatedGroupIndex < 0) {
+      return res.status(400).json({ error: 'isolatedGroupIndex number is required' });
+    }
+
+    if (!isolatedTractIds || !Array.isArray(isolatedTractIds)) {
+      return res.status(400).json({ error: 'isolatedTractIds array is required' });
+    }
+
+    console.log(`🔄 Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
+
+    // Call the move method with divisionLines (sibling relationships) if provided
+    const result = algorithmService.moveIsolatedTractsToOppositeGroup(
+      districtGroups,
+      allTracts,
+      isolatedGroupIndex,
+      isolatedTractIds,
+      divisionLines || null
+    );
+
+    // Convert isolation result Map to object for JSON serialization
+    const isolatedTractsByGroup = {};
+    result.isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+      isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
+    });
+
+    res.json({
+      districtGroups: result.districtGroups,
+      isolationResult: {
+        isolatedTractsByGroup,
+        isolatedTractIds: Array.from(result.isolationResult.isolatedTractIds),
+        totalIsolated: result.isolationResult.isolatedTractIds.size,
+        groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
+      }
+    });
+  } catch (error) {
+    console.error('Error moving isolated tracts:', error);
+    res.status(500).json({
+      error: 'Failed to move isolated tracts',
       message: error.message
     });
   }

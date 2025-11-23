@@ -82,6 +82,163 @@
   font-size: 0.875rem;
 }
 
+.detect-isolation-btn {
+  font-size: 0.875rem;
+  margin-left: 8px;
+  padding: 4px 12px;
+  min-width: auto;
+}
+
+.detect-bridge-btn,
+.move-bridge-btn,
+.move-isolated-btn {
+  font-size: 0.875rem;
+  padding: 4px 12px;
+  min-width: auto;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.isolated-tracts-container {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--mat-sys-surface-container-high, #E6E8EE);
+  border-radius: 4px;
+  border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.no-isolation-message {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--mat-sys-surface-container-high, #E6E8EE);
+  border-radius: 4px;
+  border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.no-isolation-content {
+  .no-isolation-title {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface, #181C20);
+  }
+
+  .group-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .group-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.875rem;
+    padding: 6px 8px;
+    background-color: var(--mat-sys-surface-container, #EBEEF3);
+    border-radius: 4px;
+
+    .group-label {
+      font-weight: 600;
+      color: var(--mat-sys-on-surface, #181C20);
+      min-width: 100px;
+    }
+
+    .stat-value {
+      color: var(--mat-sys-on-surface-variant, #42474E);
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+.isolated-tracts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.isolated-tracts-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--mat-sys-on-surface, #181C20);
+}
+
+.isolated-tracts-table {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.isolated-tracts-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.isolated-tracts-table th,
+.isolated-tracts-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.isolated-tracts-table th {
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.isolated-tracts-table td {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.tract-row-clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tract-row-clickable:hover {
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+}
+
+.tract-id-cell {
+  font-weight: 600;
+  color: var(--mat-sys-primary, #2B638B);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enclosed-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--mat-sys-primary, #2B638B);
+  vertical-align: middle;
+}
+
+.bridge-tract-info {
+  display: block;
+  margin: 2px 0;
+  color: var(--mat-sys-primary, #2B638B);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.bridge-tract-info:hover {
+  color: var(--mat-sys-primary-container, #1a4d6b);
+}
+
 .info-section {
   height: 50%;
   background-color: var(--mat-sys-surface-container-high, #E6E8EE);
