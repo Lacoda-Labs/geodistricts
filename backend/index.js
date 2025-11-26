@@ -13,6 +13,7 @@ const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
 const vestDataLoader = require('./services/vest-data-loader');
 const poligeoAnalyst = require('./services/poligeo-analyst');
+const logger = require('./utils/logger');
 require('dotenv').config();
 
 const app = express();
@@ -20,9 +21,9 @@ const PORT = process.env.PORT || 8080;
 
 // Enable garbage collection for better memory management
 if (global.gc) {
-  console.log('Garbage collection is available');
+  logger.debug('Garbage collection is available');
 } else {
-  console.log('Garbage collection is not available - consider running with --expose-gc');
+  logger.debug('Garbage collection is not available - consider running with --expose-gc');
 }
 
 // Initialize Firestore (for production)
@@ -35,40 +36,42 @@ const firestore = new Firestore({
  */
 async function testFirestoreAccess() {
   try {
-    console.log('🔍 Testing Firestore access...');
-    console.log(`   Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'}`);
-    console.log(`   GOOGLE_APPLICATION_CREDENTIALS: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || 'not set'}`);
+    logger.debug('🔍 Testing Firestore access...');
+    logger.debug(`   Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'}`);
+    logger.debug(`   GOOGLE_APPLICATION_CREDENTIALS: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || 'not set'}`);
     
     // Try to access Firestore - this will fail if credentials aren't available
     const testDoc = await firestore.collection('census_cache').doc('_startup_test').get();
-    console.log('✅ Firestore access verified - credentials are available');
+    logger.info('✅ Firestore access verified - credentials are available');
     
     // Test Cloud Storage access (non-blocking - will fallback to Firestore if unavailable)
     try {
       await cloudStorageCache.initialize();
-      console.log('✅ Cloud Storage access verified');
+      logger.info('✅ Cloud Storage access verified');
     } catch (cloudError) {
-      console.warn('⚠️ Cloud Storage initialization warning:', cloudError.message);
-      console.warn('⚠️ Cloud Storage will be skipped if unavailable (fallback to Firestore chunking)');
+      logger.warn('⚠️ Cloud Storage initialization warning:', cloudError.message);
+      logger.warn('⚠️ Cloud Storage will be skipped if unavailable (fallback to Firestore chunking)');
     }
   } catch (error) {
-    console.error('❌ FIRESTORE ACCESS ERROR:', error.message);
-    console.error('❌ Full error:', error);
+    logger.error('❌ FIRESTORE ACCESS ERROR:', error.message);
+    logger.error('❌ Full error:', error);
     
     if (error.message && error.message.includes('Could not load the default credentials')) {
+      // Critical errors that cause exit should always be logged
       console.error('\n❌ FIRESTORE CREDENTIALS ERROR: Could not load default credentials');
       console.error('❌ Please run: gcloud auth application-default login');
       console.error('❌ Or set GOOGLE_APPLICATION_CREDENTIALS environment variable');
       console.error('❌ Make sure Firestore API is enabled: gcloud services enable firestore.googleapis.com');
       process.exit(1);
     } else if (error.message && error.message.includes('PERMISSION_DENIED')) {
+      // Critical errors that cause exit should always be logged
       console.error('\n❌ FIRESTORE PERMISSION ERROR: Access denied');
       console.error('❌ Make sure your account has Firestore permissions');
       console.error('❌ Check: gcloud projects get-iam-policy geodistricts');
       process.exit(1);
     } else {
       // Other errors (like network issues) are OK - we'll handle them at runtime
-      console.log('⚠️ Firestore test had an error (will continue):', error.message);
+      logger.warn('⚠️ Firestore test had an error (will continue):', error.message);
     }
   }
 }
@@ -1938,30 +1941,30 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
     }
 
     // Log cache mode for debugging
-    console.log(`🔍 ALGORITHM CACHE CHECK: Key=${cacheKey}, USE_LOCAL_CACHE=${USE_LOCAL_CACHE}, NODE_ENV=${process.env.NODE_ENV}, GOOGLE_CLOUD_PROJECT=${process.env.GOOGLE_CLOUD_PROJECT}`);
+    logger.debug(`🔍 ALGORITHM CACHE CHECK: Key=${cacheKey}, USE_LOCAL_CACHE=${USE_LOCAL_CACHE}, NODE_ENV=${process.env.NODE_ENV}, GOOGLE_CLOUD_PROJECT=${process.env.GOOGLE_CLOUD_PROJECT}`);
 
     // Algorithm cache always uses Firestore (shared between localhost and production)
     let cachedEntry;
-    console.log(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
+    logger.debug(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
     const doc = await firestore.collection('census_cache').doc(cacheKey).get();
     
     if (!doc.exists) {
-      console.log(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
+      logger.debug(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
       cachedEntry = null;
     } else {
       const data = doc.data();
       
       // Check if expired
       if (isCacheExpired(data.timestamp, data.ttl)) {
-        console.log(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
+        logger.debug(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
         await firestore.collection('census_cache').doc(cacheKey).delete();
         cachedEntry = null;
       } else {
-        console.log(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
+        logger.debug(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
         cachedEntry = data;
       }
     }
-    console.log(`🔍 CACHE LOOKUP: Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
+    logger.debug(`🔍 CACHE LOOKUP: Key=${cacheKey}, Found=${!!cachedEntry}, Normalized=${cachedEntry?.normalized}, TractCacheKey=${cachedEntry?.tractCacheKey}`);
 
     if (cachedEntry) {
       // Check algorithm version - compare against backend's current version
@@ -2367,7 +2370,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
     const currentVersion = ALGORITHM_VERSION;
     const cacheKey = `${state}_${maxIterations}`;
 
-    console.log(`🚀 Executing algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations}, version: ${currentVersion})`);
+    logger.info(`🚀 Executing algorithm for ${state} (${totalDistricts} districts, maxIterations: ${maxIterations})`);
 
     // Check cache first and validate version
     let shouldExecute = true;
@@ -2383,11 +2386,11 @@ app.post('/api/algorithm/execute', async (req, res) => {
         if (!isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
           const cachedVersion = cachedEntry.algorithmVersion;
           
-          console.log(`🔍 CACHE CHECK: Found cached result for ${cacheKey}, cached version: ${cachedVersion || 'missing'}, current version: ${currentVersion}`);
+          logger.debug(`🔍 CACHE CHECK: Found cached result for ${cacheKey}, cached version: ${cachedVersion || 'missing'}, current version: ${currentVersion}`);
           
           // If no version is stored, treat as old cache and invalidate
           if (!cachedVersion) {
-            console.log(`🔄 ALGORITHM VERSION MISSING: Old cache entry without version. Invalidating and re-executing.`);
+            logger.debug(`🔄 ALGORITHM VERSION MISSING: Old cache entry without version. Invalidating and re-executing.`);
             await firestore.collection('census_cache').doc(cacheKey).delete();
             // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
             if (cachedEntry.tractCacheKey) {
@@ -2414,7 +2417,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
             }
             shouldExecute = true;
           } else if (cachedVersion !== currentVersion) {
-            console.log(`🔄 ALGORITHM VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache and re-executing.`);
+            logger.debug(`🔄 ALGORITHM VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache and re-executing.`);
             await firestore.collection('census_cache').doc(cacheKey).delete();
             // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
             if (cachedEntry.tractCacheKey) {
@@ -2451,7 +2454,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
           shouldExecute = true;
         }
       } else {
-        console.log(`❌ CACHE MISS: No cached result found, executing algorithm`);
+        logger.debug(`❌ CACHE MISS: No cached result found, executing algorithm`);
         shouldExecute = true;
       }
     } catch (cacheError) {
@@ -2666,9 +2669,9 @@ app.post('/api/algorithm/execute', async (req, res) => {
         const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
         await stepDocRef.set(stepCacheEntry);
         
-        console.log(`💾 Cached step ${stepNumber} for ${state}`);
+        logger.debug(`💾 Cached step ${stepNumber} for ${state}`);
       } catch (error) {
-        console.warn(`⚠️ Failed to cache step ${stepNumber}: ${error.message}`);
+        logger.warn(`⚠️ Failed to cache step ${stepNumber}: ${error.message}`);
       }
       
       return true; // Continue execution
@@ -2686,7 +2689,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
     );
     const executionTime = Date.now() - startTime;
 
-    console.log(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
+    logger.info(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
     
     // Mark final step as complete in cache
     if (resolveIsolation && result.steps.length > 0) {
@@ -2695,9 +2698,9 @@ app.post('/api/algorithm/execute', async (req, res) => {
         const finalStepCacheKey = `step_${state}_${finalStepNumber}_${currentVersion}`;
         const finalStepDocRef = firestore.collection('census_cache').doc(finalStepCacheKey);
         await finalStepDocRef.update({ isComplete: true });
-        console.log(`✅ Marked final step ${finalStepNumber} as complete`);
+        logger.debug(`✅ Marked final step ${finalStepNumber} as complete`);
       } catch (error) {
-        console.warn(`⚠️ Failed to mark final step as complete: ${error.message}`);
+        logger.warn(`⚠️ Failed to mark final step as complete: ${error.message}`);
       }
     }
 
@@ -2706,13 +2709,13 @@ app.post('/api/algorithm/execute', async (req, res) => {
     cacheAlgorithmResult(cacheKey, result, state, currentVersion, null, null)
       .then(cacheResult => {
         if (cacheResult.success) {
-          console.log(`💾 Backend automatically cached result for ${state} (${cacheResult.sizes?.normalizedMB || 0} MB algorithm, ${cacheResult.sizes?.tractCacheMB || 0} MB tracts)`);
+          logger.debug(`💾 Backend automatically cached result for ${state} (${cacheResult.sizes?.normalizedMB || 0} MB algorithm, ${cacheResult.sizes?.tractCacheMB || 0} MB tracts)`);
         } else {
-          console.warn(`⚠️ Backend caching failed for ${state}: ${cacheResult.error}`);
+          logger.warn(`⚠️ Backend caching failed for ${state}: ${cacheResult.error}`);
         }
       })
       .catch(err => {
-        console.error(`❌ Backend caching error for ${state}:`, err.message);
+        logger.error(`❌ Backend caching error for ${state}:`, err.message);
       });
 
     res.json({
@@ -2725,7 +2728,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
       cached: true // Indicate that backend cached it
     });
   } catch (error) {
-    console.error('❌ Algorithm execution error:', error);
+    logger.error('❌ Algorithm execution error:', error);
     res.status(500).json({
       error: 'Algorithm execution failed',
       message: error.message,
@@ -2766,7 +2769,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       return res.status(400).json({ error: `Invalid state: ${state}` });
     }
 
-    console.log(`🚀 Initializing algorithm for ${state} (${totalDistricts} districts)`);
+    logger.info(`🚀 Initializing algorithm for ${state} (${totalDistricts} districts)`);
 
     // Extract forceInvalidate option
     const forceInvalidate = options.forceInvalidate || false;
@@ -3044,7 +3047,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       const stateKey = getAlgorithmStateKey(state, maxIterations);
       algorithmStateStore.set(stateKey, algorithmState);
 
-      console.log(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
+      logger.info(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
 
       // Cache step 0 result (async, don't wait)
       // Note: canonicalResult is in scope from the parent function
@@ -3269,7 +3272,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
             const currentVersion = ALGORITHM_VERSION;
             
             if (cachedVersion === currentVersion) {
-              console.log(`✅ STEP CACHE HIT: Retrieved cached step ${nextStepNumber} for ${state}`);
+                logger.debug(`✅ STEP CACHE HIT: Retrieved cached step ${nextStepNumber} for ${state}`);
               
               // Reconstruct step data with tract geometries from state cache if needed
               let stepData = cachedEntry.stepData;
@@ -3402,7 +3405,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
       }
     }
 
-    console.log(`🚀 Executing next step for ${state} (iteration ${nextStepNumber})`);
+    logger.info(`🚀 Executing next step for ${state} (iteration ${nextStepNumber})`);
 
     // Execute next step
     const { step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState);
@@ -4103,7 +4106,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'Valid step number is required' });
     }
 
-    console.log(`🔄 Moving all isolated tracts for ${state} step ${step}`);
+          logger.info(`🔄 Moving all isolated tracts for ${state} step ${step}`);
 
     // Get algorithm state
     const stateKey = getAlgorithmStateKey(state, maxIterations);

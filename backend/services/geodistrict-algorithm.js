@@ -1,5 +1,6 @@
 const s4DataLoader = require('./s4-data-loader');
 const turf = require('@turf/turf');
+const logger = require('../utils/logger');
 
 /**
  * Algorithm version - increment this when algorithm logic changes
@@ -1218,7 +1219,7 @@ class GeodistrictAlgorithmService {
    * @returns {Object} - Object with isolatedTractsByGroup (Map of groupIndex -> Set of tractIds) and isolatedTractIds (Set of all isolated tract IDs)
    */
   detectIsolatedTracts(districtGroups, allTracts) {
-    console.log(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+    logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
     
     if (districtGroups.length < 1) {
       return { isolatedTractsByGroup: new Map(), isolatedTractIds: new Set(), groupStats: [] };
@@ -1362,7 +1363,7 @@ class GeodistrictAlgorithmService {
       }
     }
     
-    console.log(`✅ DETECT ISOLATED: Found ${isolatedTractIds.size} isolated tracts across ${isolatedTractsByGroup.size} groups`);
+    logger.debug(`✅ DETECT ISOLATED: Found ${isolatedTractIds.size} isolated tracts across ${isolatedTractsByGroup.size} groups`);
     
     return { isolatedTractsByGroup, isolatedTractIds, groupStats };
   }
@@ -1376,7 +1377,7 @@ class GeodistrictAlgorithmService {
    * @returns {Object} - Object with bridgeTractsByIsolatedGroup (Map of groupIndex -> Array of {tractId, fromGroupIndex, adjacentIsolatedCount})
    */
   detectBridgeTracts(districtGroups, allTracts, isolatedTractsByGroup) {
-    console.log(`🌉 DETECT BRIDGE TRACTS: Starting bridge tract detection for ${isolatedTractsByGroup.size} groups with isolated tracts`);
+    logger.debug(`🌉 DETECT BRIDGE TRACTS: Starting bridge tract detection for ${isolatedTractsByGroup.size} groups with isolated tracts`);
     
     if (districtGroups.length < 2 || isolatedTractsByGroup.size === 0) {
       return { bridgeTractsByIsolatedGroup: new Map() };
@@ -1540,7 +1541,7 @@ class GeodistrictAlgorithmService {
       }
     }
     
-    console.log(`✅ DETECT BRIDGE TRACTS: Found bridge tracts for ${bridgeTractsByIsolatedGroup.size} groups`);
+    logger.debug(`✅ DETECT BRIDGE TRACTS: Found bridge tracts for ${bridgeTractsByIsolatedGroup.size} groups`);
     
     return { bridgeTractsByIsolatedGroup };
   }
@@ -2035,7 +2036,7 @@ class GeodistrictAlgorithmService {
    * @returns {Object} - Updated district groups and isolation resolution summary
    */
   resolveIsolationForStep(districtGroups, allTracts, divisionLines = null) {
-    console.log(`🔧 RESOLVE ISOLATION: Starting isolation resolution for ${districtGroups.length} groups`);
+    logger.debug(`🔧 RESOLVE ISOLATION: Starting isolation resolution for ${districtGroups.length} groups`);
     
     let updatedGroups = districtGroups.map(group => ({
       ...group,
@@ -2050,17 +2051,17 @@ class GeodistrictAlgorithmService {
     // Recursively resolve until no more isolated tracts remain
     while (resolutionIterations < maxResolutionIterations) {
       resolutionIterations++;
-      console.log(`🔧 Resolution iteration ${resolutionIterations}`);
+      logger.debug(`🔧 Resolution iteration ${resolutionIterations}`);
       
       // Step 1: Detect isolated tracts
       const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts);
       
       if (isolationResult.isolatedTractIds.size === 0) {
-        console.log(`✅ No isolated tracts found after iteration ${resolutionIterations - 1}`);
+        logger.debug(`✅ No isolated tracts found after iteration ${resolutionIterations - 1}`);
         break;
       }
       
-      console.log(`   Found ${isolationResult.isolatedTractIds.size} isolated tracts in ${isolationResult.isolatedTractsByGroup.size} groups`);
+      logger.debug(`   Found ${isolationResult.isolatedTractIds.size} isolated tracts in ${isolationResult.isolatedTractsByGroup.size} groups`);
       
       // Convert Map to object for bridge detection
       const isolatedTractsByGroupMap = new Map();
@@ -2075,11 +2076,11 @@ class GeodistrictAlgorithmService {
       
       // Step 3: Move bridge tracts (if any)
       if (bridgeResult.bridgeTractsByIsolatedGroup.size > 0) {
-        console.log(`   Found bridge tracts for ${bridgeResult.bridgeTractsByIsolatedGroup.size} groups`);
+        logger.debug(`   Found bridge tracts for ${bridgeResult.bridgeTractsByIsolatedGroup.size} groups`);
         
         for (const [isolatedGroupIndex, bridgeTracts] of bridgeResult.bridgeTractsByIsolatedGroup.entries()) {
           const bridgeTractIds = bridgeTracts.map(bt => bt.tractId);
-          console.log(`   Moving ${bridgeTractIds.length} bridge tract(s) for isolated group ${isolatedGroupIndex}`);
+          logger.debug(`   Moving ${bridgeTractIds.length} bridge tract(s) for isolated group ${isolatedGroupIndex}`);
           
           const moveResult = this.moveBridgeTractsAndRecheck(
             updatedGroups,
@@ -2094,12 +2095,12 @@ class GeodistrictAlgorithmService {
         }
         
         totalBridgeMoved += bridgeMovedThisIteration;
-        console.log(`   Moved ${bridgeMovedThisIteration} bridge tract(s) this iteration`);
+        logger.debug(`   Moved ${bridgeMovedThisIteration} bridge tract(s) this iteration`);
         
         // Re-detect isolation after moving bridge tracts
         const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
         if (isolationAfterBridge.isolatedTractIds.size === 0) {
-          console.log(`✅ All isolation resolved after moving bridge tracts`);
+          logger.debug(`✅ All isolation resolved after moving bridge tracts`);
           break;
         }
       }
@@ -2110,7 +2111,7 @@ class GeodistrictAlgorithmService {
         // Process each group with isolated tracts
         for (const [groupIndex, isolatedTractIds] of isolationAfterBridge.isolatedTractsByGroup.entries()) {
           const isolatedTractIdsArray = Array.from(isolatedTractIds);
-          console.log(`   Moving ${isolatedTractIdsArray.length} isolated tract(s) from group ${groupIndex}`);
+          logger.debug(`   Moving ${isolatedTractIdsArray.length} isolated tract(s) from group ${groupIndex}`);
           
           const moveResult = this.moveIsolatedTractsToOppositeGroup(
             updatedGroups,
@@ -2128,21 +2129,21 @@ class GeodistrictAlgorithmService {
       // Check if we're done
       const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
       if (finalIsolation.isolatedTractIds.size === 0) {
-        console.log(`✅ All isolation resolved after ${resolutionIterations} iteration(s)`);
+        logger.info(`✅ All isolation resolved after ${resolutionIterations} iteration(s)`);
         break;
       }
       
-      console.log(`   Still have ${finalIsolation.isolatedTractIds.size} isolated tracts, continuing...`);
+      logger.debug(`   Still have ${finalIsolation.isolatedTractIds.size} isolated tracts, continuing...`);
     }
     
     if (resolutionIterations >= maxResolutionIterations) {
-      console.warn(`⚠️ Reached max resolution iterations (${maxResolutionIterations})`);
+      logger.warn(`⚠️ Reached max resolution iterations (${maxResolutionIterations})`);
     }
     
     // Final isolation check
     const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
     
-    console.log(`✅ RESOLVE ISOLATION: Completed - moved ${totalBridgeMoved} bridge tracts, ${totalIsolatedMoved} isolated tracts, ${finalIsolation.isolatedTractIds.size} remaining isolated`);
+    logger.info(`✅ RESOLVE ISOLATION: Completed - moved ${totalBridgeMoved} bridge tracts, ${totalIsolatedMoved} isolated tracts, ${finalIsolation.isolatedTractIds.size} remaining isolated`);
     
     return {
       districtGroups: updatedGroups,
