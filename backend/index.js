@@ -3305,10 +3305,19 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
               
               // Update algorithm state to reflect this step was executed
               // We need to reconstruct the state from the cached step
+              // Ensure steps array includes this step
+              const updatedSteps = [...(algorithmState.steps || [])];
+              // Pad array if needed
+              while (updatedSteps.length <= nextStepNumber) {
+                updatedSteps.push(null);
+              }
+              updatedSteps[nextStepNumber] = stepData;
+              
               const updatedState = {
                 ...algorithmState,
                 iteration: nextStepNumber,
-                currentGroups: stepData.districtGroups || algorithmState.currentGroups
+                currentGroups: stepData.districtGroups || algorithmState.currentGroups,
+                steps: updatedSteps
               };
               
               if (cachedEntry.isComplete) {
