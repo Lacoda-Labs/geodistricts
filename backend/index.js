@@ -2633,17 +2633,73 @@ app.post('/api/algorithm/execute', async (req, res) => {
 
     console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 
-    // Execute algorithm
+    // Check if isolation resolution is requested (for "run all steps" execution)
+    const resolveIsolation = req.body.resolveIsolation === true;
+    
+    // Track tract cache key for step caching
+    const tractCacheKey = `state_tracts_${state}`;
+    
+    // Callback to cache each step as it's completed
+    const onStepComplete = async (stepNumber, stepData, shouldCache) => {
+      if (!shouldCache) return true;
+      
+      try {
+        // Normalize step data (remove geometries, keep only IDs)
+        const normalized = normalizeStepData(stepData, tractCacheKey);
+        
+        // Create step cache key
+        const stepCacheKey = `step_${state}_${stepNumber}_${currentVersion}`;
+        
+        // Store normalized step in Firestore
+        const stepCacheEntry = {
+          ...normalized.normalized,
+          timestamp: Date.now(),
+          ttl: null, // Steps don't expire
+          version: CACHE_VERSION,
+          algorithmVersion: currentVersion,
+          source: 'step-cache',
+          state: state,
+          step: stepNumber,
+          isComplete: false // Will be updated when algorithm completes
+        };
+        
+        const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
+        await stepDocRef.set(stepCacheEntry);
+        
+        console.log(`💾 Cached step ${stepNumber} for ${state}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to cache step ${stepNumber}: ${error.message}`);
+      }
+      
+      return true; // Continue execution
+    };
+
+    // Execute algorithm with isolation resolution if requested
     const startTime = Date.now();
     const result = await algorithmService.executeGeodistrictAlgorithm(
       tracts,
       totalDistricts,
       maxIterations,
-      options.forceInvalidate || false
+      options.forceInvalidate || false,
+      resolveIsolation, // Enable isolation resolution
+      resolveIsolation ? onStepComplete : null // Only cache steps if isolation resolution is enabled
     );
     const executionTime = Date.now() - startTime;
 
     console.log(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
+    
+    // Mark final step as complete in cache
+    if (resolveIsolation && result.steps.length > 0) {
+      try {
+        const finalStepNumber = result.steps.length - 1;
+        const finalStepCacheKey = `step_${state}_${finalStepNumber}_${currentVersion}`;
+        const finalStepDocRef = firestore.collection('census_cache').doc(finalStepCacheKey);
+        await finalStepDocRef.update({ isComplete: true });
+        console.log(`✅ Marked final step ${finalStepNumber} as complete`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to mark final step as complete: ${error.message}`);
+      }
+    }
 
     // Cache the result automatically (async, don't wait for it)
     // Use backend's own algorithm version when caching

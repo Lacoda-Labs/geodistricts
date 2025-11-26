@@ -53,6 +53,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
   isMovingBridgeTracts: boolean = false;
   isMovingIsolatedTracts: boolean = false;
+  isRunningAllSteps: boolean = false;
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
   
@@ -316,6 +317,81 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return stateCenters[stateCode] || [39.8283, -98.5795];
   }
 
+  runAllSteps(): void {
+    if (!this.selectedState) {
+      this.errorMessage = 'Please select a state first';
+      return;
+    }
+
+    // Reset state
+    this.isRunningAllSteps = true;
+    this.isLoading = true;
+    this.isLoadingSteps = true;
+    this.errorMessage = '';
+    this.algorithmResult = null;
+    this.loadedSteps = [];
+    this.currentStepIndex = 0;
+    this.currentStep = null;
+    this.totalSteps = 0;
+
+    const options: GeodistrictOptions = {
+      state: this.selectedState,
+      useDirectAPI: false,
+      forceInvalidate: false,
+      maxIterations: 100
+    };
+
+    console.log(`🚀 Running all steps with isolation resolution for ${this.selectedState}`);
+
+    // Execute all steps with isolation resolution
+    const subscription = this.geodistrictService.executeAllSteps(options).subscribe({
+      next: (result) => {
+        console.log(`✅ All steps completed: ${result.steps.length} steps`);
+        
+        // Store the result
+        this.algorithmResult = result;
+        this.loadedSteps = result.steps;
+        this.totalSteps = result.steps.length;
+        
+        // Display the final step
+        if (result.steps.length > 0) {
+          const finalStep = result.steps[result.steps.length - 1];
+          this.currentStepIndex = result.steps.length - 1;
+          this.currentStep = finalStep;
+          
+          // Populate isolated tracts data from final step if available
+          if (finalStep.isolatedTractsData) {
+            const stepIsolatedData = finalStep.isolatedTractsData;
+            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+            this.isolatedTractsData = {
+              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+            };
+          } else {
+            this.isolatedTractIds.clear();
+            this.isolatedTractsData = null;
+          }
+          
+          // Render the final step
+          this.renderFinalDistricts();
+        }
+        
+        this.isLoading = false;
+        this.isLoadingSteps = false;
+        this.isRunningAllSteps = false;
+      },
+      error: (error) => {
+        console.error('❌ Error running all steps:', error);
+        this.errorMessage = error.message || 'Failed to run all steps';
+        this.isLoading = false;
+        this.isLoadingSteps = false;
+        this.isRunningAllSteps = false;
+      }
+    });
+
+    this.subscriptions.push(subscription);
+  }
+
   runAlgorithm(): void {
     if (!this.selectedState) {
       this.errorMessage = 'Please select a state first';
@@ -353,6 +429,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Display step 0 immediately
         this.currentStepIndex = 0;
         this.currentStep = step;
+        
+        // Populate isolated tracts data from step cache if available
+        if (step.isolatedTractsData) {
+          const stepIsolatedData = step.isolatedTractsData;
+          this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+          this.isolatedTractsData = {
+            isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+            isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+          };
+          console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+        } else {
+          this.isolatedTractIds.clear();
+          this.isolatedTractsData = null;
+        }
+        
         this.isLoading = false; // Stop showing loading spinner after step 0
         
         // Create a minimal algorithmResult for rendering
@@ -492,8 +583,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           // Display the step
           this.currentStepIndex = stepIndex;
           this.currentStep = stepToUse as any;
-          this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
-          this.isolatedTractsData = null;
+          
+          // Populate isolated tracts data from step cache if available
+          if ((stepToUse as any).isolatedTractsData) {
+            const stepIsolatedData = (stepToUse as any).isolatedTractsData;
+            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+            this.isolatedTractsData = {
+              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+            };
+            console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+          } else {
+            this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
+            this.isolatedTractsData = null;
+          }
+          
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
           this.isLoading = false;
@@ -1407,135 +1511,69 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Move isolated tracts to opposite groups and re-run isolation detection
    */
   moveIsolatedTracts(): void {
-    if (!this.isolatedTractsData || !this.currentStep) {
-      console.warn('Cannot move isolated tracts: missing data');
+    if (!this.currentStep) {
+      console.warn('Cannot move isolated tracts: missing current step');
       return;
     }
 
-    // Get all isolated tract IDs grouped by their isolated group index
-    const isolatedTractsByGroup: { [groupIndex: string]: string[] } = {};
+    // Check if step has isolated tracts data (from step cache) or component has manually detected data
+    const hasStepData = this.currentStep.isolatedTractsData && 
+                        this.currentStep.isolatedTractsData.isolatedTractsByGroup &&
+                        Object.keys(this.currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0;
     
-    for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
-      isolatedTractsByGroup[groupIndexStr] = tractIds;
-    }
+    const hasComponentData = this.isolatedTractsData && 
+                             this.isolatedTractsData.isolatedTractsByGroup &&
+                             Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length > 0;
 
-    if (Object.keys(isolatedTractsByGroup).length === 0) {
-      console.warn('No isolated tracts to move');
+    if (!hasStepData && !hasComponentData) {
+      console.warn('No isolated tracts to move - please detect isolated tracts first');
       return;
     }
 
     this.isMovingIsolatedTracts = true;
 
-    // Get all groups with isolated tracts, sorted by group index
-    const groupIndices = Object.keys(isolatedTractsByGroup)
-      .map(idx => parseInt(idx))
-      .sort((a, b) => a - b);
+    console.log(`🔄 Moving all isolated tracts for step ${this.currentStep.step}${hasStepData ? ' (from step cache)' : ' (from manual detection)'}`);
 
-    console.log(`🔄 Moving isolated tracts from ${groupIndices.length} group(s): ${groupIndices.join(', ')}`);
-
-    // Process groups recursively until no more isolated tracts remain
-    // This ensures we handle new isolation that may be created after each move
-    const processNextGroup = (remainingGroups: number[]): any => {
-      if (remainingGroups.length === 0) {
-        // All groups processed, check if there are still isolated tracts
-        // Re-detect isolation to get the current state
-        const allTracts: any[] = [];
-        for (const group of this.currentStep!.districtGroups) {
-          allTracts.push(...group.censusTracts);
-        }
-        
-        return this.geodistrictService.detectIsolatedTracts(
-          this.currentStep!.districtGroups,
-          allTracts
-        ).pipe(
-          concatMap((isolationResult) => {
-            // Update isolated tracts data
-            this.isolatedTractIds = new Set(isolationResult.isolatedTractIds);
-            this.isolatedTractsData = {
-              isolatedTractsByGroup: isolationResult.isolatedTractsByGroup,
-              isolatedTractIds: isolationResult.isolatedTractIds
-            };
-            
-            if (isolationResult.totalIsolated === 0) {
-              // No more isolated tracts, we're done
-              console.log(`✅ All isolated tracts moved. Final isolation: 0 isolated tracts in 0 groups`);
-              return of({ isolationResult });
-            } else {
-              // Still have isolated tracts, process them
-              const newGroupIndices = Object.keys(isolationResult.isolatedTractsByGroup)
-                .map(idx => parseInt(idx))
-                .sort((a, b) => a - b);
-              
-              console.log(`🔄 Still have ${isolationResult.totalIsolated} isolated tracts in ${isolationResult.groupsWithIsolation} groups. Processing ${newGroupIndices.length} group(s): ${newGroupIndices.join(', ')}`);
-              
-              // Process the new groups
-              return processNextGroup(newGroupIndices);
-            }
-          })
-        );
-      }
-
-      const groupIndex = remainingGroups[0];
-      const currentIsolatedTractsByGroup = this.isolatedTractsData?.isolatedTractsByGroup || {};
-      const isolatedTractIds = currentIsolatedTractsByGroup[groupIndex.toString()] || [];
-      
-      if (isolatedTractIds.length === 0) {
-        // No isolated tracts for this group, skip to next
-        return processNextGroup(remainingGroups.slice(1));
-      }
-      
-      console.log(`   Preparing to move ${isolatedTractIds.length} isolated tract(s) from group ${groupIndex}`);
-      
-      // Get all tracts for the request (updated after each move)
-      const allTracts: any[] = [];
-      for (const group of this.currentStep!.districtGroups) {
-        allTracts.push(...group.censusTracts);
-      }
-
-      return this.geodistrictService.moveIsolatedTractsToOppositeGroup(
-        this.currentStep!.districtGroups,
-        allTracts,
-        groupIndex,
-        isolatedTractIds,
-        this.currentStep!.divisionLines,
-        this.selectedState,
-        this.currentStep!.step,
-        100 // maxIterations - default value
-      ).pipe(
-        tap((result) => {
-          // Update current step after each move
-          if (this.currentStep) {
-            this.currentStep.districtGroups = result.districtGroups;
-          }
-          // Update isolated tracts data with latest result
-          this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
-          this.isolatedTractsData = {
-            isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-            isolatedTractIds: result.isolationResult.isolatedTractIds
-          };
-          console.log(`✅ Moved ${isolatedTractIds.length} isolated tract(s) from group ${groupIndex}. Remaining: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
-        }),
-        concatMap((result) => {
-          // Process next group
-          return processNextGroup(remainingGroups.slice(1));
-        })
-      );
-    };
-
-    // Start processing groups
-    processNextGroup(groupIndices).pipe(
-      last() // Only process the final result
+    // Call new backend endpoint that processes all isolated tracts in one operation
+    // Backend will use step cache data if available, otherwise it will detect from current state
+    this.geodistrictService.moveAllIsolatedTractsFromStep(
+      this.selectedState,
+      this.currentStep.step,
+      100 // maxIterations
     ).subscribe({
-      next: (finalResult) => {
-        console.log(`✅ All isolated tracts moved. Final isolation: ${finalResult.isolationResult.totalIsolated} isolated tracts in ${finalResult.isolationResult.groupsWithIsolation} groups`);
-        
+      next: (result) => {
+        // Update current step with new district groups
+        if (this.currentStep) {
+          this.currentStep.districtGroups = result.districtGroups;
+          // Update isolated tracts data from result
+          this.currentStep.isolatedTractsData = {
+            isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+            isolatedTractIds: result.isolationResult.isolatedTractIds,
+            totalIsolated: result.isolationResult.totalIsolated,
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation
+          };
+        }
+
+        // Update component state
+        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
+        this.isolatedTractsData = {
+          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+          isolatedTractIds: result.isolationResult.isolatedTractIds
+        };
+
+        if (result.isolationResult.totalIsolated === 0) {
+          console.log(`✅ All isolated tracts moved. Final isolation: 0 isolated tracts in 0 groups`);
+        } else {
+          console.log(`⚠️ Completed processing. Remaining isolation: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
+        }
+
         // Clear bridge tracts (will need to re-detect)
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
-        
+
         // Re-render map with updated groups
         this.renderFinalDistricts();
-        
+
         this.isMovingIsolatedTracts = false;
       },
       error: (error) => {

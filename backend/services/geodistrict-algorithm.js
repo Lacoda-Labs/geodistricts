@@ -33,8 +33,9 @@ const turf = require('@turf/turf');
  * 20251124-0115: Removed findSiblingGroup() function - siblings are always the two DGs from dividing a parent DG; use sibling_DG directly from tract properties; added data integrity fix to set missing sibling_DG from divisionLines metadata; simplified logic to throw error if sibling_DG can't be found instead of using unreliable fallbacks
  * 20251126-2127: Bridge tract detection only from sibling group - changed to ONLY look for bridge tracts in the sibling group (the other half from same parent division), not from all other groups; added swap of tract_DG with sibling_DG when moving bridge tracts to match isolated tract movement behavior; fixed final step data structure - when algorithm completes, convert result object with finalDistricts to step-like object with districtGroups so moveIsolatedTracts() works in final step
  * 20251126-2300: Fixed cache persistence for isolated/bridge tract moves - when isolated or bridge tracts are moved, update algorithm state currentGroups and invalidate cached step and all subsequent step caches; ensures that subsequent steps use the updated data instead of the original cached step
+ * 20251126-2320: Fixed moveIsolatedTracts to dynamically update group list after each move - processes all groups that currently have isolated tracts instead of continuing with original list; ensures single click processes all isolated tracts across all DGs
  */
-const ALGORITHM_VERSION = '20251126-2300';
+const ALGORITHM_VERSION = '20251126-2320';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -724,8 +725,9 @@ function createUnionPolygon(group) {
 
 /**
  * Create a step object with union polygons for each district group
+ * Also detects and stores isolated tracts data for the step
  */
-function createStep(step, level, districtGroups, description, divisionDirection, divisionLine, divisionLines) {
+function createStep(step, level, districtGroups, description, divisionDirection, divisionLine, divisionLines, algorithmService = null, allTracts = null) {
   // Create union polygons for each district group
   const groupsWithUnions = districtGroups.map(group => {
     const unionPolygon = createUnionPolygon(group);
@@ -734,6 +736,27 @@ function createStep(step, level, districtGroups, description, divisionDirection,
       unionPolygon: unionPolygon || undefined // Use undefined instead of null for cleaner JSON
     };
   });
+
+  // Detect isolated tracts if algorithmService and allTracts are provided
+  let isolatedTractsData = null;
+  if (algorithmService && allTracts && allTracts.length > 0) {
+    try {
+      const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts);
+      // Convert Map to object for JSON serialization
+      const isolatedTractsByGroup = {};
+      detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+        isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
+      });
+      isolatedTractsData = {
+        isolatedTractsByGroup,
+        isolatedTractIds: Array.from(detectionResult.isolatedTractIds),
+        totalIsolated: detectionResult.isolatedTractIds.size,
+        groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
+      };
+    } catch (error) {
+      console.warn(`⚠️ Failed to detect isolated tracts for step ${step}: ${error.message}`);
+    }
+  }
 
   return {
     step,
@@ -744,7 +767,8 @@ function createStep(step, level, districtGroups, description, divisionDirection,
     totalDistricts: groupsWithUnions.reduce((sum, g) => sum + g.totalDistricts, 0),
     divisionDirection: divisionDirection || 'latitude',
     divisionLine,
-    divisionLines: divisionLines || []
+    divisionLines: divisionLines || [],
+    isolatedTractsData: isolatedTractsData || undefined // Only include if detected
   };
 }
 
@@ -1042,7 +1066,7 @@ class GeodistrictAlgorithmService {
     
     const createStepStartTime = Date.now();
     const step = createStep(nextIteration, nextIteration, updatedGroups,
-      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines);
+      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts);
     const createStepTime = Date.now() - createStepStartTime;
     if (createStepTime > 10) {
       console.log(`⏱️ CREATE STEP: Completed in ${createStepTime}ms`);
@@ -2003,6 +2027,142 @@ class GeodistrictAlgorithmService {
   }
 
   /**
+   * Resolve isolation for a step: detect isolated, detect bridge, move bridge, move remaining isolated
+   * This is the complete isolation resolution flow used in the "run all steps" execution
+   * @param {Array} districtGroups - All district groups
+   * @param {Array} allTracts - All tracts in the dataset
+   * @param {Array} divisionLines - Optional array of division line metadata with sibling relationships
+   * @returns {Object} - Updated district groups and isolation resolution summary
+   */
+  resolveIsolationForStep(districtGroups, allTracts, divisionLines = null) {
+    console.log(`🔧 RESOLVE ISOLATION: Starting isolation resolution for ${districtGroups.length} groups`);
+    
+    let updatedGroups = districtGroups.map(group => ({
+      ...group,
+      censusTracts: [...group.censusTracts]
+    }));
+    
+    let totalIsolatedMoved = 0;
+    let totalBridgeMoved = 0;
+    let resolutionIterations = 0;
+    const maxResolutionIterations = 10; // Safety limit
+    
+    // Recursively resolve until no more isolated tracts remain
+    while (resolutionIterations < maxResolutionIterations) {
+      resolutionIterations++;
+      console.log(`🔧 Resolution iteration ${resolutionIterations}`);
+      
+      // Step 1: Detect isolated tracts
+      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts);
+      
+      if (isolationResult.isolatedTractIds.size === 0) {
+        console.log(`✅ No isolated tracts found after iteration ${resolutionIterations - 1}`);
+        break;
+      }
+      
+      console.log(`   Found ${isolationResult.isolatedTractIds.size} isolated tracts in ${isolationResult.isolatedTractsByGroup.size} groups`);
+      
+      // Convert Map to object for bridge detection
+      const isolatedTractsByGroupMap = new Map();
+      isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+        isolatedTractsByGroupMap.set(groupIndex, tractIds);
+      });
+      
+      // Step 2: Detect bridge tracts
+      const bridgeResult = this.detectBridgeTracts(updatedGroups, allTracts, isolatedTractsByGroupMap);
+      
+      let bridgeMovedThisIteration = 0;
+      
+      // Step 3: Move bridge tracts (if any)
+      if (bridgeResult.bridgeTractsByIsolatedGroup.size > 0) {
+        console.log(`   Found bridge tracts for ${bridgeResult.bridgeTractsByIsolatedGroup.size} groups`);
+        
+        for (const [isolatedGroupIndex, bridgeTracts] of bridgeResult.bridgeTractsByIsolatedGroup.entries()) {
+          const bridgeTractIds = bridgeTracts.map(bt => bt.tractId);
+          console.log(`   Moving ${bridgeTractIds.length} bridge tract(s) for isolated group ${isolatedGroupIndex}`);
+          
+          const moveResult = this.moveBridgeTractsAndRecheck(
+            updatedGroups,
+            allTracts,
+            isolatedGroupIndex,
+            bridgeTractIds,
+            divisionLines
+          );
+          
+          updatedGroups = moveResult.districtGroups;
+          bridgeMovedThisIteration += bridgeTractIds.length;
+        }
+        
+        totalBridgeMoved += bridgeMovedThisIteration;
+        console.log(`   Moved ${bridgeMovedThisIteration} bridge tract(s) this iteration`);
+        
+        // Re-detect isolation after moving bridge tracts
+        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
+        if (isolationAfterBridge.isolatedTractIds.size === 0) {
+          console.log(`✅ All isolation resolved after moving bridge tracts`);
+          break;
+        }
+      }
+      
+      // Step 4: Move remaining isolated tracts
+      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
+      if (isolationAfterBridge.isolatedTractIds.size > 0) {
+        // Process each group with isolated tracts
+        for (const [groupIndex, isolatedTractIds] of isolationAfterBridge.isolatedTractsByGroup.entries()) {
+          const isolatedTractIdsArray = Array.from(isolatedTractIds);
+          console.log(`   Moving ${isolatedTractIdsArray.length} isolated tract(s) from group ${groupIndex}`);
+          
+          const moveResult = this.moveIsolatedTractsToOppositeGroup(
+            updatedGroups,
+            allTracts,
+            groupIndex,
+            isolatedTractIdsArray,
+            divisionLines
+          );
+          
+          updatedGroups = moveResult.districtGroups;
+          totalIsolatedMoved += isolatedTractIdsArray.length;
+        }
+      }
+      
+      // Check if we're done
+      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
+      if (finalIsolation.isolatedTractIds.size === 0) {
+        console.log(`✅ All isolation resolved after ${resolutionIterations} iteration(s)`);
+        break;
+      }
+      
+      console.log(`   Still have ${finalIsolation.isolatedTractIds.size} isolated tracts, continuing...`);
+    }
+    
+    if (resolutionIterations >= maxResolutionIterations) {
+      console.warn(`⚠️ Reached max resolution iterations (${maxResolutionIterations})`);
+    }
+    
+    // Final isolation check
+    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
+    
+    console.log(`✅ RESOLVE ISOLATION: Completed - moved ${totalBridgeMoved} bridge tracts, ${totalIsolatedMoved} isolated tracts, ${finalIsolation.isolatedTractIds.size} remaining isolated`);
+    
+    return {
+      districtGroups: updatedGroups,
+      resolutionSummary: {
+        bridgeTractsMoved: totalBridgeMoved,
+        isolatedTractsMoved: totalIsolatedMoved,
+        remainingIsolated: finalIsolation.isolatedTractIds.size,
+        iterations: resolutionIterations
+      },
+      finalIsolation: {
+        isolatedTractsByGroup: Object.fromEntries(
+          Array.from(finalIsolation.isolatedTractsByGroup.entries()).map(([k, v]) => [k, Array.from(v)])
+        ),
+        isolatedTractIds: Array.from(finalIsolation.isolatedTractIds),
+        totalIsolated: finalIsolation.isolatedTractIds.size
+      }
+    };
+  }
+
+  /**
    * Fix isolated tracts across all groups after a division step
    * Optimized approach: Check each new group by picking the first tract and calculating reachable tracts.
    * If reachable < total, find the adjacent tract in the other group causing isolation and move it.
@@ -2726,9 +2886,11 @@ class GeodistrictAlgorithmService {
    * @param {number} totalDistricts - Total number of districts to create
    * @param {number} maxIterations - Maximum iterations
    * @param {boolean} forceInvalidate - Force recalculation
+   * @param {boolean} resolveIsolation - If true, resolve isolation after each step (detect isolated, detect bridge, move bridge, move isolated)
+   * @param {Function} onStepComplete - Optional callback called after each step with (stepNumber, stepData, shouldCache) - if returns false, step won't be cached
    * @returns {Promise<Object>} GeodistrictResult
    */
-  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, forceInvalidate = false) {
+  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, forceInvalidate = false, resolveIsolation = false, onStepComplete = null) {
     // Preload S4 adjacency data if available
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -2763,8 +2925,8 @@ class GeodistrictAlgorithmService {
     let currentGroups = [initialGroup];
     let iteration = 0;
 
-    // Create initial step
-    steps.push(createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude'));
+    // Create initial step (step 0 has all tracts in one group, so no isolated tracts possible)
+    steps.push(createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude', undefined, undefined, null, null));
 
     // Main algorithm loop
     while (currentGroups.some(group => group.totalDistricts > 1) && iteration < maxIterations) {
@@ -2981,8 +3143,36 @@ class GeodistrictAlgorithmService {
         }
       }
       
-      steps.push(createStep(iteration, iteration, currentGroups,
-        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
+      // Resolve isolation if requested (for "run all steps" execution)
+      let groupsForStep = currentGroups;
+      let resolutionSummary = null;
+      if (resolveIsolation && iteration > 0) { // Skip for step 0 (no isolation possible)
+        console.log(`🔧 Resolving isolation for step ${iteration}...`);
+        const resolutionResult = this.resolveIsolationForStep(currentGroups, uniqueTracts, divisionLines);
+        groupsForStep = resolutionResult.districtGroups;
+        resolutionSummary = resolutionResult.resolutionSummary;
+        
+        // Update currentGroups for next iteration
+        currentGroups = groupsForStep;
+        
+        console.log(`✅ Step ${iteration} isolation resolved: ${resolutionSummary.bridgeTractsMoved} bridge, ${resolutionSummary.isolatedTractsMoved} isolated moved`);
+      }
+      
+      const step = createStep(iteration, iteration, groupsForStep,
+        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines, this, uniqueTracts);
+      
+      // Add resolution summary to step if available
+      if (resolutionSummary) {
+        step.isolationResolution = resolutionSummary;
+      }
+      
+      steps.push(step);
+      
+      // Call onStepComplete callback if provided (for caching)
+      if (onStepComplete) {
+        const shouldCache = await onStepComplete(iteration, step, true);
+        // Callback can return false to skip caching, but we still add the step to the result
+      }
     }
 
     if (iteration >= maxIterations) {
@@ -3155,8 +3345,8 @@ class GeodistrictAlgorithmService {
     let currentGroups = [initialGroup];
     let iteration = 0;
 
-    // Yield initial step
-    const initialStep = createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude');
+    // Yield initial step (step 0 has all tracts in one group, so no isolated tracts possible)
+    const initialStep = createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude', undefined, undefined, null, null);
     steps.push(initialStep);
     yield { step: 0, data: initialStep, isComplete: false };
 
@@ -3260,7 +3450,7 @@ class GeodistrictAlgorithmService {
       // currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
       
       const step = createStep(iteration, iteration, currentGroups,
-        `Division ${iteration} by ${direction}`, direction, undefined, divisionLines);
+        `Division ${iteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts);
       steps.push(step);
       
       yield { step: iteration, data: step, isComplete: false };

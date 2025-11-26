@@ -46,6 +46,14 @@ export interface DivisionLineInfo {
   intersectingTractIds?: string[]; // IDs of tracts that intersect this division line
 }
 
+// Interface for isolated tracts data stored in step cache
+export interface IsolatedTractsData {
+  isolatedTractsByGroup: { [groupIndex: string]: string[] };
+  isolatedTractIds: string[];
+  totalIsolated: number;
+  groupsWithIsolation: number;
+}
+
 // Interface for algorithm step visualization
 export interface GeodistrictStep {
   step: number;
@@ -57,6 +65,7 @@ export interface GeodistrictStep {
   divisionDirection: 'latitude' | 'longitude';
   divisionLine?: number; // Deprecated: kept for backward compatibility
   divisionLines?: DivisionLineInfo[]; // Array of division lines (one per group division)
+  isolatedTractsData?: IsolatedTractsData; // Isolated tracts data from step cache
 }
 
 // Interface for algorithm result
@@ -80,7 +89,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251123-0003'; // Fixed: Update tract DG properties during step reconstruction from divisionLines
+export const ALGORITHM_VERSION = '20251126-2320'; // Fixed: moveIsolatedTracts dynamically updates group list after each move
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -297,6 +306,52 @@ export class GeodistrictAlgorithmService {
             return this.handleError(error);
           })
         );
+      })
+    );
+  }
+
+  /**
+   * Execute all algorithm steps with isolation resolution
+   * This runs the complete algorithm including resolving isolation after each step
+   * @param options Algorithm options
+   * @returns Observable that emits the complete result
+   */
+  executeAllSteps(options: GeodistrictOptions): Observable<GeodistrictResult> {
+    const { state, maxIterations = 100, forceInvalidate = false } = options;
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const executeUrl = `${backendUrl}/api/algorithm/execute`;
+
+    console.log(`🚀 Executing all steps with isolation resolution for ${state}: ${executeUrl}`);
+
+    return this.http.post<{
+      result: GeodistrictResult;
+      executionTime: number;
+      cacheKey: string;
+      state: string;
+      totalDistricts: number;
+      tractCount: number;
+      cached: boolean;
+    }>(executeUrl, {
+      state,
+      totalDistricts: 9, // Default, can be made configurable
+      maxIterations,
+      options: {
+        forceInvalidate
+      },
+      resolveIsolation: true // Enable isolation resolution
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      map(response => {
+        console.log(`✅ Algorithm execution completed in ${response.executionTime}ms`);
+        console.log(`📊 Result: ${response.result.steps.length} steps, ${response.result.finalDistricts.length} final districts`);
+        return response.result;
+      }),
+      catchError(error => {
+        console.error('❌ Algorithm execution failed:', error);
+        return this.handleError(error);
       })
     );
   }
@@ -6306,6 +6361,7 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Move isolated tracts to opposite group and re-run isolation detection
+   * @deprecated Use moveAllIsolatedTractsFromStep instead - processes all groups in one operation
    */
   moveIsolatedTractsToOppositeGroup(
     districtGroups: any[],
@@ -6352,6 +6408,52 @@ export class GeodistrictAlgorithmService {
       catchError(error => {
         console.error('Error moving isolated tracts:', error);
         return throwError(() => new Error(error.error?.message || error.message || 'Failed to move isolated tracts'));
+      })
+    );
+  }
+
+  /**
+   * Move all isolated tracts for a step from step cache - processes all groups in one operation
+   * This is the new backend-only approach that fixes the multiple-click issue
+   */
+  moveAllIsolatedTractsFromStep(
+    state: string,
+    step: number,
+    maxIterations: number = 100
+  ): Observable<{
+    districtGroups: any[];
+    isolationResult: {
+      isolatedTractsByGroup: { [groupIndex: string]: string[] };
+      isolatedTractIds: string[];
+      totalIsolated: number;
+      groupsWithIsolation: number;
+    };
+  }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const moveUrl = `${backendUrl}/api/algorithm/move-all-isolated-tracts`;
+    
+    console.log(`🔄 Moving all isolated tracts for ${state} step ${step}`);
+    
+    return this.http.post<{
+      districtGroups: any[];
+      isolationResult: {
+        isolatedTractsByGroup: { [groupIndex: string]: string[] };
+        isolatedTractIds: string[];
+        totalIsolated: number;
+        groupsWithIsolation: number;
+      };
+    }>(moveUrl, {
+      state,
+      step,
+      maxIterations
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).pipe(
+      catchError(error => {
+        console.error('Error moving all isolated tracts:', error);
+        return throwError(() => new Error(error.error?.message || error.message || 'Failed to move all isolated tracts'));
       })
     );
   }
