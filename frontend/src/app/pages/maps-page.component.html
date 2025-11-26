@@ -50,8 +50,8 @@
             </button>
           </div>
         </div>
-        <div class="run-all-controls" *ngIf="selectedState && !algorithmResult">
-          <button mat-raised-button color="primary" (click)="runAllSteps()" [disabled]="isRunningAllSteps" class="run-all-btn">
+        <div class="run-all-controls" *ngIf="selectedState">
+          <button mat-button (click)="runAllSteps()" [disabled]="isRunningAllSteps" class="run-all-btn">
             {{ isRunningAllSteps ? 'Running All Steps...' : 'Run All Steps' }}
           </button>
         </div>
