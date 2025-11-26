@@ -11,6 +11,8 @@ const cloudStorageCache = require('./services/cloud-storage-cache');
 const { GeodistrictAlgorithmService, getDistrictsForState, ALGORITHM_VERSION } = require('./services/geodistrict-algorithm');
 const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
+const vestDataLoader = require('./services/vest-data-loader');
+const poligeoAnalyst = require('./services/poligeo-analyst');
 require('dotenv').config();
 
 const app = express();
@@ -3473,7 +3475,13 @@ function normalizeStepData(step, tractCacheKey) {
         totalDistricts: line.parentGroup.totalDistricts
       } : undefined,
       ratio: line.ratio,
-      intersectingTractIds: line.intersectingTractIds
+      intersectingTractIds: line.intersectingTractIds,
+      siblingGroups: line.siblingGroups ? line.siblingGroups.map(sibling => ({
+        startDistrictNumber: sibling.startDistrictNumber,
+        endDistrictNumber: sibling.endDistrictNumber,
+        totalDistricts: sibling.totalDistricts
+      })) : undefined,
+      step: line.step // Preserve step number for finding most recent division
     })) : step.divisionLines,
     districtGroups: step.districtGroups.map(group => {
       const normalizedGroup = {
@@ -3624,6 +3632,52 @@ function reconstructStepFromCache(normalizedStep, tractMap) {
     if (g.censusTractIds) delete g.censusTractIds;
   });
 
+  // Update tract properties (tract_DG, parent_DG, sibling_DG) based on divisionLines
+  // This ensures reconstructed steps have correct DG properties even if cached with old properties
+  if (normalizedStep.divisionLines && Array.isArray(normalizedStep.divisionLines)) {
+    console.log(`🔄 RECONSTRUCT: Updating tract DG properties from ${normalizedStep.divisionLines.length} division line(s)`);
+    const { getTractId } = require('./services/geodistrict-algorithm');
+    
+    // Process divisionLines in order to build up the DG hierarchy
+    for (const divLine of normalizedStep.divisionLines) {
+      if (divLine.siblingGroups && Array.isArray(divLine.siblingGroups) && divLine.siblingGroups.length === 2) {
+        const firstSibling = divLine.siblingGroups[0];
+        const secondSibling = divLine.siblingGroups[1];
+        const parentGroup = divLine.parentGroup;
+        
+        if (firstSibling && secondSibling && parentGroup) {
+          const firstSiblingDG = `DG${firstSibling.startDistrictNumber}${firstSibling.endDistrictNumber !== firstSibling.startDistrictNumber ? `-${firstSibling.endDistrictNumber}` : ''}`;
+          const secondSiblingDG = `DG${secondSibling.startDistrictNumber}${secondSibling.endDistrictNumber !== secondSibling.startDistrictNumber ? `-${secondSibling.endDistrictNumber}` : ''}`;
+          const parentDG = `DG${parentGroup.startDistrictNumber}${parentGroup.endDistrictNumber !== parentGroup.startDistrictNumber ? `-${parentGroup.endDistrictNumber}` : ''}`;
+          
+          // Find the groups matching these DGs and update their tracts
+          for (const group of reconstructed.districtGroups) {
+            const groupDG = `DG${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}`;
+            
+            if (groupDG === firstSiblingDG) {
+              // Update tracts in first sibling group
+              for (const tract of group.censusTracts || []) {
+                if (!tract.properties) tract.properties = {};
+                tract.properties.tract_DG = firstSiblingDG;
+                tract.properties.parent_DG = parentDG;
+                tract.properties.sibling_DG = secondSiblingDG;
+              }
+            } else if (groupDG === secondSiblingDG) {
+              // Update tracts in second sibling group
+              for (const tract of group.censusTracts || []) {
+                if (!tract.properties) tract.properties = {};
+                tract.properties.tract_DG = secondSiblingDG;
+                tract.properties.parent_DG = parentDG;
+                tract.properties.sibling_DG = firstSiblingDG;
+              }
+            }
+          }
+        }
+      }
+    }
+    console.log(`✅ RECONSTRUCT: Updated tract DG properties from divisionLines`);
+  }
+
   const totalTracts = reconstructed.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
   console.log(`✅ RECONSTRUCT: Completed - total ${totalTracts} tracts reconstructed across ${reconstructed.districtGroups.length} groups`);
 
@@ -3771,7 +3825,7 @@ app.post('/api/algorithm/detect-bridge-tracts', async (req, res) => {
  */
 app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
   try {
-    const { districtGroups, allTracts, isolatedGroupIndex, bridgeTractIds, divisionLines } = req.body;
+    const { districtGroups, allTracts, isolatedGroupIndex, bridgeTractIds, divisionLines, state, step, maxIterations = 100 } = req.body;
 
     if (!districtGroups || !Array.isArray(districtGroups)) {
       return res.status(400).json({ error: 'districtGroups array is required' });
@@ -3799,6 +3853,47 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
       bridgeTractIds,
       divisionLines || null
     );
+
+    // Update algorithm state and invalidate cached step if state and step are provided
+    if (state && typeof step === 'number') {
+      const stateKey = getAlgorithmStateKey(state, maxIterations);
+      const algorithmState = algorithmStateStore.get(stateKey);
+      
+      if (algorithmState) {
+        // Update currentGroups in algorithm state with the moved groups
+        algorithmState.currentGroups = result.districtGroups;
+        
+        // Update the step in the steps array if it exists
+        if (algorithmState.steps && algorithmState.steps.length > step) {
+          algorithmState.steps[step] = {
+            ...algorithmState.steps[step],
+            districtGroups: result.districtGroups
+          };
+        }
+        
+        // Invalidate cached step so subsequent steps use the updated data
+        const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+        try {
+          await firestore.collection('census_cache').doc(stepCacheKey).delete();
+          console.log(`🗑️ Invalidated cached step ${step} for ${state} after moving bridge tracts`);
+        } catch (deleteError) {
+          console.warn(`⚠️ Failed to invalidate cached step ${step}: ${deleteError.message}`);
+        }
+        
+        // Also invalidate all subsequent step caches since they depend on this step
+        for (let nextStep = step + 1; nextStep <= 10; nextStep++) {
+          const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
+          try {
+            await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
+          } catch (deleteError) {
+            // Ignore errors for steps that don't exist
+          }
+        }
+        console.log(`🗑️ Invalidated all subsequent step caches (steps ${step + 1}+) for ${state}`);
+      } else {
+        console.warn(`⚠️ Algorithm state not found for ${state}, cannot update state or invalidate cache`);
+      }
+    }
 
     // Convert isolation result Map to object for JSON serialization
     const isolatedTractsByGroup = {};
@@ -3830,7 +3925,7 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
  */
 app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
   try {
-    const { districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines } = req.body;
+    const { districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines, state, step, maxIterations = 100 } = req.body;
 
     if (!districtGroups || !Array.isArray(districtGroups)) {
       return res.status(400).json({ error: 'districtGroups array is required' });
@@ -3858,6 +3953,47 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
       isolatedTractIds,
       divisionLines || null
     );
+
+    // Update algorithm state and invalidate cached step if state and step are provided
+    if (state && typeof step === 'number') {
+      const stateKey = getAlgorithmStateKey(state, maxIterations);
+      const algorithmState = algorithmStateStore.get(stateKey);
+      
+      if (algorithmState) {
+        // Update currentGroups in algorithm state with the moved groups
+        algorithmState.currentGroups = result.districtGroups;
+        
+        // Update the step in the steps array if it exists
+        if (algorithmState.steps && algorithmState.steps.length > step) {
+          algorithmState.steps[step] = {
+            ...algorithmState.steps[step],
+            districtGroups: result.districtGroups
+          };
+        }
+        
+        // Invalidate cached step so subsequent steps use the updated data
+        const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+        try {
+          await firestore.collection('census_cache').doc(stepCacheKey).delete();
+          console.log(`🗑️ Invalidated cached step ${step} for ${state} after moving isolated tracts`);
+        } catch (deleteError) {
+          console.warn(`⚠️ Failed to invalidate cached step ${step}: ${deleteError.message}`);
+        }
+        
+        // Also invalidate all subsequent step caches since they depend on this step
+        for (let nextStep = step + 1; nextStep <= 10; nextStep++) {
+          const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
+          try {
+            await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
+          } catch (deleteError) {
+            // Ignore errors for steps that don't exist
+          }
+        }
+        console.log(`🗑️ Invalidated all subsequent step caches (steps ${step + 1}+) for ${state}`);
+      } else {
+        console.warn(`⚠️ Algorithm state not found for ${state}, cannot update state or invalidate cache`);
+      }
+    }
 
     // Convert isolation result Map to object for JSON serialization
     const isolatedTractsByGroup = {};
@@ -4062,6 +4198,462 @@ app.delete('/api/voter-registration/:state', async (req, res) => {
     console.error(`Error deleting voter registration data for ${req.params.state}:`, error);
     res.status(500).json({
       error: 'Failed to delete cached data',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POLIGEO ANALYST ENDPOINTS
+ */
+
+/**
+ * GET /api/poligeo/state-summary
+ * Get state-level party data summary from VEST data
+ */
+app.get('/api/poligeo/state-summary', async (req, res) => {
+  try {
+    const { state, year = 2020 } = req.query;
+
+    if (!state) {
+      return res.status(400).json({
+        error: 'State parameter is required',
+        message: 'Please provide a state code (e.g., CA, NY, TX)'
+      });
+    }
+
+    // Get VEST data for the year
+    const vestData = await vestDataLoader.loadVESTData(parseInt(year));
+    
+    if (!vestData.countyData) {
+      return res.status(404).json({
+        error: 'County-level data not available',
+        message: `VEST county-level data is not available for ${year}. Please process local files first.`
+      });
+    }
+
+    // Filter counties by state
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+
+    const stateFips = stateFipsMap[state.toUpperCase()] || state;
+    const stateCounties = Object.values(vestData.countyData).filter(
+      county => county.stateFips === stateFips || county.state === state.toUpperCase()
+    );
+
+    if (stateCounties.length === 0) {
+      return res.status(404).json({
+        error: 'No data found',
+        message: `No VEST data found for state ${state} in year ${year}`
+      });
+    }
+
+    // Aggregate state totals
+    let totalDemVotes = 0;
+    let totalRepVotes = 0;
+    let totalVotes = 0;
+
+    for (const county of stateCounties) {
+      totalDemVotes += county.votes_dem_pres || 0;
+      totalRepVotes += county.votes_rep_pres || 0;
+      totalVotes += county.total_votes_pres || 0;
+    }
+
+    const demPercent = totalVotes > 0 ? (totalDemVotes / totalVotes) * 100 : 0;
+    const repPercent = totalVotes > 0 ? (totalRepVotes / totalVotes) * 100 : 0;
+    const demAdvantage = demPercent - repPercent;
+
+    // Determine party lean
+    let partyLean = 'Competitive';
+    let partyLeanColor = 'neutral';
+    if (demAdvantage > 10) {
+      partyLean = 'Strong Democratic';
+      partyLeanColor = 'democratic';
+    } else if (demAdvantage > 5) {
+      partyLean = 'Lean Democratic';
+      partyLeanColor = 'democratic';
+    } else if (demAdvantage < -10) {
+      partyLean = 'Strong Republican';
+      partyLeanColor = 'republican';
+    } else if (demAdvantage < -5) {
+      partyLean = 'Lean Republican';
+      partyLeanColor = 'republican';
+    }
+
+    res.json({
+      state: state.toUpperCase(),
+      year: parseInt(year),
+      totalCounties: stateCounties.length,
+      totalVotes: Math.round(totalVotes),
+      votesDem: Math.round(totalDemVotes),
+      votesRep: Math.round(totalRepVotes),
+      pctDem: parseFloat(demPercent.toFixed(2)),
+      pctRep: parseFloat(repPercent.toFixed(2)),
+      demAdvantage: parseFloat(demAdvantage.toFixed(2)),
+      partyLean,
+      partyLeanColor,
+      counties: stateCounties.map(c => ({
+        countyName: c.countyName,
+        countyFips: c.countyFips,
+        votesDem: c.votes_dem_pres,
+        votesRep: c.votes_rep_pres,
+        totalVotes: c.total_votes_pres,
+        pctDem: c.total_votes_pres > 0 ? ((c.votes_dem_pres / c.total_votes_pres) * 100).toFixed(2) : 0,
+        pctRep: c.total_votes_pres > 0 ? ((c.votes_rep_pres / c.total_votes_pres) * 100).toFixed(2) : 0,
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting state summary:', error);
+    res.status(500).json({
+      error: 'Failed to get state summary',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/poligeo/analyze
+ * Main analysis endpoint accepting multiple input formats
+ * 
+ * Request body:
+ * {
+ *   "input_format": "geoid" | "polygon" | "district",
+ *   "input_data": <GEOID list/array/CSV | GeoJSON polygon | district name>,
+ *   "geodistrict_name": "Optional name for the geodistrict",
+ *   "state": "Optional state code (required for polygon format)"
+ * }
+ */
+app.post('/api/poligeo/analyze', async (req, res) => {
+  try {
+    const { input_format, input_data, geodistrict_name, state } = req.body;
+
+    if (!input_format || !input_data) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'input_format and input_data are required'
+      });
+    }
+
+    // Set API base URL for internal service calls
+    const protocol = req.protocol;
+    const host = req.get('host');
+    poligeoAnalyst.setApiBaseUrl(`${protocol}://${host}`);
+
+    console.log(`📊 PoliGeo Analyst: Analyzing geodistrict with format: ${input_format}`);
+
+    const result = await poligeoAnalyst.analyze({
+      input_format,
+      input_data,
+      geodistrict_name,
+      state,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error in PoliGeo Analyst:', error);
+    res.status(500).json({
+      error: 'Failed to analyze geodistrict',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/poligeo/vest-data/status
+ * Check VEST data availability and last update
+ */
+app.get('/api/poligeo/vest-data/status', async (req, res) => {
+  try {
+    const status = await vestDataLoader.getStatus();
+    
+    // Also check for local files
+    const fs = require('fs').promises;
+    const path = require('path');
+    const vestDataDir = path.join(__dirname, 'data', 'vest');
+    const dataverseFilesDir = path.join(vestDataDir, 'dataverse_files');
+    
+    const localFiles = {
+      dataverseFiles: [],
+      directFiles: [],
+    };
+    
+    try {
+      // Check dataverse_files directory
+      const dataverseFiles = await fs.readdir(dataverseFilesDir);
+      localFiles.dataverseFiles = dataverseFiles.filter(f => 
+        (f.endsWith('.csv') || f.endsWith('.tab') || f.endsWith('.tsv')) &&
+        !f.endsWith('.md') && !f.endsWith('.xml')
+      );
+    } catch (error) {
+      // Directory doesn't exist, that's OK
+    }
+    
+    try {
+      // Check direct vest directory
+      const directFiles = await fs.readdir(vestDataDir);
+      localFiles.directFiles = directFiles.filter(f => 
+        (f.endsWith('.csv') || f.endsWith('.tab') || f.endsWith('.tsv')) &&
+        !f.endsWith('.md') && !f.endsWith('.xml')
+      );
+    } catch (error) {
+      // Directory doesn't exist, that's OK
+    }
+    
+    res.json({
+      ...status,
+      localFiles,
+    });
+  } catch (error) {
+    console.error('Error getting VEST data status:', error);
+    res.status(500).json({
+      error: 'Failed to get VEST data status',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/poligeo/vest-data/process-local
+ * Process locally downloaded VEST files (from dataverse_files directory)
+ * 
+ * Request body:
+ * {
+ *   "year": 2016 | 2020 | 2024 (optional, processes all if not specified),
+ *   "forceRefresh": boolean (optional, default: false)
+ * }
+ */
+app.post('/api/poligeo/vest-data/process-local', async (req, res) => {
+  try {
+    const { year, forceRefresh = false } = req.body;
+
+    if (year) {
+      // Process specific year
+      if (![2016, 2020, 2024].includes(year)) {
+        return res.status(400).json({
+          error: 'Invalid year',
+          message: 'Year must be 2016, 2020, or 2024'
+        });
+      }
+
+      if (vestDataLoader.isLoading(year)) {
+        return res.status(409).json({
+          error: 'Data is already being loaded',
+          message: `VEST data for ${year} is currently being processed. Please wait.`
+        });
+      }
+
+      console.log(`📥 Processing local VEST data for ${year}...`);
+      const data = await vestDataLoader.loadVESTData(year, forceRefresh);
+
+      res.json({
+        year,
+        status: 'success',
+        message: `VEST data for ${year} processed successfully from local files`,
+        metadata: data.metadata,
+        dataType: data.metadata?.dataType || 'unknown',
+      });
+    } else {
+      // Process all available years
+      const years = [2016, 2020, 2024];
+      const results = {};
+
+      for (const y of years) {
+        try {
+          if (vestDataLoader.isLoading(y)) {
+            results[y] = {
+              status: 'skipped',
+              message: `Already processing ${y}`
+            };
+            continue;
+          }
+
+          // Check if 2024 is available
+          if (y === 2024) {
+            try {
+              console.log(`📥 Processing local VEST data for ${y}...`);
+              const data = await vestDataLoader.loadVESTData(y, forceRefresh);
+              results[y] = {
+                status: 'success',
+                metadata: data.metadata,
+                dataType: data.metadata?.dataType || 'unknown',
+              };
+            } catch (error) {
+              if (error.message.includes('not yet available') || error.message.includes('not configured')) {
+                results[y] = {
+                  status: 'not_available',
+                  message: `2024 VEST data is not yet available`,
+                };
+              } else {
+                throw error;
+              }
+            }
+          } else {
+            console.log(`📥 Processing local VEST data for ${y}...`);
+            const data = await vestDataLoader.loadVESTData(y, forceRefresh);
+            results[y] = {
+              status: 'success',
+              metadata: data.metadata,
+              dataType: data.metadata?.dataType || 'unknown',
+            };
+          }
+        } catch (error) {
+          results[y] = {
+            status: 'error',
+            message: error.message,
+          };
+        }
+      }
+
+      res.json({
+        status: 'completed',
+        results,
+        message: 'Local VEST data processing completed for all available years'
+      });
+    }
+  } catch (error) {
+    console.error('Error processing local VEST data:', error);
+    res.status(500).json({
+      error: 'Failed to process local VEST data',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/poligeo/vest-data/download
+ * Manually trigger VEST data download/refresh from Dataverse
+ * 
+ * Request body:
+ * {
+ *   "year": 2016 | 2020 | 2024 (optional, downloads all if not specified),
+ *   "forceRefresh": boolean (optional, default: false)
+ * }
+ */
+app.post('/api/poligeo/vest-data/download', async (req, res) => {
+  try {
+    const { year, forceRefresh = false } = req.body;
+
+    if (year) {
+      // Download specific year
+      if (![2016, 2020, 2024].includes(year)) {
+        return res.status(400).json({
+          error: 'Invalid year',
+          message: 'Year must be 2016, 2020, or 2024'
+        });
+      }
+
+      if (vestDataLoader.isLoading(year)) {
+        return res.status(409).json({
+          error: 'Data is already being loaded',
+          message: `VEST data for ${year} is currently being downloaded. Please wait.`
+        });
+      }
+
+      // Check if 2024 is available
+      if (year === 2024) {
+        try {
+          console.log(`📥 Attempting to download VEST data for ${year}...`);
+          const data = await vestDataLoader.loadVESTData(year, forceRefresh);
+          res.json({
+            year,
+            status: 'success',
+            message: `VEST data for ${year} loaded successfully`,
+            metadata: data.metadata,
+          });
+        } catch (error) {
+          if (error.message.includes('not yet available') || error.message.includes('not configured')) {
+            return res.json({
+              year,
+              status: 'not_available',
+              message: `2024 VEST data is not yet available from Harvard Dataverse`,
+            });
+          }
+          throw error;
+        }
+      } else {
+        console.log(`📥 Downloading VEST data for ${year}...`);
+        const data = await vestDataLoader.loadVESTData(year, forceRefresh);
+
+        res.json({
+          year,
+          status: 'success',
+          message: `VEST data for ${year} loaded successfully`,
+          metadata: data.metadata,
+        });
+      }
+    } else {
+      // Download all available years
+      const years = [2016, 2020, 2024];
+      const results = {};
+
+      for (const y of years) {
+        try {
+          if (vestDataLoader.isLoading(y)) {
+            results[y] = {
+              status: 'skipped',
+              message: `Already loading ${y}`
+            };
+            continue;
+          }
+
+          // Check if year is configured (2024 might not be available yet)
+          if (y === 2024) {
+            const status = await vestDataLoader.getStatus();
+            // If 2024 doesn't have a persistentId configured, skip it gracefully
+            try {
+              console.log(`📥 Attempting to download VEST data for ${y}...`);
+              const data = await vestDataLoader.loadVESTData(y, forceRefresh);
+              results[y] = {
+                status: 'success',
+                metadata: data.metadata,
+              };
+            } catch (error) {
+              if (error.message.includes('not yet available') || error.message.includes('not configured')) {
+                results[y] = {
+                  status: 'not_available',
+                  message: `2024 VEST data is not yet available`,
+                };
+              } else {
+                throw error;
+              }
+            }
+          } else {
+            console.log(`📥 Downloading VEST data for ${y}...`);
+            const data = await vestDataLoader.loadVESTData(y, forceRefresh);
+            results[y] = {
+              status: 'success',
+              metadata: data.metadata,
+            };
+          }
+        } catch (error) {
+          results[y] = {
+            status: 'error',
+            message: error.message,
+          };
+        }
+      }
+
+      res.json({
+        status: 'completed',
+        results,
+        message: 'VEST data download completed for all available years'
+      });
+    }
+  } catch (error) {
+    console.error('Error downloading VEST data:', error);
+    res.status(500).json({
+      error: 'Failed to download VEST data',
       message: error.message
     });
   }

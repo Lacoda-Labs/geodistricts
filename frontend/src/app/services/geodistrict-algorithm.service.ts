@@ -80,7 +80,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251122-2327'; // DG tracking in tract properties, swap logic for moving isolated tracts
+export const ALGORITHM_VERSION = '20251123-0003'; // Fixed: Update tract DG properties during step reconstruction from divisionLines
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -6260,7 +6260,10 @@ export class GeodistrictAlgorithmService {
     allTracts: any[],
     isolatedGroupIndex: number,
     bridgeTractIds: string[],
-    divisionLines?: DivisionLineInfo[]
+    divisionLines?: DivisionLineInfo[],
+    state?: string,
+    step?: number,
+    maxIterations?: number
   ): Observable<{
     districtGroups: any[];
     isolationResult: {
@@ -6285,7 +6288,10 @@ export class GeodistrictAlgorithmService {
       allTracts,
       isolatedGroupIndex,
       bridgeTractIds,
-      divisionLines
+      divisionLines,
+      state,
+      step,
+      maxIterations
     }, {
       headers: {
         'Content-Type': 'application/json'
@@ -6306,7 +6312,10 @@ export class GeodistrictAlgorithmService {
     allTracts: any[],
     isolatedGroupIndex: number,
     isolatedTractIds: string[],
-    divisionLines?: DivisionLineInfo[]
+    divisionLines?: DivisionLineInfo[],
+    state?: string,
+    step?: number,
+    maxIterations?: number
   ): Observable<{
     districtGroups: any[];
     isolationResult: {
@@ -6331,7 +6340,10 @@ export class GeodistrictAlgorithmService {
       allTracts,
       isolatedGroupIndex,
       isolatedTractIds,
-      divisionLines
+      divisionLines,
+      state,
+      step,
+      maxIterations
     }, {
       headers: {
         'Content-Type': 'application/json'
