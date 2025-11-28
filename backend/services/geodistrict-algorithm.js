@@ -35,8 +35,9 @@ const logger = require('../utils/logger');
  * 20251126-2127: Bridge tract detection only from sibling group - changed to ONLY look for bridge tracts in the sibling group (the other half from same parent division), not from all other groups; added swap of tract_DG with sibling_DG when moving bridge tracts to match isolated tract movement behavior; fixed final step data structure - when algorithm completes, convert result object with finalDistricts to step-like object with districtGroups so moveIsolatedTracts() works in final step
  * 20251126-2300: Fixed cache persistence for isolated/bridge tract moves - when isolated or bridge tracts are moved, update algorithm state currentGroups and invalidate cached step and all subsequent step caches; ensures that subsequent steps use the updated data instead of the original cached step
  * 20251126-2320: Fixed moveIsolatedTracts to dynamically update group list after each move - processes all groups that currently have isolated tracts instead of continuing with original list; ensures single click processes all isolated tracts across all DGs
+ * 20251128-2200: Fixed union polygon creation for MultiPolygon geometries - flatten MultiPolygon to individual Polygon features before dissolve/union operations; enables proper union of all tracts in district groups; added support for multiple union polygons per group when isolated tracts create multiple connected components
  */
-const ALGORITHM_VERSION = '20251126-2320';
+const ALGORITHM_VERSION = '20251128-2200';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -587,6 +588,102 @@ function calculateOptimalDivision(totalDistricts) {
 }
 
 /**
+ * Find all connected components in a district group
+ * @param {Object} group - District group containing tracts
+ * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts
+ * @returns {Array<Array<Object>>} - Array of connected components, each component is an array of tract objects
+ */
+function findConnectedComponents(group, adjacencyGraph) {
+  if (!group.censusTracts || group.censusTracts.length === 0) {
+    return [];
+  }
+
+  const groupTractIds = new Set(group.censusTracts.map(t => getTractId(t)).filter(Boolean));
+  const visited = new Set();
+  const components = [];
+
+  for (const tract of group.censusTracts) {
+    const tractId = getTractId(tract);
+    if (!tractId || visited.has(tractId)) {
+      continue;
+    }
+
+    // BFS to find all tracts in this connected component
+    const component = [];
+    const queue = [tractId];
+    visited.add(tractId);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const currentTract = group.censusTracts.find(t => getTractId(t) === currentId);
+      if (currentTract) {
+        component.push(currentTract);
+      }
+
+      const neighbors = adjacencyGraph.get(currentId) || [];
+      for (const neighborId of neighbors) {
+        if (neighborId && groupTractIds.has(neighborId) && !visited.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+
+    if (component.length > 0) {
+      components.push(component);
+    }
+  }
+
+  return components;
+}
+
+/**
+ * Create union polygons for each connected component in a district group
+ * If a group has isolated tracts (multiple connected components), returns an array of union polygons
+ * @param {Object} group - District group containing tracts
+ * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts (optional, for finding connected components)
+ * @returns {Array<Object>|Object|null} - Array of GeoJSON features (one per connected component) or single feature, or null if union fails
+ */
+function createUnionPolygonsForGroup(group, adjacencyGraph = null) {
+  if (!group.censusTracts || group.censusTracts.length === 0) {
+    return null;
+  }
+
+  // If adjacency graph is provided, check for multiple connected components
+  if (adjacencyGraph) {
+    const components = findConnectedComponents(group, adjacencyGraph);
+    
+    // If multiple components found, create union polygon for each
+    if (components.length > 1) {
+      console.log(`🔨 Group ${group.startDistrictNumber}-${group.endDistrictNumber} has ${components.length} connected components, creating union polygon for each`);
+      const unionPolygons = [];
+      
+      for (let i = 0; i < components.length; i++) {
+        const component = components[i];
+        const componentGroup = {
+          ...group,
+          censusTracts: component
+        };
+        const unionPolygon = createUnionPolygon(componentGroup);
+        if (unionPolygon) {
+          unionPolygons.push(unionPolygon);
+          console.log(`✅ Created union polygon ${i + 1}/${components.length} for component with ${component.length} tracts`);
+        } else {
+          console.warn(`⚠️ Failed to create union polygon for component ${i + 1} with ${component.length} tracts`);
+        }
+      }
+      
+      if (unionPolygons.length > 0) {
+        return unionPolygons;
+      }
+    }
+  }
+
+  // Single component or no adjacency graph - create single union polygon
+  return createUnionPolygon(group);
+}
+
+/**
  * Create a union polygon from all tracts in a district group
  * @param {Object} group - District group containing tracts
  * @returns {Object|null} GeoJSON feature representing the union polygon, or null if union fails
@@ -614,11 +711,32 @@ function createUnionPolygon(group) {
       return validTracts[0];
     }
 
-    // For very large groups (>500 tracts), use dissolve which is more efficient
-    if (validTracts.length > 500) {
-      console.log(`🔨 Creating union polygon for large group ${group.startDistrictNumber}-${group.endDistrictNumber} (${validTracts.length} tracts) using dissolve`);
-      try {
-        const collection = turf.featureCollection(validTracts);
+    // Always try to use dissolve first (works better than sequential union after flattening)
+    // Flatten MultiPolygon geometries to individual Polygon features for dissolve to work
+    console.log(`🔨 Creating union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${validTracts.length} tracts) using dissolve`);
+    try {
+      // Flatten MultiPolygon geometries to individual Polygon features
+      const flattenedTracts = [];
+      for (const tract of validTracts) {
+        if (tract.geometry.type === 'MultiPolygon') {
+          // Convert MultiPolygon to multiple Polygon features
+          for (const polygonCoords of tract.geometry.coordinates) {
+            flattenedTracts.push({
+              type: 'Feature',
+              geometry: {
+                type: 'Polygon',
+                coordinates: polygonCoords
+              },
+              properties: tract.properties || {}
+            });
+          }
+        } else if (tract.geometry.type === 'Polygon') {
+          flattenedTracts.push(tract);
+        }
+      }
+      
+      if (flattenedTracts.length > 0) {
+        const collection = turf.featureCollection(flattenedTracts);
         const dissolved = turf.dissolve(collection);
         if (dissolved && dissolved.features && dissolved.features.length > 0) {
           // Use the first (and usually only) feature from dissolved result
@@ -633,37 +751,62 @@ function createUnionPolygon(group) {
               TRACT_COUNT: group.censusTracts.length
             }
           };
-          console.log(`✅ Created union polygon using dissolve for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+          console.log(`✅ Created union polygon using dissolve for group ${group.startDistrictNumber}-${group.endDistrictNumber} (flattened ${validTracts.length} tracts to ${flattenedTracts.length} polygons)`);
           return unionFeature;
         }
-      } catch (dissolveError) {
-        console.warn(`⚠️ Dissolve failed for group ${group.startDistrictNumber}-${group.endDistrictNumber}, falling back to sequential union:`, dissolveError.message);
       }
+    } catch (dissolveError) {
+      console.warn(`⚠️ Dissolve failed for group ${group.startDistrictNumber}-${group.endDistrictNumber}, falling back to sequential union:`, dissolveError.message);
     }
 
-    // Start with the first tract
-    let union = turf.feature(validTracts[0].geometry);
+    // Fallback: Flatten MultiPolygon geometries to individual Polygon features for sequential union
+    const flattenedTracts = [];
+    for (const tract of validTracts) {
+      if (tract.geometry.type === 'MultiPolygon') {
+        // Convert MultiPolygon to multiple Polygon features
+        for (const polygonCoords of tract.geometry.coordinates) {
+          flattenedTracts.push({
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: polygonCoords
+            },
+            properties: tract.properties || {}
+          });
+        }
+      } else if (tract.geometry.type === 'Polygon') {
+        flattenedTracts.push(tract);
+      }
+    }
+    
+    if (flattenedTracts.length === 0) {
+      console.warn(`⚠️ No valid polygon geometries found for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+      return null;
+    }
+    
+    // Start with the first flattened tract
+    let union = turf.feature(flattenedTracts[0].geometry);
     if (!union || !union.geometry) {
       console.warn(`⚠️ Invalid initial tract geometry for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
       return null;
     }
     
-    console.log(`🔨 Creating union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${validTracts.length} tracts)`);
+    console.log(`🔨 Creating union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${validTracts.length} tracts, ${flattenedTracts.length} polygons after flattening)`);
 
-    // Union all remaining tracts
+    // Union all remaining flattened tracts
     const batchSize = 100;
     let processedCount = 1;
     const startTime = Date.now();
     let skippedCount = 0;
 
-    for (let i = 1; i < validTracts.length; i++) {
+    for (let i = 1; i < flattenedTracts.length; i++) {
       // Validate union geometry before attempting union
       if (!union || !union.geometry) {
-        console.warn(`⚠️ Union geometry invalid at tract ${i} in group ${group.startDistrictNumber}-${group.endDistrictNumber}, stopping union`);
+        console.warn(`⚠️ Union geometry invalid at polygon ${i} in group ${group.startDistrictNumber}-${group.endDistrictNumber}, stopping union`);
         break;
       }
       
-      const tractFeature = turf.feature(validTracts[i].geometry);
+      const tractFeature = turf.feature(flattenedTracts[i].geometry);
       
       // Validate tract geometry before unioning
       if (!tractFeature || !tractFeature.geometry) {
@@ -675,34 +818,40 @@ function createUnionPolygon(group) {
         const unionResult = turf.union(union, tractFeature);
         if (!unionResult || !unionResult.geometry) {
           skippedCount++;
-          continue; // Skip this tract but continue with others
+          continue; // Skip this polygon but continue with others
         }
         union = unionResult;
         processedCount++;
 
         // Log progress for large unions (only on success to reduce verbosity)
-        if (processedCount % batchSize === 0 || i === validTracts.length - 1) {
+        if (processedCount % batchSize === 0 || i === flattenedTracts.length - 1) {
           const elapsed = Date.now() - startTime;
-          console.log(`🔨 Union progress: ${processedCount}/${validTracts.length} tracts (${Math.round(processedCount / validTracts.length * 100)}%) - ${elapsed}ms`);
+          console.log(`🔨 Union progress: ${processedCount}/${flattenedTracts.length} polygons (${Math.round(processedCount / flattenedTracts.length * 100)}%) - ${elapsed}ms`);
         }
       } catch (error) {
         // Suppress verbose "Must have at least 2 geometries" errors - these are common for invalid geometries
         // Only log other types of errors
         if (!error.message.includes('Must have at least 2 geometries')) {
-          console.warn(`⚠️ Error unioning tract ${i} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
+          console.warn(`⚠️ Error unioning polygon ${i} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
         }
         skippedCount++;
-        // Skip this tract and continue with the next one
+        // Skip this polygon and continue with the next one
         continue;
       }
     }
     
     if (skippedCount > 0) {
-      console.log(`⚠️ Skipped ${skippedCount} tract(s) during union for group ${group.startDistrictNumber}-${group.endDistrictNumber} due to invalid geometries`);
+      console.log(`⚠️ Skipped ${skippedCount} polygon(s) during union for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${Math.round(skippedCount / flattenedTracts.length * 100)}% skipped)`);
     }
 
     const totalTime = Date.now() - startTime;
-    console.log(`✅ Completed union of ${processedCount} tracts for group ${group.startDistrictNumber}-${group.endDistrictNumber} in ${totalTime}ms`);
+    console.log(`✅ Completed union of ${processedCount}/${flattenedTracts.length} polygons (from ${validTracts.length} tracts) for group ${group.startDistrictNumber}-${group.endDistrictNumber} in ${totalTime}ms`);
+
+    // Validate final union geometry
+    if (!union || !union.geometry) {
+      console.error(`❌ Union geometry is null or invalid after processing ${processedCount} tracts for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+      return null;
+    }
 
     // Create a GeoJSON feature with the union geometry and group properties
     const unionFeature = {
@@ -717,9 +866,11 @@ function createUnionPolygon(group) {
       }
     };
 
+    console.log(`✅ Successfully created union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (geometry type: ${union.geometry.type})`);
     return unionFeature;
   } catch (error) {
     console.error(`❌ Error creating union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
+    console.error(`   Stack trace:`, error.stack);
     return null;
   }
 }
@@ -729,13 +880,36 @@ function createUnionPolygon(group) {
  * Also detects and stores isolated tracts data for the step
  */
 function createStep(step, level, districtGroups, description, divisionDirection, divisionLine, divisionLines, algorithmService = null, allTracts = null) {
+  // Build adjacency graph if we have algorithmService and allTracts (needed for finding connected components)
+  let adjacencyGraph = null;
+  if (algorithmService && allTracts && allTracts.length > 0) {
+    try {
+      adjacencyGraph = algorithmService.buildGeometryAdjacencyGraph(allTracts);
+    } catch (error) {
+      console.warn(`⚠️ Failed to build adjacency graph for step ${step}: ${error.message}`);
+    }
+  }
+
   // Create union polygons for each district group
+  // If a group has isolated tracts (multiple connected components), create union polygon for each component
   const groupsWithUnions = districtGroups.map(group => {
-    const unionPolygon = createUnionPolygon(group);
-    return {
-      ...group,
-      unionPolygon: unionPolygon || undefined // Use undefined instead of null for cleaner JSON
-    };
+    const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
+    
+    // Handle both single union polygon and array of union polygons
+    if (Array.isArray(unionPolygonOrArray)) {
+      // Multiple connected components - store as array
+      return {
+        ...group,
+        unionPolygons: unionPolygonOrArray, // Array of union polygons (one per connected component)
+        unionPolygon: unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined // Keep first for backward compatibility
+      };
+    } else {
+      // Single union polygon
+      return {
+        ...group,
+        unionPolygon: unionPolygonOrArray || undefined // Use undefined instead of null for cleaner JSON
+      };
+    }
   });
 
   // Detect isolated tracts if algorithmService and allTracts are provided
@@ -843,14 +1017,15 @@ class GeodistrictAlgorithmService {
       tract.properties.sibling_DG = null; // No sibling for initial state
     }
 
-    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude');
+    // Create step 0 with union polygons - pass algorithmService and allTracts so union polygons are created
+    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude', undefined, [], this, uniqueTracts);
 
     // Return step 0 and algorithm state
     return {
       step: initialStep,
       state: {
         uniqueTracts,
-        currentGroups: [initialGroup],
+        currentGroups: [initialStep.districtGroups], // Use groups from step (which have union polygons)
         iteration: 0,
         steps: [initialStep],
         algorithmHistory: [],
@@ -3583,6 +3758,8 @@ module.exports = {
   calculateTractCentroid,
   calculateOptimalDivision,
   createStep,
+  createUnionPolygon,
+  createUnionPolygonsForGroup,
   detectEnclosedTracts,
   ALGORITHM_VERSION
 };

@@ -132,10 +132,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Check if we're on production (geodistricts.org)
+    const isProduction = typeof window !== 'undefined' && 
+      (window.location.hostname === 'geodistricts.org' || 
+       window.location.hostname.includes('geodistricts.org'));
+    
     // Load showTractBoundaries from localStorage
-    const saved = localStorage.getItem('showTractBoundaries');
-    if (saved !== null) {
-      this.showTractBoundaries = saved === 'true';
+    // On production (geodistricts.org), default to false (unchecked)
+    if (isProduction) {
+      this.showTractBoundaries = false;
+      // Clear any cached value on production to ensure default
+      localStorage.removeItem('showTractBoundaries');
+    } else {
+      const saved = localStorage.getItem('showTractBoundaries');
+      if (saved !== null) {
+        this.showTractBoundaries = saved === 'true';
+      }
     }
 
     // Load selected state from localStorage
@@ -707,44 +719,59 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       
-      // If showTractBoundaries is false and union polygon exists, render the union polygon
-      if (!this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry) {
-        console.log(`✅ Rendering union polygon for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
-        try {
-          const unionProperties = district.unionPolygon.properties || {};
-          
-          const geoJson = L.geoJSON(district.unionPolygon, {
-            style: {
-              color: color, // Match fill color for seamless appearance
-              weight: 2, // Slightly thicker border for district outline
-              opacity: 1.0, // Full opacity for district boundaries
-              fillOpacity: 0.7,
-              fillColor: color
-            }
-          }).bindPopup(`
-            <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-            <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
-            <strong>Tracts in District:</strong> ${district.censusTracts.length}
-          `);
-
-          this.tractLayer!.addLayer(geoJson);
-          this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
-          totalTracts++;
-
-          // Extend bounds
-          const unionBounds = geoJson.getBounds();
-          if (unionBounds && unionBounds.isValid()) {
-            bounds.extend(unionBounds);
-            hasBounds = true;
+      // If showTractBoundaries is false and union polygon(s) exist, render them
+      // Check for unionPolygons array first (for groups with isolated tracts/multiple connected components)
+      const unionPolygons = (district as any).unionPolygons;
+      const hasUnionPolygons = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+      const hasSingleUnionPolygon = !this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry;
+      
+      if (hasUnionPolygons || hasSingleUnionPolygon) {
+        const polygonsToRender = hasUnionPolygons ? unionPolygons : [district.unionPolygon];
+        console.log(`✅ Rendering ${polygonsToRender.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
+        
+        polygonsToRender.forEach((unionPolygon: any, polygonIndex: number) => {
+          if (!unionPolygon || !unionPolygon.geometry) {
+            console.warn(`⚠️ Union polygon ${polygonIndex} is invalid for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
+            return;
           }
-        } catch (error) {
-          console.error('⚠️ Error rendering union polygon:', error, district.unionPolygon);
-          // Fall through to render individual tracts if union fails
-        }
+          
+          try {
+            const unionProperties = unionPolygon.properties || {};
+            
+            const geoJson = L.geoJSON(unionPolygon, {
+              style: {
+                color: color, // Match fill color for seamless appearance
+                weight: 2, // Slightly thicker border for district outline
+                opacity: 1.0, // Full opacity for district boundaries
+                fillOpacity: 0.7,
+                fillColor: color
+              }
+            }).bindPopup(`
+              <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
+              ${hasUnionPolygons ? `<strong>Component:</strong> ${polygonIndex + 1} of ${polygonsToRender.length}<br>` : ''}
+              <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
+              <strong>Tracts in District:</strong> ${district.censusTracts.length}
+            `);
+
+            this.tractLayer!.addLayer(geoJson);
+            this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
+            totalTracts++;
+
+            // Extend bounds
+            const unionBounds = geoJson.getBounds();
+            if (unionBounds && unionBounds.isValid()) {
+              bounds.extend(unionBounds);
+              hasBounds = true;
+            }
+          } catch (error) {
+            console.error(`⚠️ Error rendering union polygon ${polygonIndex} for district ${district.startDistrictNumber}-${district.endDistrictNumber}:`, error, unionPolygon);
+          }
+        });
       } else {
         // Render individual tracts (when showTractBoundaries is true or union polygon not available)
         if (!this.showTractBoundaries) {
-          console.log(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon not available (has union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry})`);
+          const hasUnionPolygons = Array.isArray((district as any).unionPolygons) && (district as any).unionPolygons.length > 0;
+          console.log(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon(s) not available (has unionPolygons array: ${hasUnionPolygons}, has single union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry})`);
         }
         district.censusTracts.forEach((tract: GeoJsonFeature) => {
           if (!tract) {

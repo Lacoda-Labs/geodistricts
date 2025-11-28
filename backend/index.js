@@ -2998,6 +2998,17 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   // Replace the district group's tracts with the fresh tracts we just loaded
                   stepData.districtGroups[0].censusTracts = tracts;
                   console.log(`✅ STEP 0: Using ${tracts.length} fresh tracts instead of cached reconstruction`);
+                  
+                  // Recreate union polygon for step 0 since we replaced the tracts
+                  // Import createUnionPolygon function
+                  const { createUnionPolygon } = require('./services/geodistrict-algorithm');
+                  const unionPolygon = createUnionPolygon(stepData.districtGroups[0]);
+                  if (unionPolygon) {
+                    stepData.districtGroups[0].unionPolygon = unionPolygon;
+                    console.log(`✅ STEP 0: Recreated union polygon for step 0`);
+                  } else {
+                    console.warn(`⚠️ STEP 0: Failed to recreate union polygon`);
+                  }
                 }
                 
                 // Reconstruct algorithm state from cached step
@@ -3576,6 +3587,49 @@ function normalizeStepData(step, tractCacheKey) {
 }
 
 /**
+ * Invalidate all subsequent step caches for a given step
+ * Uses Firestore query to find and delete all step caches for the state/algorithm
+ */
+async function invalidateSubsequentStepCaches(state, maxIterations, step) {
+  try {
+    // Query for all step caches for this state/algorithm
+    const stepCacheQuery = firestore.collection('census_cache')
+      .where('source', '==', 'algorithm-step-cache');
+    
+    const stepCacheSnapshot = await stepCacheQuery.get();
+    let deletedCount = 0;
+    for (const doc of stepCacheSnapshot.docs) {
+      const cacheKey = doc.id;
+      const data = doc.data();
+      // Check if this is a step cache for this state/algorithm and step number > step
+      const stepMatch = cacheKey.match(/algorithm_step_(\w+)_(\d+)_(\d+)/);
+      if (stepMatch && stepMatch[1] === state && parseInt(stepMatch[2]) === maxIterations) {
+        const stepNum = parseInt(stepMatch[3]);
+        if (stepNum > step) {
+          await doc.ref.delete();
+          deletedCount++;
+        }
+      }
+    }
+    console.log(`🗑️ Invalidated ${deletedCount} subsequent step cache(s) (steps ${step + 1}+) for ${state}`);
+  } catch (queryError) {
+    console.warn(`⚠️ Failed to query and invalidate subsequent step caches: ${queryError.message}`);
+    // Fallback: try to delete steps up to a reasonable limit (e.g., 100)
+    let deletedCount = 0;
+    for (let nextStep = step + 1; nextStep <= 100; nextStep++) {
+      const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
+      try {
+        await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
+        deletedCount++;
+      } catch (deleteError) {
+        // Continue with other steps even if one fails
+      }
+    }
+    console.log(`🗑️ Invalidated ${deletedCount} subsequent step cache(s) (steps ${step + 1} to 100) for ${state} using fallback method`);
+  }
+}
+
+/**
  * Reconstruct step data with tract geometries from state cache
  */
 function reconstructStepFromCache(normalizedStep, tractMap) {
@@ -3750,6 +3804,44 @@ function reconstructStepFromCache(normalizedStep, tractMap) {
 
   const totalTracts = reconstructed.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
   console.log(`✅ RECONSTRUCT: Completed - total ${totalTracts} tracts reconstructed across ${reconstructed.districtGroups.length} groups`);
+
+  // Recreate union polygons for all district groups since we replaced the tracts
+  // Union polygons are not stored in cache (too large), so we need to recreate them
+  const { createUnionPolygonsForGroup } = require('./services/geodistrict-algorithm');
+  const { GeodistrictAlgorithmService } = require('./services/geodistrict-algorithm');
+  const latLongDivisionService = require('./services/latlong-division');
+  const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService);
+  
+  // Build adjacency graph from all tracts for union polygon creation
+  let adjacencyGraph = null;
+  try {
+    // Collect all tracts from all groups
+    const allTracts = [];
+    for (const group of reconstructed.districtGroups) {
+      if (group.censusTracts) {
+        allTracts.push(...group.censusTracts);
+      }
+    }
+    if (allTracts.length > 0) {
+      adjacencyGraph = algorithmService.buildGeometryAdjacencyGraph(allTracts);
+    }
+  } catch (error) {
+    console.warn(`⚠️ RECONSTRUCT: Failed to build adjacency graph for union polygon recreation: ${error.message}`);
+  }
+  
+  // Recreate union polygons for each district group
+  for (const group of reconstructed.districtGroups) {
+    if (group.censusTracts && group.censusTracts.length > 0) {
+      const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
+      if (Array.isArray(unionPolygonOrArray)) {
+        group.unionPolygons = unionPolygonOrArray;
+        group.unionPolygon = unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined;
+      } else {
+        group.unionPolygon = unionPolygonOrArray || undefined;
+      }
+    }
+  }
+  console.log(`✅ RECONSTRUCT: Recreated union polygons for ${reconstructed.districtGroups.length} district groups`);
 
   return reconstructed;
 }
@@ -3951,15 +4043,7 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
         }
         
         // Also invalidate all subsequent step caches since they depend on this step
-        for (let nextStep = step + 1; nextStep <= 10; nextStep++) {
-          const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
-          try {
-            await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
-          } catch (deleteError) {
-            // Ignore errors for steps that don't exist
-          }
-        }
-        console.log(`🗑️ Invalidated all subsequent step caches (steps ${step + 1}+) for ${state}`);
+        await invalidateSubsequentStepCaches(state, maxIterations, step);
       } else {
         console.warn(`⚠️ Algorithm state not found for ${state}, cannot update state or invalidate cache`);
       }
@@ -4051,15 +4135,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
         }
         
         // Also invalidate all subsequent step caches since they depend on this step
-        for (let nextStep = step + 1; nextStep <= 10; nextStep++) {
-          const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
-          try {
-            await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
-          } catch (deleteError) {
-            // Ignore errors for steps that don't exist
-          }
-        }
-        console.log(`🗑️ Invalidated all subsequent step caches (steps ${step + 1}+) for ${state}`);
+        await invalidateSubsequentStepCaches(state, maxIterations, step);
       } else {
         console.warn(`⚠️ Algorithm state not found for ${state}, cannot update state or invalidate cache`);
       }
@@ -4273,15 +4349,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
 
     // Invalidate all subsequent step caches
-    for (let nextStep = step + 1; nextStep <= 10; nextStep++) {
-      const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
-      try {
-        await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
-      } catch (deleteError) {
-        // Ignore errors for steps that don't exist
-      }
-    }
-    console.log(`🗑️ Invalidated all subsequent step caches (steps ${step + 1}+) for ${state}`);
+    await invalidateSubsequentStepCaches(state, maxIterations, step);
 
     res.json({
       districtGroups: updatedGroups,
