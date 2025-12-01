@@ -36,8 +36,9 @@ const logger = require('../utils/logger');
  * 20251126-2300: Fixed cache persistence for isolated/bridge tract moves - when isolated or bridge tracts are moved, update algorithm state currentGroups and invalidate cached step and all subsequent step caches; ensures that subsequent steps use the updated data instead of the original cached step
  * 20251126-2320: Fixed moveIsolatedTracts to dynamically update group list after each move - processes all groups that currently have isolated tracts instead of continuing with original list; ensures single click processes all isolated tracts across all DGs
  * 20251128-2200: Fixed union polygon creation for MultiPolygon geometries - flatten MultiPolygon to individual Polygon features before dissolve/union operations; enables proper union of all tracts in district groups; added support for multiple union polygons per group when isolated tracts create multiple connected components
+ * 20251128-2300: Fixed bridge tract detection for small isolations - adjusted filtering logic to be less restrictive for small isolations; bridge tracts adjacent to 2+ isolated tracts are now included even if in main component; added comprehensive debug logging for all groups with isolated tracts
  */
-const ALGORITHM_VERSION = '20251128-2200';
+const ALGORITHM_VERSION = '20251128-2300';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -1658,8 +1659,9 @@ class GeodistrictAlgorithmService {
         }
         const allNeighborsInSource = neighborsInSourceGroup === tractNeighbors.length && tractNeighbors.length > 0;
         
-        // Debug logging for specific tract mentioned in issue
-        if (bridgeTract.tractId === '010102' || bridgeTract.tractId.includes('010102')) {
+        // Debug logging for all candidate bridge tracts (especially for District 5)
+        const isDistrict5 = isolatedGroup.startDistrictNumber === 5 && isolatedGroup.endDistrictNumber === 5;
+        if (isDistrict5 || bridgeTract.tractId === '010102' || bridgeTract.tractId.includes('010102')) {
           // Find the tract to get its properties
           const tract = allTracts.find(t => getTractId(t) === bridgeTract.tractId);
           console.log(`🔍 DEBUG Bridge tract ${bridgeTract.tractId}:`);
@@ -1669,41 +1671,56 @@ class GeodistrictAlgorithmService {
           console.log(`   Adjacent to ${bridgeTract.adjacentIsolatedCount} isolated tracts`);
           console.log(`   In main component: ${isInMainComponentOfSource} (reachable: ${tractReachableInSource}, max: ${sourceGroupMaxReachable})`);
           console.log(`   All neighbors in source: ${allNeighborsInSource} (${neighborsInSourceGroup}/${tractNeighbors.length})`);
-          console.log(`   Large isolation: ${isLargeIsolation}, Will include: ${!isInMainComponentOfSource && !allNeighborsInSource}`);
+          console.log(`   Large isolation: ${isLargeIsolation}`);
         }
         
         // For large isolations, be less restrictive - include if adjacent to multiple isolated tracts
         // For small isolations, be more careful about not breaking source group
+        // BUT: if a bridge tract is adjacent to isolated tracts, it should be considered even if in main component
+        let willInclude = false;
         if (isLargeIsolation) {
           // For large isolations, include if adjacent to at least 2 isolated tracts
           // OR if it's not fully embedded (has neighbors outside source group)
-          if (bridgeTract.adjacentIsolatedCount >= 2 || !allNeighborsInSource) {
-            bridgeTracts.push(bridgeTract);
-          }
+          willInclude = bridgeTract.adjacentIsolatedCount >= 2 || !allNeighborsInSource;
         } else {
-          // For small isolations, only include if it's not critical to its current group
-          if (!isInMainComponentOfSource && !allNeighborsInSource) {
-            bridgeTracts.push(bridgeTract);
-          }
+          // For small isolations, include if:
+          // 1. Adjacent to at least 1 isolated tract AND not fully embedded (has neighbors outside source group)
+          // 2. OR adjacent to multiple isolated tracts (even if in main component, it's worth considering)
+          willInclude = (bridgeTract.adjacentIsolatedCount >= 1 && !allNeighborsInSource) || 
+                        (bridgeTract.adjacentIsolatedCount >= 2);
+        }
+        
+        if (isDistrict5 || bridgeTract.tractId === '010102' || bridgeTract.tractId.includes('010102')) {
+          console.log(`   Will include: ${willInclude} (adjacentIsolatedCount=${bridgeTract.adjacentIsolatedCount}, allNeighborsInSource=${allNeighborsInSource}, isInMainComponent=${isInMainComponentOfSource})`);
+        }
+        
+        if (willInclude) {
+          bridgeTracts.push(bridgeTract);
         }
       }
       
       // Sort by number of adjacent isolated tracts (best bridges first)
       bridgeTracts.sort((a, b) => b.adjacentIsolatedCount - a.adjacentIsolatedCount);
       
-      // Debug logging for groups with many isolated tracts
-      if (isolatedCount >= 10) {
-        console.log(`🔍 DEBUG Group ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}: ${isolatedCount} isolated tracts`);
-        console.log(`   Found ${candidateBridgeTracts.size} candidate bridge tracts, ${bridgeTracts.length} passed filters`);
-        if (candidateBridgeTracts.size > 0 && bridgeTracts.length === 0) {
-          console.log(`   ⚠️ All candidates filtered out! Top candidates:`);
-          const sortedCandidates = Array.from(candidateBridgeTracts.values())
-            .sort((a, b) => b.adjacentIsolatedCount - a.adjacentIsolatedCount)
-            .slice(0, 5);
-          for (const candidate of sortedCandidates) {
-            const sourceGroup = districtGroups[candidate.fromGroupIndex];
-            console.log(`     - ${candidate.tractId} (from ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber}, ${candidate.adjacentIsolatedCount} adjacent isolated)`);
-          }
+      // Debug logging for all groups with isolated tracts (not just large ones)
+      console.log(`🔍 DEBUG Group ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}: ${isolatedCount} isolated tracts`);
+      console.log(`   Found ${candidateBridgeTracts.size} candidate bridge tracts, ${bridgeTracts.length} passed filters`);
+      if (candidateBridgeTracts.size > 0 && bridgeTracts.length === 0) {
+        console.log(`   ⚠️ All candidates filtered out! Top candidates:`);
+        const sortedCandidates = Array.from(candidateBridgeTracts.values())
+          .sort((a, b) => b.adjacentIsolatedCount - a.adjacentIsolatedCount)
+          .slice(0, 5);
+        for (const candidate of sortedCandidates) {
+          const sourceGroup = districtGroups[candidate.fromGroupIndex];
+          const tract = allTracts.find(t => getTractId(t) === candidate.tractId);
+          const sourceGroupMaxReachable = this.calculateMaxReachableCount(sourceGroup.censusTracts, adjacencyGraph);
+          const tractReachableInSource = this.calculateReachableTracts(candidate.tractId, sourceGroup.censusTracts, adjacencyGraph);
+          const isInMainComponent = tractReachableInSource >= sourceGroupMaxReachable * 0.95;
+          const tractNeighbors = adjacencyGraph.get(candidate.tractId) || [];
+          const sourceGroupTractIds = new Set(sourceGroup.censusTracts.map(t => getTractId(t)));
+          const neighborsInSource = tractNeighbors.filter(id => sourceGroupTractIds.has(id)).length;
+          const allNeighborsInSource = neighborsInSource === tractNeighbors.length && tractNeighbors.length > 0;
+          console.log(`     - ${candidate.tractId} (from ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber}, ${candidate.adjacentIsolatedCount} adjacent isolated, inMainComponent=${isInMainComponent}, allNeighborsInSource=${allNeighborsInSource})`);
         }
       }
       

@@ -568,10 +568,23 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         next: (stepData) => {
           const { step: newStep, stepIndex, isComplete } = stepData;
           
+          // Handle case where algorithm completes and newStep is null
+          if (isComplete && !newStep) {
+            console.log(`✅ Algorithm completed at step ${stepIndex}, no new step data`);
+            // Use the last step if available, or show completion message
+            if (this.currentStep) {
+              console.log(`📥 Using current step as final step`);
+              return; // Keep current step displayed
+            } else {
+              console.warn(`⚠️ Algorithm completed but no step data available`);
+              return;
+            }
+          }
+          
           // When algorithm is complete, newStep is a result object with finalDistricts, not a step object
           // Convert it to a step-like object for consistency
           let stepToUse = newStep;
-          if (isComplete && (newStep as any).finalDistricts) {
+          if (isComplete && newStep && (newStep as any).finalDistricts) {
             const result = newStep as any;
             stepToUse = {
               step: stepIndex,
@@ -585,8 +598,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               districtGroups: result.finalDistricts // Use finalDistricts as districtGroups for consistency
             } as any;
             console.log(`📥 Received final step ${stepIndex}: ${result.finalDistricts.length} districts`);
-          } else {
+          } else if (newStep) {
             console.log(`📥 Received step ${stepIndex}:`, (newStep as any).description);
+          } else {
+            console.warn(`⚠️ Received null step data at step ${stepIndex}`);
+            return;
           }
 
           // Store the step

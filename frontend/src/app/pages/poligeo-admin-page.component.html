@@ -1,0 +1,351 @@
+<div class="admin-page-container">
+  <div class="page-header">
+    <h1>PoliGeo Analyst Admin</h1>
+    <p class="subtitle">Manage VEST data and generate district voting reports</p>
+  </div>
+
+  <div class="content-section">
+    <!-- VEST Data Management Section -->
+    <mat-card class="action-card">
+      <mat-card-header>
+        <mat-card-title>VEST Data Management</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="vest-status-section">
+          <div class="status-header">
+            <h3>Data Availability</h3>
+            <button mat-icon-button (click)="loadVESTStatus()" [disabled]="loadingVESTStatus">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+
+          <div *ngIf="loadingVESTStatus" class="loading-indicator">
+            <mat-spinner diameter="30"></mat-spinner>
+            <span>Loading VEST status...</span>
+          </div>
+
+          <div *ngIf="!loadingVESTStatus && vestStatus" class="vest-years">
+            <!-- Local Files Status -->
+            <div *ngIf="hasLocalFiles()" class="local-files-notice">
+              <mat-icon color="primary">folder</mat-icon>
+              <div class="notice-content">
+                <strong>Local Files Detected</strong>
+                <p>Found {{ getLocalFilesCount() }} file(s) in dataverse_files directory. Click "Process Local Files" to load them.</p>
+                <div class="local-files-list">
+                  <span *ngFor="let file of getLocalFiles()" class="file-chip">{{ file }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="year-card" *ngFor="let year of [2016, 2020, 2024]">
+              <div class="year-header">
+                <span class="year-label">{{ year }}</span>
+                <mat-chip 
+                  [color]="isVESTAvailable(year) ? 'primary' : (year === 2024 ? 'accent' : 'warn')" 
+                  class="status-chip">
+                  {{ isVESTAvailable(year) ? 'Available' : (year === 2024 ? 'Not Released' : 'Not Available') }}
+                </mat-chip>
+              </div>
+              
+              <!-- Summary Section -->
+              <div *ngIf="isVESTAvailable(year) && vestStatus.metadata[year]" class="year-summary">
+                <div class="summary-content">
+                  <div *ngIf="vestStatus.metadata[year].dataType === 'county_level'" class="summary-text">
+                    <mat-icon class="summary-icon">location_city</mat-icon>
+                    <span>County-level data for {{ vestStatus.metadata[year].totalCounties | number }} counties. Votes will be allocated to tracts using spatial intersection.</span>
+                  </div>
+                  <div *ngIf="vestStatus.metadata[year].dataType !== 'county_level' && vestStatus.metadata[year].totalTracts" class="summary-text">
+                    <mat-icon class="summary-icon">map</mat-icon>
+                    <span>Tract-level data for {{ vestStatus.metadata[year].totalTracts | number }} census tracts.</span>
+                  </div>
+                  <div *ngIf="!isVESTAvailable(year)" class="summary-text">
+                    <mat-icon class="summary-icon">info</mat-icon>
+                    <span>VEST data not yet processed for {{ year }}.</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div *ngIf="isVESTAvailable(year) && vestStatus.metadata[year]" class="year-metadata">
+                <div class="metadata-item">
+                  <span class="label">Data Type:</span>
+                  <span class="value">{{ vestStatus.metadata[year].dataType || 'tract-level' }}</span>
+                </div>
+                <div class="metadata-item" *ngIf="vestStatus.metadata[year].totalTracts">
+                  <span class="label">Tracts:</span>
+                  <span class="value">{{ vestStatus.metadata[year].totalTracts | number }}</span>
+                </div>
+                <div class="metadata-item" *ngIf="vestStatus.metadata[year].totalCounties">
+                  <span class="label">Counties:</span>
+                  <span class="value">{{ vestStatus.metadata[year].totalCounties | number }}</span>
+                </div>
+                <div class="metadata-item" *ngIf="vestStatus.metadata[year].coverage">
+                  <span class="label">Coverage:</span>
+                  <span class="value">{{ (vestStatus.metadata[year].coverage * 100) | number:'1.1-1' }}%</span>
+                </div>
+                <div class="metadata-item" *ngIf="vestStatus.metadata[year].processedAt">
+                  <span class="label">Processed:</span>
+                  <span class="value">{{ vestStatus.metadata[year].processedAt | date:'short' }}</span>
+                </div>
+              </div>
+              <div class="year-actions">
+                <button 
+                  mat-raised-button 
+                  color="primary" 
+                  size="small"
+                  (click)="processLocalVESTData(year, false)"
+                  [disabled]="isVESTDownloading(year)"
+                  *ngIf="hasLocalFiles()">
+                  <mat-icon *ngIf="!isVESTDownloading(year)">upload_file</mat-icon>
+                  <mat-spinner *ngIf="isVESTDownloading(year)" diameter="16" class="inline-spinner"></mat-spinner>
+                  {{ isVESTDownloading(year) ? 'Processing...' : 'Process Local' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bulk-actions" *ngIf="hasLocalFiles()">
+            <button 
+              mat-raised-button 
+              color="primary"
+              (click)="processAllLocalVESTData(false)">
+              <mat-icon>upload_file</mat-icon>
+              Process All Local Files
+            </button>
+          </div>
+
+          <div *ngIf="vestStatus && vestStatus.lastUpdated" class="last-updated">
+            <span class="label">Last Updated:</span>
+            <span class="value">{{ vestStatus.lastUpdated | date:'medium' }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- District Report Generation Section -->
+    <mat-card class="action-card">
+      <mat-card-header>
+        <mat-card-title>District Report Generation</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="report-section">
+          <mat-form-field appearance="outline" class="state-select">
+            <mat-label>Select State</mat-label>
+            <mat-select [(ngModel)]="selectedState" (selectionChange)="onStateSelected()">
+              <mat-option *ngFor="let state of allStates" [value]="state.code">
+                {{ state.name }} ({{ state.code }}) - {{ state.districts }} districts
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="button-group">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="generateDistrictReport()"
+              [disabled]="!selectedState || generatingReport">
+              <mat-icon *ngIf="!generatingReport">assessment</mat-icon>
+              <mat-spinner *ngIf="generatingReport" diameter="20" class="inline-spinner"></mat-spinner>
+              {{ generatingReport ? 'Generating...' : 'Generate District Report' }}
+            </button>
+          </div>
+
+          <!-- State Summary -->
+          <div *ngIf="selectedState && stateSummary" class="state-summary-card">
+            <div class="summary-header">
+              <h4>{{ getStateName(selectedState) }} - {{ stateSummary.year }} Presidential Election Summary</h4>
+              <mat-chip [color]="stateSummary.partyLeanColor === 'democratic' ? 'primary' : (stateSummary.partyLeanColor === 'republican' ? 'warn' : 'accent')">
+                {{ stateSummary.partyLean }}
+              </mat-chip>
+            </div>
+            <div class="summary-stats">
+              <div class="stat-item">
+                <div class="stat-label">Total Votes</div>
+                <div class="stat-value">{{ stateSummary.totalVotes | number }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Democratic</div>
+                <div class="stat-value dem">{{ stateSummary.votesDem | number }}</div>
+                <div class="stat-percent">{{ stateSummary.pctDem }}%</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Republican</div>
+                <div class="stat-value rep">{{ stateSummary.votesRep | number }}</div>
+                <div class="stat-percent">{{ stateSummary.pctRep }}%</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Dem Advantage</div>
+                <div class="stat-value" [class.positive]="stateSummary.demAdvantage > 0" [class.negative]="stateSummary.demAdvantage < 0">
+                  {{ stateSummary.demAdvantage > 0 ? '+' : '' }}{{ stateSummary.demAdvantage.toFixed(1) }}%
+                </div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Counties</div>
+                <div class="stat-value">{{ stateSummary.totalCounties }}</div>
+              </div>
+            </div>
+            
+            <!-- County Table -->
+            <div *ngIf="stateSummary && stateSummary.counties && stateSummary.counties.length > 0" class="county-table-section">
+              <h5>County Breakdown</h5>
+              <div class="table-container">
+                <table mat-table [dataSource]="countyDataSource" class="county-table">
+                  <!-- County Name Column -->
+                  <ng-container matColumnDef="countyName">
+                    <th mat-header-cell *matHeaderCellDef>County</th>
+                    <td mat-cell *matCellDef="let county">{{ county.countyName }}</td>
+                  </ng-container>
+
+                  <!-- Total Votes Column -->
+                  <ng-container matColumnDef="totalVotes">
+                    <th mat-header-cell *matHeaderCellDef>Total Votes</th>
+                    <td mat-cell *matCellDef="let county">{{ county.totalVotes | number }}</td>
+                  </ng-container>
+
+                  <!-- Democratic Votes Column -->
+                  <ng-container matColumnDef="votesDem">
+                    <th mat-header-cell *matHeaderCellDef>Dem Votes</th>
+                    <td mat-cell *matCellDef="let county" class="dem-value">{{ county.votesDem | number }}</td>
+                  </ng-container>
+
+                  <!-- Republican Votes Column -->
+                  <ng-container matColumnDef="votesRep">
+                    <th mat-header-cell *matHeaderCellDef>Rep Votes</th>
+                    <td mat-cell *matCellDef="let county" class="rep-value">{{ county.votesRep | number }}</td>
+                  </ng-container>
+
+                  <!-- Democratic Percentage Column -->
+                  <ng-container matColumnDef="pctDem">
+                    <th mat-header-cell *matHeaderCellDef>Dem %</th>
+                    <td mat-cell *matCellDef="let county" class="dem-value">{{ county.pctDem }}%</td>
+                  </ng-container>
+
+                  <!-- Republican Percentage Column -->
+                  <ng-container matColumnDef="pctRep">
+                    <th mat-header-cell *matHeaderCellDef>Rep %</th>
+                    <td mat-cell *matCellDef="let county" class="rep-value">{{ county.pctRep }}%</td>
+                  </ng-container>
+
+                  <!-- Democratic Advantage Column -->
+                  <ng-container matColumnDef="demAdvantage">
+                    <th mat-header-cell *matHeaderCellDef>Dem Advantage</th>
+                    <td mat-cell *matCellDef="let county" 
+                        [class.positive]="county.demAdvantage > 0" 
+                        [class.negative]="county.demAdvantage < 0">
+                      {{ county.demAdvantage > 0 ? '+' : '' }}{{ county.demAdvantage.toFixed(1) }}%
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="countyDisplayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: countyDisplayedColumns;"></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="selectedState && !stateSummary && !loadingStateSummary" class="state-info">
+            <h4>{{ getStateName(selectedState) }}</h4>
+            <p class="info-text">
+              This will analyze all existing congressional districts for {{ getStateName(selectedState) }} 
+              using VEST voting data and generate a comprehensive report.
+            </p>
+          </div>
+
+          <div *ngIf="loadingStateSummary" class="loading-state-summary">
+            <mat-spinner diameter="30"></mat-spinner>
+            <span>Loading state summary...</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Error Message -->
+    <mat-card *ngIf="errorMessage" class="error-card">
+      <mat-card-content>
+        <div class="error-message">
+          <mat-icon color="warn">error</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- District Reports Table -->
+    <mat-card *ngIf="districtReports.length > 0" class="report-card">
+      <mat-card-header>
+        <mat-card-title>District Reports: {{ getStateName(selectedState) }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-container">
+          <table mat-table [dataSource]="tableDataSource" class="district-table">
+            <!-- District Column -->
+            <ng-container matColumnDef="district">
+              <th mat-header-cell *matHeaderCellDef>District</th>
+              <td mat-cell *matCellDef="let report">{{ report.district }}</td>
+            </ng-container>
+
+            <!-- Tract Count Column -->
+            <ng-container matColumnDef="tractCount">
+              <th mat-header-cell *matHeaderCellDef>Tracts</th>
+              <td mat-cell *matCellDef="let report">{{ report.tractCount }}</td>
+            </ng-container>
+
+            <!-- Democratic Votes Column -->
+            <ng-container matColumnDef="votesDem2020">
+              <th mat-header-cell *matHeaderCellDef>Dem Votes</th>
+              <td mat-cell *matCellDef="let report">{{ formatNumber(report.votesDem2020) }}</td>
+            </ng-container>
+
+            <!-- Republican Votes Column -->
+            <ng-container matColumnDef="votesRep2020">
+              <th mat-header-cell *matHeaderCellDef>Rep Votes</th>
+              <td mat-cell *matCellDef="let report">{{ formatNumber(report.votesRep2020) }}</td>
+            </ng-container>
+
+            <!-- Democratic Percent Column -->
+            <ng-container matColumnDef="pctDem2020">
+              <th mat-header-cell *matHeaderCellDef>Dem %</th>
+              <td mat-cell *matCellDef="let report">
+                <div class="percent-bar">
+                  <div class="percent-bar-fill democratic" [style.width.%]="report.pctDem2020"></div>
+                  <span class="percent-text">{{ formatPercent(report.pctDem2020) }}</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Republican Percent Column -->
+            <ng-container matColumnDef="pctRep2020">
+              <th mat-header-cell *matHeaderCellDef>Rep %</th>
+              <td mat-cell *matCellDef="let report">
+                <div class="percent-bar">
+                  <div class="percent-bar-fill republican" [style.width.%]="report.pctRep2020"></div>
+                  <span class="percent-text">{{ formatPercent(report.pctRep2020) }}</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Democratic Advantage Column -->
+            <ng-container matColumnDef="demAdvantage">
+              <th mat-header-cell *matHeaderCellDef>Dem Advantage</th>
+              <td mat-cell *matCellDef="let report" [class.positive]="report.demAdvantage > 0" [class.negative]="report.demAdvantage < 0">
+                {{ report.demAdvantage > 0 ? '+' : '' }}{{ formatPercent(report.demAdvantage) }}
+              </td>
+            </ng-container>
+
+            <!-- Party Lean Column -->
+            <ng-container matColumnDef="partyLean">
+              <th mat-header-cell *matHeaderCellDef>Party Lean</th>
+              <td mat-cell *matCellDef="let report">
+                <mat-chip [color]="report.pctDem2020 > 50 ? 'primary' : 'warn'">
+                  {{ report.partyLean }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
