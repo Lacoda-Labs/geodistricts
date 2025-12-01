@@ -357,47 +357,80 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Initialize algorithm and load step 0
-   * Returns an Observable that emits step 0
+   * Initialize algorithm and load step 0, or final step if available
+   * Returns an Observable that emits step 0 or the final step
    */
   initializeAlgorithm(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
     const { state, maxIterations = 100 } = options;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    
+    // First, try to get the final step if available
+    const finalStepUrl = `${backendUrl}/api/algorithm/final-step/${state}`;
     const executeUrl = `${backendUrl}/api/algorithm/execute/step-by-step`;
 
-    console.log(`🚀 Initializing algorithm for ${state}: ${executeUrl}`);
+    console.log(`🚀 Initializing algorithm for ${state}: checking for final step first`);
 
-    return this.http.post<{
+    return this.http.get<{
       step: number;
       data: GeodistrictStep;
       isComplete: boolean;
-    }>(executeUrl, {
-      state,
-      maxIterations,
-      options: {}
-    }, {
+    }>(finalStepUrl, {
       headers: {
         'Content-Type': 'application/json'
       }
     }).pipe(
       map(response => {
-        console.log(`📥 Raw response from backend:`, response);
-        console.log(`📥 Response step:`, response.step);
-        console.log(`📥 Response data (step):`, response.data);
-        console.log(`📥 Step districtGroups:`, response.data?.districtGroups);
-        console.log(`📥 First district group:`, response.data?.districtGroups?.[0]);
-        console.log(`📥 First district group tracts count:`, response.data?.districtGroups?.[0]?.censusTracts?.length);
-        if (response.data?.districtGroups?.[0]?.censusTracts?.length > 0) {
-          console.log(`📥 First tract sample:`, response.data.districtGroups[0].censusTracts[0]);
-          console.log(`📥 First tract has geometry:`, !!response.data.districtGroups[0].censusTracts[0]?.geometry);
-        }
+        console.log(`✅ Found final step ${response.step} for ${state}`);
+        console.log(`📥 Final step districtGroups:`, response.data?.districtGroups);
         
-        // Union polygons are created on the backend
         return {
           step: response.data,
           stepIndex: response.step,
           isComplete: response.isComplete || false
         };
+      }),
+      catchError(finalStepError => {
+        // If no final step found (404), fall back to step 0
+        // For other errors, also fall back to step 0
+        if (finalStepError.status === 404) {
+          console.log(`ℹ️ No final step found for ${state}, loading step 0`);
+        } else {
+          console.warn(`⚠️ Error checking for final step: ${finalStepError.message}, falling back to step 0`);
+        }
+        
+        return this.http.post<{
+          step: number;
+          data: GeodistrictStep;
+          isComplete: boolean;
+        }>(executeUrl, {
+          state,
+          maxIterations,
+          options: {}
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }).pipe(
+          map(response => {
+            console.log(`📥 Raw response from backend:`, response);
+            console.log(`📥 Response step:`, response.step);
+            console.log(`📥 Response data (step):`, response.data);
+            console.log(`📥 Step districtGroups:`, response.data?.districtGroups);
+            console.log(`📥 First district group:`, response.data?.districtGroups?.[0]);
+            console.log(`📥 First district group tracts count:`, response.data?.districtGroups?.[0]?.censusTracts?.length);
+            if (response.data?.districtGroups?.[0]?.censusTracts?.length > 0) {
+              console.log(`📥 First tract sample:`, response.data.districtGroups[0].censusTracts[0]);
+              console.log(`📥 First tract has geometry:`, !!response.data.districtGroups[0].censusTracts[0]?.geometry);
+            }
+            
+            // Union polygons are created on the backend
+            return {
+              step: response.data,
+              stepIndex: response.step,
+              isComplete: response.isComplete || false
+            };
+          })
+        );
       }),
       catchError(error => {
         console.error('❌ Algorithm initialization failed:', error);

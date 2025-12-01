@@ -62,7 +62,7 @@ export class PageHeaderComponent implements OnChanges {
     const isOnMapsPage = this.router.url.includes('/maps');
 
     if (!isOnMapsPage && stateValue) {
-      // Navigate to maps page - it will automatically load the state and run algorithm
+      // Navigate to maps page - it will automatically load the state and run algorithm (if not "ALL")
       this.router.navigate(['/maps']);
     } else {
       // If already on maps page, just emit the change event

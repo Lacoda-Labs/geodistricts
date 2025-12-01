@@ -4,7 +4,7 @@
   </button>
   <div class="state-select-group" *ngIf="showStateSelector">
     <select id="stateSelect" [(ngModel)]="internalSelectedState" (change)="onStateChange()">
-      <option value="">Select State</option>
+      <option value="ALL">United States</option>
       <option *ngFor="let state of states" [value]="state.code">
         {{ state.name }} ({{ state.districts }} districts)
       </option>

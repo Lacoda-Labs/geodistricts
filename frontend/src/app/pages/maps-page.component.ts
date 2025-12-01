@@ -160,12 +160,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     setTimeout(() => {
       this.initializeMap();
-      // If a state was saved, automatically run the algorithm after map is initialized
+      // If a state was saved, automatically update map view and run algorithm if not "ALL"
       if (this.selectedState) {
         // Wait a bit longer to ensure map is fully initialized
         setTimeout(() => {
           this.updateMapView();
-          this.runAlgorithm();
+          if (this.selectedState !== 'ALL') {
+            this.runAlgorithm();
+          }
         }, 300);
       }
     }, 100);
@@ -188,6 +190,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       scrollWheelZoom: true
     }).setView([39.8283, -98.5795], 4); // Center of US
 
+    // Log initial zoom level
+    console.log(`🗺️ Map initialized - Current zoom level: ${this.map.getZoom()}`);
+
+    // Listen for zoom changes
+    this.map.on('zoomend', () => {
+      if (this.map) {
+        console.log(`🔍 Map zoom changed - New zoom level: ${this.map.getZoom()}`);
+      }
+    });
+
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -206,7 +218,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Persist selected state to localStorage
       localStorage.setItem('selectedState', this.selectedState);
       this.updateMapView();
-      this.runAlgorithm();
+      // Only run algorithm if not "ALL"
+      if (this.selectedState !== 'ALL') {
+        this.runAlgorithm();
+      } else {
+        // Clear algorithm result when showing "ALL"
+        this.algorithmResult = null;
+        this.currentStep = null;
+        this.currentStepIndex = 0;
+        if (this.tractLayer) {
+          this.tractLayer.clearLayers();
+        }
+      }
     } else {
       // Clear saved state if no state is selected
       localStorage.removeItem('selectedState');
@@ -218,7 +241,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Persist selected state to localStorage
       localStorage.setItem('selectedState', this.selectedState);
       this.updateMapView();
-      this.runAlgorithm();
+      // Only run algorithm if not "ALL"
+      if (this.selectedState !== 'ALL') {
+        this.runAlgorithm();
+      } else {
+        // Clear algorithm result when showing "ALL"
+        this.algorithmResult = null;
+        this.currentStep = null;
+        this.currentStepIndex = 0;
+        if (this.tractLayer) {
+          this.tractLayer.clearLayers();
+        }
+      }
     } else {
       // Clear saved state if no state is selected
       localStorage.removeItem('selectedState');
@@ -267,6 +301,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private updateMapView(): void {
     if (!this.map || !this.selectedState) return;
+
+    // Handle "ALL" case - show United States view
+    if (this.selectedState === 'ALL') {
+      this.map.setView([39.8283, -98.5795], 3); // Center of US, zoom level 3
+      return;
+    }
 
     const stateCenter = this.getStateCenter(this.selectedState);
     this.map.setView(stateCenter, 7);
@@ -330,8 +370,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   runAllSteps(): void {
-    if (!this.selectedState) {
-      this.errorMessage = 'Please select a state first';
+    if (!this.selectedState || this.selectedState === 'ALL') {
+      if (this.selectedState === 'ALL') {
+        this.errorMessage = 'Please select a specific state to run the algorithm';
+      } else {
+        this.errorMessage = 'Please select a state first';
+      }
       return;
     }
 
@@ -405,8 +449,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   runAlgorithm(): void {
-    if (!this.selectedState) {
-      this.errorMessage = 'Please select a state first';
+    if (!this.selectedState || this.selectedState === 'ALL') {
+      if (this.selectedState === 'ALL') {
+        this.errorMessage = 'Please select a specific state to run the algorithm';
+      } else {
+        this.errorMessage = 'Please select a state first';
+      }
       return;
     }
 
@@ -429,7 +477,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     console.log(`🚀 Initializing algorithm for ${this.selectedState}`);
 
-    // Initialize algorithm and load step 0
+    // Initialize algorithm and load step 0 (or final step if available)
     const subscription = this.geodistrictService.initializeAlgorithm(options).subscribe({
       next: (stepData) => {
         const { step, stepIndex, isComplete } = stepData;
@@ -438,9 +486,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Store the step
         this.loadedSteps[stepIndex] = step;
 
-        // Display step 0 immediately
-        this.currentStepIndex = 0;
+        // Display the loaded step (could be step 0 or final step)
+        this.currentStepIndex = stepIndex;
         this.currentStep = step;
+        
+        // If this is the final step, update totalSteps
+        if (isComplete) {
+          this.totalSteps = stepIndex + 1;
+          this.isLoadingSteps = false;
+          console.log(`✅ Loaded final step ${stepIndex} for ${this.selectedState}`);
+        }
         
         // Populate isolated tracts data from step cache if available
         if (step.isolatedTractsData) {
@@ -468,13 +523,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           algorithmHistory: []
         };
 
-        console.log(`✅ Step 0 loaded: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
-        console.log(`🔍 Step 0 districtGroups:`, step.districtGroups);
+        const stepLabel = isComplete ? `final step ${stepIndex}` : `step ${stepIndex}`;
+        console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
+        console.log(`🔍 ${stepLabel} districtGroups:`, step.districtGroups);
         console.log(`🔍 First district group tracts:`, step.districtGroups[0]?.censusTracts?.slice(0, 3));
         
-        // Render step 0 on map - wait a bit longer to ensure map is ready
+        // Render the step on map - wait a bit longer to ensure map is ready
         setTimeout(() => {
-          console.log(`🖼️ About to render step 0, map initialized: ${!!this.map}, tractLayer initialized: ${!!this.tractLayer}`);
+          console.log(`🖼️ About to render ${stepLabel}, map initialized: ${!!this.map}, tractLayer initialized: ${!!this.tractLayer}`);
           console.log(`🖼️ currentStep:`, this.currentStep);
           console.log(`🖼️ algorithmResult:`, this.algorithmResult);
           if (!this.map || !this.tractLayer) {
@@ -1831,5 +1887,71 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       console.warn(`Tract layer not found for ID: ${tractId}`);
     }
   }
+
+  /**
+   * Get total state population (sum of all district groups)
+   */
+  get statePopulation(): number {
+    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
+      return 0;
+    }
+    return this.currentStep.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0);
+  }
+
+  /**
+   * Get target population per district group
+   * Target = (total state population / total state districts) * average districts per group
+   */
+  get targetDGPopulation(): number {
+    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
+      return 0;
+    }
+
+    const totalStatePopulation = this.statePopulation;
+    const stateInfo = this.states.find(s => s.code === this.selectedState);
+    if (!stateInfo) {
+      return 0;
+    }
+    
+    const totalStateDistricts = stateInfo.districts;
+    const targetPopulationPerDistrict = totalStatePopulation / totalStateDistricts;
+    
+    // Average districts per group
+    const avgDistrictsPerGroup = this.currentStep.districtGroups.reduce((sum, g) => sum + g.totalDistricts, 0) / this.currentStep.districtGroups.length;
+    
+    return targetPopulationPerDistrict * avgDistrictsPerGroup;
+  }
+
+  /**
+   * Calculate variance percentage for a district group
+   * Variance = ((actual - target) / target) * 100
+   * where target = (total state population / total state districts) * group.totalDistricts
+   */
+  getGroupVariance(group: DistrictGroup): number {
+    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
+      return 0;
+    }
+
+    // Get total state population (sum of all groups)
+    const totalStatePopulation = this.statePopulation;
+    
+    // Get total state districts from states array
+    const stateInfo = this.states.find(s => s.code === this.selectedState);
+    if (!stateInfo) {
+      return 0;
+    }
+    
+    const totalStateDistricts = stateInfo.districts;
+    
+    // Calculate target population for this group
+    const targetPopulationPerDistrict = totalStatePopulation / totalStateDistricts;
+    const targetPopulationForGroup = targetPopulationPerDistrict * group.totalDistricts;
+    
+    // Calculate variance percentage
+    const variance = ((group.totalPopulation - targetPopulationForGroup) / targetPopulationForGroup) * 100;
+    
+    return variance;
+  }
+
 }
 

@@ -83,6 +83,12 @@ class CloudStorageCache {
     } else if (cacheKey.startsWith('voter_registration_')) {
       const state = cacheKey.replace('voter_registration_', '').toUpperCase();
       return `voter-registration/${state}.json`;
+    } else if (cacheKey.startsWith('union_polygon_')) {
+      // Extract state and step from key: union_polygon_{state}_{step}_{group}
+      const parts = cacheKey.replace('union_polygon_', '').split('_');
+      const state = parts[0]?.toUpperCase() || 'unknown';
+      const step = parts[1] || 'unknown';
+      return `union-polygons/${state}/step-${step}/${cacheKey}.json`;
     } else {
       // Default: store in root with key as filename
       return `${type}/${cacheKey}.json`;
