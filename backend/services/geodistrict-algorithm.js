@@ -39,8 +39,11 @@ const logger = require('../utils/logger');
  * 20251128-2300: Fixed bridge tract detection for small isolations - adjusted filtering logic to be less restrictive for small isolations; bridge tracts adjacent to 2+ isolated tracts are now included even if in main component; added comprehensive debug logging for all groups with isolated tracts
  * 20251203-0000: Fixed union polygon visualization - use forceSingleUnion=true in createStep() and recreateUnionPolygonsForGroups() to create one dissolved polygon per district group for visualization, instead of multiple polygons per connected component; ensures clean district shapes when checkbox is unchecked
  * 20251203-0100: Fixed sibling_DG format bug in step reconstruction - always use full format DG{start}-{end} even when start equals end (e.g., DG2-2 not DG2); fixed algorithm state reconstruction for move-all-isolated-tracts endpoint; added GET /api/algorithm/step/:state/:stepNumber endpoint for loading previous steps
+ * 20251203-0200: Fixed bridge tract infinite loop - handle case where tract_DG and sibling_DG are the same; improved swap logic to set values directly instead of swapping when values are identical; added check to skip bridge tract movement if it doesn't reduce isolation count
+ * 20251203-0300: Additional fix for bridge tract movement logic
+ * 20251203-0400: Cache invalidation bump
  */
-const ALGORITHM_VERSION = '20251203-0100';
+const ALGORITHM_VERSION = '20251203-0400';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -1914,24 +1917,37 @@ class GeodistrictAlgorithmService {
         if (bridgeTract.properties) {
           const oldTractDG = bridgeTract.properties.tract_DG;
           const oldSiblingDG = bridgeTract.properties.sibling_DG;
+          const sourceDG = `DG${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber}`;
           const targetDG = `DG${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`;
           
-          if (oldTractDG && oldSiblingDG) {
-            // Swap: tract_DG becomes old sibling_DG, sibling_DG becomes old tract_DG
+          if (oldTractDG && oldSiblingDG && oldTractDG !== oldSiblingDG) {
+            // Normal case: swap tract_DG and sibling_DG
             bridgeTract.properties.tract_DG = oldSiblingDG;
             bridgeTract.properties.sibling_DG = oldTractDG;
             
             // Verify the new tract_DG matches the target group
             if (bridgeTract.properties.tract_DG !== targetDG) {
               console.warn(`⚠️ After swap, tract_DG (${bridgeTract.properties.tract_DG}) doesn't match target group (${targetDG})`);
+              // Fix it: set tract_DG to target and sibling_DG to source
+              bridgeTract.properties.tract_DG = targetDG;
+              bridgeTract.properties.sibling_DG = sourceDG;
             }
             
             console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${oldSiblingDG}, sibling_DG=${oldSiblingDG} -> ${oldTractDG}`);
+            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${bridgeTract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${bridgeTract.properties.sibling_DG}`);
+          } else if (oldTractDG === oldSiblingDG || !oldSiblingDG) {
+            // Edge case: both are the same or sibling_DG is missing - set directly instead of swapping
+            bridgeTract.properties.tract_DG = targetDG;
+            bridgeTract.properties.sibling_DG = sourceDG;
+            console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
+            console.log(`   Set DG: tract_DG=${oldTractDG || 'missing'} -> ${targetDG}, sibling_DG=${oldSiblingDG || 'missing'} -> ${sourceDG}`);
           } else {
             // Update tract_DG to match target group if properties missing
             if (!bridgeTract.properties.tract_DG) {
               bridgeTract.properties.tract_DG = targetDG;
+            }
+            if (!bridgeTract.properties.sibling_DG) {
+              bridgeTract.properties.sibling_DG = sourceDG;
             }
             console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
           }
@@ -2183,24 +2199,37 @@ class GeodistrictAlgorithmService {
         if (tract.properties) {
           const oldTractDG = tract.properties.tract_DG;
           const oldSiblingDG = tract.properties.sibling_DG;
+          const sourceDG = foundInGroups.length > 0 ? `DG${foundInGroups[0].split('-')[0]}-${foundInGroups[0].split('-')[1]}` : null;
           const targetDG = `DG${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`;
           
-          if (oldTractDG && oldSiblingDG) {
-            // Swap: tract_DG becomes old sibling_DG, sibling_DG becomes old tract_DG
+          if (oldTractDG && oldSiblingDG && oldTractDG !== oldSiblingDG) {
+            // Normal case: swap tract_DG and sibling_DG
             tract.properties.tract_DG = oldSiblingDG;
             tract.properties.sibling_DG = oldTractDG;
             
             // Verify the new tract_DG matches the target group
             if (tract.properties.tract_DG !== targetDG) {
               console.warn(`⚠️ After swap, tract_DG (${tract.properties.tract_DG}) doesn't match target group (${targetDG})`);
+              // Fix it: set tract_DG to target and sibling_DG to source (or old tract_DG if source not available)
+              tract.properties.tract_DG = targetDG;
+              tract.properties.sibling_DG = sourceDG || oldTractDG;
             }
             
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${oldSiblingDG}, sibling_DG=${oldSiblingDG} -> ${oldTractDG}`);
+            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
+            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${tract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${tract.properties.sibling_DG}`);
+          } else if (oldTractDG === oldSiblingDG || !oldSiblingDG) {
+            // Edge case: both are the same or sibling_DG is missing - set directly instead of swapping
+            tract.properties.tract_DG = targetDG;
+            tract.properties.sibling_DG = sourceDG || oldTractDG;
+            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
+            console.log(`   Set DG: tract_DG=${oldTractDG || 'missing'} -> ${targetDG}, sibling_DG=${oldSiblingDG || 'missing'} -> ${tract.properties.sibling_DG}`);
           } else {
             // Update tract_DG to match target group if properties missing
             if (!tract.properties.tract_DG) {
               tract.properties.tract_DG = targetDG;
+            }
+            if (!tract.properties.sibling_DG) {
+              tract.properties.sibling_DG = sourceDG || oldTractDG;
             }
             console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
           }
@@ -2284,6 +2313,8 @@ class GeodistrictAlgorithmService {
       if (bridgeResult.bridgeTractsByIsolatedGroup.size > 0) {
         logger.debug(`   Found bridge tracts for ${bridgeResult.bridgeTractsByIsolatedGroup.size} groups`);
         
+        const isolationCountBeforeBridge = isolationResult.isolatedTractIds.size;
+        
         for (const [isolatedGroupIndex, bridgeTracts] of bridgeResult.bridgeTractsByIsolatedGroup.entries()) {
           const bridgeTractIds = bridgeTracts.map(bt => bt.tractId);
           logger.debug(`   Moving ${bridgeTractIds.length} bridge tract(s) for isolated group ${isolatedGroupIndex}`);
@@ -2305,6 +2336,15 @@ class GeodistrictAlgorithmService {
         
         // Re-detect isolation after moving bridge tracts
         const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
+        
+        // Check if bridge tract movement actually helped (reduced isolation count)
+        if (isolationAfterBridge.isolatedTractIds.size >= isolationCountBeforeBridge) {
+          logger.debug(`⚠️ Bridge tract movement did not reduce isolation (${isolationCountBeforeBridge} -> ${isolationAfterBridge.isolatedTractIds.size}), skipping bridge tracts in future iterations for this step`);
+          // Don't break, continue to move isolated tracts directly
+        } else {
+          logger.debug(`✅ Bridge tract movement reduced isolation from ${isolationCountBeforeBridge} to ${isolationAfterBridge.isolatedTractIds.size}`);
+        }
+        
         if (isolationAfterBridge.isolatedTractIds.size === 0) {
           logger.debug(`✅ All isolation resolved after moving bridge tracts`);
           break;
