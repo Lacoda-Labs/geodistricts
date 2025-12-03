@@ -3555,84 +3555,108 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 /**
  * GET /api/algorithm/step/:state/:stepNumber
  * Get a specific step by number from cache
+ * Supports both cache formats:
+ * - algorithm_step_{state}_{maxIterations}_{step} (step-by-step execution, has stepData field)
+ * - step_{state}_{step}_{version} (Run All Steps execution, data directly in document)
  */
 app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
   try {
     const { state, stepNumber } = req.params;
     const stepNum = parseInt(stepNumber, 10);
     const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    const currentVersion = ALGORITHM_VERSION;
 
     if (isNaN(stepNum) || stepNum < 0) {
       return res.status(400).json({ error: 'Invalid step number' });
     }
 
-    // Get cached step
-    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-    const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    let doc = null;
+    let cachedEntry = null;
+    let stepCacheKey = null;
+
+    // Try step-by-step cache format first (algorithm_step_{state}_{maxIterations}_{step})
+    stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
     
-    if (!doc.exists) {
-      return res.status(404).json({ error: `Step ${stepNum} not found in cache` });
+    if (doc.exists) {
+      cachedEntry = doc.data();
+      // Check if expired
+      if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+        cachedEntry = null; // Mark as invalid
+      } else if (cachedEntry.algorithmVersion !== currentVersion) {
+        cachedEntry = null; // Mark as invalid
+      }
     }
 
-    const cachedEntry = doc.data();
-    
-    // Check if expired
-    if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
-      return res.status(404).json({ error: `Step ${stepNum} cache expired` });
+    // If not found or invalid, try Run All Steps cache format (step_{state}_{step}_{version})
+    if (!cachedEntry) {
+      stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      
+      if (doc.exists) {
+        cachedEntry = doc.data();
+        // Check if expired (Run All Steps uses ttl: null, so only check timestamp if ttl exists)
+        if (cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+          cachedEntry = null;
+        } else if (cachedEntry.algorithmVersion !== currentVersion) {
+          cachedEntry = null;
+        }
+      }
     }
 
-    // Check algorithm version
-    const cachedVersion = cachedEntry.algorithmVersion;
-    const currentVersion = ALGORITHM_VERSION;
-    
-    if (cachedVersion !== currentVersion) {
-      return res.status(404).json({ error: `Step ${stepNum} cache version mismatch` });
+    if (!cachedEntry) {
+      return res.status(404).json({ error: `Step ${stepNum} not found in cache for ${state}` });
     }
+
+    // Determine if step data is in 'stepData' field (step-by-step) or directly in cachedEntry (Run All Steps)
+    const hasStepDataField = cachedEntry.stepData !== undefined;
+    const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+    const isNormalized = cachedEntry.normalized;
+    const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`;
 
     // Reconstruct step data with tract geometries from state cache if needed
-    let stepData = cachedEntry.stepData;
+    let stepData = dataToReconstruct;
     
     // If normalized, reconstruct from state tract cache
-    if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
+    if (isNormalized && tractCacheKey) {
       try {
         // Fetch state-level tract cache
-        let stateTractCache;
-        const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+        const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
         
         if (stateTractDoc.exists) {
           const stateTractData = stateTractDoc.data();
-          if (stateTractData.algorithmVersion === ALGORITHM_VERSION && !isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
-            stateTractCache = stateTractData;
-          }
-        }
-        
-        // Get tract map from cache
-        let tractMap = null;
-        if (stateTractCache && stateTractCache.cloudStorage && stateTractCache.cloudStoragePath) {
-          const cloudStorageResult = await cloudStorageCache.get(cachedEntry.tractCacheKey);
-          if (cloudStorageResult && cloudStorageResult.data) {
-            tractMap = cloudStorageResult.data;
-          }
-        } else if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
-          const chunkDocs = await Promise.all(
-            stateTractCache.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
-          );
-          const allTracts = [];
-          for (const chunkDoc of chunkDocs) {
-            if (chunkDoc.exists && chunkDoc.data().data) {
-              allTracts.push(...chunkDoc.data().data);
+          if (stateTractData.algorithmVersion === currentVersion && 
+              (!stateTractData.timestamp || !isCacheExpired(stateTractData.timestamp, stateTractData.ttl))) {
+            
+            // Get tract map from cache
+            let tractMap = null;
+            if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+              const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
+              if (cloudStorageResult && cloudStorageResult.data) {
+                tractMap = cloudStorageResult.data;
+              }
+            } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+              const chunkDocs = await Promise.all(
+                stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+              );
+              const allTracts = [];
+              for (const chunkDoc of chunkDocs) {
+                if (chunkDoc.exists && chunkDoc.data().data) {
+                  allTracts.push(...chunkDoc.data().data);
+                }
+              }
+              tractMap = allTracts;
+            } else if (stateTractData.data) {
+              tractMap = stateTractData.data;
             }
-          }
-          tractMap = allTracts;
-        } else if (stateTractCache && stateTractCache.data) {
-          tractMap = stateTractCache.data;
-        }
-        
-        // Reconstruct step with tract geometries
-        if (tractMap) {
-          stepData = await reconstructStepFromCache(stepData, tractMap, false);
-          if (!stepData || !stepData.districtGroups) {
-            return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
+            
+            // Reconstruct step with tract geometries
+            if (tractMap) {
+              stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true); // Load union polygons
+              if (!stepData || !stepData.districtGroups) {
+                return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
+              }
+            }
           }
         }
       } catch (reconstructError) {
