@@ -4236,12 +4236,13 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       }
       
       if (group.censusTracts && group.censusTracts.length > 0) {
-        const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
-        if (Array.isArray(unionPolygonOrArray)) {
-          group.unionPolygons = unionPolygonOrArray;
-          group.unionPolygon = unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined;
-        } else {
-          group.unionPolygon = unionPolygonOrArray || undefined;
+        // Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
+        // This creates a single dissolved polygon even if tracts are isolated/disconnected
+        const unionPolygon = createUnionPolygonsForGroup(group, adjacencyGraph, true);
+        if (unionPolygon) {
+          group.unionPolygon = unionPolygon;
+          // Clear unionPolygons array since we're using a single union polygon
+          group.unionPolygons = undefined;
         }
       }
     }

@@ -185,3 +185,9 @@ This application includes:
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+
+## notes:
+```
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="geodistricts-api" AND resource.labels.location="us-central1" AND severity>=DEFAULT AND timestamp >= "2025-12-02T21:10:00-08:00"' --project=geodistricts --format="value(timestamp, textPayload)" --limit=1000 > console.debug/gcp-service-geodistricts-api.log
+```

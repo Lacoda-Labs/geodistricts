@@ -643,11 +643,18 @@ function findConnectedComponents(group, adjacencyGraph) {
  * If a group has isolated tracts (multiple connected components), returns an array of union polygons
  * @param {Object} group - District group containing tracts
  * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts (optional, for finding connected components)
+ * @param {boolean} forceSingleUnion - If true, create one union polygon for all tracts regardless of connectivity (for visualization)
  * @returns {Array<Object>|Object|null} - Array of GeoJSON features (one per connected component) or single feature, or null if union fails
  */
-function createUnionPolygonsForGroup(group, adjacencyGraph = null) {
+function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
+  }
+
+  // If forceSingleUnion is true, create one union polygon for all tracts (ignoring connectivity)
+  // This is useful for visualization when you want to see the district as one shape
+  if (forceSingleUnion) {
+    return createUnionPolygon(group);
   }
 
   // If adjacency graph is provided, check for multiple connected components

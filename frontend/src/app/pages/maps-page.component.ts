@@ -792,15 +792,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       
       // If showTractBoundaries is false and union polygon(s) exist, render them
-      // Check for unionPolygons array first (for groups with isolated tracts/multiple connected components)
-      const unionPolygons = (district as any).unionPolygons;
-      const hasUnionPolygons = !this.showTractBoundaries && Array.isArray(unionPolygons) && unionPolygons.length > 0;
-      // When showTractBoundaries is false, prefer union polygons over individual tracts
+      // Prefer single unionPolygon for visualization (one dissolved polygon for entire district)
+      // Fall back to unionPolygons array if single polygon not available (for backward compatibility)
       const hasSingleUnionPolygon = !this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry;
+      const unionPolygons = (district as any).unionPolygons;
+      const hasUnionPolygons = !this.showTractBoundaries && !hasSingleUnionPolygon && Array.isArray(unionPolygons) && unionPolygons.length > 0;
       
       // Use union polygons only when checkbox is unchecked (showTractBoundaries = false)
-      if (hasUnionPolygons || hasSingleUnionPolygon) {
-        const polygonsToRender = hasUnionPolygons ? unionPolygons : [district.unionPolygon];
+      if (hasSingleUnionPolygon || hasUnionPolygons) {
+        const polygonsToRender = hasSingleUnionPolygon ? [district.unionPolygon] : unionPolygons;
         console.log(`✅ Rendering ${polygonsToRender.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
         
         polygonsToRender.forEach((unionPolygon: any, polygonIndex: number) => {
@@ -842,11 +842,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         });
       } else {
-        // Render individual tracts (when showTractBoundaries is true or union polygon not available)
+        // Render individual tracts ONLY when showTractBoundaries is true
+        // If showTractBoundaries is false, we should have rendered union polygons above
+        // If we reach here with showTractBoundaries=false, it means union polygons aren't available
         if (!this.showTractBoundaries) {
           const hasUnionPolygons = Array.isArray((district as any).unionPolygons) && (district as any).unionPolygons.length > 0;
-          console.log(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon(s) not available (has unionPolygons array: ${hasUnionPolygons}, has single union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry})`);
+          console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon(s) not available (has unionPolygons array: ${hasUnionPolygons}, has single union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry}). Skipping individual tract rendering.`);
+          return; // Skip rendering individual tracts when checkbox is unchecked
         }
+        // Only render individual tracts when showTractBoundaries is true
         district.censusTracts.forEach((tract: GeoJsonFeature) => {
           if (!tract) {
             console.warn('⚠️ Null tract found in district');
