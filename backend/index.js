@@ -2847,10 +2847,10 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       
       const finalStepNumber = cachedEntry.step;
 
-        console.log(`✅ Found final step ${finalStepNumber} for ${state}`);
+      console.log(`✅ Found final step ${finalStepNumber} for ${state}`);
 
-        // Reconstruct the final step
-        if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
+      // Reconstruct the final step
+      if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
           try {
             const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
             if (stateTractDoc.exists) {
@@ -2908,29 +2908,28 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           }
         }
 
-        // Check if reconstruction succeeded (stepData should be returned from try block above)
-        // If reconstruction returned null or failed, check if cached entry has valid step data
-        if (cachedEntry.stepData && cachedEntry.stepData.districtGroups && Array.isArray(cachedEntry.stepData.districtGroups) && cachedEntry.stepData.districtGroups.length > 0) {
-          // If step wasn't marked as complete, update it now for future queries
-          if (!cachedEntry.isComplete) {
-            try {
-              await finalStepDoc.ref.update({ isComplete: true });
-              console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
-            } catch (updateError) {
-              console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
-            }
+      // Check if reconstruction succeeded (stepData should be returned from try block above)
+      // If reconstruction returned null or failed, check if cached entry has valid step data
+      if (cachedEntry.stepData && cachedEntry.stepData.districtGroups && Array.isArray(cachedEntry.stepData.districtGroups) && cachedEntry.stepData.districtGroups.length > 0) {
+        // If step wasn't marked as complete, update it now for future queries
+        if (!cachedEntry.isComplete) {
+          try {
+            await finalStepDoc.ref.update({ isComplete: true });
+            console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
+          } catch (updateError) {
+            console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
           }
-          // Return cached entry as-is (may be normalized, but has districtGroups)
-          return res.json({
-            step: finalStepNumber,
-            data: cachedEntry.stepData,
-            isComplete: true
-          });
-        } else {
-          // Cached entry is incomplete - cannot return valid step data
-          console.warn(`⚠️ Final step ${finalStepNumber} cache is incomplete (missing districtGroups or empty), cannot return step data`);
-          return res.status(404).json({ error: `Final step ${finalStepNumber} found but data is incomplete. Please re-run the algorithm.` });
         }
+        // Return cached entry as-is (may be normalized, but has districtGroups)
+        return res.json({
+          step: finalStepNumber,
+          data: cachedEntry.stepData,
+          isComplete: true
+        });
+      } else {
+        // Cached entry is incomplete - cannot return valid step data
+        console.warn(`⚠️ Final step ${finalStepNumber} cache is incomplete (missing districtGroups or empty), cannot return step data`);
+        return res.status(404).json({ error: `Final step ${finalStepNumber} found but data is incomplete. Please re-run the algorithm.` });
       }
     } catch (queryError) {
       console.warn(`⚠️ Failed to query for final step: ${queryError.message}`);
