@@ -2804,8 +2804,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
         // Find the highest step that matches the current algorithm version
         for (const doc of stepCacheSnapshot.docs) {
           const entry = doc.data();
-          // Filter by source, algorithm version, and find the highest step
-          if (entry.source === 'algorithm-step-cache' && 
+          // Filter by source (either 'algorithm-step-cache' or 'step-cache'), algorithm version, and find the highest step
+          if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') && 
               entry.algorithmVersion === currentVersion && 
               entry.step !== undefined && 
               entry.step > highestStep) {
@@ -2818,16 +2818,40 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       
       // Fallback: If no step with isComplete: true found, query for all steps for this state
       // and find the highest step number (which should be the final step)
+      // Search both 'algorithm-step-cache' and 'step-cache' sources
       if (!finalStepDoc || !cachedEntry) {
         console.log(`ℹ️ No step with isComplete: true found, searching for highest step number...`);
-        const allStepsQuery = firestore.collection('census_cache')
+        
+        // Try 'algorithm-step-cache' source first
+        const algorithmStepsQuery = firestore.collection('census_cache')
           .where('state', '==', state)
           .where('source', '==', 'algorithm-step-cache');
 
-        const allStepsSnapshot = await allStepsQuery.get();
+        const algorithmStepsSnapshot = await algorithmStepsQuery.get();
         
-        if (!allStepsSnapshot.empty) {
-          for (const doc of allStepsSnapshot.docs) {
+        if (!algorithmStepsSnapshot.empty) {
+          for (const doc of algorithmStepsSnapshot.docs) {
+            const entry = doc.data();
+            // Filter by algorithm version and find the highest step
+            if (entry.algorithmVersion === currentVersion && 
+                entry.step !== undefined && 
+                entry.step > highestStep) {
+              finalStepDoc = doc;
+              cachedEntry = entry;
+              highestStep = entry.step;
+            }
+          }
+        }
+        
+        // Also try 'step-cache' source (used by /api/algorithm/execute endpoint)
+        const stepCacheQuery = firestore.collection('census_cache')
+          .where('state', '==', state)
+          .where('source', '==', 'step-cache');
+
+        const stepCacheSnapshot = await stepCacheQuery.get();
+        
+        if (!stepCacheSnapshot.empty) {
+          for (const doc of stepCacheSnapshot.docs) {
             const entry = doc.data();
             // Filter by algorithm version and find the highest step
             if (entry.algorithmVersion === currentVersion && 
@@ -2850,9 +2874,17 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       console.log(`✅ Found final step ${finalStepNumber} for ${state}`);
 
       // Reconstruct the final step
-      if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
+      // Handle both cache formats:
+      // 1. 'algorithm-step-cache' format: has stepData field and tractCacheKey
+      // 2. 'step-cache' format: step data is stored directly in the entry, may need reconstruction
+      const hasStepDataField = cachedEntry.stepData !== undefined;
+      const hasDirectData = cachedEntry.districtGroups !== undefined;
+      const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`; // Use provided key or default state key
+      const needsReconstruction = cachedEntry.normalized || (hasDirectData && cachedEntry.source === 'step-cache');
+      
+      if (needsReconstruction && (hasStepDataField || hasDirectData)) {
           try {
-            const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+            const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
             if (stateTractDoc.exists) {
               const stateTractData = stateTractDoc.data();
               if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
@@ -2880,7 +2912,9 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                 }
 
                 if (tractMap) {
-                  const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, true);
+                  // Use stepData field if available, otherwise use cachedEntry directly
+                  const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+                  const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true);
                   if (stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0) {
                     // If step wasn't marked as complete, update it now for future queries
                     if (!cachedEntry.isComplete) {
@@ -2910,7 +2944,11 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 
       // Check if reconstruction succeeded (stepData should be returned from try block above)
       // If reconstruction returned null or failed, check if cached entry has valid step data
-      if (cachedEntry.stepData && cachedEntry.stepData.districtGroups && Array.isArray(cachedEntry.stepData.districtGroups) && cachedEntry.stepData.districtGroups.length > 0) {
+      // Handle both cache formats: stepData field (algorithm-step-cache) or direct data (step-cache)
+      const stepData = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+      const hasValidData = stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0;
+      
+      if (hasValidData) {
         // If step wasn't marked as complete, update it now for future queries
         if (!cachedEntry.isComplete) {
           try {
@@ -2920,10 +2958,10 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
             console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
           }
         }
-        // Return cached entry as-is (may be normalized, but has districtGroups)
+        // Return step data (from stepData field or directly from entry)
         return res.json({
           step: finalStepNumber,
-          data: cachedEntry.stepData,
+          data: stepData,
           isComplete: true
         });
       } else {
