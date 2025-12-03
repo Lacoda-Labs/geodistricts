@@ -3807,10 +3807,16 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups)
   
   for (let i = 0; i < districtGroups.length; i++) {
     const group = districtGroups[i];
-    const unionCacheKey = group.unionPolygonCacheKey;
+    let unionCacheKey = group.unionPolygonCacheKey;
+    
+    // If no cache key, try to generate one from group info (for old cached data that doesn't have the key)
+    if (!unionCacheKey && group.startDistrictNumber && group.endDistrictNumber) {
+      const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+      unionCacheKey = `union_polygon_${stateCode}_${stepNumber}_${groupKey}`;
+    }
     
     if (!unionCacheKey) {
-      // No cache key - group doesn't have cached union polygon
+      // No cache key and can't generate one - group doesn't have cached union polygon
       groupsWithUnions.push(group);
       continue;
     }
@@ -3829,6 +3835,9 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups)
         } else {
           group.unionPolygon = unionData;
         }
+        
+        // Store the cache key for future reference
+        group.unionPolygonCacheKey = unionCacheKey;
         
         console.log(`✅ CLOUD STORAGE: Loaded union polygon from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
       } else {
@@ -4151,23 +4160,24 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         reconstructed.districtGroups = groupsWithUnions;
         
         // Check if all groups have union polygons loaded
-        const allLoaded = reconstructed.districtGroups.every(g => g.unionPolygon || g.unionPolygons);
+        const loadedCount = reconstructed.districtGroups.filter(g => g.unionPolygon || g.unionPolygons).length;
+        const allLoaded = loadedCount === reconstructed.districtGroups.length;
         
         if (allLoaded) {
           console.log(`✅ RECONSTRUCT: Loaded union polygons from cache for ${reconstructed.districtGroups.length} district groups`);
         } else {
           // Some groups missing - need to recreate
-          console.log(`⚠️ RECONSTRUCT: Some union polygons missing from cache, recreating...`);
-          await recreateUnionPolygonsForGroups(reconstructed.districtGroups);
+          console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
+          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
         }
       } catch (error) {
         console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
-        await recreateUnionPolygonsForGroups(reconstructed.districtGroups);
+        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
       }
     } else {
       // No state/step info - recreate union polygons
       console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
-      await recreateUnionPolygonsForGroups(reconstructed.districtGroups);
+      await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
     }
   } else {
     console.log(`⏭️ RECONSTRUCT: Skipping union polygon recreation (will be created after tract replacement)`);
@@ -4178,8 +4188,10 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
 
 /**
  * Recreate union polygons for district groups (helper function)
+ * @param {Array} districtGroups - District groups to recreate union polygons for
+ * @param {boolean} suppressVerboseLogging - If true, suppress component-level logging
  */
-async function recreateUnionPolygonsForGroups(districtGroups) {
+async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLogging = false) {
   const { createUnionPolygonsForGroup } = require('./services/geodistrict-algorithm');
   const { GeodistrictAlgorithmService } = require('./services/geodistrict-algorithm');
   const latLongDivisionService = require('./services/latlong-division');
@@ -4202,19 +4214,46 @@ async function recreateUnionPolygonsForGroups(districtGroups) {
     console.warn(`⚠️ RECONSTRUCT: Failed to build adjacency graph for union polygon recreation: ${error.message}`);
   }
   
-  // Recreate union polygons for each district group
-  for (const group of districtGroups) {
-    if (group.censusTracts && group.censusTracts.length > 0) {
-      const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
-      if (Array.isArray(unionPolygonOrArray)) {
-        group.unionPolygons = unionPolygonOrArray;
-        group.unionPolygon = unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined;
-      } else {
-        group.unionPolygon = unionPolygonOrArray || undefined;
+  // Temporarily suppress console.log if suppressVerboseLogging is true
+  const originalLog = console.log;
+  if (suppressVerboseLogging) {
+    console.log = (...args) => {
+      // Only suppress "Created union polygon X/Y" messages, keep important ones
+      const message = args[0];
+      if (typeof message === 'string' && message.includes('Created union polygon') && message.includes('for component')) {
+        return; // Suppress this log
+      }
+      originalLog.apply(console, args);
+    };
+  }
+  
+  try {
+    // Recreate union polygons for each district group
+    for (const group of districtGroups) {
+      // Skip if already has union polygons (from cache)
+      if (group.unionPolygon || group.unionPolygons) {
+        continue;
+      }
+      
+      if (group.censusTracts && group.censusTracts.length > 0) {
+        const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
+        if (Array.isArray(unionPolygonOrArray)) {
+          group.unionPolygons = unionPolygonOrArray;
+          group.unionPolygon = unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined;
+        } else {
+          group.unionPolygon = unionPolygonOrArray || undefined;
+        }
       }
     }
+  } finally {
+    // Restore original console.log
+    if (suppressVerboseLogging) {
+      console.log = originalLog;
+    }
   }
-  console.log(`✅ RECONSTRUCT: Recreated union polygons for ${districtGroups.length} district groups`);
+  
+  const recreatedCount = districtGroups.filter(g => g.unionPolygon || g.unionPolygons).length;
+  console.log(`✅ RECONSTRUCT: Recreated union polygons for ${recreatedCount}/${districtGroups.length} district groups`);
 
   return districtGroups;
 }

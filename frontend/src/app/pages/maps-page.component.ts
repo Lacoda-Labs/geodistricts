@@ -794,9 +794,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // If showTractBoundaries is false and union polygon(s) exist, render them
       // Check for unionPolygons array first (for groups with isolated tracts/multiple connected components)
       const unionPolygons = (district as any).unionPolygons;
-      const hasUnionPolygons = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+      const hasUnionPolygons = !this.showTractBoundaries && Array.isArray(unionPolygons) && unionPolygons.length > 0;
+      // When showTractBoundaries is false, prefer union polygons over individual tracts
       const hasSingleUnionPolygon = !this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry;
       
+      // Use union polygons only when checkbox is unchecked (showTractBoundaries = false)
       if (hasUnionPolygons || hasSingleUnionPolygon) {
         const polygonsToRender = hasUnionPolygons ? unionPolygons : [district.unionPolygon];
         console.log(`✅ Rendering ${polygonsToRender.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
