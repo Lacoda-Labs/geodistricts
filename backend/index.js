@@ -2889,8 +2889,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
               const stateTractData = stateTractDoc.data();
               if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
                 let tractMap = null;
-                if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
-                  const cloudStorageResult = await cloudStorageCache.get(cachedEntry.tractCacheKey);
+                if (stateTractData.cloudStorage && stateTractData.cloudStoragePath && tractCacheKey) {
+                  const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
                   if (cloudStorageResult && cloudStorageResult.data) {
                     tractMap = cloudStorageResult.data;
                   }
@@ -2945,10 +2945,19 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       // Check if reconstruction succeeded (stepData should be returned from try block above)
       // If reconstruction returned null or failed, check if cached entry has valid step data
       // Handle both cache formats: stepData field (algorithm-step-cache) or direct data (step-cache)
-      const stepData = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+      let stepData = hasStepDataField ? cachedEntry.stepData : cachedEntry;
       const hasValidData = stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0;
       
       if (hasValidData) {
+        // Load union polygons from cache if not already loaded (reconstruction might have loaded them)
+        try {
+          const groupsWithUnions = await loadUnionPolygonsFromCache(state, finalStepNumber, stepData.districtGroups);
+          stepData.districtGroups = groupsWithUnions;
+        } catch (unionLoadError) {
+          console.warn(`⚠️ Failed to load union polygons from cache: ${unionLoadError.message}`);
+          // Continue without union polygons - they can be recreated if needed
+        }
+        
         // If step wasn't marked as complete, update it now for future queries
         if (!cachedEntry.isComplete) {
           try {
