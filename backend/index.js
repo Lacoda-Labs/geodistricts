@@ -2871,6 +2871,12 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       
       const finalStepNumber = cachedEntry.step;
 
+      // Validate that the cached entry's state matches the requested state
+      if (cachedEntry.state && cachedEntry.state !== state) {
+        console.error(`❌ STATE MISMATCH: Cached final step has state '${cachedEntry.state}' but requested state is '${state}'. This is a cache corruption issue.`);
+        return res.status(404).json({ error: `Final step cache corruption detected: cached state '${cachedEntry.state}' does not match requested state '${state}'. Please re-run the algorithm.` });
+      }
+
       console.log(`✅ Found final step ${finalStepNumber} for ${state}`);
 
       // Reconstruct the final step
@@ -2879,7 +2885,13 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       // 2. 'step-cache' format: step data is stored directly in the entry, may need reconstruction
       const hasStepDataField = cachedEntry.stepData !== undefined;
       const hasDirectData = cachedEntry.districtGroups !== undefined;
-      const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`; // Use provided key or default state key
+      // Validate tractCacheKey matches the requested state (prevent cross-state contamination)
+      let tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`;
+      // Ensure tractCacheKey is for the correct state
+      if (!tractCacheKey.includes(`_${state}`) && !tractCacheKey.includes(`/${state}`)) {
+        console.warn(`⚠️ TRACT CACHE KEY MISMATCH: tractCacheKey '${tractCacheKey}' does not contain state '${state}', using default`);
+        tractCacheKey = `state_tracts_${state}`;
+      }
       const needsReconstruction = cachedEntry.normalized || (hasDirectData && cachedEntry.source === 'step-cache');
       
       if (needsReconstruction && (hasStepDataField || hasDirectData)) {

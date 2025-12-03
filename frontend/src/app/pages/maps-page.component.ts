@@ -458,6 +458,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Clear map layers FIRST to prevent showing wrong state's data
+    if (this.tractLayer) {
+      this.tractLayer.clearLayers();
+    }
+    this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
+    this.clearDivisionLines();
+
     // Reset state
     this.isLoading = true;
     this.isLoadingSteps = true;
@@ -467,6 +475,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStepIndex = 0;
     this.currentStep = null;
     this.totalSteps = 0;
+    this.isolatedTractIds.clear();
+    this.isolatedTractsData = null;
+    this.bridgeTractIds.clear();
+    this.bridgeTractsData = null;
 
     const options: GeodistrictOptions = {
       state: this.selectedState,
@@ -482,6 +494,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (stepData) => {
         const { step, stepIndex, isComplete } = stepData;
         
+        // Validate that we're still on the same state (prevent race conditions)
+        if (this.selectedState !== options.state) {
+          console.warn(`⚠️ State changed during load: was loading ${options.state}, now selected ${this.selectedState}. Ignoring loaded data.`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          return;
+        }
+        
         // Handle null or invalid step data
         if (!step) {
           console.warn(`⚠️ Received null step data at step ${stepIndex}`);
@@ -491,7 +511,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         
-        console.log(`📥 Received step ${stepIndex}:`, step.description || 'No description');
+        console.log(`📥 Received step ${stepIndex} for ${this.selectedState}:`, step.description || 'No description');
 
         // Store the step
         this.loadedSteps[stepIndex] = step;

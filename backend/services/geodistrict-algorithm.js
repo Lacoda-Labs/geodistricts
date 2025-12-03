@@ -42,8 +42,10 @@ const logger = require('../utils/logger');
  * 20251203-0200: Fixed bridge tract infinite loop - handle case where tract_DG and sibling_DG are the same; improved swap logic to set values directly instead of swapping when values are identical; added check to skip bridge tract movement if it doesn't reduce isolation count
  * 20251203-0300: Additional fix for bridge tract movement logic
  * 20251203-0400: Cache invalidation bump
+ * 20251203-0500: Fixed stale sibling_DG issue - always update sibling_DG from divisionLines to match current division (not just when missing). sibling_DG should always be set correctly during division, but this fixes cases where moved tracts have stale values.
+ * 20251203-0600: Fixed caching bug - added state validation in final-step endpoint, validate tractCacheKey matches state, clear map layers immediately on state change, added race condition check
  */
-const ALGORITHM_VERSION = '20251203-0400';
+const ALGORITHM_VERSION = '20251203-0600';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -2063,16 +2065,21 @@ class GeodistrictAlgorithmService {
               console.log(`   Set sibling_DG from divisionLines: ${siblingDG} (parent: ${divLine.parentGroup?.startDistrictNumber || 'unknown'}-${divLine.parentGroup?.endDistrictNumber || 'unknown'})`);
               
               // Update all isolated tracts with the correct sibling_DG
+              // Always update sibling_DG to match the current division, even if it was previously set
+              // This fixes cases where tracts were moved between groups and have stale sibling_DG values
               for (const tractId of isolatedTractIds) {
                 const tract = allTracts.find(t => getTractId(t) === tractId);
                 if (tract) {
                   if (!tract.properties) tract.properties = {};
-                  if (!tract.properties.sibling_DG) {
-                    tract.properties.sibling_DG = siblingDG;
-                    const parentDG = divLine.parentGroup ? `DG${divLine.parentGroup.startDistrictNumber}-${divLine.parentGroup.endDistrictNumber}` : null;
-                    if (parentDG && !tract.properties.parent_DG) {
-                      tract.properties.parent_DG = parentDG;
-                    }
+                  const oldSiblingDG = tract.properties.sibling_DG;
+                  tract.properties.sibling_DG = siblingDG;
+                  const parentDG = divLine.parentGroup ? `DG${divLine.parentGroup.startDistrictNumber}-${divLine.parentGroup.endDistrictNumber}` : null;
+                  if (parentDG) {
+                    tract.properties.parent_DG = parentDG; // Always update parent_DG to match current division
+                  }
+                  if (oldSiblingDG && oldSiblingDG !== siblingDG) {
+                    console.log(`   Updated stale sibling_DG for tract ${tractId}: ${oldSiblingDG} -> ${siblingDG}`);
+                  } else if (!oldSiblingDG) {
                     console.log(`   Fixed missing sibling_DG for tract ${tractId}`);
                   }
                 }
