@@ -2790,6 +2790,10 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       // First, try to find the highest step number with isComplete: true
       // Query for steps with source='algorithm-step-cache'
       // Note: Query by state and isComplete only (no orderBy to avoid index requirement), then filter by source and algorithmVersion in memory
+      let finalStepDoc = null;
+      let cachedEntry = null;
+      let highestStep = -1;
+      
       const stepCacheQuery = firestore.collection('census_cache')
         .where('state', '==', state)
         .where('isComplete', '==', true);
@@ -2798,10 +2802,6 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 
       if (!stepCacheSnapshot.empty) {
         // Find the highest step that matches the current algorithm version
-        let finalStepDoc = null;
-        let cachedEntry = null;
-        let highestStep = -1;
-        
         for (const doc of stepCacheSnapshot.docs) {
           const entry = doc.data();
           // Filter by source, algorithm version, and find the highest step
@@ -2814,12 +2814,38 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
             highestStep = entry.step;
           }
         }
+      }
+      
+      // Fallback: If no step with isComplete: true found, query for all steps for this state
+      // and find the highest step number (which should be the final step)
+      if (!finalStepDoc || !cachedEntry) {
+        console.log(`ℹ️ No step with isComplete: true found, searching for highest step number...`);
+        const allStepsQuery = firestore.collection('census_cache')
+          .where('state', '==', state)
+          .where('source', '==', 'algorithm-step-cache');
+
+        const allStepsSnapshot = await allStepsQuery.get();
         
-        if (!finalStepDoc || !cachedEntry) {
-          return res.status(404).json({ error: 'No final step found for this state with current algorithm version' });
+        if (!allStepsSnapshot.empty) {
+          for (const doc of allStepsSnapshot.docs) {
+            const entry = doc.data();
+            // Filter by algorithm version and find the highest step
+            if (entry.algorithmVersion === currentVersion && 
+                entry.step !== undefined && 
+                entry.step > highestStep) {
+              finalStepDoc = doc;
+              cachedEntry = entry;
+              highestStep = entry.step;
+            }
+          }
         }
-        
-        const finalStepNumber = cachedEntry.step;
+      }
+      
+      if (!finalStepDoc || !cachedEntry) {
+        return res.status(404).json({ error: 'No final step found for this state with current algorithm version' });
+      }
+      
+      const finalStepNumber = cachedEntry.step;
 
         console.log(`✅ Found final step ${finalStepNumber} for ${state}`);
 
@@ -2856,6 +2882,15 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                 if (tractMap) {
                   const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, true);
                   if (stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0) {
+                    // If step wasn't marked as complete, update it now for future queries
+                    if (!cachedEntry.isComplete) {
+                      try {
+                        await finalStepDoc.ref.update({ isComplete: true });
+                        console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
+                      } catch (updateError) {
+                        console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
+                      }
+                    }
                     return res.json({
                       step: finalStepNumber,
                       data: stepData,
@@ -2876,6 +2911,15 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
         // Check if reconstruction succeeded (stepData should be returned from try block above)
         // If reconstruction returned null or failed, check if cached entry has valid step data
         if (cachedEntry.stepData && cachedEntry.stepData.districtGroups && Array.isArray(cachedEntry.stepData.districtGroups) && cachedEntry.stepData.districtGroups.length > 0) {
+          // If step wasn't marked as complete, update it now for future queries
+          if (!cachedEntry.isComplete) {
+            try {
+              await finalStepDoc.ref.update({ isComplete: true });
+              console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
+            } catch (updateError) {
+              console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
+            }
+          }
           // Return cached entry as-is (may be normalized, but has districtGroups)
           return res.json({
             step: finalStepNumber,
