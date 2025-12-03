@@ -180,7 +180,7 @@ export class GeodistrictCacheService {
           // Backend already validated version, but check for frontend memory cache consistency
           // If version doesn't match frontend's version, don't use it (backend should have filtered this)
           if (response.algorithmVersion && response.algorithmVersion !== ALGORITHM_VERSION) {
-            console.warn(`⚠️ Version mismatch: backend returned ${response.algorithmVersion}, frontend expects ${ALGORITHM_VERSION}`);
+            console.log(`🔄 CACHE INVALIDATION: Cached version (${response.algorithmVersion}) is older than frontend version (${ALGORITHM_VERSION}). Cache invalidated.`);
             return null;
           }
           
@@ -189,6 +189,16 @@ export class GeodistrictCacheService {
           this.memoryCache.set(key, { result, version: response.algorithmVersion || ALGORITHM_VERSION });
           return result;
         } else {
+          // Cache miss or invalid - check if it's due to version mismatch
+          if (response.algorithmVersion && (response as any).cachedVersion) {
+            const cachedVersion = (response as any).cachedVersion;
+            const backendVersion = response.algorithmVersion;
+            if (cachedVersion !== backendVersion) {
+              console.log(`🔄 CACHE INVALIDATION: Backend algorithm version (${backendVersion}) is newer than cached version (${cachedVersion}). Cache invalidated.`);
+            }
+          } else if (response.algorithmVersion && response.algorithmVersion !== ALGORITHM_VERSION) {
+            console.log(`🔄 CACHE INVALIDATION: Backend version (${response.algorithmVersion}) is newer than frontend version (${ALGORITHM_VERSION}). Cache invalidated.`);
+          }
           return null;
         }
       }),

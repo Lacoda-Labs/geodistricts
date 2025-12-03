@@ -37,8 +37,10 @@ const logger = require('../utils/logger');
  * 20251126-2320: Fixed moveIsolatedTracts to dynamically update group list after each move - processes all groups that currently have isolated tracts instead of continuing with original list; ensures single click processes all isolated tracts across all DGs
  * 20251128-2200: Fixed union polygon creation for MultiPolygon geometries - flatten MultiPolygon to individual Polygon features before dissolve/union operations; enables proper union of all tracts in district groups; added support for multiple union polygons per group when isolated tracts create multiple connected components
  * 20251128-2300: Fixed bridge tract detection for small isolations - adjusted filtering logic to be less restrictive for small isolations; bridge tracts adjacent to 2+ isolated tracts are now included even if in main component; added comprehensive debug logging for all groups with isolated tracts
+ * 20251203-0000: Fixed union polygon visualization - use forceSingleUnion=true in createStep() and recreateUnionPolygonsForGroups() to create one dissolved polygon per district group for visualization, instead of multiple polygons per connected component; ensures clean district shapes when checkbox is unchecked
+ * 20251203-0100: Fixed sibling_DG format bug in step reconstruction - always use full format DG{start}-{end} even when start equals end (e.g., DG2-2 not DG2); fixed algorithm state reconstruction for move-all-isolated-tracts endpoint; added GET /api/algorithm/step/:state/:stepNumber endpoint for loading previous steps
  */
-const ALGORITHM_VERSION = '20251128-2300';
+const ALGORITHM_VERSION = '20251203-0100';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -899,25 +901,16 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   }
 
   // Create union polygons for each district group
-  // If a group has isolated tracts (multiple connected components), create union polygon for each component
+  // Use forceSingleUnion=true to create one dissolved polygon per district group for visualization
+  // This creates a single union polygon that encompasses all tracts, even if they're isolated/disconnected
   const groupsWithUnions = districtGroups.map(group => {
-    const unionPolygonOrArray = createUnionPolygonsForGroup(group, adjacencyGraph);
+    const unionPolygon = createUnionPolygonsForGroup(group, adjacencyGraph, true); // forceSingleUnion=true for visualization
     
-    // Handle both single union polygon and array of union polygons
-    if (Array.isArray(unionPolygonOrArray)) {
-      // Multiple connected components - store as array
-      return {
-        ...group,
-        unionPolygons: unionPolygonOrArray, // Array of union polygons (one per connected component)
-        unionPolygon: unionPolygonOrArray.length > 0 ? unionPolygonOrArray[0] : undefined // Keep first for backward compatibility
-      };
-    } else {
-      // Single union polygon
-      return {
-        ...group,
-        unionPolygon: unionPolygonOrArray || undefined // Use undefined instead of null for cleaner JSON
-      };
-    }
+    // Always store as single unionPolygon (not array) for consistent visualization
+    return {
+      ...group,
+      unionPolygon: unionPolygon || undefined // Use undefined instead of null for cleaner JSON
+    };
   });
 
   // Detect isolated tracts if algorithmService and allTracts are provided
@@ -1033,7 +1026,7 @@ class GeodistrictAlgorithmService {
       step: initialStep,
       state: {
         uniqueTracts,
-        currentGroups: [initialStep.districtGroups], // Use groups from step (which have union polygons)
+        currentGroups: initialStep.districtGroups, // Use groups from step (which have union polygons) - already an array
         iteration: 0,
         steps: [initialStep],
         algorithmHistory: [],
@@ -1061,8 +1054,22 @@ class GeodistrictAlgorithmService {
       state: stateCode
     } = algorithmState;
 
+    // Debug: Log current groups state
+    console.log(`🔍 EXECUTE NEXT STEP: iteration=${iteration}, currentGroups.length=${currentGroups?.length || 0}`);
+    if (currentGroups && currentGroups.length > 0) {
+      currentGroups.forEach((group, idx) => {
+        console.log(`🔍   Group ${idx}: ${group.startDistrictNumber}-${group.endDistrictNumber}, totalDistricts=${group.totalDistricts}, tracts=${group.censusTracts?.length || 0}`);
+      });
+    } else {
+      console.warn(`⚠️ EXECUTE NEXT STEP: currentGroups is empty or undefined!`);
+    }
+
     // Check if algorithm is complete
-    if (!currentGroups.some(group => group.totalDistricts > 1) || iteration >= maxIterations) {
+    if (!currentGroups || currentGroups.length === 0 || !currentGroups.some(group => group.totalDistricts > 1) || iteration >= maxIterations) {
+      const reason = !currentGroups || currentGroups.length === 0 ? 'no groups' : 
+                     !currentGroups.some(group => group.totalDistricts > 1) ? 'all groups have 1 district' : 
+                     'max iterations reached';
+      console.log(`✅ Algorithm completed: ${reason} (iteration=${iteration}, maxIterations=${maxIterations})`);
       return {
         step: null,
         state: algorithmState,

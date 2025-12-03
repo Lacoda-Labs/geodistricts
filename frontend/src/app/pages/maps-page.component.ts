@@ -481,7 +481,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const subscription = this.geodistrictService.initializeAlgorithm(options).subscribe({
       next: (stepData) => {
         const { step, stepIndex, isComplete } = stepData;
-        console.log(`📥 Received step ${stepIndex}:`, step.description);
+        
+        // Handle null or invalid step data
+        if (!step) {
+          console.warn(`⚠️ Received null step data at step ${stepIndex}`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          this.errorMessage = `Failed to load step ${stepIndex}: step data is null or incomplete`;
+          return;
+        }
+        
+        console.log(`📥 Received step ${stepIndex}:`, step.description || 'No description');
 
         // Store the step
         this.loadedSteps[stepIndex] = step;
@@ -490,11 +500,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStepIndex = stepIndex;
         this.currentStep = step;
         
-        // If this is the final step, update totalSteps
+        // If this is the final step, load all previous steps to show all division lines
         if (isComplete) {
           this.totalSteps = stepIndex + 1;
           this.isLoadingSteps = false;
           console.log(`✅ Loaded final step ${stepIndex} for ${this.selectedState}`);
+          
+          // Load all previous steps to get their division lines
+          this.loadAllPreviousSteps(stepIndex);
         }
         
         // Populate isolated tracts data from step cache if available
@@ -511,6 +524,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isolatedTractsData = null;
         }
         
+        // Validate step has districtGroups
+        if (!step.districtGroups || !Array.isArray(step.districtGroups) || step.districtGroups.length === 0) {
+          console.warn(`⚠️ Step ${stepIndex} has no districtGroups, cannot render`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          this.errorMessage = `Step ${stepIndex} data is incomplete: missing district groups`;
+          return;
+        }
+        
         this.isLoading = false; // Stop showing loading spinner after step 0
         
         // Create a minimal algorithmResult for rendering
@@ -524,7 +546,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         };
 
         const stepLabel = isComplete ? `final step ${stepIndex}` : `step ${stepIndex}`;
-        console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
+        console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts?.length || 0} tracts`);
         console.log(`🔍 ${stepLabel} districtGroups:`, step.districtGroups);
         console.log(`🔍 First district group tracts:`, step.districtGroups[0]?.censusTracts?.slice(0, 3));
         
@@ -582,9 +604,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   previousStep(): void {
     if (this.currentStepIndex > 0) {
-      this.currentStepIndex--;
-      const step = this.loadedSteps[this.currentStepIndex];
+      const prevIndex = this.currentStepIndex - 1;
+      const step = this.loadedSteps[prevIndex];
+      
       if (step) {
+        // Step already loaded, just display it
+        this.currentStepIndex = prevIndex;
         this.currentStep = step;
         this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
         this.isolatedTractsData = null;
@@ -592,11 +617,138 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractsData = null;
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
-        console.warn(`⚠️ Step ${this.currentStepIndex} not yet loaded`);
-        // Revert the index change
-        this.currentStepIndex++;
+        // Step not loaded yet, request it from backend
+        console.log(`🚀 Requesting step ${prevIndex} from backend...`);
+        this.isLoading = true;
+        
+        const options: GeodistrictOptions = {
+          state: this.selectedState,
+          useDirectAPI: false,
+          forceInvalidate: false,
+          maxIterations: 100,
+        };
+
+        const subscription = this.geodistrictService.getStep(this.selectedState, prevIndex, 100).subscribe({
+          next: (stepData) => {
+            const { step: newStep, stepIndex, isComplete } = stepData;
+            
+            if (!newStep) {
+              console.warn(`⚠️ Received null step data at step ${stepIndex}`);
+              this.isLoading = false;
+              return;
+            }
+            
+            console.log(`📥 Received step ${stepIndex}:`, (newStep as any).description);
+            
+            // Store the step
+            this.loadedSteps[stepIndex] = newStep as any;
+            
+            // Display the step
+            this.currentStepIndex = stepIndex;
+            this.currentStep = newStep as any;
+            
+            // Populate isolated tracts data from step cache if available
+            if ((newStep as any).isolatedTractsData) {
+              const stepIsolatedData = (newStep as any).isolatedTractsData;
+              this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+              this.isolatedTractsData = {
+                isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+              };
+              console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+            } else {
+              this.isolatedTractIds.clear();
+              this.isolatedTractsData = null;
+            }
+            
+            this.bridgeTractIds.clear();
+            this.bridgeTractsData = null;
+            this.isLoading = false;
+
+            // Update algorithmResult
+            if (this.algorithmResult) {
+              this.algorithmResult.steps = this.loadedSteps.filter(s => s !== undefined);
+              this.algorithmResult.finalDistricts = (newStep as any).districtGroups;
+            }
+
+            // Render the step on map
+            setTimeout(() => {
+              this.renderFinalDistricts();
+            }, 100);
+          },
+          error: (error) => {
+            this.errorMessage = error.message || `Failed to load step ${prevIndex}`;
+            this.isLoading = false;
+            console.error(`Previous step ${prevIndex} load error:`, error);
+          }
+        });
+
+        this.subscriptions.push(subscription);
       }
     }
+  }
+
+  /**
+   * Load all previous steps to get their division lines
+   * Used when final step is loaded to show all division lines
+   */
+  private loadAllPreviousSteps(finalStepIndex: number): void {
+    if (finalStepIndex <= 0) {
+      // No previous steps to load
+      return;
+    }
+
+    console.log(`📥 Loading all previous steps (0 to ${finalStepIndex - 1}) to show all division lines...`);
+    
+    // Load all steps from 0 to finalStepIndex - 1
+    const loadPromises: Promise<void>[] = [];
+    
+    for (let stepIdx = 0; stepIdx < finalStepIndex; stepIdx++) {
+      // Skip if step is already loaded
+      if (this.loadedSteps[stepIdx]) {
+        continue;
+      }
+
+      const loadPromise = new Promise<void>((resolve, reject) => {
+        const subscription = this.geodistrictService.getStep(this.selectedState, stepIdx, 100).subscribe({
+          next: (stepData) => {
+            const { step: newStep, stepIndex } = stepData;
+            
+            if (!newStep) {
+              console.warn(`⚠️ Received null step data for step ${stepIndex}`);
+              resolve(); // Continue loading other steps even if one fails
+              return;
+            }
+            
+            console.log(`📥 Loaded step ${stepIndex} for division lines: ${(newStep as any).description || 'No description'}`);
+            
+            // Store the step (but don't change currentStep or currentStepIndex)
+            this.loadedSteps[stepIndex] = newStep as any;
+            
+            resolve();
+          },
+          error: (error) => {
+            console.warn(`⚠️ Failed to load step ${stepIdx} for division lines: ${error.message}`);
+            resolve(); // Continue loading other steps even if one fails
+          }
+        });
+        
+        this.subscriptions.push(subscription);
+      });
+      
+      loadPromises.push(loadPromise);
+    }
+
+    // After all steps are loaded, re-render division lines
+    Promise.all(loadPromises).then(() => {
+      console.log(`✅ Finished loading all previous steps. Re-rendering division lines...`);
+      // Re-render division lines to show all steps
+      setTimeout(() => {
+        this.renderDivisionLines();
+      }, 100);
+    }).catch((error) => {
+      console.error(`❌ Error loading previous steps:`, error);
+    });
   }
 
   nextStep(): void {
@@ -630,9 +782,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             // Use the last step if available, or show completion message
             if (this.currentStep) {
               console.log(`📥 Using current step as final step`);
+              this.isLoading = false; // Stop loading spinner
+              this.isLoadingSteps = false;
+              this.totalSteps = this.loadedSteps.filter(s => s !== undefined).length;
               return; // Keep current step displayed
             } else {
               console.warn(`⚠️ Algorithm completed but no step data available`);
+              this.isLoading = false; // Stop loading spinner
+              this.isLoadingSteps = false;
               return;
             }
           }
@@ -658,6 +815,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             console.log(`📥 Received step ${stepIndex}:`, (newStep as any).description);
           } else {
             console.warn(`⚠️ Received null step data at step ${stepIndex}`);
+            this.isLoading = false; // Stop loading spinner even if step data is null
+            this.isLoadingSteps = false;
             return;
           }
 
@@ -984,6 +1143,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear existing division lines
     this.clearDivisionLines();
 
+    // Check if this is the final step (all steps complete)
+    const isFinalStep = this.totalSteps > 0 && this.currentStepIndex === this.totalSteps - 1;
+
     // Add static lines for all previous steps
     for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
       const step = this.loadedSteps[stepIdx];
@@ -992,9 +1154,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // Animate division lines for current step
+    // For final step, render all division lines as static (no animation)
+    // For intermediate steps, animate the current step's division lines
     if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
-      this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
+      if (isFinalStep) {
+        // Final step: render all division lines as static
+        this.addStaticDivisionLinesForStep(this.currentStep, this.currentStepIndex);
+      } else {
+        // Intermediate step: animate current step's division lines
+        this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
+      }
     }
   }
 

@@ -835,6 +835,7 @@ app.get('/api/version', (req, res) => {
     version: packageJson.version || '1.0.0',
     name: packageJson.name || 'geodistricts-api',
     nodeVersion: process.version,
+    algorithmVersion: ALGORITHM_VERSION,
     timestamp: new Date().toISOString(),
     endpoints: {
       algorithmExecute: '/api/algorithm/execute',
@@ -1981,7 +1982,9 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
         return res.json({
           status: 'miss',
           cached: false,
-          message: 'Cache entry outdated (no algorithm version)'
+          message: 'Cache entry outdated (no algorithm version)',
+          algorithmVersion: currentVersion,
+          cachedVersion: null
         });
       }
       
@@ -1993,7 +1996,9 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
         return res.json({
           status: 'miss',
           cached: false,
-          message: 'Cache entry outdated due to algorithm version change'
+          message: 'Cache entry outdated due to algorithm version change',
+          algorithmVersion: currentVersion,
+          cachedVersion: cachedVersion
         });
       }
       
@@ -2850,11 +2855,16 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 
                 if (tractMap) {
                   const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, true);
-                  return res.json({
-                    step: finalStepNumber,
-                    data: stepData,
-                    isComplete: true
-                  });
+                  if (stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0) {
+                    return res.json({
+                      step: finalStepNumber,
+                      data: stepData,
+                      isComplete: true
+                    });
+                  } else {
+                    console.warn(`⚠️ Reconstruction returned null or incomplete data for final step ${finalStepNumber}`);
+                    // Fall through to check cached entry below
+                  }
                 }
               }
             }
@@ -2863,12 +2873,20 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           }
         }
 
-        // If reconstruction failed, return the cached entry as-is
-        return res.json({
-          step: finalStepNumber,
-          data: cachedEntry.stepData,
-          isComplete: true
-        });
+        // Check if reconstruction succeeded (stepData should be returned from try block above)
+        // If reconstruction returned null or failed, check if cached entry has valid step data
+        if (cachedEntry.stepData && cachedEntry.stepData.districtGroups && Array.isArray(cachedEntry.stepData.districtGroups) && cachedEntry.stepData.districtGroups.length > 0) {
+          // Return cached entry as-is (may be normalized, but has districtGroups)
+          return res.json({
+            step: finalStepNumber,
+            data: cachedEntry.stepData,
+            isComplete: true
+          });
+        } else {
+          // Cached entry is incomplete - cannot return valid step data
+          console.warn(`⚠️ Final step ${finalStepNumber} cache is incomplete (missing districtGroups or empty), cannot return step data`);
+          return res.status(404).json({ error: `Final step ${finalStepNumber} found but data is incomplete. Please re-run the algorithm.` });
+        }
       }
     } catch (queryError) {
       console.warn(`⚠️ Failed to query for final step: ${queryError.message}`);
@@ -3445,6 +3463,109 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 });
 
 /**
+ * GET /api/algorithm/step/:state/:stepNumber
+ * Get a specific step by number from cache
+ */
+app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
+  try {
+    const { state, stepNumber } = req.params;
+    const stepNum = parseInt(stepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+
+    if (isNaN(stepNum) || stepNum < 0) {
+      return res.status(400).json({ error: 'Invalid step number' });
+    }
+
+    // Get cached step
+    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ error: `Step ${stepNum} not found in cache` });
+    }
+
+    const cachedEntry = doc.data();
+    
+    // Check if expired
+    if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+      return res.status(404).json({ error: `Step ${stepNum} cache expired` });
+    }
+
+    // Check algorithm version
+    const cachedVersion = cachedEntry.algorithmVersion;
+    const currentVersion = ALGORITHM_VERSION;
+    
+    if (cachedVersion !== currentVersion) {
+      return res.status(404).json({ error: `Step ${stepNum} cache version mismatch` });
+    }
+
+    // Reconstruct step data with tract geometries from state cache if needed
+    let stepData = cachedEntry.stepData;
+    
+    // If normalized, reconstruct from state tract cache
+    if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
+      try {
+        // Fetch state-level tract cache
+        let stateTractCache;
+        const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+        
+        if (stateTractDoc.exists) {
+          const stateTractData = stateTractDoc.data();
+          if (stateTractData.algorithmVersion === ALGORITHM_VERSION && !isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
+            stateTractCache = stateTractData;
+          }
+        }
+        
+        // Get tract map from cache
+        let tractMap = null;
+        if (stateTractCache && stateTractCache.cloudStorage && stateTractCache.cloudStoragePath) {
+          const cloudStorageResult = await cloudStorageCache.get(cachedEntry.tractCacheKey);
+          if (cloudStorageResult && cloudStorageResult.data) {
+            tractMap = cloudStorageResult.data;
+          }
+        } else if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
+          const chunkDocs = await Promise.all(
+            stateTractCache.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+          );
+          const allTracts = [];
+          for (const chunkDoc of chunkDocs) {
+            if (chunkDoc.exists && chunkDoc.data().data) {
+              allTracts.push(...chunkDoc.data().data);
+            }
+          }
+          tractMap = allTracts;
+        } else if (stateTractCache && stateTractCache.data) {
+          tractMap = stateTractCache.data;
+        }
+        
+        // Reconstruct step with tract geometries
+        if (tractMap) {
+          stepData = await reconstructStepFromCache(stepData, tractMap, false);
+          if (!stepData || !stepData.districtGroups) {
+            return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
+          }
+        }
+      } catch (reconstructError) {
+        console.warn(`⚠️ Failed to reconstruct step ${stepNum}: ${reconstructError.message}`);
+        return res.status(500).json({ error: `Failed to reconstruct step ${stepNum}` });
+      }
+    }
+
+    return res.json({
+      step: stepNum,
+      data: stepData,
+      isComplete: cachedEntry.isComplete || false
+    });
+  } catch (error) {
+    console.error(`❌ Get step error:`, error);
+    res.status(500).json({
+      error: 'Failed to get step',
+      message: error.message
+    });
+  }
+});
+
+/**
  * POST /api/algorithm/execute/next-step
  * Execute the next step of the algorithm
  * Caches step results for fast retrieval on subsequent requests
@@ -3975,7 +4096,8 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
 async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionPolygons = true) {
   if (!normalizedStep || !normalizedStep.districtGroups || !tractMap) {
     console.warn(`⚠️ RECONSTRUCT: Missing data - normalizedStep: ${!!normalizedStep}, districtGroups: ${!!normalizedStep?.districtGroups}, tractMap: ${!!tractMap}`);
-    return normalizedStep;
+    // Return null to indicate reconstruction failed - don't return incomplete data
+    return null;
   }
 
   console.log(`🔄 RECONSTRUCT: Starting reconstruction - ${normalizedStep.districtGroups.length} groups, tractMap type: ${Array.isArray(tractMap) ? 'array' : typeof tractMap}, length: ${Array.isArray(tractMap) ? tractMap.length : 'N/A'}`);
@@ -4110,13 +4232,14 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         const parentGroup = divLine.parentGroup;
         
         if (firstSibling && secondSibling && parentGroup) {
-          const firstSiblingDG = `DG${firstSibling.startDistrictNumber}${firstSibling.endDistrictNumber !== firstSibling.startDistrictNumber ? `-${firstSibling.endDistrictNumber}` : ''}`;
-          const secondSiblingDG = `DG${secondSibling.startDistrictNumber}${secondSibling.endDistrictNumber !== secondSibling.startDistrictNumber ? `-${secondSibling.endDistrictNumber}` : ''}`;
-          const parentDG = `DG${parentGroup.startDistrictNumber}${parentGroup.endDistrictNumber !== parentGroup.startDistrictNumber ? `-${parentGroup.endDistrictNumber}` : ''}`;
+          // Always use full format: DG{start}-{end} even when start === end (e.g., DG2-2, not DG2)
+          const firstSiblingDG = `DG${firstSibling.startDistrictNumber}-${firstSibling.endDistrictNumber}`;
+          const secondSiblingDG = `DG${secondSibling.startDistrictNumber}-${secondSibling.endDistrictNumber}`;
+          const parentDG = `DG${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber}`;
           
           // Find the groups matching these DGs and update their tracts
           for (const group of reconstructed.districtGroups) {
-            const groupDG = `DG${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}`;
+            const groupDG = `DG${group.startDistrictNumber}-${group.endDistrictNumber}`;
             
             if (groupDG === firstSiblingDG) {
               // Update tracts in first sibling group
@@ -4601,11 +4724,117 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     const stateKey = getAlgorithmStateKey(state, maxIterations);
     console.log(`🔍 Looking for algorithm state with key: ${stateKey}`);
     console.log(`🔍 Available state keys: ${Array.from(algorithmStateStore.keys()).join(', ')}`);
-    const algorithmState = algorithmStateStore.get(stateKey);
+    let algorithmState = algorithmStateStore.get(stateKey);
 
+    // If algorithm state not found, try to reconstruct it from cached step
     if (!algorithmState) {
-      console.error(`❌ Algorithm state not found for key: ${stateKey}`);
-      return res.status(404).json({ error: 'Algorithm state not found. Please initialize the algorithm first.' });
+      console.log(`⚠️ Algorithm state not found, attempting to reconstruct from cached step ${step}...`);
+      
+      // Get cached step
+      const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+      const stepDoc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      
+      if (!stepDoc.exists) {
+        console.error(`❌ Step ${step} cache not found for ${state}`);
+        return res.status(404).json({ error: `Step ${step} not found in cache. Please initialize the algorithm first.` });
+      }
+      
+      const cachedEntry = stepDoc.data();
+      if (!cachedEntry.stepData) {
+        console.error(`❌ Step ${step} cache exists but has no stepData`);
+        return res.status(404).json({ error: `Step ${step} cache is incomplete. Please re-run the algorithm.` });
+      }
+      
+      // Get state tract cache
+      const tractCacheKey = `state_tracts_${state}`;
+      const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+      
+      if (!stateTractDoc.exists) {
+        console.error(`❌ State tract cache not found for ${state}`);
+        return res.status(404).json({ error: `State tract cache not found. Please initialize the algorithm first.` });
+      }
+      
+      const stateTractData = stateTractDoc.data();
+      let tractMap = null;
+      
+      // Get tract map from Cloud Storage or Firestore
+      if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+        const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
+        if (cloudStorageResult && cloudStorageResult.data) {
+          tractMap = cloudStorageResult.data;
+        }
+      } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+        const chunkDocs = await Promise.all(
+          stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+        );
+        const allTracts = [];
+        for (const chunkDoc of chunkDocs) {
+          if (chunkDoc.exists && chunkDoc.data().data) {
+            allTracts.push(...chunkDoc.data().data);
+          }
+        }
+        tractMap = allTracts;
+      } else if (stateTractData.data) {
+        tractMap = stateTractData.data;
+      }
+      
+      if (!tractMap) {
+        console.error(`❌ Could not retrieve tract map from state cache`);
+        return res.status(404).json({ error: `Could not retrieve tract data. Please re-run the algorithm.` });
+      }
+      
+      // Reconstruct step data
+      const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, false);
+      if (!stepData || !stepData.districtGroups) {
+        console.error(`❌ Failed to reconstruct step ${step} from cache`);
+        return res.status(404).json({ error: `Failed to reconstruct step ${step}. Please re-run the algorithm.` });
+      }
+      
+      // Build algorithm state from reconstructed step
+      // Extract uniqueTracts from tractMap
+      const { getTractId } = require('./services/geodistrict-algorithm');
+      const uniqueTracts = [];
+      if (Array.isArray(tractMap)) {
+        // Check if it's [id, tract] pairs or just tracts
+        if (tractMap.length > 0 && Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+          uniqueTracts.push(...tractMap.map(([id, tract]) => tract));
+        } else {
+          uniqueTracts.push(...tractMap);
+        }
+      } else if (tractMap instanceof Map) {
+        uniqueTracts.push(...Array.from(tractMap.values()));
+      } else if (typeof tractMap === 'object') {
+        uniqueTracts.push(...Object.values(tractMap));
+      }
+      
+      // Calculate population
+      const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+      const totalDistricts = getDistrictsForState(state);
+      const targetDistrictPopulation = totalStatePopulation / totalDistricts;
+      
+      // Build steps array (we only have the current step, so create minimal array)
+      const steps = [];
+      for (let i = 0; i <= step; i++) {
+        steps.push(null); // Pad with nulls
+      }
+      steps[step] = stepData;
+      
+      // Reconstruct algorithm state
+      algorithmState = {
+        uniqueTracts,
+        currentGroups: stepData.districtGroups,
+        iteration: step,
+        steps: steps,
+        algorithmHistory: [],
+        totalStatePopulation,
+        targetDistrictPopulation,
+        maxIterations,
+        state: state
+      };
+      
+      // Store in state store temporarily (won't persist across restarts, but good for this session)
+      algorithmStateStore.set(stateKey, algorithmState);
+      console.log(`✅ Reconstructed algorithm state from cached step ${step} for ${state}`);
     }
 
     // Get current step from algorithm state
@@ -4763,6 +4992,66 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     // Invalidate all subsequent step caches
     await invalidateSubsequentStepCaches(state, maxIterations, step);
+
+    // Recreate union polygons for all groups after moving isolated tracts
+    // Clear existing union polygons first to force recreation
+    for (const group of updatedGroups) {
+      group.unionPolygon = undefined;
+      group.unionPolygons = undefined;
+    }
+    await recreateUnionPolygonsForGroups(updatedGroups, true); // Suppress verbose logging
+
+    // Save the updated step back to cache as the final step (since isolated tracts have been moved)
+    // This ensures that on page reload, the final step with moved tracts is loaded
+    try {
+      const tractCacheKey = `state_tracts_${state}`;
+      const updatedStep = {
+        ...currentStep,
+        districtGroups: updatedGroups,
+        isolatedTractsData: {
+          isolatedTractsByGroup: finalIsolatedTractsByGroup,
+          isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
+          totalIsolated: finalIsolationResult.isolatedTractIds.size,
+          groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
+        }
+      };
+
+      // Normalize step data (store tract IDs instead of full geometries)
+      const normalizedStep = normalizeStepData(updatedStep, tractCacheKey);
+
+      // Cache union polygons for this updated step
+      const unionPolygonCacheKeys = await cacheUnionPolygons(state, step, updatedGroups);
+      
+      // Add union polygon cache keys to normalized groups
+      if (Object.keys(unionPolygonCacheKeys).length > 0) {
+        normalizedStep.normalized.districtGroups = normalizedStep.normalized.districtGroups.map((group, index) => {
+          if (unionPolygonCacheKeys[index]) {
+            group.unionPolygonCacheKey = unionPolygonCacheKeys[index];
+          }
+          return group;
+        });
+      }
+
+      // Save the updated step to cache with isComplete: true (this is the final step after moving isolated tracts)
+      const cacheData = {
+        stepData: normalizedStep.normalized,
+        isComplete: true, // Mark as complete since isolated tracts have been moved
+        algorithmVersion: ALGORITHM_VERSION,
+        timestamp: Date.now(),
+        ttl: 24 * 60 * 60 * 1000, // 24 hours
+        source: 'algorithm-step-cache',
+        normalized: true,
+        tractCacheKey: tractCacheKey,
+        state: state,
+        step: step
+      };
+
+      await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
+      console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} as final step (after moving isolated tracts)`);
+    } catch (cacheError) {
+      console.warn(`⚠️ STEP CACHE STORE ERROR: Failed to save updated step after moving isolated tracts: ${cacheError.message}`);
+      // Don't fail the request if caching fails
+    }
 
     res.json({
       districtGroups: updatedGroups,

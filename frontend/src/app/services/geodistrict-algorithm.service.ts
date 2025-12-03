@@ -89,7 +89,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251126-2320'; // Fixed: moveIsolatedTracts dynamically updates group list after each move
+export const ALGORITHM_VERSION = '20251203-0100'; // Fixed sibling_DG format bug, algorithm state reconstruction, and added step endpoint
 
 // Interface for S4 adjacency data
 interface S4TractData {
@@ -138,6 +138,7 @@ export class GeodistrictAlgorithmService {
       version: string;
       name: string;
       nodeVersion: string;
+      algorithmVersion?: string;
       timestamp: string;
       endpoints: {
         algorithmExecute: string;
@@ -153,6 +154,15 @@ export class GeodistrictAlgorithmService {
           timestamp: versionInfo.timestamp,
           endpoints: versionInfo.endpoints
         });
+        
+        // Check algorithm version mismatch
+        if (versionInfo.algorithmVersion) {
+          if (versionInfo.algorithmVersion !== ALGORITHM_VERSION) {
+            console.log(`🔄 CACHE INVALIDATION: Backend algorithm version (${versionInfo.algorithmVersion}) is newer than frontend version (${ALGORITHM_VERSION}). Cache will be invalidated.`);
+          } else {
+            console.log(`✅ Algorithm version match: ${ALGORITHM_VERSION}`);
+          }
+        }
       },
       error: (error) => {
         console.warn('⚠️ Backend version check failed:', error.message);
@@ -472,6 +482,34 @@ export class GeodistrictAlgorithmService {
       }),
       catchError(error => {
         console.error('❌ Next step execution failed:', error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
+   * Get a specific step by number from cache
+   */
+  getStep(state: string, stepNumber: number, maxIterations: number = 100): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const stepUrl = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}?maxIterations=${maxIterations}`;
+
+    console.log(`📥 Getting step ${stepNumber} for ${state}: ${stepUrl}`);
+
+    return this.http.get<{
+      step: number;
+      data: GeodistrictStep;
+      isComplete: boolean;
+    }>(stepUrl).pipe(
+      map(response => {
+        return {
+          step: response.data,
+          stepIndex: response.step,
+          isComplete: response.isComplete || false
+        };
+      }),
+      catchError(error => {
+        console.error(`❌ Get step ${stepNumber} failed:`, error);
         return this.handleError(error);
       })
     );
