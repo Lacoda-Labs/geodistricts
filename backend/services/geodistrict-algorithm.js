@@ -44,8 +44,9 @@ const logger = require('../utils/logger');
  * 20251203-0400: Cache invalidation bump
  * 20251203-0500: Fixed stale sibling_DG issue - always update sibling_DG from divisionLines to match current division (not just when missing). sibling_DG should always be set correctly during division, but this fixes cases where moved tracts have stale values.
  * 20251203-0600: Fixed caching bug - added state validation in final-step endpoint, validate tractCacheKey matches state, clear map layers immediately on state change, added race condition check
+ * 20251203-0700: Cache invalidation bump
  */
-const ALGORITHM_VERSION = '20251203-0600';
+const ALGORITHM_VERSION = '20251203-0700';
 
 /**
  * Congressional districts per state (2020 census apportionment)
