@@ -46,8 +46,9 @@ const logger = require('../utils/logger');
  * 20251203-0600: Fixed caching bug - added state validation in final-step endpoint, validate tractCacheKey matches state, clear map layers immediately on state change, added race condition check
  * 20251203-0700: Cache invalidation bump
  * 20251203-2200: Improved bridge tract detection - only include tracts that will actually help connect isolated siblings; fixed swap logic to always swap tract_DG with sibling_DG without override
+ * 20251203-2215: Cache invalidation bump
  */
-const ALGORITHM_VERSION = '20251203-2200';
+const ALGORITHM_VERSION = '20251203-2215';
 
 /**
  * Congressional districts per state (2020 census apportionment)
