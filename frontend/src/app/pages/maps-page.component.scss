@@ -317,6 +317,38 @@
   color: var(--mat-sys-on-surface-variant, #42474E);
 }
 
+.run-all-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.start-link {
+  font-size: 0.75rem; // xs font
+  color: var(--mat-sys-primary, #2B638B);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  user-select: none;
+
+  &:hover:not(.disabled) {
+    color: var(--mat-sys-primary-container, #1a4d6b);
+  }
+
+  &.disabled {
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    cursor: not-allowed;
+    opacity: 0.5;
+    text-decoration: none;
+  }
+}
+
+.run-all-btn {
+  font-size: 0.75rem; // xs font
+  min-width: auto;
+  padding: 4px 12px;
+}
+
 .info-body {
   flex: 1;
   overflow: hidden;
@@ -406,6 +438,7 @@
   tbody {
     tr {
       border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+      transition: background-color 0.2s ease;
       
       &:last-child {
         border-bottom: none;
@@ -413,6 +446,20 @@
       
       &:hover {
         background-color: var(--mat-sys-surface-container-high, #E3E7EC);
+      }
+      
+      &.selected {
+        background-color: var(--mat-sys-primary-container, #1a4d6b);
+        color: var(--mat-sys-on-primary-container, #ffffff);
+        font-weight: 600;
+        
+        &:hover {
+          background-color: var(--mat-sys-primary-container, #1a4d6b);
+        }
+        
+        td {
+          color: var(--mat-sys-on-primary-container, #ffffff);
+        }
       }
     }
 

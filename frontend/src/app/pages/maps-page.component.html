@@ -51,6 +51,7 @@
           </div>
         </div>
         <div class="run-all-controls" *ngIf="selectedState">
+          <a (click)="resetToStart(); $event.preventDefault()" class="start-link" [class.disabled]="isLoading || isRunningAllSteps">Start</a>
           <button mat-button (click)="runAllSteps()" [disabled]="isRunningAllSteps" class="run-all-btn">
             {{ isRunningAllSteps ? 'Running All Steps...' : 'Run All Steps' }}
           </button>
@@ -150,7 +151,10 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let group of currentStep.districtGroups; let i = index">
+                  <tr *ngFor="let group of currentStep.districtGroups; let i = index"
+                      [class.selected]="selectedDistrictGroupIndex === i"
+                      (click)="selectDistrictGroup(i)"
+                      style="cursor: pointer;">
                     <td>
                       Districts {{ group.startDistrictNumber }}
                       <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">

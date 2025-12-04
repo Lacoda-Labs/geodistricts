@@ -56,6 +56,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isRunningAllSteps: boolean = false;
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
+  selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   
   private map: L.Map | null = null;
   private tractLayer: L.LayerGroup | null = null;
@@ -406,14 +407,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         
         // Store the result
         this.algorithmResult = result;
+        // Store all steps - preserve array structure to maintain step index mapping
+        // Steps should be indexed by step number (step 0 at index 0, step 1 at index 1, etc.)
         this.loadedSteps = result.steps;
         this.totalSteps = result.steps.length;
         
         // Display the final step
         if (result.steps.length > 0) {
-          const finalStep = result.steps[result.steps.length - 1];
-          this.currentStepIndex = result.steps.length - 1;
-          this.currentStep = finalStep;
+          // Find the last valid step (in case array has undefined entries)
+          let finalStepIndex = result.steps.length - 1;
+          while (finalStepIndex >= 0 && (!result.steps[finalStepIndex] || result.steps[finalStepIndex] === undefined || result.steps[finalStepIndex] === null)) {
+            finalStepIndex--;
+          }
+          
+          if (finalStepIndex >= 0) {
+            const finalStep = result.steps[finalStepIndex];
+            this.currentStepIndex = finalStepIndex;
+            this.currentStep = finalStep;
+            this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
           
           // Populate isolated tracts data from final step if available
           if (finalStep.isolatedTractsData) {
@@ -428,8 +439,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractsData = null;
           }
           
-          // Render the final step
-          this.renderFinalDistricts();
+            // Render the final step
+            this.renderFinalDistricts();
+          } else {
+            console.warn('⚠️ No valid steps found in result');
+            this.errorMessage = 'No valid steps found in result';
+          }
         }
         
         this.isLoading = false;
@@ -519,6 +534,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Display the loaded step (could be step 0 or final step)
         this.currentStepIndex = stepIndex;
         this.currentStep = step;
+        this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
         
         // If this is the final step, load all previous steps to show all division lines
         if (isComplete) {
@@ -602,7 +618,168 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getTotalSteps(): number {
-    return this.totalSteps || this.loadedSteps.filter(s => s !== undefined).length || 0;
+    return this.totalSteps || this.loadedSteps.filter(s => s !== undefined && s !== null).length || 0;
+  }
+
+  /**
+   * Reset to step 0 by clearing cache and reloading the map
+   */
+  resetToStart(): void {
+    if (!this.selectedState || this.selectedState === 'ALL') {
+      this.errorMessage = 'Please select a state first';
+      return;
+    }
+
+    console.log(`🔄 Resetting to step 0 for ${this.selectedState} (clearing cache)...`);
+
+    // Clear map layers
+    if (this.tractLayer) {
+      this.tractLayer.clearLayers();
+    }
+    this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
+    this.clearDivisionLines();
+
+    // Reset state
+    this.isLoading = true;
+    this.isLoadingSteps = true;
+    this.errorMessage = '';
+    this.algorithmResult = null;
+    this.loadedSteps = [];
+    this.currentStepIndex = 0;
+    this.currentStep = null;
+    this.totalSteps = 0;
+    this.isolatedTractIds.clear();
+    this.isolatedTractsData = null;
+    this.bridgeTractIds.clear();
+    this.bridgeTractsData = null;
+    this.selectedDistrictGroupIndex = null; // Clear selection
+
+    // Directly call the step-by-step endpoint to get step 0, bypassing final step check
+    // This ensures we always get step 0, not the final step
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const executeUrl = `${backendUrl}/api/algorithm/execute/step-by-step`;
+
+    console.log(`🚀 Reloading algorithm from step 0 with cache cleared for ${this.selectedState}`);
+
+    // Call step-by-step endpoint directly with forceInvalidate to get step 0
+    const subscription = this.http.post<{
+      step: number;
+      data: GeodistrictStep;
+      isComplete: boolean;
+    }>(executeUrl, {
+      state: this.selectedState,
+      maxIterations: 100,
+      options: {
+        forceInvalidate: true // Clear cache
+      }
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).subscribe({
+      next: (response) => {
+        // Backend returns { step: number, data: GeodistrictStep, isComplete: boolean }
+        const stepIndex = response.step;
+        const step = response.data;
+        const isComplete = response.isComplete || false;
+        
+        // Handle null or invalid step data
+        if (!step) {
+          console.warn(`⚠️ Received null step data at step ${stepIndex}`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          this.errorMessage = `Failed to load step ${stepIndex}: step data is null or incomplete`;
+          return;
+        }
+        
+        // Ensure we got step 0 (not final step)
+        if (stepIndex !== 0) {
+          console.warn(`⚠️ Expected step 0 but got step ${stepIndex}. This should not happen when resetting to start.`);
+        }
+        
+        console.log(`📥 Received step ${stepIndex} for ${this.selectedState}:`, step.description || 'No description');
+
+        // Store the step
+        this.loadedSteps[stepIndex] = step;
+
+        // Display the loaded step (should be step 0)
+        this.currentStepIndex = stepIndex;
+        this.currentStep = step;
+        
+        // If this is the final step, load all previous steps to show all division lines
+        if (isComplete) {
+          this.totalSteps = stepIndex + 1;
+          this.isLoadingSteps = false;
+          console.log(`✅ Loaded final step ${stepIndex} for ${this.selectedState}`);
+          
+          // Load all previous steps to get their division lines
+          this.loadAllPreviousSteps(stepIndex);
+        } else {
+          // For step 0, we're not complete yet
+          this.isLoadingSteps = false;
+        }
+        
+        // Populate isolated tracts data from step cache if available
+        if (step.isolatedTractsData) {
+          const stepIsolatedData = step.isolatedTractsData;
+          this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+          this.isolatedTractsData = {
+            isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+            isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+          };
+          console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+        } else {
+          this.isolatedTractIds.clear();
+          this.isolatedTractsData = null;
+        }
+        
+        // Validate step has districtGroups
+        if (!step.districtGroups || !Array.isArray(step.districtGroups) || step.districtGroups.length === 0) {
+          console.warn(`⚠️ Step ${stepIndex} has no districtGroups, cannot render`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          this.errorMessage = `Step ${stepIndex} data is incomplete: missing district groups`;
+          return;
+        }
+        
+        this.isLoading = false; // Stop showing loading spinner after step 0
+        
+        // Create a minimal algorithmResult for rendering
+        this.algorithmResult = {
+          finalDistricts: step.districtGroups,
+          steps: [step],
+          totalPopulation: step.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0),
+          averagePopulation: 0,
+          populationVariance: 0,
+          algorithmHistory: []
+        };
+
+        const stepLabel = isComplete ? `final step ${stepIndex}` : `step ${stepIndex}`;
+        console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts?.length || 0} tracts`);
+        
+        // Render the step on map - wait a bit longer to ensure map is ready
+        setTimeout(() => {
+          console.log(`🖼️ About to render ${stepLabel}, map initialized: ${!!this.map}, tractLayer initialized: ${!!this.tractLayer}`);
+          if (!this.map || !this.tractLayer) {
+            console.error('⚠️ Map or tractLayer not initialized, retrying in 500ms...');
+            setTimeout(() => {
+              this.renderFinalDistricts();
+            }, 500);
+          } else {
+            this.renderFinalDistricts();
+          }
+        }, 500);
+      },
+      error: (error) => {
+        this.errorMessage = error.message || 'An error occurred while resetting to step 0';
+        this.isLoading = false;
+        this.isLoadingSteps = false;
+        console.error('Reset to start error:', error);
+      }
+    });
+
+    this.subscriptions.push(subscription);
   }
 
   canGoToNextStep(): boolean {
@@ -625,9 +802,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   previousStep(): void {
     if (this.currentStepIndex > 0) {
       const prevIndex = this.currentStepIndex - 1;
+      // Ensure we check the array properly - handle both dense and sparse arrays
       const step = this.loadedSteps[prevIndex];
       
-      if (step) {
+      if (step && step !== undefined && step !== null) {
         // Step already loaded, just display it
         this.currentStepIndex = prevIndex;
         this.currentStep = step;
@@ -635,6 +813,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isolatedTractsData = null;
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
+        this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
         // Step not loaded yet, request it from backend
@@ -666,6 +845,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             // Display the step
             this.currentStepIndex = stepIndex;
             this.currentStep = newStep as any;
+            this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
             
             // Populate isolated tracts data from step cache if available
             if ((newStep as any).isolatedTractsData) {
@@ -779,6 +959,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Step already loaded, just display it
       this.currentStepIndex = nextIndex;
       this.currentStep = step;
+      this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
       this.renderFinalDistricts();
     } else {
       // Step not loaded yet, request it from backend
@@ -846,6 +1027,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           // Display the step
           this.currentStepIndex = stepIndex;
           this.currentStep = stepToUse as any;
+          this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
           
           // Populate isolated tracts data from step cache if available
           if ((stepToUse as any).isolatedTractsData) {
@@ -963,7 +1145,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Render final districts (all steps calculated)
     districtsToRender.forEach((district, index) => {
-      const color = this.getDistrictColor(index, districtsToRender.length);
+      // Determine color based on selection state
+      const baseColor = this.getDistrictColor(index, districtsToRender.length);
+      const isSelected = this.selectedDistrictGroupIndex === index;
+      // Only apply grayscale if a district is selected AND this one is not selected
+      const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
+        ? this.colorToGrayscale(baseColor) 
+        : baseColor;
       
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
@@ -1120,7 +1308,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Render division lines for current step and all previous steps
-    this.renderDivisionLines();
+    // Hide division lines when a district is selected
+    if (this.selectedDistrictGroupIndex === null) {
+      this.renderDivisionLines();
+    }
   }
 
   /**
@@ -1607,6 +1798,39 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Generate distinct colors for each district
     const hue = (districtIndex * 360) / totalDistricts;
     return `hsl(${hue}, 70%, 50%)`;
+  }
+
+  /**
+   * Convert a color to grayscale
+   */
+  private colorToGrayscale(color: string): string {
+    // Handle HSL colors
+    if (color.startsWith('hsl(')) {
+      const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+      if (match) {
+        const lightness = parseInt(match[3]);
+        // Convert to grayscale by removing saturation and adjusting lightness
+        // Keep the lightness similar but reduce saturation to 0
+        return `hsl(0, 0%, ${lightness}%)`;
+      }
+    }
+    // Fallback: return a medium gray
+    return 'hsl(0, 0%, 50%)';
+  }
+
+  /**
+   * Select a district group to highlight on the map
+   */
+  selectDistrictGroup(index: number): void {
+    if (this.selectedDistrictGroupIndex === index) {
+      // Deselect if clicking the same district
+      this.selectedDistrictGroupIndex = null;
+    } else {
+      // Select the new district
+      this.selectedDistrictGroupIndex = index;
+    }
+    // Re-render the map with the new highlighting
+    this.renderFinalDistricts();
   }
 
   /**

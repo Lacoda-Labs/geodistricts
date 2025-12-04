@@ -3027,6 +3027,12 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 
     // Extract forceInvalidate option
     const forceInvalidate = options.forceInvalidate || false;
+    
+    // If forceInvalidate is true, invalidate all step caches for this state
+    if (forceInvalidate) {
+      console.log(`🔄 FORCE INVALIDATE: Invalidating all step caches for ${state}`);
+      await invalidateAllStepCaches(state, maxIterations);
+    }
 
     // Get tract data from census proxy
     try {
@@ -4167,6 +4173,107 @@ function normalizeStepData(step, tractCacheKey) {
   return {
     normalized: removeUndefinedValues(normalized)
   };
+}
+
+/**
+ * Invalidate all step caches for a given state
+ * Deletes all step caches (step 0 and all subsequent steps) for the state/algorithm
+ * This is used when forceInvalidate is true to ensure a fresh start
+ */
+async function invalidateAllStepCaches(state, maxIterations) {
+  try {
+    const currentVersion = ALGORITHM_VERSION;
+    let deletedCount = 0;
+    
+    // Query for all step caches for this state/algorithm (both source types)
+    // Query by state to find all step caches
+    const stepCacheQuery = firestore.collection('census_cache')
+      .where('state', '==', state);
+    
+    const stepCacheSnapshot = await stepCacheQuery.get();
+    for (const doc of stepCacheSnapshot.docs) {
+      const cacheKey = doc.id;
+      const data = doc.data();
+      
+      // Check if this is a step cache (either algorithm-step-cache or step-cache source)
+      if (data.source === 'algorithm-step-cache' || data.source === 'step-cache') {
+        // Check if this matches our state and algorithm version
+        if (data.algorithmVersion === currentVersion) {
+          // Check if it's a step cache by matching the cache key pattern
+          const algorithmStepMatch = cacheKey.match(/algorithm_step_(\w+)_(\d+)_(\d+)/);
+          const runAllStepMatch = cacheKey.match(/step_(\w+)_(\d+)_(.+)/);
+          
+          if (algorithmStepMatch && algorithmStepMatch[1] === state && parseInt(algorithmStepMatch[2]) === maxIterations) {
+            await doc.ref.delete();
+            deletedCount++;
+          } else if (runAllStepMatch && runAllStepMatch[1] === state) {
+            await doc.ref.delete();
+            deletedCount++;
+          }
+        }
+      }
+    }
+    
+    // Also use fallback method to ensure we catch all step caches
+    // Delete algorithm_step format
+    for (let stepNum = 0; stepNum <= 100; stepNum++) {
+      const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+      try {
+        const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+        if (doc.exists) {
+          await doc.ref.delete();
+          deletedCount++;
+        }
+      } catch (deleteError) {
+        // Continue with other steps even if one fails
+      }
+      
+      // Delete step_ format (Run All Steps) - try current version
+      const runAllCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      try {
+        const doc = await firestore.collection('census_cache').doc(runAllCacheKey).get();
+        if (doc.exists) {
+          await doc.ref.delete();
+          deletedCount++;
+        }
+      } catch (deleteError) {
+        // Continue with other steps even if one fails
+      }
+    }
+    
+    console.log(`🗑️ Invalidated ${deletedCount} step cache(s) (all steps) for ${state}`);
+  } catch (queryError) {
+    console.warn(`⚠️ Failed to query and invalidate all step caches: ${queryError.message}`);
+    // Fallback: try to delete steps 0-100 for both cache formats
+    let deletedCount = 0;
+    const currentVersion = ALGORITHM_VERSION;
+    for (let stepNum = 0; stepNum <= 100; stepNum++) {
+      // Delete algorithm_step format
+      const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+      try {
+        const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+        if (doc.exists) {
+          await doc.ref.delete();
+          deletedCount++;
+        }
+      } catch (deleteError) {
+        // Continue with other steps even if one fails
+      }
+      
+      // Delete step_ format (Run All Steps)
+      const runAllCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      try {
+        const doc = await firestore.collection('census_cache').doc(runAllCacheKey).get();
+        if (doc.exists) {
+          await doc.ref.delete();
+          deletedCount++;
+        }
+      } catch (deleteError) {
+        // Continue with other steps even if one fails
+      }
+    }
+    console.log(`🗑️ Invalidated ${deletedCount} step cache(s) (steps 0-100) for ${state} using fallback method`);
+  }
 }
 
 /**
