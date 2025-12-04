@@ -45,8 +45,9 @@ const logger = require('../utils/logger');
  * 20251203-0500: Fixed stale sibling_DG issue - always update sibling_DG from divisionLines to match current division (not just when missing). sibling_DG should always be set correctly during division, but this fixes cases where moved tracts have stale values.
  * 20251203-0600: Fixed caching bug - added state validation in final-step endpoint, validate tractCacheKey matches state, clear map layers immediately on state change, added race condition check
  * 20251203-0700: Cache invalidation bump
+ * 20251203-2200: Improved bridge tract detection - only include tracts that will actually help connect isolated siblings; fixed swap logic to always swap tract_DG with sibling_DG without override
  */
-const ALGORITHM_VERSION = '20251203-0700';
+const ALGORITHM_VERSION = '20251203-2200';
 
 /**
  * Congressional districts per state (2020 census apportionment)
@@ -1694,24 +1695,62 @@ class GeodistrictAlgorithmService {
           console.log(`   Large isolation: ${isLargeIsolation}`);
         }
         
-        // For large isolations, be less restrictive - include if adjacent to multiple isolated tracts
-        // For small isolations, be more careful about not breaking source group
-        // BUT: if a bridge tract is adjacent to isolated tracts, it should be considered even if in main component
-        let willInclude = false;
-        if (isLargeIsolation) {
-          // For large isolations, include if adjacent to at least 2 isolated tracts
-          // OR if it's not fully embedded (has neighbors outside source group)
-          willInclude = bridgeTract.adjacentIsolatedCount >= 2 || !allNeighborsInSource;
-        } else {
-          // For small isolations, include if:
-          // 1. Adjacent to at least 1 isolated tract AND not fully embedded (has neighbors outside source group)
-          // 2. OR adjacent to multiple isolated tracts (even if in main component, it's worth considering)
-          willInclude = (bridgeTract.adjacentIsolatedCount >= 1 && !allNeighborsInSource) || 
-                        (bridgeTract.adjacentIsolatedCount >= 2);
+        // IMPORTANT: Only include bridge tracts that will actually help connect isolated siblings
+        // A bridge tract should:
+        // 1. Be adjacent to isolated tracts (already verified)
+        // 2. When moved to the isolated group, help connect isolated tracts to the main component
+        // 
+        // To verify #2, we need to check:
+        // - The bridge tract has neighbors in the isolated group's main component (so when moved, it connects to main component)
+        // - Moving the bridge tract will create a path from isolated tracts to the main component
+        const isolatedGroupTractIds = new Set(isolatedGroup.censusTracts.map(t => getTractId(t)));
+        const isolatedGroupMaxReachable = this.calculateMaxReachableCount(isolatedGroup.censusTracts, adjacencyGraph);
+        const bridgeTractNeighbors = adjacencyGraph.get(bridgeTract.tractId) || [];
+        
+        // Count neighbors that are in the isolated group's main component (not isolated tracts)
+        // These are tracts in the isolated group that are reachable from the main component
+        let neighborsInIsolatedMainComponent = 0;
+        for (const neighborId of bridgeTractNeighbors) {
+          if (isolatedGroupTractIds.has(neighborId) && !isolatedTractIds.has(neighborId)) {
+            // This neighbor is in the isolated group but not an isolated tract (so it's in the main component)
+            const neighborReachable = this.calculateReachableTracts(neighborId, isolatedGroup.censusTracts, adjacencyGraph);
+            if (neighborReachable >= isolatedGroupMaxReachable * 0.95) {
+              neighborsInIsolatedMainComponent++;
+            }
+          }
         }
         
-        if (isDistrict5 || bridgeTract.tractId === '010102' || bridgeTract.tractId.includes('010102')) {
-          console.log(`   Will include: ${willInclude} (adjacentIsolatedCount=${bridgeTract.adjacentIsolatedCount}, allNeighborsInSource=${allNeighborsInSource}, isInMainComponent=${isInMainComponentOfSource})`);
+        // A bridge tract will help connect if:
+        // - It has neighbors in the isolated group's main component (so when moved, it connects to main component)
+        //   AND it's adjacent to isolated tracts (so it can bridge the gap)
+        // This means: moving the bridge tract will create a path from isolated tracts -> bridge tract -> main component
+        const willHelpConnect = neighborsInIsolatedMainComponent > 0 && bridgeTract.adjacentIsolatedCount >= 1;
+        
+        // For large isolations, be slightly less restrictive but still require it to help connect
+        let willInclude = false;
+        if (isLargeIsolation) {
+          // For large isolations, include if:
+          // 1. Adjacent to at least 3 isolated tracts (high value, likely to help)
+          // 2. OR has neighbors in main component AND adjacent to isolated tracts (will bridge the gap)
+          willInclude = bridgeTract.adjacentIsolatedCount >= 3 || 
+                       (neighborsInIsolatedMainComponent > 0 && bridgeTract.adjacentIsolatedCount >= 1);
+        } else {
+          // For small isolations, only include if it will actually help connect
+          // Must have neighbors in main component AND be adjacent to isolated tracts
+          willInclude = neighborsInIsolatedMainComponent > 0 && bridgeTract.adjacentIsolatedCount >= 1;
+        }
+        
+        // Debug logging for specific tracts
+        const isDistrict4 = isolatedGroup.startDistrictNumber === 4 && isolatedGroup.endDistrictNumber === 4;
+        const isDebugTract = bridgeTract.tractId === '010102' || bridgeTract.tractId.includes('010102') || 
+                            bridgeTract.tractId === '940100' || bridgeTract.tractId.includes('940100');
+        if (isDistrict4 || isDistrict5 || isDebugTract) {
+          console.log(`   Will include: ${willInclude} (adjacentIsolatedCount=${bridgeTract.adjacentIsolatedCount}, neighborsInIsolatedMainComponent=${neighborsInIsolatedMainComponent}, willHelpConnect=${willHelpConnect})`);
+          if (!willInclude) {
+            console.log(`   ❌ REJECTED: Bridge tract ${bridgeTract.tractId} will NOT help connect isolated tracts`);
+            console.log(`      - Adjacent to ${bridgeTract.adjacentIsolatedCount} isolated tract(s)`);
+            console.log(`      - Has ${neighborsInIsolatedMainComponent} neighbor(s) in isolated group's main component`);
+          }
         }
         
         if (willInclude) {
@@ -1916,7 +1955,8 @@ class GeodistrictAlgorithmService {
         movedCount++;
         
         // SWAP tract_DG with sibling_DG (as per user requirement)
-        // When moving bridge tract, swap: tract_DG <-> sibling_DG
+        // When moving bridge tract, ALWAYS swap: tract_DG <-> sibling_DG
+        // This is the core requirement - just swap the values, don't override
         if (bridgeTract.properties) {
           const oldTractDG = bridgeTract.properties.tract_DG;
           const oldSiblingDG = bridgeTract.properties.sibling_DG;
@@ -1924,22 +1964,19 @@ class GeodistrictAlgorithmService {
           const targetDG = `DG${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`;
           
           if (oldTractDG && oldSiblingDG && oldTractDG !== oldSiblingDG) {
-            // Normal case: swap tract_DG and sibling_DG
+            // Normal case: ALWAYS swap tract_DG and sibling_DG (don't override)
             bridgeTract.properties.tract_DG = oldSiblingDG;
             bridgeTract.properties.sibling_DG = oldTractDG;
             
-            // Verify the new tract_DG matches the target group
-            if (bridgeTract.properties.tract_DG !== targetDG) {
-              console.warn(`⚠️ After swap, tract_DG (${bridgeTract.properties.tract_DG}) doesn't match target group (${targetDG})`);
-              // Fix it: set tract_DG to target and sibling_DG to source
-              bridgeTract.properties.tract_DG = targetDG;
-              bridgeTract.properties.sibling_DG = sourceDG;
-            }
-            
             console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
             console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${bridgeTract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${bridgeTract.properties.sibling_DG}`);
+            
+            // Log warning if swapped tract_DG doesn't match target, but don't override the swap
+            if (bridgeTract.properties.tract_DG !== targetDG) {
+              console.warn(`⚠️ After swap, tract_DG (${bridgeTract.properties.tract_DG}) doesn't match target group (${targetDG}). Keeping swap as-is per user requirement.`);
+            }
           } else if (oldTractDG === oldSiblingDG || !oldSiblingDG) {
-            // Edge case: both are the same or sibling_DG is missing - set directly instead of swapping
+            // Edge case: both are the same or sibling_DG is missing - set directly
             bridgeTract.properties.tract_DG = targetDG;
             bridgeTract.properties.sibling_DG = sourceDG;
             console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
