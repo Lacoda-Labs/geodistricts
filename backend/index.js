@@ -3296,7 +3296,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                         } else {
                           group.unionPolygon = unionData;
                         }
-                        console.log(`✅ STEP 0: Loaded union polygon from cache immediately`);
+                        const loadedCount = Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0);
+                        console.log(`✅ STEP 0: Loaded ${loadedCount} union polygon(s) from cache immediately${loadedCount > 1 ? ` (main + ${loadedCount - 1} island(s))` : ''}`);
                       } else {
                         console.log(`⚠️ STEP 0: Union polygon cache not found, will create after tract loading`);
                       }
@@ -3586,6 +3587,11 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
           }
           
           // Cache union polygons for step 0
+          // Log what we're about to cache
+          if (step.districtGroups && step.districtGroups.length > 0) {
+            const firstGroup = step.districtGroups[0];
+            console.log(`🔍 BEFORE CACHING: Group ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber} has unionPolygons: ${Array.isArray(firstGroup.unionPolygons)}, length: ${firstGroup.unionPolygons?.length || 0}, has unionPolygon: ${!!firstGroup.unionPolygon}`);
+          }
           const unionPolygonCacheKeys = await cacheUnionPolygons(state, 0, step.districtGroups);
           
           // Add union polygon cache keys to normalized step data
@@ -3619,6 +3625,14 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       };
       
       cacheStep0();
+
+      // Log what we're returning to frontend
+      if (step.districtGroups && step.districtGroups.length > 0) {
+        const firstGroup = step.districtGroups[0];
+        const hasUnionPolygons = Array.isArray(firstGroup.unionPolygons);
+        const unionPolygonsLength = hasUnionPolygons ? firstGroup.unionPolygons.length : 0;
+        console.log(`📤 RETURNING STEP 0: Group ${firstGroup.startDistrictNumber}-${firstGroup.endDistrictNumber} has unionPolygons array: ${hasUnionPolygons}, length: ${unionPolygonsLength}, has unionPolygon: ${!!firstGroup.unionPolygon}`);
+      }
 
       // Return step 0
       res.json({
@@ -4075,7 +4089,16 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
     
     try {
       // Store union polygon(s) - can be single polygon or array
+      // At Step 0, prefer unionPolygons array (main + islands) over single unionPolygon
       const unionData = group.unionPolygons || (group.unionPolygon ? [group.unionPolygon] : null);
+      
+      // Log what we're caching for debugging
+      if (stepNumber === 0) {
+        const hasArray = Array.isArray(group.unionPolygons);
+        const hasSingle = !!group.unionPolygon;
+        const arrayLength = hasArray ? group.unionPolygons.length : 0;
+        console.log(`🔍 CACHING UNION POLYGONS: Group ${groupKey} - has unionPolygons array: ${hasArray} (length: ${arrayLength}), has unionPolygon: ${hasSingle}, will cache: ${Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0)} polygon(s)`);
+      }
       
       if (unionData) {
         const unionSize = JSON.stringify(unionData).length;
@@ -4111,7 +4134,8 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
         await firestore.collection('census_cache').doc(unionCacheKey).set(metadataEntry);
         unionPolygonCacheKeys[i] = unionCacheKey;
         
-        console.log(`💾 CLOUD STORAGE: Cached union polygon for ${stateCode} step ${stepNumber} group ${groupKey} (${unionSizeMB} MB)`);
+        const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
+        console.log(`💾 CLOUD STORAGE: Cached ${polygonCount} union polygon(s) for ${stateCode} step ${stepNumber} group ${groupKey} (${unionSizeMB} MB)${polygonCount > 1 ? ` - main + ${polygonCount - 1} island(s)` : ''}`);
       }
     } catch (error) {
       console.error(`❌ Failed to cache union polygon for ${stateCode} step ${stepNumber} group ${groupKey}:`, error.message);

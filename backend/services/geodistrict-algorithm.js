@@ -684,26 +684,86 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
       const mainComponent = components[0]; // Largest component
       const islandComponents = components.slice(1); // Smaller components (islands)
       
+      // Verify main component is actually the largest
+      const allComponentSizes = components.map(c => c.length).sort((a, b) => b - a);
+      if (mainComponent.length !== allComponentSizes[0]) {
+        console.error(`❌ CRITICAL: Main component size mismatch! Expected ${allComponentSizes[0]} but got ${mainComponent.length}`);
+      }
+      
+      // Check if any island tract IDs appear in main component (should not happen)
+      if (islandComponents.length > 0) {
+        const islandTractIds = new Set();
+        for (const islandComp of islandComponents) {
+          for (const tract of islandComp) {
+            const tractId = getTractId(tract);
+            if (tractId) islandTractIds.add(tractId);
+          }
+        }
+        
+        const mainTractIds = new Set(mainComponent.map(t => getTractId(t)).filter(Boolean));
+        const overlap = [...islandTractIds].filter(id => mainTractIds.has(id));
+        if (overlap.length > 0) {
+          console.error(`❌ CRITICAL: ${overlap.length} island tract ID(s) found in main component! Overlapping IDs: ${overlap.slice(0, 5).join(', ')}`);
+        }
+      }
+      
       console.log(`🔨 Group ${group.startDistrictNumber}-${group.endDistrictNumber} has ${components.length} connected components${isStep0 ? ' (main + islands at Step 0)' : ''}`);
       console.log(`   Main component: ${mainComponent.length} tracts, Islands: ${islandComponents.map(c => c.length).join(', ')} tracts`);
+      console.log(`   Component sizes (sorted): ${allComponentSizes.join(', ')}`);
       
       const unionPolygons = [];
       
       // Create main polygon (largest component) - always first
+      // Validate that mainComponent contains tract objects with geometry
+      const validMainTracts = mainComponent.filter(t => t && t.geometry);
+      const invalidMainTracts = mainComponent.length - validMainTracts.length;
+      if (invalidMainTracts > 0) {
+        console.warn(`⚠️ Main component has ${invalidMainTracts} tracts without geometry out of ${mainComponent.length} total`);
+      }
+      
+      // Log sample tract IDs from main component to verify they're correct (not island tracts)
+      const mainTractIds = mainComponent.slice(0, 5).map(t => getTractId(t)).filter(Boolean);
+      console.log(`   Main component sample tract IDs: ${mainTractIds.join(', ')}`);
+      
+      // Verify main component doesn't contain known island tracts (for CA Step 0)
+      if (isStep0) {
+        const knownIslandTracts = ['06037599000', '06037599100', '06075980401', '06083980100', '06111980000'];
+        const mainTractIdSet = new Set(mainComponent.map(t => getTractId(t)).filter(Boolean));
+        const islandTractsInMain = knownIslandTracts.filter(id => mainTractIdSet.has(id));
+        if (islandTractsInMain.length > 0) {
+          console.error(`❌ CRITICAL: Known island tract(s) found in main component: ${islandTractsInMain.join(', ')}`);
+        } else {
+          console.log(`   ✅ Verified: No known island tracts in main component`);
+        }
+      }
+      
       const mainGroup = {
         ...group,
         censusTracts: mainComponent
       };
       const mainPolygon = createUnionPolygon(mainGroup);
-      if (mainPolygon) {
+      if (mainPolygon && mainPolygon.geometry) {
+        // Log polygon details for debugging
+        const geomType = mainPolygon.geometry.type;
+        let pointCount = 0;
+        if (geomType === 'Polygon' && mainPolygon.geometry.coordinates && mainPolygon.geometry.coordinates[0]) {
+          pointCount = mainPolygon.geometry.coordinates[0].length;
+        } else if (geomType === 'MultiPolygon' && mainPolygon.geometry.coordinates) {
+          pointCount = mainPolygon.geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
+        }
+        console.log(`✅ Created main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - type: ${geomType}, points: ${pointCount}`);
         unionPolygons.push(mainPolygon);
-        console.log(`✅ Created main union polygon for component with ${mainComponent.length} tracts`);
       } else {
-        console.warn(`⚠️ Failed to create main union polygon for component with ${mainComponent.length} tracts`);
+        console.error(`❌ Failed to create main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - polygon is ${mainPolygon ? 'missing geometry' : 'null'}`);
+        // Don't continue if main polygon failed - it's critical
+        if (isStep0) {
+          console.error(`❌ CRITICAL: Main polygon creation failed at Step 0. Cannot proceed without main polygon.`);
+        }
       }
       
       // Create island polygons (smaller components) - only at Step 0, or if not forceSingleUnion
-      if (isStep0 || !forceSingleUnion) {
+      // IMPORTANT: Only create islands if main polygon was successfully created
+      if ((isStep0 || !forceSingleUnion) && unionPolygons.length > 0) {
         for (let i = 0; i < islandComponents.length; i++) {
           const islandComponent = islandComponents[i];
           const islandGroup = {
@@ -711,23 +771,32 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
             censusTracts: islandComponent
           };
           const islandPolygon = createUnionPolygon(islandGroup);
-          if (islandPolygon) {
+          if (islandPolygon && islandPolygon.geometry) {
             unionPolygons.push(islandPolygon);
             console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts`);
           } else {
-            console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts`);
+            console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts - polygon is ${islandPolygon ? 'missing geometry' : 'null'}`);
           }
         }
       }
       
       if (unionPolygons.length > 0) {
+        // Validate that main polygon is first in array
+        if (isStep0 && unionPolygons.length > 1) {
+          console.log(`✅ Step 0: Returning ${unionPolygons.length} polygons (main + ${unionPolygons.length - 1} island(s)) for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+        }
+        
         // At Step 0, always return array (main + islands)
         // For other steps, return array if we have multiple polygons, single if only main
         if (isStep0 && unionPolygons.length === 1) {
           // Only main polygon, no islands - still return as array for consistency
+          console.log(`✅ Step 0: Returning single main polygon (no islands) for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
           return unionPolygons;
         }
         return unionPolygons.length === 1 && !isStep0 ? unionPolygons[0] : unionPolygons;
+      } else {
+        console.error(`❌ No union polygons created for group ${group.startDistrictNumber}-${group.endDistrictNumber} - all polygon creation failed`);
+        return null;
       }
     }
   }
@@ -795,22 +864,81 @@ function createUnionPolygon(group) {
       
       if (flattenedTracts.length > 0) {
         const collection = turf.featureCollection(flattenedTracts);
-        const dissolved = turf.dissolve(collection);
-        if (dissolved && dissolved.features && dissolved.features.length > 0) {
-          // Use the first (and usually only) feature from dissolved result
-          const unionFeature = {
-            type: 'Feature',
-            geometry: dissolved.features[0].geometry,
-            properties: {
-              ...group.censusTracts[0].properties,
-              DISTRICT_START: group.startDistrictNumber,
-              DISTRICT_END: group.endDistrictNumber,
-              TOTAL_POPULATION: group.totalPopulation,
-              TRACT_COUNT: group.censusTracts.length
+        
+        // For very large collections, turf.dissolve may fail or produce incorrect results
+        // Use chunked approach for collections > 5000 polygons
+        let dissolved = null;
+        if (flattenedTracts.length > 5000) {
+          console.log(`⚠️ Large collection (${flattenedTracts.length} polygons), using chunked dissolve approach`);
+          try {
+            // Try chunked dissolve: dissolve in batches and then dissolve the results
+            const chunkSize = 2000;
+            const chunks = [];
+            for (let i = 0; i < flattenedTracts.length; i += chunkSize) {
+              const chunk = flattenedTracts.slice(i, i + chunkSize);
+              const chunkCollection = turf.featureCollection(chunk);
+              const chunkDissolved = turf.dissolve(chunkCollection);
+              if (chunkDissolved && chunkDissolved.features && chunkDissolved.features.length > 0) {
+                chunks.push(...chunkDissolved.features);
+              }
             }
-          };
-          console.log(`✅ Created union polygon using dissolve for group ${group.startDistrictNumber}-${group.endDistrictNumber} (flattened ${validTracts.length} tracts to ${flattenedTracts.length} polygons)`);
-          return unionFeature;
+            
+            if (chunks.length > 0) {
+              // Dissolve the chunk results together
+              const chunkCollection = turf.featureCollection(chunks);
+              dissolved = turf.dissolve(chunkCollection);
+              console.log(`✅ Chunked dissolve: ${flattenedTracts.length} polygons -> ${chunks.length} chunks -> final result`);
+            }
+          } catch (chunkError) {
+            console.warn(`⚠️ Chunked dissolve failed: ${chunkError.message}, falling back to sequential union`);
+          }
+        } else {
+          // For smaller collections, use direct dissolve
+          try {
+            dissolved = turf.dissolve(collection);
+          } catch (dissolveError) {
+            console.warn(`⚠️ Direct dissolve failed: ${dissolveError.message}, falling back to sequential union`);
+          }
+        }
+        
+        if (dissolved && dissolved.features && dissolved.features.length > 0) {
+          const resultFeature = dissolved.features[0];
+          // Validate the dissolved result has reasonable geometry
+          const geomType = resultFeature.geometry?.type;
+          let pointCount = 0;
+          if (geomType === 'Polygon' && resultFeature.geometry.coordinates && resultFeature.geometry.coordinates[0]) {
+            pointCount = resultFeature.geometry.coordinates[0].length;
+          } else if (geomType === 'MultiPolygon' && resultFeature.geometry.coordinates) {
+            pointCount = resultFeature.geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
+          }
+          
+          // Validate result size - for large inputs, we need a reasonable minimum
+          // A union of many tracts should have many points (at least proportional to input)
+          // For very large inputs (>1000 tracts), expect at least 1000 points minimum
+          // For smaller inputs, expect at least 10% of tract count as points
+          const minExpectedPoints = validTracts.length > 1000 ? 1000 : Math.max(100, Math.floor(validTracts.length * 0.1));
+          
+          if (pointCount < minExpectedPoints) {
+            console.error(`❌ CRITICAL: Dissolve result is too small: ${pointCount} points for ${validTracts.length} tracts (${flattenedTracts.length} polygons). Expected at least ${minExpectedPoints} points. Dissolve may have failed. Falling back to sequential union.`);
+            // Don't return the bad result, fall through to sequential union
+          } else {
+            // Result looks good, use it
+            const unionFeature = {
+              type: 'Feature',
+              geometry: resultFeature.geometry,
+              properties: {
+                ...group.censusTracts[0].properties,
+                DISTRICT_START: group.startDistrictNumber,
+                DISTRICT_END: group.endDistrictNumber,
+                TOTAL_POPULATION: group.totalPopulation,
+                TRACT_COUNT: group.censusTracts.length
+              }
+            };
+            console.log(`✅ Created union polygon using dissolve for group ${group.startDistrictNumber}-${group.endDistrictNumber} (flattened ${validTracts.length} tracts to ${flattenedTracts.length} polygons, result: ${geomType} with ${pointCount} points)`);
+            return unionFeature;
+          }
+        } else {
+          console.warn(`⚠️ Dissolve returned no features for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${flattenedTracts.length} polygons), falling back to sequential union`);
         }
       }
     } catch (dissolveError) {
@@ -840,6 +968,49 @@ function createUnionPolygon(group) {
     if (flattenedTracts.length === 0) {
       console.warn(`⚠️ No valid polygon geometries found for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
       return null;
+    }
+    
+    // For very large collections, try using turf.dissolve on smaller batches instead of sequential union
+    // Sequential union can be very slow and error-prone for thousands of polygons
+    if (flattenedTracts.length > 1000) {
+      console.log(`⚠️ Very large collection (${flattenedTracts.length} polygons), using batched dissolve approach for sequential union fallback`);
+      try {
+        // Process in batches, dissolve each batch, then dissolve the results
+        const batchSize = 500;
+        const batches = [];
+        for (let i = 0; i < flattenedTracts.length; i += batchSize) {
+          const batch = flattenedTracts.slice(i, i + batchSize);
+          const batchCollection = turf.featureCollection(batch);
+          const batchDissolved = turf.dissolve(batchCollection);
+          if (batchDissolved && batchDissolved.features && batchDissolved.features.length > 0) {
+            batches.push(...batchDissolved.features);
+          }
+        }
+        
+        if (batches.length > 0) {
+          // Dissolve all batch results together
+          const finalCollection = turf.featureCollection(batches);
+          const finalDissolved = turf.dissolve(finalCollection);
+          if (finalDissolved && finalDissolved.features && finalDissolved.features.length > 0) {
+            const resultFeature = finalDissolved.features[0];
+            const unionFeature = {
+              type: 'Feature',
+              geometry: resultFeature.geometry,
+              properties: {
+                ...group.censusTracts[0].properties,
+                DISTRICT_START: group.startDistrictNumber,
+                DISTRICT_END: group.endDistrictNumber,
+                TOTAL_POPULATION: group.totalPopulation,
+                TRACT_COUNT: group.censusTracts.length
+              }
+            };
+            console.log(`✅ Created union polygon using batched dissolve fallback for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${flattenedTracts.length} polygons -> ${batches.length} batches -> final result)`);
+            return unionFeature;
+          }
+        }
+      } catch (batchError) {
+        console.warn(`⚠️ Batched dissolve fallback failed: ${batchError.message}, falling back to sequential union`);
+      }
     }
     
     // Start with the first flattened tract
@@ -875,6 +1046,10 @@ function createUnionPolygon(group) {
       try {
         const unionResult = turf.union(union, tractFeature);
         if (!unionResult || !unionResult.geometry) {
+          // Log first few failures to understand why
+          if (skippedCount < 5) {
+            console.warn(`⚠️ Union returned null/invalid for polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}. Union type: ${union.geometry?.type}, tract type: ${tractFeature.geometry?.type}`);
+          }
           skippedCount++;
           continue; // Skip this polygon but continue with others
         }
@@ -887,10 +1062,9 @@ function createUnionPolygon(group) {
           console.log(`🔨 Union progress: ${processedCount}/${flattenedTracts.length} polygons (${Math.round(processedCount / flattenedTracts.length * 100)}%) - ${elapsed}ms`);
         }
       } catch (error) {
-        // Suppress verbose "Must have at least 2 geometries" errors - these are common for invalid geometries
-        // Only log other types of errors
-        if (!error.message.includes('Must have at least 2 geometries')) {
-          console.warn(`⚠️ Error unioning polygon ${i} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
+        // Log first few errors to understand why
+        if (skippedCount < 5) {
+          console.warn(`⚠️ Error unioning polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
         }
         skippedCount++;
         // Skip this polygon and continue with the next one
@@ -959,9 +1133,16 @@ function createStep(step, level, districtGroups, description, divisionDirection,
     // At other steps, unionResult is a single polygon or array
     if (isStep0 && Array.isArray(unionResult) && unionResult.length > 0) {
       // Step 0: Store as unionPolygons array with main first, then islands
+      // Validate that first element (main polygon) has geometry
+      const mainPolygon = unionResult[0];
+      if (!mainPolygon || !mainPolygon.geometry) {
+        console.error(`❌ CRITICAL: Step 0 main polygon is missing or has no geometry for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+        console.error(`   unionResult length: ${unionResult.length}, first element:`, mainPolygon);
+      }
+      
       return {
         ...group,
-        unionPolygon: unionResult[0], // Main polygon (for backward compatibility)
+        unionPolygon: mainPolygon, // Main polygon (for backward compatibility)
         unionPolygons: unionResult // Array with main + islands
       };
     } else if (Array.isArray(unionResult) && unionResult.length > 0) {
