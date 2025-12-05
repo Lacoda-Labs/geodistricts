@@ -2905,6 +2905,37 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                   const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
                   if (cloudStorageResult && cloudStorageResult.data) {
                     tractMap = cloudStorageResult.data;
+                    
+                    // Validate that tracts in cache have geometry
+                    if (Array.isArray(tractMap) && tractMap.length > 0) {
+                      const sampleTract = Array.isArray(tractMap[0]) && tractMap[0].length === 2 ? tractMap[0][1] : tractMap[0];
+                      if (!sampleTract || !sampleTract.geometry || (sampleTract.type === 'Feature' && !sampleTract.geometry)) {
+                        console.error(`❌ TRACT CACHE CORRUPTED: Tract cache for ${state} contains tracts without geometry. Sample tract:`, sampleTract);
+                        console.error(`   The cache file at ${stateTractData.cloudStoragePath} is corrupted and needs to be regenerated.`);
+                        return res.status(500).json({ 
+                          error: `Tract cache for ${state} is corrupted: tracts are missing geometry data. Please re-run the algorithm to regenerate the cache.`,
+                          details: 'The cached tract file contains incomplete data. This usually happens when the cache was created incorrectly.'
+                        });
+                      }
+                      
+                      // Check a few more samples to be sure
+                      const samplesToCheck = Math.min(10, tractMap.length);
+                      let missingGeometryCount = 0;
+                      for (let i = 0; i < samplesToCheck; i++) {
+                        const sample = Array.isArray(tractMap[i]) && tractMap[i].length === 2 ? tractMap[i][1] : tractMap[i];
+                        if (!sample || !sample.geometry || (sample.type === 'Feature' && !sample.geometry)) {
+                          missingGeometryCount++;
+                        }
+                      }
+                      
+                      if (missingGeometryCount > samplesToCheck * 0.5) {
+                        console.error(`❌ TRACT CACHE CORRUPTED: ${missingGeometryCount} out of ${samplesToCheck} sample tracts are missing geometry. Cache is corrupted.`);
+                        return res.status(500).json({ 
+                          error: `Tract cache for ${state} is corrupted: most tracts are missing geometry data. Please re-run the algorithm to regenerate the cache.`,
+                          details: `Sampled ${samplesToCheck} tracts and found ${missingGeometryCount} without geometry.`
+                        });
+                      }
+                    }
                   }
                 } else if (stateTractData.chunked && stateTractData.chunkKeys) {
                   const chunkDocs = await Promise.all(
@@ -2926,7 +2957,7 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                 if (tractMap) {
                   // Use stepData field if available, otherwise use cachedEntry directly
                   const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
-                  const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true);
+                  const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state);
                   if (stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0) {
                     // If step wasn't marked as complete, update it now for future queries
                     if (!cachedEntry.isComplete) {
@@ -2943,24 +2974,66 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                       isComplete: true
                     });
                   } else {
-                    console.warn(`⚠️ Reconstruction returned null or incomplete data for final step ${finalStepNumber}`);
-                    // Fall through to check cached entry below
+                    console.error(`❌ Reconstruction failed for final step ${finalStepNumber}: returned null or incomplete data`);
+                    console.error(`   This indicates the tract cache is corrupted or incomplete. The cached step cannot be used.`);
+                    // Don't fall through - return error instead of corrupted data
+                    return res.status(500).json({ 
+                      error: `Final step ${finalStepNumber} cache is corrupted: tract geometries are missing. Please re-run the algorithm to regenerate the cache.`,
+                      details: 'Reconstruction failed because tracts in the cache are missing geometry data.'
+                    });
                   }
+                } else {
+                  console.error(`❌ No tract map available for reconstruction of final step ${finalStepNumber}`);
+                  return res.status(500).json({ 
+                    error: `Final step ${finalStepNumber} cannot be reconstructed: tract cache not found. Please re-run the algorithm.`
+                  });
                 }
+              } else {
+                console.error(`❌ Tract cache expired or invalid for final step ${finalStepNumber}`);
+                return res.status(500).json({ 
+                  error: `Final step ${finalStepNumber} cache is expired or invalid. Please re-run the algorithm.`
+                });
               }
+            } else {
+              console.error(`❌ Tract cache document not found for final step ${finalStepNumber}`);
+              return res.status(500).json({ 
+                error: `Final step ${finalStepNumber} cannot be reconstructed: tract cache document not found. Please re-run the algorithm.`
+              });
             }
           } catch (reconstructError) {
-            console.warn(`⚠️ Failed to reconstruct final step from cache: ${reconstructError.message}`);
+            console.error(`❌ Failed to reconstruct final step from cache: ${reconstructError.message}`);
+            return res.status(500).json({ 
+              error: `Failed to reconstruct final step ${finalStepNumber}: ${reconstructError.message}. Please re-run the algorithm.`
+            });
           }
         }
 
-      // Check if reconstruction succeeded (stepData should be returned from try block above)
-      // If reconstruction returned null or failed, check if cached entry has valid step data
+      // If we reach here, reconstruction was not needed (step data already has full geometries)
+      // Check if cached entry has valid step data with actual tract geometries
       // Handle both cache formats: stepData field (algorithm-step-cache) or direct data (step-cache)
       let stepData = hasStepDataField ? cachedEntry.stepData : cachedEntry;
-      const hasValidData = stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0;
       
-      if (hasValidData) {
+      // Validate that step data has actual tract geometries, not just IDs
+      const hasValidData = stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0;
+      const hasTractGeometries = hasValidData && stepData.districtGroups.some(group => 
+        group.censusTracts && Array.isArray(group.censusTracts) && group.censusTracts.length > 0 &&
+        group.censusTracts.some(tract => tract.geometry || (tract.type === 'Feature' && tract.geometry))
+      );
+      
+      // If step data only has tract IDs (normalized), it needs reconstruction
+      const hasOnlyTractIds = hasValidData && stepData.districtGroups.some(group => 
+        group.censusTractIds && Array.isArray(group.censusTractIds) && group.censusTractIds.length > 0 &&
+        (!group.censusTracts || group.censusTracts.length === 0)
+      );
+      
+      if (hasOnlyTractIds && !hasTractGeometries) {
+        console.error(`❌ Final step ${finalStepNumber} cache contains only tract IDs (normalized) but reconstruction was skipped or failed`);
+        return res.status(500).json({ 
+          error: `Final step ${finalStepNumber} cache is normalized (tract IDs only) but cannot be reconstructed. Please re-run the algorithm.`
+        });
+      }
+      
+      if (hasValidData && hasTractGeometries) {
         // Load union polygons from cache if not already loaded (reconstruction might have loaded them)
         try {
           const groupsWithUnions = await loadUnionPolygonsFromCache(state, finalStepNumber, stepData.districtGroups);
@@ -3272,7 +3345,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                         if (tractMap) {
                           console.log(`🔄 RECONSTRUCTING: Reconstructing step 0 with ${Array.isArray(tractMap) ? tractMap.length : 'non-array'} tracts from cache`);
                           // Don't recreate union polygons during reconstruction - we'll replace tracts and recreate union polygon after
-                          stepData = await reconstructStepFromCache(stepData, tractMap, false); // Pass flag to skip union polygon creation
+                          stepData = await reconstructStepFromCache(stepData, tractMap, false, state); // Pass flag to skip union polygon creation
                           console.log(`✅ RECONSTRUCTED: Step 0 now has ${stepData.districtGroups?.[0]?.censusTracts?.length || 0} tracts in first group`);
                         } else {
                           console.warn(`⚠️ RECONSTRUCTION: No tractMap available for reconstruction`);
@@ -3670,7 +3743,7 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
             
             // Reconstruct step with tract geometries
             if (tractMap) {
-              stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true); // Load union polygons
+              stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state); // Load union polygons
               if (!stepData || !stepData.districtGroups) {
                 return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
               }
@@ -3810,7 +3883,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                   
                   // Reconstruct step with tract geometries
                   if (tractMap) {
-                    stepData = await reconstructStepFromCache(stepData, tractMap);
+                    stepData = await reconstructStepFromCache(stepData, tractMap, true, state);
                     const totalReconstructed = stepData.districtGroups?.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0) || 0;
                     if (totalReconstructed === 0) {
                       console.warn(`⚠️ Step ${nextStepNumber} reconstruction resulted in 0 tracts - cache may have wrong ID format, will need to re-execute`);
@@ -4074,6 +4147,15 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups)
       continue;
     }
     
+    // Validate cache key matches requested state
+    // Cache key format: union_polygon_{stateCode}_{stepNumber}_{groupKey}
+    const cacheKeyStateMatch = unionCacheKey.match(/union_polygon_([A-Z]{2})_/);
+    if (cacheKeyStateMatch && cacheKeyStateMatch[1] !== stateCode) {
+      console.error(`❌ UNION POLYGON STATE MISMATCH: Cache key '${unionCacheKey}' contains state '${cacheKeyStateMatch[1]}' but requested state is '${stateCode}'. Skipping this union polygon.`);
+      groupsWithUnions.push(group);
+      continue;
+    }
+    
     try {
       // Load from Cloud Storage
       const cacheResult = await cloudStorageCache.get(unionCacheKey);
@@ -4127,6 +4209,8 @@ function normalizeStepData(step, tractCacheKey) {
     totalDistricts: step.totalDistricts,
     divisionDirection: step.divisionDirection,
     divisionLine: step.divisionLine,
+    // Preserve state field if present (important for reconstruction validation)
+    state: step.state || undefined,
     // Normalize divisionLines - keep only simple properties, remove any nested geometries
     divisionLines: step.divisionLines ? step.divisionLines.map(line => ({
       line: line.line,
@@ -4324,9 +4408,10 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
  * @param {Object} normalizedStep - Normalized step data from cache
  * @param {Array} tractMap - Map of tract IDs to tract geometries
  * @param {boolean} recreateUnionPolygons - Whether to recreate union polygons (default: true)
+ * @param {string} requestedState - The state code that was requested (for validation and union polygon loading)
  * @returns {Promise<Object>} Reconstructed step data
  */
-async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionPolygons = true) {
+async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionPolygons = true, requestedState = null) {
   if (!normalizedStep || !normalizedStep.districtGroups || !tractMap) {
     console.warn(`⚠️ RECONSTRUCT: Missing data - normalizedStep: ${!!normalizedStep}, districtGroups: ${!!normalizedStep?.districtGroups}, tractMap: ${!!tractMap}`);
     // Return null to indicate reconstruction failed - don't return incomplete data
@@ -4420,6 +4505,38 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
     console.log(`   Sample lookup IDs: ${sampleLookupIds.join(', ')}`);
   }
   
+  // Validate state code if provided
+  // Tract IDs are 11-digit FIPS codes where first 2 digits are state code
+  // State codes: CA=06, AZ=04, etc.
+  const stateCodeMap = {
+    'CA': '06', 'AZ': '04', 'TX': '48', 'FL': '12', 'NY': '36',
+    'IL': '17', 'PA': '42', 'OH': '39', 'GA': '13', 'NC': '37',
+    'MI': '26', 'NJ': '34', 'VA': '51', 'WA': '53', 'MA': '25',
+    'TN': '47', 'IN': '18', 'MO': '29', 'MD': '24', 'WI': '55',
+    'CO': '08', 'MN': '27', 'SC': '45', 'AL': '01', 'LA': '22',
+    'KY': '21', 'OR': '41', 'OK': '40', 'CT': '09', 'UT': '49',
+    'IA': '19', 'NV': '32', 'AR': '05', 'MS': '28', 'KS': '20',
+    'NM': '35', 'NE': '31', 'WV': '54', 'ID': '16', 'HI': '15',
+    'NH': '33', 'ME': '23', 'RI': '44', 'MT': '30', 'DE': '10',
+    'SD': '46', 'ND': '38', 'AK': '02', 'DC': '11', 'VT': '50',
+    'WY': '56'
+  };
+  
+  const expectedStateFips = requestedState ? stateCodeMap[requestedState.toUpperCase()] : null;
+  
+  // Validate lookup map contains tracts for the correct state
+  if (expectedStateFips && tractLookup.size > 0) {
+    const sampleLookupId = Array.from(tractLookup.keys())[0];
+    if (typeof sampleLookupId === 'string' && sampleLookupId.length >= 2) {
+      const lookupStateFips = sampleLookupId.substring(0, 2);
+      if (lookupStateFips !== expectedStateFips) {
+        console.error(`❌ STATE MISMATCH IN LOOKUP MAP: Requested state ${requestedState} (FIPS: ${expectedStateFips}), but lookup map contains tracts starting with ${lookupStateFips}. Wrong state tract cache loaded!`);
+        // Return null to prevent using wrong state data
+        return null;
+      }
+    }
+  }
+  
   const reconstructed = {
     ...normalizedStep,
     districtGroups: normalizedStep.districtGroups.map((group, idx) => {
@@ -4427,6 +4544,18 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
       if (tractIds.length > 0) {
         const sampleStepIds = tractIds.slice(0, 3);
         console.log(`   Group ${idx + 1}: Sample step IDs: ${sampleStepIds.join(', ')}`);
+        
+        // Validate that tract IDs match the requested state
+        if (expectedStateFips && sampleStepIds.length > 0) {
+          const firstTractId = sampleStepIds[0];
+          if (typeof firstTractId === 'string' && firstTractId.length >= 2) {
+            const tractStateFips = firstTractId.substring(0, 2);
+            if (tractStateFips !== expectedStateFips) {
+              console.error(`❌ STATE MISMATCH: Requested state ${requestedState} (FIPS: ${expectedStateFips}), but tract IDs start with ${tractStateFips}. This cached step may be for a different state!`);
+              // Don't return null - let it continue but log the error
+            }
+          }
+        }
       }
       
       const tracts = tractIds.map(id => tractLookup.get(id)).filter(Boolean);
@@ -4436,6 +4565,17 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         // Show some missing IDs for debugging
         const missingIds = tractIds.filter(id => !tractLookup.has(id)).slice(0, 3);
         console.log(`   ⚠️ Group ${idx + 1}: ${missingCount} missing tracts. Sample missing IDs: ${missingIds.join(', ')}`);
+      }
+      
+      // Validate that reconstructed tracts have geometry
+      const tractsWithoutGeometry = tracts.filter(t => !t.geometry || (t.type === 'Feature' && !t.geometry));
+      if (tractsWithoutGeometry.length > 0) {
+        const sampleTractIds = tractsWithoutGeometry.slice(0, 3).map(t => {
+          const { getTractId } = require('./services/geodistrict-algorithm');
+          return getTractId(t);
+        });
+        console.error(`❌ GEOMETRY MISSING: Group ${idx + 1} has ${tractsWithoutGeometry.length} tracts without geometry. Sample tract IDs: ${sampleTractIds.join(', ')}`);
+        console.error(`   This indicates the tract cache may be corrupted or contain incomplete data.`);
       }
       
       console.log(`   Group ${idx + 1}: ${tractIds.length} tract IDs, ${tracts.length} tracts found in lookup`);
@@ -4500,18 +4640,38 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
 
   const totalTracts = reconstructed.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
   console.log(`✅ RECONSTRUCT: Completed - total ${totalTracts} tracts reconstructed across ${reconstructed.districtGroups.length} groups`);
+  
+  // Final validation: Check if any tracts are missing geometry
+  let totalTractsWithoutGeometry = 0;
+  for (const group of reconstructed.districtGroups) {
+    if (group.censusTracts) {
+      for (const tract of group.censusTracts) {
+        if (!tract.geometry || (tract.type === 'Feature' && !tract.geometry)) {
+          totalTractsWithoutGeometry++;
+        }
+      }
+    }
+  }
+  
+  if (totalTractsWithoutGeometry > 0) {
+    const percentage = ((totalTractsWithoutGeometry / totalTracts) * 100).toFixed(1);
+    console.error(`❌ RECONSTRUCT FAILED: ${totalTractsWithoutGeometry} out of ${totalTracts} tracts (${percentage}%) are missing geometry.`);
+    console.error(`   This indicates the tract cache is corrupted or incomplete. Returning null to force re-execution.`);
+    return null; // Return null to force re-execution
+  }
 
   // Load union polygons from cache if available, otherwise recreate them
   // However, if recreateUnionPolygons is false, skip this (e.g., when tracts will be replaced anyway)
   if (recreateUnionPolygons) {
     // Try to load union polygons from cache first
     const stepNumber = normalizedStep.step;
-    const stateCode = normalizedStep.state || (tractMap && tractMap.length > 0 ? 
+    // Use requestedState if provided, otherwise try to infer from normalizedStep or tractMap
+    const stateCode = requestedState || normalizedStep.state || (tractMap && tractMap.length > 0 ? 
       (tractMap[0][1]?.properties?.STATE || tractMap[0][1]?.properties?.state) : null);
     
     if (stateCode && stepNumber !== undefined) {
       try {
-        // Load union polygons from cache
+        // Load union polygons from cache - use the requested state to ensure we load the correct polygons
         const groupsWithUnions = await loadUnionPolygonsFromCache(stateCode, stepNumber, reconstructed.districtGroups);
         reconstructed.districtGroups = groupsWithUnions;
         
@@ -4524,16 +4684,16 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         } else {
           // Some groups missing - need to recreate
           console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
-          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
+          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
         }
       } catch (error) {
         console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
-        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
+        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
       }
     } else {
       // No state/step info - recreate union polygons
       console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
-      await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true); // Pass flag to suppress verbose logging
+      await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
     }
   } else {
     console.log(`⏭️ RECONSTRUCT: Skipping union polygon recreation (will be created after tract replacement)`);
@@ -4546,8 +4706,9 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
  * Recreate union polygons for district groups (helper function)
  * @param {Array} districtGroups - District groups to recreate union polygons for
  * @param {boolean} suppressVerboseLogging - If true, suppress component-level logging
+ * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
  */
-async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLogging = false) {
+async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLogging = false, stepNumber = null) {
   const { createUnionPolygonsForGroup } = require('./services/geodistrict-algorithm');
   const { GeodistrictAlgorithmService } = require('./services/geodistrict-algorithm');
   const latLongDivisionService = require('./services/latlong-division');
@@ -4592,13 +4753,21 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       }
       
       if (group.censusTracts && group.censusTracts.length > 0) {
-        // Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
-        // This creates a single dissolved polygon even if tracts are isolated/disconnected
-        const unionPolygon = createUnionPolygonsForGroup(group, adjacencyGraph, true);
-        if (unionPolygon) {
-          group.unionPolygon = unionPolygon;
-          // Clear unionPolygons array since we're using a single union polygon
-          group.unionPolygons = undefined;
+        // At Step 0: Create separate polygons for main + islands
+        // At other steps: Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
+        const isStep0 = stepNumber === 0 || stepNumber === '0';
+        const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, !isStep0, stepNumber);
+        
+        if (unionResult) {
+          if (Array.isArray(unionResult) && unionResult.length > 0) {
+            // Multiple polygons: store as array with main first, then islands
+            group.unionPolygon = unionResult[0]; // Main polygon (for backward compatibility)
+            group.unionPolygons = unionResult; // Array with main + islands
+          } else {
+            // Single polygon: store as unionPolygon
+            group.unionPolygon = unionResult;
+            group.unionPolygons = undefined; // Clear array if single polygon
+          }
         }
       }
     }
@@ -5017,7 +5186,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
       
       // Reconstruct step data
-      const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, false);
+      const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, false, state);
       if (!stepData || !stepData.districtGroups) {
         console.error(`❌ Failed to reconstruct step ${step} from cache`);
         return res.status(404).json({ error: `Failed to reconstruct step ${step}. Please re-run the algorithm.` });
@@ -5232,7 +5401,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       group.unionPolygon = undefined;
       group.unionPolygons = undefined;
     }
-    await recreateUnionPolygonsForGroups(updatedGroups, true); // Suppress verbose logging
+    await recreateUnionPolygonsForGroups(updatedGroups, true, step); // Pass step number for proper structure
 
     // Save the updated step back to cache as the final step (since isolated tracts have been moved)
     // This ensures that on page reload, the final step with moved tracts is loaded

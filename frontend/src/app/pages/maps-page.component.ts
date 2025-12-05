@@ -1159,16 +1159,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       
       // If showTractBoundaries is false and union polygon(s) exist, render them
-      // Prefer single unionPolygon for visualization (one dissolved polygon for entire district)
+      // At Step 0: Prefer unionPolygons array (main + islands) over single unionPolygon
+      // At other steps: Prefer single unionPolygon for visualization (one dissolved polygon for entire district)
       // Fall back to unionPolygons array if single polygon not available (for backward compatibility)
-      const hasSingleUnionPolygon = !this.showTractBoundaries && district.unionPolygon && district.unionPolygon.geometry;
       const unionPolygons = (district as any).unionPolygons;
-      const hasUnionPolygons = !this.showTractBoundaries && !hasSingleUnionPolygon && Array.isArray(unionPolygons) && unionPolygons.length > 0;
+      const hasUnionPolygonsArray = !this.showTractBoundaries && Array.isArray(unionPolygons) && unionPolygons.length > 0;
+      const hasSingleUnionPolygon = !this.showTractBoundaries && !hasUnionPolygonsArray && district.unionPolygon && district.unionPolygon.geometry;
       
       // Use union polygons only when checkbox is unchecked (showTractBoundaries = false)
-      if (hasSingleUnionPolygon || hasUnionPolygons) {
-        const polygonsToRender = hasSingleUnionPolygon ? [district.unionPolygon] : unionPolygons;
-        console.log(`✅ Rendering ${polygonsToRender.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
+      if (hasUnionPolygonsArray || hasSingleUnionPolygon) {
+        // Prefer unionPolygons array when available (especially at Step 0 for main + islands)
+        // Otherwise use single unionPolygon
+        const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : [district.unionPolygon];
+        console.log(`✅ Rendering ${polygonsToRender.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber}${hasUnionPolygonsArray ? ' (main + islands)' : ' (single polygon)'}`);
         
         polygonsToRender.forEach((unionPolygon: any, polygonIndex: number) => {
           if (!unionPolygon || !unionPolygon.geometry) {
@@ -1189,7 +1192,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               }
             }).bindPopup(`
               <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-              ${hasUnionPolygons ? `<strong>Component:</strong> ${polygonIndex + 1} of ${polygonsToRender.length}<br>` : ''}
+              ${polygonsToRender.length > 1 ? `<strong>Component:</strong> ${polygonIndex === 0 ? 'Main' : `Island ${polygonIndex}`} (${polygonIndex + 1} of ${polygonsToRender.length})<br>` : ''}
               <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
               <strong>Tracts in District:</strong> ${district.censusTracts.length}
             `);

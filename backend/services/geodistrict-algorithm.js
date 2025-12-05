@@ -651,19 +651,24 @@ function findConnectedComponents(group, adjacencyGraph) {
 /**
  * Create union polygons for each connected component in a district group
  * If a group has isolated tracts (multiple connected components), returns an array of union polygons
+ * At Step 0, returns array with main polygon (largest component) first, followed by island polygons (smaller components)
  * @param {Object} group - District group containing tracts
  * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts (optional, for finding connected components)
  * @param {boolean} forceSingleUnion - If true, create one union polygon for all tracts regardless of connectivity (for visualization)
- * @returns {Array<Object>|Object|null} - Array of GeoJSON features (one per connected component) or single feature, or null if union fails
+ * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
+ * @returns {Array<Object>|Object|null} - Array of GeoJSON features (main polygon first, then island polygons at Step 0) or single feature, or null if union fails
  */
-function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false) {
+function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false, stepNumber = null) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
   }
 
-  // If forceSingleUnion is true, create one union polygon for all tracts (ignoring connectivity)
+  const isStep0 = stepNumber === 0 || stepNumber === '0';
+
+  // If forceSingleUnion is true and not Step 0, create one union polygon for all tracts (ignoring connectivity)
   // This is useful for visualization when you want to see the district as one shape
-  if (forceSingleUnion) {
+  // At Step 0, we want separate polygons for main + islands even if forceSingleUnion is true
+  if (forceSingleUnion && !isStep0) {
     return createUnionPolygon(group);
   }
 
@@ -673,32 +678,67 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
     
     // If multiple components found, create union polygon for each
     if (components.length > 1) {
-      console.log(`🔨 Group ${group.startDistrictNumber}-${group.endDistrictNumber} has ${components.length} connected components, creating union polygon for each`);
+      // Sort components by size (largest first) - main component is largest, islands are smaller
+      components.sort((a, b) => b.length - a.length);
+      
+      const mainComponent = components[0]; // Largest component
+      const islandComponents = components.slice(1); // Smaller components (islands)
+      
+      console.log(`🔨 Group ${group.startDistrictNumber}-${group.endDistrictNumber} has ${components.length} connected components${isStep0 ? ' (main + islands at Step 0)' : ''}`);
+      console.log(`   Main component: ${mainComponent.length} tracts, Islands: ${islandComponents.map(c => c.length).join(', ')} tracts`);
+      
       const unionPolygons = [];
       
-      for (let i = 0; i < components.length; i++) {
-        const component = components[i];
-        const componentGroup = {
-          ...group,
-          censusTracts: component
-        };
-        const unionPolygon = createUnionPolygon(componentGroup);
-        if (unionPolygon) {
-          unionPolygons.push(unionPolygon);
-          console.log(`✅ Created union polygon ${i + 1}/${components.length} for component with ${component.length} tracts`);
-        } else {
-          console.warn(`⚠️ Failed to create union polygon for component ${i + 1} with ${component.length} tracts`);
+      // Create main polygon (largest component) - always first
+      const mainGroup = {
+        ...group,
+        censusTracts: mainComponent
+      };
+      const mainPolygon = createUnionPolygon(mainGroup);
+      if (mainPolygon) {
+        unionPolygons.push(mainPolygon);
+        console.log(`✅ Created main union polygon for component with ${mainComponent.length} tracts`);
+      } else {
+        console.warn(`⚠️ Failed to create main union polygon for component with ${mainComponent.length} tracts`);
+      }
+      
+      // Create island polygons (smaller components) - only at Step 0, or if not forceSingleUnion
+      if (isStep0 || !forceSingleUnion) {
+        for (let i = 0; i < islandComponents.length; i++) {
+          const islandComponent = islandComponents[i];
+          const islandGroup = {
+            ...group,
+            censusTracts: islandComponent
+          };
+          const islandPolygon = createUnionPolygon(islandGroup);
+          if (islandPolygon) {
+            unionPolygons.push(islandPolygon);
+            console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts`);
+          } else {
+            console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts`);
+          }
         }
       }
       
       if (unionPolygons.length > 0) {
-        return unionPolygons;
+        // At Step 0, always return array (main + islands)
+        // For other steps, return array if we have multiple polygons, single if only main
+        if (isStep0 && unionPolygons.length === 1) {
+          // Only main polygon, no islands - still return as array for consistency
+          return unionPolygons;
+        }
+        return unionPolygons.length === 1 && !isStep0 ? unionPolygons[0] : unionPolygons;
       }
     }
   }
 
   // Single component or no adjacency graph - create single union polygon
-  return createUnionPolygon(group);
+  // At Step 0 with single component, return as array for consistency
+  const singlePolygon = createUnionPolygon(group);
+  if (isStep0 && singlePolygon) {
+    return [singlePolygon]; // Return as array even for single component at Step 0
+  }
+  return singlePolygon;
 }
 
 /**
@@ -909,23 +949,44 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   }
 
   // Create union polygons for each district group
-  // Use forceSingleUnion=true to create one dissolved polygon per district group for visualization
-  // This creates a single union polygon that encompasses all tracts, even if they're isolated/disconnected
+  // At Step 0: Create separate polygons for main component (largest) and island components (smaller)
+  // At other steps: Use forceSingleUnion=true to create one dissolved polygon per district group for visualization
+  const isStep0 = step === 0 || step === '0';
   const groupsWithUnions = districtGroups.map(group => {
-    const unionPolygon = createUnionPolygonsForGroup(group, adjacencyGraph, true); // forceSingleUnion=true for visualization
+    const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, !isStep0, step); // forceSingleUnion=false at Step 0, true otherwise
     
-    // Always store as single unionPolygon (not array) for consistent visualization
-    return {
-      ...group,
-      unionPolygon: unionPolygon || undefined // Use undefined instead of null for cleaner JSON
-    };
+    // At Step 0, unionResult is an array: [mainPolygon, ...islandPolygons]
+    // At other steps, unionResult is a single polygon or array
+    if (isStep0 && Array.isArray(unionResult) && unionResult.length > 0) {
+      // Step 0: Store as unionPolygons array with main first, then islands
+      return {
+        ...group,
+        unionPolygon: unionResult[0], // Main polygon (for backward compatibility)
+        unionPolygons: unionResult // Array with main + islands
+      };
+    } else if (Array.isArray(unionResult) && unionResult.length > 0) {
+      // Multiple polygons at non-Step-0: store as array
+      return {
+        ...group,
+        unionPolygon: unionResult[0], // First polygon (for backward compatibility)
+        unionPolygons: unionResult // All polygons
+      };
+    } else {
+      // Single polygon: store as unionPolygon
+      return {
+        ...group,
+        unionPolygon: unionResult || undefined, // Use undefined instead of null for cleaner JSON
+        unionPolygons: undefined // Clear array if single polygon
+      };
+    }
   });
 
   // Detect isolated tracts if algorithmService and allTracts are provided
+  // At Step 0, isolated tracts are considered geographic islands and excluded from detection
   let isolatedTractsData = null;
   if (algorithmService && allTracts && allTracts.length > 0) {
     try {
-      const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts);
+      const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts, step);
       // Convert Map to object for JSON serialization
       const isolatedTractsByGroup = {};
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
@@ -937,6 +998,11 @@ function createStep(step, level, districtGroups, description, divisionDirection,
         totalIsolated: detectionResult.isolatedTractIds.size,
         groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
       };
+      
+      // Log summary for Step 0
+      if (step === 0 && detectionResult.isolatedTractIds.size === 0) {
+        console.log(`🏝️ Step 0: All disconnected components are considered geographic islands (excluded from isolation detection)`);
+      }
     } catch (error) {
       console.warn(`⚠️ Failed to detect isolated tracts for step ${step}: ${error.message}`);
     }
@@ -1414,10 +1480,12 @@ class GeodistrictAlgorithmService {
    * Returns a map of group index -> array of isolated tract IDs
    * @param {Array} districtGroups - All district groups
    * @param {Array} allTracts - All tracts in the dataset
+   * @param {number} stepNumber - Step number (optional, used to exclude island tracts at Step 0)
    * @returns {Object} - Object with isolatedTractsByGroup (Map of groupIndex -> Set of tractIds) and isolatedTractIds (Set of all isolated tract IDs)
    */
-  detectIsolatedTracts(districtGroups, allTracts) {
-    logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+  detectIsolatedTracts(districtGroups, allTracts, stepNumber = null) {
+    const isStep0 = stepNumber === 0 || stepNumber === '0';
+    logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts${isStep0 ? ' (Step 0 - island tracts will be excluded)' : ''}`);
     
     if (districtGroups.length < 1) {
       return { isolatedTractsByGroup: new Map(), isolatedTractIds: new Set(), groupStats: [] };
@@ -1547,6 +1615,23 @@ class GeodistrictAlgorithmService {
         }
         
         if (groupIsolatedTractIds.size > 0) {
+          // At Step 0, isolated tracts are considered geographic islands and should be excluded from isolation detection
+          // The main component (largest reachable component) is the "mainland" and smaller components are islands
+          if (isStep0) {
+            console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected at Step 0 (excluded from isolation detection)`);
+            console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
+            console.log(`   Island components: ${groupIsolatedTractIds.size} tract(s) in smaller components`);
+            
+            // Debug: Log first few island tract IDs
+            const islandArray = Array.from(groupIsolatedTractIds).slice(0, 5);
+            console.log(`   Sample island tracts: ${islandArray.join(', ')}`);
+            
+            // Don't add to isolated sets - these are geographic islands, not isolation issues
+            // Continue to next group without marking these as isolated
+            continue;
+          }
+          
+          // For steps > 0, treat isolated tracts normally
           isolatedTractsByGroup.set(groupIndex, groupIsolatedTractIds);
           console.log(`🔍 Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} isolated tract(s) detected`);
           console.log(`   Main component: ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
