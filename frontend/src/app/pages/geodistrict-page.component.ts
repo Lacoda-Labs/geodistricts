@@ -12,7 +12,6 @@ import { VERSION_INFO } from '../../version';
   template: `
     <div class="geodistrict-page">
       <app-page-header
-        [showStateSelector]="false"
         (homeClick)="goHome()">
       </app-page-header>
       <app-geodistrict-viewer></app-geodistrict-viewer>

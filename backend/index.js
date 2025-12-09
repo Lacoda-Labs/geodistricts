@@ -1397,6 +1397,91 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
 });
 
 /**
+ * Get state boundaries from TIGERweb
+ * Returns the state boundary polygon(s) for a given state
+ * At Step 0, this can be used instead of merging all census tracts
+ */
+app.get('/api/census/state-boundaries', async (req, res) => {
+  try {
+    const { state } = req.query;
+    
+    if (!state) {
+      return res.status(400).json({ error: 'State parameter is required' });
+    }
+    
+    const cacheParams = { state };
+    const cacheKey = generateCacheKey('state_boundaries', cacheParams);
+    
+    // Check cache first (unless force invalidate)
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FORCE INVALIDATE: Bypassing cache for state boundaries - state: ${state}`);
+    } else {
+      const cachedEntry = await getFromCache(cacheKey);
+      if (cachedEntry) {
+        const cachedData = cachedEntry.data || cachedEntry;
+        console.log(`✅ FIRESTORE CACHE HIT: Retrieved state boundaries for key: ${cacheKey}`);
+        return res.json(cachedData);
+      }
+    }
+    
+    // Convert state abbreviation to FIPS code if needed
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+    
+    // Use FIPS code if state is already a 2-digit code, otherwise convert
+    const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+    
+    // Use USA_States_Generalized_Boundaries service from same organization as census tracts
+    // This ensures consistency with TIGER data
+    const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_States_Generalized_Boundaries/FeatureServer/0/query';
+    
+    const params = new URLSearchParams({
+      where: `STATE_FIPS='${stateFips}'`,
+      outFields: 'STATE_FIPS,STATE_NAME,STATE_ABBR',
+      f: 'geojson',
+      outSR: '4326'
+    });
+    
+    console.log(`🔍 TIGERweb state boundaries query: state="${state}" -> FIPS="${stateFips}"`);
+    
+    const response = await axios.get(`${serviceUrl}?${params.toString()}`);
+    const geojsonResponse = {
+      type: 'FeatureCollection',
+      features: response.data.features || []
+    };
+    
+    // Cache the response
+    await setCache(cacheKey, geojsonResponse);
+    
+    console.log(`✅ Retrieved ${geojsonResponse.features.length} state boundary feature(s) for state ${state}`);
+    
+    // Log if this was a fresh fetch due to force invalidate
+    if (req.query.forceInvalidate === 'true') {
+      console.log(`🔄 FRESH STATE BOUNDARIES FETCHED: Retrieved ${geojsonResponse.features.length} boundary feature(s) from TIGERweb (cache bypassed)`);
+    }
+    
+    res.json(geojsonResponse);
+  } catch (error) {
+    console.error('Error fetching state boundaries:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch state boundaries',
+      message: error.message 
+    });
+  }
+});
+
+/**
  * Clear cache endpoint (for debugging)
  */
 app.delete('/api/census/cache', async (req, res) => {
@@ -3372,26 +3457,53 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   // Union polygon should already be loaded from cache above (before tract reconstruction)
                   // Only recreate if it wasn't loaded successfully
                   if (!stepData.districtGroups[0].unionPolygon && !stepData.districtGroups[0].unionPolygons) {
-                    console.log(`⚠️ STEP 0: Union polygon not loaded from cache, creating now...`);
-                    // Recreate union polygon for step 0 since we replaced the tracts
-                    // Import createUnionPolygon function
-                    const { createUnionPolygon } = require('./services/geodistrict-algorithm');
-                    const unionPolygon = createUnionPolygon(stepData.districtGroups[0]);
-                    if (unionPolygon) {
-                      stepData.districtGroups[0].unionPolygon = unionPolygon;
-                      console.log(`✅ STEP 0: Recreated union polygon for step 0`);
+                    console.log(`⚠️ STEP 0: Union polygon not loaded from cache, fetching state boundaries...`);
+                    // Try to use state boundaries instead of merging tracts
+                    try {
+                      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
+                      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
+                      const stateBoundaries = stateBoundariesResponse.data;
                       
-                      // Cache the union polygon
-                      try {
-                        const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-                        if (Object.keys(unionCacheKeys).length > 0) {
-                          console.log(`💾 STEP 0: Cached union polygon for step 0`);
+                      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
+                        const mainStateBoundary = stateBoundaries.features[0];
+                        stepData.districtGroups[0].unionPolygon = mainStateBoundary;
+                        stepData.districtGroups[0].unionPolygons = [mainStateBoundary];
+                        console.log(`✅ STEP 0: Using TIGER state boundary for main polygon`);
+                        
+                        // Cache the union polygon
+                        try {
+                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
+                          if (Object.keys(unionCacheKeys).length > 0) {
+                            console.log(`💾 STEP 0: Cached state boundary polygon for step 0`);
+                          }
+                        } catch (cacheError) {
+                          console.warn(`⚠️ STEP 0: Failed to cache union polygon: ${cacheError.message}`);
                         }
-                      } catch (cacheError) {
-                        console.warn(`⚠️ STEP 0: Failed to cache union polygon: ${cacheError.message}`);
+                      } else {
+                        throw new Error('State boundaries response empty');
                       }
-                    } else {
-                      console.warn(`⚠️ STEP 0: Failed to recreate union polygon`);
+                    } catch (stateBoundaryError) {
+                      // Fall back to merging tracts if state boundary fetch fails
+                      console.warn(`⚠️ STEP 0: Failed to fetch state boundaries: ${stateBoundaryError.message}, falling back to merged tracts`);
+                      const { createUnionPolygon } = require('./services/geodistrict-algorithm');
+                      const unionPolygon = createUnionPolygon(stepData.districtGroups[0]);
+                      if (unionPolygon) {
+                        stepData.districtGroups[0].unionPolygon = unionPolygon;
+                        stepData.districtGroups[0].unionPolygons = [unionPolygon];
+                        console.log(`✅ STEP 0: Recreated union polygon from tracts`);
+                        
+                        // Cache the union polygon
+                        try {
+                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
+                          if (Object.keys(unionCacheKeys).length > 0) {
+                            console.log(`💾 STEP 0: Cached union polygon for step 0`);
+                          }
+                        } catch (cacheError) {
+                          console.warn(`⚠️ STEP 0: Failed to cache union polygon: ${cacheError.message}`);
+                        }
+                      } else {
+                        console.warn(`⚠️ STEP 0: Failed to recreate union polygon`);
+                      }
                     }
                   } else {
                     console.log(`✅ STEP 0: Union polygon already loaded from cache, skipping recreation`);
@@ -3446,6 +3558,42 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       algorithmStateStore.set(stateKey, algorithmState);
 
       logger.info(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
+
+      // For Step 0, try to use state boundaries instead of merged tracts
+      // This is more efficient and uses official TIGER state boundaries
+      if (step.districtGroups && step.districtGroups.length > 0) {
+        const step0Group = step.districtGroups[0];
+        try {
+          // Fetch state boundaries from our new endpoint
+          const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
+          const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
+          const stateBoundaries = stateBoundariesResponse.data;
+          
+          if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
+            // Use the first feature as the main state boundary polygon
+            const mainStateBoundary = stateBoundaries.features[0];
+            
+            // Get existing island polygons if any (from unionPolygons array)
+            const existingIslands = step0Group.unionPolygons && Array.isArray(step0Group.unionPolygons) && step0Group.unionPolygons.length > 1
+              ? step0Group.unionPolygons.slice(1) // Skip first (main) polygon, keep islands
+              : [];
+            
+            // Create new unionPolygons array with state boundary as main, then islands
+            const newUnionPolygons = [mainStateBoundary, ...existingIslands];
+            
+            // Update the group with state boundary as main polygon
+            step0Group.unionPolygon = mainStateBoundary;
+            step0Group.unionPolygons = newUnionPolygons;
+            
+            console.log(`✅ STEP 0: Using TIGER state boundary for main polygon (${existingIslands.length} island(s) preserved)`);
+          } else {
+            console.log(`⚠️ STEP 0: State boundaries not available, using merged tracts polygon`);
+          }
+        } catch (stateBoundaryError) {
+          // If state boundary fetch fails, fall back to merged tracts polygon
+          console.warn(`⚠️ STEP 0: Failed to fetch state boundaries: ${stateBoundaryError.message}, using merged tracts polygon`);
+        }
+      }
 
       // Cache step 0 result (async, don't wait)
       // Note: canonicalResult is in scope from the parent function
@@ -5011,9 +5159,12 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
       }
     }
 
+    // Run isolation detection once after the move (instead of inside moveBridgeTractsAndRecheck)
+    const isolationResult = algorithmService.detectIsolatedTracts(result.districtGroups, allTracts);
+
     // Convert isolation result Map to object for JSON serialization
     const isolatedTractsByGroup = {};
-    result.isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+    isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
       isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
     });
 
@@ -5021,8 +5172,8 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
       districtGroups: result.districtGroups,
       isolationResult: {
         isolatedTractsByGroup,
-        isolatedTractIds: Array.from(result.isolationResult.isolatedTractIds),
-        totalIsolated: result.isolationResult.isolatedTractIds.size,
+        isolatedTractIds: Array.from(isolationResult.isolatedTractIds),
+        totalIsolated: isolationResult.isolatedTractIds.size,
         groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
       }
     });
@@ -5103,9 +5254,12 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
       }
     }
 
+    // Run isolation detection once after the move (instead of inside moveIsolatedTractsToOppositeGroup)
+    const isolationResult = algorithmService.detectIsolatedTracts(result.districtGroups, allTracts);
+
     // Convert isolation result Map to object for JSON serialization
     const isolatedTractsByGroup = {};
-    result.isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+    isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
       isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
     });
 
@@ -5113,8 +5267,8 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
       districtGroups: result.districtGroups,
       isolationResult: {
         isolatedTractsByGroup,
-        isolatedTractIds: Array.from(result.isolationResult.isolatedTractIds),
-        totalIsolated: result.isolationResult.isolatedTractIds.size,
+        isolatedTractIds: Array.from(isolationResult.isolatedTractIds),
+        totalIsolated: isolationResult.isolatedTractIds.size,
         groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
       }
     });

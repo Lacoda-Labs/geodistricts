@@ -649,6 +649,284 @@ function findConnectedComponents(group, adjacencyGraph) {
 }
 
 /**
+ * Create union polygons using S4-ordered sequential merging approach
+ * Implements the algorithm from 251204-how-to-create-union-polygons.md:
+ * - Start with first tract from sorted DG tracts
+ * - Using S4 get adjacent tracts, merge in order of S4 adjacency
+ * - As tracts are merged, add them to Set of merged tracts
+ * - If merge fails, start a new subset union polygon, continuing same S4 merge sequence
+ * - If no more adjacent tracts left to merge, continue by selecting next unmerged tract from sorted DG tracts
+ * - Repeat until no more single tracts have been attempted to be merged
+ * - Once all single tracts are attempted, result should be main merged union polygon and zero or more subset union polygons
+ * - Attempt to merge subset polygons with each other and finally to the main polygon
+ * - Final result is one or more union polygons for the given DG
+ * 
+ * @param {Object} group - District group containing tracts
+ * @param {Map<string, string[]>} adjacencyGraph - S4 adjacency graph for all tracts (required)
+ * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
+ * @returns {Array<Object>|Object|null} - Array of GeoJSON features (main polygon first, then island polygons) or single feature, or null if union fails
+ */
+function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) {
+  if (!group.censusTracts || group.censusTracts.length === 0 || !adjacencyGraph) {
+    return null;
+  }
+
+  const isStep0 = stepNumber === 0 || stepNumber === '0';
+  const validTracts = group.censusTracts.filter(t => t && t.geometry);
+  if (validTracts.length === 0) return null;
+
+  // Sort tracts by ID for consistent ordering
+  const sortedTracts = [...validTracts].sort((a, b) => {
+    const idA = getTractId(a) || '';
+    const idB = getTractId(b) || '';
+    return idA.localeCompare(idB);
+  });
+
+  console.log(`🔨 S4-ordered merging for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sortedTracts.length} tracts)`);
+
+  const mergedTractIds = new Set();
+  const mainPolygonTracts = [];
+  const subsetPolygons = [];
+
+  // Flatten MultiPolygon to Polygon features
+  function flattenTractGeometry(tract) {
+    const polygons = [];
+    if (tract.geometry.type === 'MultiPolygon') {
+      for (const polygonCoords of tract.geometry.coordinates) {
+        polygons.push({
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: polygonCoords },
+          properties: tract.properties || {}
+        });
+      }
+    } else if (tract.geometry.type === 'Polygon') {
+      polygons.push(tract);
+    }
+    return polygons;
+  }
+
+  // Merge polygon into union
+  function mergePolygonIntoUnion(union, polygonFeature) {
+    if (!union?.geometry || !polygonFeature?.geometry) return null;
+    try {
+      const result = turf.union(union, polygonFeature);
+      return result?.geometry ? result : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Create union from tracts
+  function createUnionFromTracts(tracts) {
+    if (tracts.length === 0) return null;
+    if (tracts.length === 1) return tracts[0];
+
+    const flattened = [];
+    for (const tract of tracts) {
+      flattened.push(...flattenTractGeometry(tract));
+    }
+    if (flattened.length === 0) return null;
+
+    let union = turf.feature(flattened[0].geometry);
+    if (!union?.geometry) return null;
+
+    for (let i = 1; i < flattened.length; i++) {
+      const merged = mergePolygonIntoUnion(union, turf.feature(flattened[i].geometry));
+      if (merged) union = merged;
+    }
+
+    return {
+      type: 'Feature',
+      geometry: union.geometry,
+      properties: {
+        ...tracts[0].properties,
+        DISTRICT_START: group.startDistrictNumber,
+        DISTRICT_END: group.endDistrictNumber,
+        TOTAL_POPULATION: group.totalPopulation,
+        TRACT_COUNT: tracts.length
+      }
+    };
+  }
+
+  // Process tracts sequentially using S4 adjacency
+  let currentSubsetTracts = [];
+  let currentUnion = null;
+  let isMainPolygon = true;
+
+  for (let i = 0; i < sortedTracts.length; i++) {
+    const tract = sortedTracts[i];
+    const tractId = getTractId(tract);
+    if (!tractId || mergedTractIds.has(tractId)) continue;
+
+    // Start new polygon if needed
+    if (currentUnion === null) {
+      const flattened = flattenTractGeometry(tract);
+      if (flattened.length > 0) {
+        currentUnion = turf.feature(flattened[0].geometry);
+        currentSubsetTracts = [tract];
+        mergedTractIds.add(tractId);
+      } else {
+        continue;
+      }
+    } else {
+      // Try to merge this tract
+      const flattened = flattenTractGeometry(tract);
+      let merged = false;
+      for (const polygonFeature of flattened) {
+        const mergedResult = mergePolygonIntoUnion(currentUnion, turf.feature(polygonFeature.geometry));
+        if (mergedResult) {
+          currentUnion = mergedResult;
+          merged = true;
+        }
+      }
+
+      if (merged) {
+        currentSubsetTracts.push(tract);
+        mergedTractIds.add(tractId);
+      } else {
+        // Merge failed - finalize current subset
+        if (currentSubsetTracts.length > 0) {
+          const subsetPolygon = createUnionFromTracts(currentSubsetTracts);
+          if (subsetPolygon?.geometry) {
+            if (isMainPolygon) {
+              mainPolygonTracts.push(...currentSubsetTracts);
+            } else {
+              subsetPolygons.push({ tracts: [...currentSubsetTracts], polygon: subsetPolygon });
+            }
+          }
+        }
+
+        // Start new subset
+        const newFlattened = flattenTractGeometry(tract);
+        if (newFlattened.length > 0) {
+          currentUnion = turf.feature(newFlattened[0].geometry);
+          currentSubsetTracts = [tract];
+          mergedTractIds.add(tractId);
+          isMainPolygon = false;
+        } else {
+          currentUnion = null;
+          currentSubsetTracts = [];
+        }
+      }
+    }
+
+    // Try to merge adjacent tracts using S4 adjacency
+    if (currentUnion?.geometry) {
+      const adjacentTractIds = adjacencyGraph.get(tractId) || [];
+      const unmergedAdjacent = adjacentTractIds.filter(id => 
+        sortedTracts.some(t => getTractId(t) === id) && !mergedTractIds.has(id)
+      );
+
+      for (const adjacentId of unmergedAdjacent) {
+        const adjacentTract = sortedTracts.find(t => getTractId(t) === adjacentId);
+        if (!adjacentTract) continue;
+
+        const flattened = flattenTractGeometry(adjacentTract);
+        let merged = false;
+        for (const polygonFeature of flattened) {
+          const mergedResult = mergePolygonIntoUnion(currentUnion, turf.feature(polygonFeature.geometry));
+          if (mergedResult) {
+            currentUnion = mergedResult;
+            merged = true;
+          }
+        }
+
+        if (merged) {
+          currentSubsetTracts.push(adjacentTract);
+          mergedTractIds.add(adjacentId);
+        }
+      }
+    }
+  }
+
+  // Finalize current subset
+  if (currentSubsetTracts.length > 0) {
+    const subsetPolygon = createUnionFromTracts(currentSubsetTracts);
+    if (subsetPolygon?.geometry) {
+      if (isMainPolygon) {
+        mainPolygonTracts.push(...currentSubsetTracts);
+      } else {
+        subsetPolygons.push({ tracts: [...currentSubsetTracts], polygon: subsetPolygon });
+      }
+    }
+  }
+
+  // Create main polygon
+  let mainPolygon = null;
+  if (mainPolygonTracts.length > 0) {
+    mainPolygon = createUnionFromTracts(mainPolygonTracts);
+  }
+
+  // Attempt to merge subset polygons with each other and with main
+  const finalPolygons = [];
+  if (mainPolygon?.geometry) {
+    finalPolygons.push(mainPolygon);
+  }
+
+  // Try to merge subsets together
+  const mergedSubsets = [];
+  for (let i = 0; i < subsetPolygons.length; i++) {
+    let merged = false;
+    const subset = subsetPolygons[i];
+
+    // Try to merge with main polygon
+    if (mainPolygon?.geometry) {
+      const flattened = flattenTractGeometry(subset.polygon);
+      for (const polygonFeature of flattened) {
+        const mergedResult = mergePolygonIntoUnion(mainPolygon, turf.feature(polygonFeature.geometry));
+        if (mergedResult) {
+          mainPolygon.geometry = mergedResult.geometry;
+          merged = true;
+          break;
+        }
+      }
+    }
+
+    // Try to merge with other subsets
+    if (!merged) {
+      for (let j = i + 1; j < subsetPolygons.length; j++) {
+        const otherSubset = subsetPolygons[j];
+        const flattened = flattenTractGeometry(subset.polygon);
+        for (const polygonFeature of flattened) {
+          const mergedResult = mergePolygonIntoUnion(otherSubset.polygon, turf.feature(polygonFeature.geometry));
+          if (mergedResult) {
+            otherSubset.polygon.geometry = mergedResult.geometry;
+            merged = true;
+            break;
+          }
+        }
+        if (merged) break;
+      }
+    }
+
+    if (!merged) {
+      mergedSubsets.push(subset.polygon);
+    }
+  }
+
+  finalPolygons.push(...mergedSubsets);
+
+  // Sort by size (largest first)
+  finalPolygons.sort((a, b) => {
+    const sizeA = a.properties?.TRACT_COUNT || 0;
+    const sizeB = b.properties?.TRACT_COUNT || 0;
+    return sizeB - sizeA;
+  });
+
+  if (finalPolygons.length === 0) {
+    console.error(`❌ No union polygons created using S4-ordered approach for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+    return null;
+  }
+
+  console.log(`✅ S4-ordered merging created ${finalPolygons.length} polygon(s) for group ${group.startDistrictNumber}-${group.endDistrictNumber} (main: ${mainPolygonTracts.length} tracts, ${subsetPolygons.length} subset(s))`);
+
+  if (isStep0) {
+    return finalPolygons;
+  }
+  return finalPolygons.length === 1 ? finalPolygons[0] : finalPolygons;
+}
+
+/**
  * Create union polygons for each connected component in a district group
  * If a group has isolated tracts (multiple connected components), returns an array of union polygons
  * At Step 0, returns array with main polygon (largest component) first, followed by island polygons (smaller components)
@@ -670,6 +948,22 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
   // At Step 0, we want separate polygons for main + islands even if forceSingleUnion is true
   if (forceSingleUnion && !isStep0) {
     return createUnionPolygon(group);
+  }
+
+  // Try S4-ordered merging approach first if adjacency graph is available
+  // Skip S4-ordered for very large groups (>1000 tracts) as sequential merging is too slow
+  const tractCount = group.censusTracts?.length || 0;
+  const S4_ORDERED_MAX_TRACTS = 1000;
+  
+  if (adjacencyGraph && tractCount <= S4_ORDERED_MAX_TRACTS) {
+    const s4Result = createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber);
+    if (s4Result) {
+      return s4Result;
+    }
+    // Fall back to connected components approach if S4-ordered fails
+    console.warn(`⚠️ S4-ordered merging failed, falling back to connected components approach`);
+  } else if (adjacencyGraph && tractCount > S4_ORDERED_MAX_TRACTS) {
+    console.log(`⚠️ Skipping S4-ordered merging for large group (${tractCount} tracts > ${S4_ORDERED_MAX_TRACTS} threshold), using faster approach`);
   }
 
   // If adjacency graph is provided, check for multiple connected components
@@ -1163,7 +1457,7 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   });
 
   // Detect isolated tracts if algorithmService and allTracts are provided
-  // At Step 0, isolated tracts are considered geographic islands and excluded from detection
+  // Island tracts (tracts in smaller connected components) are excluded from detection in all steps
   let isolatedTractsData = null;
   if (algorithmService && allTracts && allTracts.length > 0) {
     try {
@@ -1666,7 +1960,7 @@ class GeodistrictAlgorithmService {
    */
   detectIsolatedTracts(districtGroups, allTracts, stepNumber = null) {
     const isStep0 = stepNumber === 0 || stepNumber === '0';
-    logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts${isStep0 ? ' (Step 0 - island tracts will be excluded)' : ''}`);
+    logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts (island tracts will be excluded in all steps)`);
     
     if (districtGroups.length < 1) {
       return { isolatedTractsByGroup: new Map(), isolatedTractIds: new Set(), groupStats: [] };
@@ -1784,7 +2078,7 @@ class GeodistrictAlgorithmService {
           // Only mark as isolated if not reachable
           if (!reachableTractIds.has(tractId)) {
             groupIsolatedTractIds.add(tractId);
-            isolatedTractIds.add(tractId);
+            // DON'T add to isolatedTractIds yet - wait until after island check
           }
         }
         
@@ -1792,37 +2086,32 @@ class GeodistrictAlgorithmService {
         if (groupIsolatedTractIds.has(mainComponentTractId)) {
           console.error(`❌ CRITICAL BUG: Main component tract ${mainComponentTractId} found in isolated set! Removing it.`);
           groupIsolatedTractIds.delete(mainComponentTractId);
-          isolatedTractIds.delete(mainComponentTractId);
         }
         
         if (groupIsolatedTractIds.size > 0) {
-          // At Step 0, isolated tracts are considered geographic islands and should be excluded from isolation detection
+          // Island tracts (tracts in smaller connected components) should be excluded from isolation detection in ALL steps
           // The main component (largest reachable component) is the "mainland" and smaller components are islands
-          if (isStep0) {
-            console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected at Step 0 (excluded from isolation detection)`);
-            console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
-            console.log(`   Island components: ${groupIsolatedTractIds.size} tract(s) in smaller components`);
-            
-            // Debug: Log first few island tract IDs
-            const islandArray = Array.from(groupIsolatedTractIds).slice(0, 5);
-            console.log(`   Sample island tracts: ${islandArray.join(', ')}`);
-            
-            // Don't add to isolated sets - these are geographic islands, not isolation issues
-            // Continue to next group without marking these as isolated
-            continue;
-          }
+          // At Step 0, these are geographic islands (like CA's 5 island tracts)
+          // In later steps, these are tracts in smaller components that should be treated as islands
+          console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected${isStep0 ? ' at Step 0' : ''} (excluded from isolation detection)`);
+          console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
+          console.log(`   Island components: ${groupIsolatedTractIds.size} tract(s) in smaller components`);
           
-          // For steps > 0, treat isolated tracts normally
+          // Debug: Log first few island tract IDs
+          const islandArray = Array.from(groupIsolatedTractIds).slice(0, 5);
+          console.log(`   Sample island tracts: ${islandArray.join(', ')}`);
+          
+          // Don't add to isolated sets - these are island tracts (geographic islands at Step 0, or smaller components in later steps)
+          // Continue to next group without marking these as isolated
+          continue;
+        } else {
+          // Only add to isolated sets if they're NOT island tracts
+          // This case should not happen (if size > 0, we continue above), but keep for safety
+          for (const tractId of groupIsolatedTractIds) {
+            isolatedTractIds.add(tractId);
+          }
           isolatedTractsByGroup.set(groupIndex, groupIsolatedTractIds);
           console.log(`🔍 Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} isolated tract(s) detected`);
-          console.log(`   Main component: ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
-          console.log(`   Total tracts: ${totalTractsInGroup}, Reachable: ${reachableTractIds.size}, Isolated: ${groupIsolatedTractIds.size}`);
-          console.log(`   Main component in reachable set: ${reachableTractIds.has(mainComponentTractId)}`);
-          console.log(`   Main component in isolated set: ${groupIsolatedTractIds.has(mainComponentTractId)}`);
-          
-          // Debug: Log first few isolated tract IDs
-          const isolatedArray = Array.from(groupIsolatedTractIds).slice(0, 5);
-          console.log(`   Sample isolated tracts: ${isolatedArray.join(', ')}`);
         }
       }
     }
@@ -2271,13 +2560,10 @@ class GeodistrictAlgorithmService {
     
     console.log(`✅ Moved ${movedCount} bridge tract(s) to target group`);
     
-    // Re-run isolation detection
-    console.log(`🔍 Re-running isolation detection after moving bridge tracts...`);
-    const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts);
-    
+    // Don't re-run isolation detection here - it's expensive and will be done once at the end
+    // Just return the updated groups
     return {
-      districtGroups: updatedGroups,
-      isolationResult
+      districtGroups: updatedGroups
     };
   }
 
@@ -2564,13 +2850,10 @@ class GeodistrictAlgorithmService {
     
     console.log(`✅ Moved ${movedCount} isolated tract(s) to opposite group`);
     
-    // Re-run isolation detection
-    console.log(`🔍 Re-running isolation detection after moving isolated tracts...`);
-    const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts);
-    
+    // Don't re-run isolation detection here - it's expensive and will be done once at the end
+    // Just return the updated groups
     return {
-      districtGroups: updatedGroups,
-      isolationResult
+      districtGroups: updatedGroups
     };
   }
 
@@ -3044,367 +3327,60 @@ class GeodistrictAlgorithmService {
           }
           
           // Find isolated tracts (in group but not reachable)
-          const isolatedTractIds = new Set();
-          const isolatedTractIdArray = [];
+          // IMPORTANT: Do NOT include the main component tract itself as isolated
+          const groupIsolatedTractIds = new Set();
           for (const tractId of groupTractIds) {
+            // Skip null/undefined IDs
+            if (!tractId) continue;
+            
+            // CRITICAL: Never mark the main component tract as isolated
+            if (tractId === mainComponentTractId) {
+              // Double-check it's in reachable set
+              if (!reachableTractIds.has(tractId)) {
+                console.error(`❌ CRITICAL BUG: Main component tract ${tractId} not in reachable set! Adding it now.`);
+                reachableTractIds.add(tractId);
+              }
+              continue; // Skip main component tract
+            }
+            
+            // Only mark as isolated if not reachable
             if (!reachableTractIds.has(tractId)) {
-              isolatedTractIds.add(tractId);
-              isolatedTractIdArray.push(tractId);
-              if (tractId.includes('001700') || tractId.includes('002302') || tractId.includes('320903') || tractId.includes('940013') || tractId.includes('020102')) {
-                console.log(`🔍 ISOLATION CHECK: Tract ${tractId} is isolated in group ${group.startDistrictNumber}-${group.endDistrictNumber} (iteration ${iteration})`);
-              }
-            }
-          }
-
-          console.log(`🔍 Group ${group.startDistrictNumber}-${group.endDistrictNumber}: max component size ${maxReachableCount}/${totalTractsInGroup} - ${isolatedCount} isolated tract(s) detected: ${isolatedTractIdArray.join(', ')}`);
-          
-          // Debug: Log if we have isolated tracts but the tract group members are split
-          if (isolatedTractIds.size > 0) {
-            // Check if any isolated tracts are in a tract group
-            const isolatedTractGroups = new Set();
-            const reachableTractGroups = new Set();
-            for (const tract of group.censusTracts) {
-              const tractId = getTractId(tract);
-              const groupId = tract.properties?.TRACT_GROUP_ID;
-              if (groupId) {
-                if (isolatedTractIds.has(tractId)) {
-                  isolatedTractGroups.add(groupId);
-                } else if (reachableTractIds.has(tractId)) {
-                  reachableTractGroups.add(groupId);
-                }
-              }
-            }
-            
-            // If a tract group has members in both isolated and reachable sets, that's a problem
-            for (const groupId of isolatedTractGroups) {
-              if (reachableTractGroups.has(groupId)) {
-                console.log(`⚠️ ISOLATION CHECK: Tract group ${groupId} is split - some members isolated, some reachable in group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
-              }
+              groupIsolatedTractIds.add(tractId);
+              // DON'T add to isolatedTractIds yet - wait until after island check
             }
           }
           
-          // Debug: Check if tract 001700, 002302, 320903, or 940013 are in this group
-          for (const tractId of groupTractIds) {
-            if (tractId.includes('001700') || tractId.includes('002302') || tractId.includes('320903') || tractId.includes('940013')) {
-              const tract = group.censusTracts.find(t => getTractId(t) === tractId);
-              const isReachable = reachableTractIds.has(tractId);
-              const hasGroupId = tract?.properties?.TRACT_GROUP_ID;
-              const isIsolated = isolatedTractIds.has(tractId);
-              console.log(`🔍 ISOLATION CHECK: Tract ${tractId} in group ${group.startDistrictNumber}-${group.endDistrictNumber}: reachable=${isReachable}, isolated=${isIsolated}, TRACT_GROUP_ID=${hasGroupId || 'none'} (iteration ${iteration})`);
-              
-              // For 940013, also log its neighbors
-              if (tractId.includes('940013')) {
-                const neighbors = adjacencyGraph.get(tractId) || [];
-                const neighborGroups = new Map();
-                for (const neighborId of neighbors) {
-                  for (let i = 0; i < updatedGroups.length; i++) {
-                    if (updatedGroups[i].censusTracts.some(t => getTractId(t) === neighborId)) {
-                      const neighborGroup = updatedGroups[i];
-                      if (!neighborGroups.has(i)) {
-                        neighborGroups.set(i, []);
-                      }
-                      neighborGroups.get(i).push(neighborId);
-                      break;
-                    }
-                  }
-                }
-                console.log(`   - Tract 940013 has ${neighbors.length} neighbors: ${Array.from(neighborGroups.entries()).map(([idx, ids]) => `Group ${updatedGroups[idx].startDistrictNumber}-${updatedGroups[idx].endDistrictNumber}: ${ids.length} neighbors`).join(', ')}`);
-              }
-            }
+          // Final safety check: ensure main component is never in isolated set
+          if (groupIsolatedTractIds.has(mainComponentTractId)) {
+            console.error(`❌ CRITICAL BUG: Main component tract ${mainComponentTractId} found in isolated set! Removing it.`);
+            groupIsolatedTractIds.delete(mainComponentTractId);
           }
           
-          // Check if any isolated tracts are in a tract group - if so, we need to move the entire group
-          const isolatedTractGroups = new Map(); // Map<groupId, Set<isolatedTractIds>>
-          for (const isolatedTractId of isolatedTractIds) {
-            const isolatedTract = group.censusTracts.find(t => getTractId(t) === isolatedTractId);
-            if (isolatedTract) {
-              const groupId = isolatedTract.properties?.TRACT_GROUP_ID;
-              if (groupId) {
-                if (!isolatedTractGroups.has(groupId)) {
-                  isolatedTractGroups.set(groupId, new Set());
-                }
-                isolatedTractGroups.get(groupId).add(isolatedTractId);
-                if (isolatedTractId.includes('001700') || isolatedTractId.includes('002302') || isolatedTractId.includes('320903') || isolatedTractId.includes('940013')) {
-                  console.log(`🔍 ISOLATION CHECK: Isolated tract ${isolatedTractId} is in tract group ${groupId}`);
-                }
-              }
-            }
+          if (groupIsolatedTractIds.size > 0) {
+            // Island tracts (tracts in smaller connected components) should be excluded from isolation detection in ALL steps
+            // The main component (largest reachable component) is the "mainland" and smaller components are islands
+            // At Step 0, these are geographic islands (like CA's 5 island tracts)
+            // In later steps, these are tracts in smaller components that should be treated as islands
+            console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected${isStep0 ? ' at Step 0' : ''} (excluded from isolation detection)`);
+            console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
+            console.log(`   Island components: ${groupIsolatedTractIds.size} tract(s) in smaller components`);
+            
+            // Debug: Log first few island tract IDs
+            const islandArray = Array.from(groupIsolatedTractIds).slice(0, 5);
+            console.log(`   Sample island tracts: ${islandArray.join(', ')}`);
+            
+            // Don't add to isolated sets - these are island tracts (geographic islands at Step 0, or smaller components in later steps)
+            // Continue to next group without marking these as isolated
+            continue;
           }
-          
-          // Find the tract in the other group that is adjacent to isolated tracts and causing isolation
-          // Look for a tract in another group that is adjacent to an isolated tract
-          let bestTractToMove = null;
-          let bestTractGroupIndex = -1;
-          let bestAdjacentIsolatedCount = 0;
-          let shouldMoveBridgeTract = false;
-          let bridgeTractMoveSucceeded = false;
-          
-          for (let otherGroupIndex = 0; otherGroupIndex < updatedGroups.length; otherGroupIndex++) {
-            if (otherGroupIndex === groupIndex) continue; // Skip same group
-            
-            const otherGroup = updatedGroups[otherGroupIndex];
-            
-            // Check each tract in the other group
-            for (const otherTract of otherGroup.censusTracts) {
-              const otherTractId = getTractId(otherTract);
-              const otherNeighbors = adjacencyGraph.get(otherTractId) || [];
-              
-              // Count how many isolated tracts this tract is adjacent to
-              // Also check if it's in the same tract group as any isolated tract
-              let adjacentIsolatedCount = 0;
-              let isInIsolatedTractGroup = false;
-              const otherTractGroupId = otherTract.properties?.TRACT_GROUP_ID;
-              
-              for (const neighborId of otherNeighbors) {
-                if (isolatedTractIds.has(neighborId)) {
-                  adjacentIsolatedCount++;
-                }
-              }
-              
-              // Check if this tract is in the same group as an isolated tract
-              if (otherTractGroupId && isolatedTractGroups.has(otherTractGroupId)) {
-                isInIsolatedTractGroup = true;
-                // Count all isolated tracts in this group
-                adjacentIsolatedCount = isolatedTractGroups.get(otherTractGroupId).size;
-              }
-              
-              // If this tract is adjacent to isolated tracts or in the same group, it's a candidate
-              if ((adjacentIsolatedCount > 0 || isInIsolatedTractGroup) && adjacentIsolatedCount > bestAdjacentIsolatedCount) {
-                bestTractToMove = otherTract;
-                bestTractGroupIndex = otherGroupIndex;
-                bestAdjacentIsolatedCount = adjacentIsolatedCount;
-              }
-            }
-          }
-          
-          // If we found a tract to move, move it to this group
-          // BUT: Check if moving it would make it isolated in the target group OR if it's in the main component of its current group
-          if (bestTractToMove && bestTractGroupIndex !== -1) {
-            const sourceGroup = updatedGroups[bestTractGroupIndex];
-            const targetGroup = updatedGroups[groupIndex];
-            const tractToMoveId = getTractId(bestTractToMove);
-            const tractPopulation = bestTractToMove.properties?.POPULATION || 0;
-            
-            // Check if this tract is in the main component of its current group
-            // If it is, we shouldn't move it as a bridge because it's important for connectivity
-            const sourceGroupMaxReachable = this.calculateMaxReachableCount(sourceGroup.censusTracts, adjacencyGraph);
-            const tractReachableInSource = this.calculateReachableTracts(tractToMoveId, sourceGroup.censusTracts, adjacencyGraph);
-            // If tract's reachable count is >= 95% of max, it's in the main component
-            const isInMainComponentOfSource = tractReachableInSource >= sourceGroupMaxReachable * 0.95;
-            
-            // Also check: if ALL neighbors are in the source group, don't move it (it's fully embedded)
-            const tractNeighbors = adjacencyGraph.get(tractToMoveId) || [];
-            const sourceGroupTractIds = new Set(sourceGroup.censusTracts.map(t => getTractId(t)));
-            let neighborsInSourceGroup = 0;
-            for (const neighborId of tractNeighbors) {
-              if (sourceGroupTractIds.has(neighborId)) {
-                neighborsInSourceGroup++;
-              }
-            }
-            const allNeighborsInSource = neighborsInSourceGroup === tractNeighbors.length && tractNeighbors.length > 0;
-            
-            shouldMoveBridgeTract = true;
-            
-            if (isInMainComponentOfSource || allNeighborsInSource) {
-              if (tractToMoveId.includes('940013') || tractToMoveId.includes('020102')) {
-                console.log(`⚠️ Skipping move of tract ${tractToMoveId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} - tract is in main component (reachable: ${tractReachableInSource}/${sourceGroupMaxReachable}) or all ${neighborsInSourceGroup}/${tractNeighbors.length} neighbors are in source group`);
-              }
-              // Don't move this tract - it's in the main component of its current group or fully embedded
-              shouldMoveBridgeTract = false;
-            } else {
-              // Check if this tract would be isolated in the target group
-              // Simulate adding it to the target group and check connectivity
-              const targetGroupTractIds = new Set(targetGroup.censusTracts.map(t => getTractId(t)));
-              targetGroupTractIds.add(tractToMoveId);
-              
-              // Check if tract has neighbors in target group
-              let hasNeighborInTarget = false;
-              for (const neighborId of tractNeighbors) {
-                if (targetGroupTractIds.has(neighborId)) {
-                  hasNeighborInTarget = true;
-                  break;
-                }
-              }
-              
-              // If tract has no neighbors in target group, it would be isolated - skip moving it
-              if (!hasNeighborInTarget) {
-                if (tractToMoveId.includes('940013') || tractToMoveId.includes('020102')) {
-                  console.log(`⚠️ Skipping move of tract ${tractToMoveId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} - would be isolated (no neighbors in target group)`);
-                }
-                // Don't move this tract - it would become isolated in the target group
-                shouldMoveBridgeTract = false;
-              }
-            }
-            
-            // Move the bridge tract (only if it won't be isolated)
-            if (shouldMoveBridgeTract && moveTract(bestTractToMove, bestTractGroupIndex, groupIndex)) {
-              bridgeTractMoveSucceeded = true;
-              totalMoved++;
-            if (tractToMoveId.includes('320903') || tractToMoveId.includes('940013') || tractToMoveId.includes('020102')) {
-              console.log(`🔄 Moved tract ${tractToMoveId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} (adjacent to ${bestAdjacentIsolatedCount} isolated tracts) - iteration ${iteration}`);
-            } else {
-              console.log(`🔄 Moved tract ${tractToMoveId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} (adjacent to ${bestAdjacentIsolatedCount} isolated tracts)`);
-            }
-              
-              // After moving, check if we need to move enclosed tracts
-              // Check for enclosed tract relationships in the moved tract
-              const enclosingTractId = bestTractToMove.properties?.ENCLOSED_BY;
-              if (enclosingTractId) {
-                // Find which group the enclosing tract belongs to
-                let enclosingGroupIndex = -1;
-                for (let i = 0; i < updatedGroups.length; i++) {
-                  if (updatedGroups[i].censusTracts.some(t => getTractId(t) === enclosingTractId)) {
-                    enclosingGroupIndex = i;
-                    break;
-                  }
-                }
-                
-                // If enclosing tract is in a different group, move this tract to that group
-                if (enclosingGroupIndex !== -1 && enclosingGroupIndex !== groupIndex) {
-                  if (moveTract(bestTractToMove, groupIndex, enclosingGroupIndex)) {
-                    totalMoved++;
-                    console.log(`🔄 Moved enclosed tract ${tractToMoveId} to same group as enclosing tract ${enclosingTractId}`);
-                  }
-                }
-              }
-              
-              // Balance population: find adjacent tracts in the receiving group and move them to the giving group
-              // This preserves the population division ratio
-              // Note: targetGroup is now updated with the moved tract, so we can find its adjacent tracts
-              const adjacentTractsInTarget = findAdjacentTracts(new Set([tractToMoveId]), groupIndex);
-              
-              // Find tracts in the target group that are adjacent to the moved tract
-              // Move them back to the source group to balance population
-              let populationToBalance = tractPopulation;
-              
-              for (const adjacentTract of adjacentTractsInTarget) {
-                const adjacentTractId = getTractId(adjacentTract);
-                // Don't move back the tract we just moved
-                if (adjacentTractId === tractToMoveId) continue;
-                
-                const adjacentTractPopulation = adjacentTract.properties?.POPULATION || 0;
-                
-                // Move tract back to balance population
-                if (moveTract(adjacentTract, groupIndex, bestTractGroupIndex)) {
-                  totalMoved++;
-                  populationToBalance -= adjacentTractPopulation;
-                  console.log(`🔄 Balanced population: moved tract ${adjacentTractId} from group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} back to group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber}`);
-                  
-                  // Stop when we've balanced the population (approximately)
-                  if (populationToBalance <= 0) break;
-                }
-              }
-            } else if (!shouldMoveBridgeTract) {
-              // Bridge tract was found but rejected - fall through to direct move
-              const tractToMoveId = getTractId(bestTractToMove);
-              console.log(`⚠️ Bridge tract ${tractToMoveId} found but rejected - falling through to direct isolated tract move`);
-            }
-          }
-          
-          // If no bridge tract was moved, try moving isolated tracts directly
-          if (!bridgeTractMoveSucceeded) {
-            // No bridge tract found - move isolated tracts directly to other groups
-            console.log(`⚠️ No bridge tract found - moving isolated tracts directly to adjacent groups`);
-
-            // Find the best target group for isolated tracts (one with the most adjacent neighbors)
-            let bestTargetGroupIndex = -1;
-            let maxAdjacentCount = 0;
-
-            console.log(`🔍 Finding target groups for ${isolatedTractIds.size} isolated tracts in group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
-            console.log(`🔍 Isolated tract IDs: ${Array.from(isolatedTractIds).join(', ')}`);
-            
-            // Debug logging for specific tract
-            if (Array.from(isolatedTractIds).some(id => id.includes('020102'))) {
-              console.log(`🔍 DEBUG: Tract 020102 is in isolated set for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
-            }
-
-            for (let otherGroupIndex = 0; otherGroupIndex < updatedGroups.length; otherGroupIndex++) {
-              if (otherGroupIndex === groupIndex) continue;
-
-              const otherGroup = updatedGroups[otherGroupIndex];
-              const otherGroupTractIds = new Set(otherGroup.censusTracts.map(t => getTractId(t)));
-
-              // Count how many isolated tracts have neighbors in this other group
-              let adjacentCount = 0;
-              const adjacentIsolated = new Set();
-
-              for (const isolatedTractId of isolatedTractIds) {
-                const neighbors = adjacencyGraph.get(isolatedTractId) || [];
-                console.log(`🔍 Tract ${isolatedTractId} has ${neighbors.length} neighbors: ${neighbors.slice(0, 5).join(', ')}${neighbors.length > 5 ? '...' : ''}`);
-
-                for (const neighborId of neighbors) {
-                  if (otherGroupTractIds.has(neighborId)) {
-                    adjacentCount++;
-                    adjacentIsolated.add(isolatedTractId);
-                    console.log(`🔍 Tract ${isolatedTractId} has neighbor ${neighborId} in group ${otherGroup.startDistrictNumber}-${otherGroup.endDistrictNumber}`);
-                    break; // Count each isolated tract only once
-                  }
-                }
-              }
-
-              console.log(`🔍 Group ${otherGroup.startDistrictNumber}-${otherGroup.endDistrictNumber}: ${adjacentCount} adjacent isolated tracts (${Array.from(adjacentIsolated).join(', ')})`);
-
-              if (adjacentCount > maxAdjacentCount) {
-                maxAdjacentCount = adjacentCount;
-                bestTargetGroupIndex = otherGroupIndex;
-              }
-            }
-
-            console.log(`🔍 Best target group: ${bestTargetGroupIndex !== -1 ? updatedGroups[bestTargetGroupIndex].startDistrictNumber + '-' + updatedGroups[bestTargetGroupIndex].endDistrictNumber : 'none'} with ${maxAdjacentCount} adjacent tracts`);
-
-            // Move isolated tracts to the best target group
-            if (bestTargetGroupIndex !== -1) {
-              const targetGroup = updatedGroups[bestTargetGroupIndex];
-              let totalPopulationMoved = 0;
-
-              console.log(`🔄 Moving ${isolatedTractIds.size} isolated tracts to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-
-              // Move all isolated tracts to the target group
-              const isolatedTractsToMove = Array.from(isolatedTractIds);
-              for (const isolatedTractId of isolatedTractsToMove) {
-                const isolatedTract = group.censusTracts.find(t => getTractId(t) === isolatedTractId);
-                if (isolatedTract && moveTract(isolatedTract, groupIndex, bestTargetGroupIndex)) {
-                  totalMoved++;
-                  totalPopulationMoved += isolatedTract.properties?.POPULATION || 0;
-                  if (isolatedTractId.includes('940013') || isolatedTractId.includes('020102')) {
-                    console.log(`🔄 Moved isolated tract ${isolatedTractId} from group ${group.startDistrictNumber}-${group.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-                  }
-                } else if (isolatedTractId.includes('020102')) {
-                  console.log(`⚠️ Failed to move isolated tract ${isolatedTractId} from group ${group.startDistrictNumber}-${group.endDistrictNumber} to group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-                }
-              }
-
-              // Balance population by moving tracts back from target group to source group
-              // But don't move the tracts we just moved for isolation fixing
-              if (totalPopulationMoved > 0) {
-                const adjacentTractsInTarget = findAdjacentTracts(new Set(isolatedTractsToMove), bestTargetGroupIndex);
-                let populationToBalance = totalPopulationMoved;
-
-                for (const adjacentTract of adjacentTractsInTarget) {
-                  const adjacentTractId = getTractId(adjacentTract);
-                  // Don't move back the tracts we just moved
-                  if (isolatedTractsToMove.includes(adjacentTractId)) continue;
-
-                  const adjacentPopulation = adjacentTract.properties?.POPULATION || 0;
-                  if (moveTract(adjacentTract, bestTargetGroupIndex, groupIndex)) {
-                    totalMoved++;
-                    populationToBalance -= adjacentPopulation;
-                    console.log(`🔄 Balanced population: moved tract ${adjacentTractId} back from group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber} to group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
-
-                    if (populationToBalance <= 0) break;
-                  }
-                }
-              }
-            } else {
-              console.log(`⚠️ No suitable target groups found for isolated tracts in group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
-            }
-          }
+          // If groupIsolatedTractIds.size === 0, there are no isolated tracts in this group, so continue to next group
         }
+        // If maxReachableCount >= totalTractsInGroup, there are no isolated tracts, so continue to next group
       }
-      
-      if (hasIsolationIssues && iteration < maxIterations) {
-        console.log(`🔄 FIX ISOLATED: Iteration ${iteration} - re-checking all groups for remaining isolation issues...`);
-      }
+    }
+    
+    if (hasIsolationIssues && iteration < maxIterations) {
+      console.log(`�� FIX ISOLATED: Iteration ${iteration} - re-checking all groups for remaining isolation issues...`);
     }
     
     if (iteration >= maxIterations) {

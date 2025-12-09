@@ -74,55 +74,53 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // US States with their congressional district counts
   states = [
-    { code: 'AL', name: 'Alabama', districts: 7 },
-    { code: 'AK', name: 'Alaska', districts: 1 },
-    { code: 'AZ', name: 'Arizona', districts: 9 },
-    { code: 'AR', name: 'Arkansas', districts: 4 },
     { code: 'CA', name: 'California', districts: 52 },
-    { code: 'CO', name: 'Colorado', districts: 8 },
-    { code: 'CT', name: 'Connecticut', districts: 5 },
-    { code: 'DE', name: 'Delaware', districts: 1 },
-    { code: 'FL', name: 'Florida', districts: 28 },
-    { code: 'GA', name: 'Georgia', districts: 14 },
-    { code: 'HI', name: 'Hawaii', districts: 2 },
-    { code: 'ID', name: 'Idaho', districts: 2 },
-    { code: 'IL', name: 'Illinois', districts: 17 },
-    { code: 'IN', name: 'Indiana', districts: 9 },
-    { code: 'IA', name: 'Iowa', districts: 4 },
-    { code: 'KS', name: 'Kansas', districts: 4 },
-    { code: 'KY', name: 'Kentucky', districts: 6 },
-    { code: 'LA', name: 'Louisiana', districts: 6 },
-    { code: 'ME', name: 'Maine', districts: 2 },
-    { code: 'MD', name: 'Maryland', districts: 8 },
-    { code: 'MA', name: 'Massachusetts', districts: 9 },
-    { code: 'MI', name: 'Michigan', districts: 13 },
-    { code: 'MN', name: 'Minnesota', districts: 8 },
-    { code: 'MS', name: 'Mississippi', districts: 4 },
-    { code: 'MO', name: 'Missouri', districts: 8 },
-    { code: 'MT', name: 'Montana', districts: 2 },
-    { code: 'NE', name: 'Nebraska', districts: 3 },
-    { code: 'NV', name: 'Nevada', districts: 4 },
-    { code: 'NH', name: 'New Hampshire', districts: 2 },
-    { code: 'NJ', name: 'New Jersey', districts: 12 },
-    { code: 'NM', name: 'New Mexico', districts: 3 },
-    { code: 'NY', name: 'New York', districts: 26 },
-    { code: 'NC', name: 'North Carolina', districts: 14 },
-    { code: 'ND', name: 'North Dakota', districts: 1 },
-    { code: 'OH', name: 'Ohio', districts: 15 },
-    { code: 'OK', name: 'Oklahoma', districts: 5 },
-    { code: 'OR', name: 'Oregon', districts: 6 },
-    { code: 'PA', name: 'Pennsylvania', districts: 17 },
-    { code: 'RI', name: 'Rhode Island', districts: 2 },
-    { code: 'SC', name: 'South Carolina', districts: 7 },
-    { code: 'SD', name: 'South Dakota', districts: 1 },
-    { code: 'TN', name: 'Tennessee', districts: 9 },
     { code: 'TX', name: 'Texas', districts: 38 },
-    { code: 'UT', name: 'Utah', districts: 4 },
-    { code: 'VT', name: 'Vermont', districts: 1 },
+    { code: 'FL', name: 'Florida', districts: 28 },
+    { code: 'NY', name: 'New York', districts: 26 },
+    { code: 'IL', name: 'Illinois', districts: 17 },
+    { code: 'PA', name: 'Pennsylvania', districts: 17 },
+    { code: 'NC', name: 'North Carolina', districts: 14 },
+    { code: 'GA', name: 'Georgia', districts: 14 },
+    { code: 'MI', name: 'Michigan', districts: 13 },
+    { code: 'NJ', name: 'New Jersey', districts: 12 },
     { code: 'VA', name: 'Virginia', districts: 11 },
     { code: 'WA', name: 'Washington', districts: 10 },
-    { code: 'WV', name: 'West Virginia', districts: 2 },
+    { code: 'AZ', name: 'Arizona', districts: 9 },
+    { code: 'IN', name: 'Indiana', districts: 9 },
+    { code: 'MA', name: 'Massachusetts', districts: 9 },
+    { code: 'TN', name: 'Tennessee', districts: 9 },
+    { code: 'CO', name: 'Colorado', districts: 8 },
+    { code: 'MD', name: 'Maryland', districts: 8 },
+    { code: 'MN', name: 'Minnesota', districts: 8 },
+    { code: 'MO', name: 'Missouri', districts: 8 },
     { code: 'WI', name: 'Wisconsin', districts: 8 },
+    { code: 'AL', name: 'Alabama', districts: 7 },
+    { code: 'SC', name: 'South Carolina', districts: 7 },
+    { code: 'KY', name: 'Kentucky', districts: 6 },
+    { code: 'LA', name: 'Louisiana', districts: 6 },
+    { code: 'OR', name: 'Oregon', districts: 6 },
+    { code: 'CT', name: 'Connecticut', districts: 5 },
+    { code: 'OK', name: 'Oklahoma', districts: 5 },
+    { code: 'AR', name: 'Arkansas', districts: 4 },
+    { code: 'IA', name: 'Iowa', districts: 4 },
+    { code: 'KS', name: 'Kansas', districts: 4 },
+    { code: 'NV', name: 'Nevada', districts: 4 },
+    { code: 'UT', name: 'Utah', districts: 4 },
+    { code: 'NE', name: 'Nebraska', districts: 3 },
+    { code: 'NM', name: 'New Mexico', districts: 3 },
+    { code: 'HI', name: 'Hawaii', districts: 2 },
+    { code: 'ID', name: 'Idaho', districts: 2 },
+    { code: 'ME', name: 'Maine', districts: 2 },
+    { code: 'MT', name: 'Montana', districts: 2 },
+    { code: 'NH', name: 'New Hampshire', districts: 2 },
+    { code: 'RI', name: 'Rhode Island', districts: 2 },
+    { code: 'WV', name: 'West Virginia', districts: 2 },
+    { code: 'AK', name: 'Alaska', districts: 1 },
+    { code: 'DE', name: 'Delaware', districts: 1 },
+    { code: 'ND', name: 'North Dakota', districts: 1 },
+    { code: 'SD', name: 'South Dakota', districts: 1 },
+    { code: 'VT', name: 'Vermont', districts: 1 },
     { code: 'WY', name: 'Wyoming', districts: 1 }
   ];
 
@@ -213,29 +211,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.updateMapLayers();
   }
 
-  onStateChangeFromHeader(state: string): void {
-    this.selectedState = state;
-    if (this.selectedState) {
-      // Persist selected state to localStorage
-      localStorage.setItem('selectedState', this.selectedState);
-      this.updateMapView();
-      // Only run algorithm if not "ALL"
-      if (this.selectedState !== 'ALL') {
-        this.runAlgorithm();
-      } else {
-        // Clear algorithm result when showing "ALL"
-        this.algorithmResult = null;
-        this.currentStep = null;
-        this.currentStepIndex = 0;
-        if (this.tractLayer) {
-          this.tractLayer.clearLayers();
-        }
-      }
-    } else {
-      // Clear saved state if no state is selected
-      localStorage.removeItem('selectedState');
-    }
-  }
 
   onStateChange(): void {
     if (this.selectedState) {
@@ -2322,23 +2297,42 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> = [];
     
-    for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
-      const groupIndex = parseInt(groupIndexStr);
-      const group = this.currentStep.districtGroups[groupIndex];
-      const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-      
-      for (const tractId of tractIds) {
-        // Check if tract is enclosed by looking for it in the district groups
-        let isEnclosed = false;
-        if (group) {
+    // If isolatedTractsByGroup is empty but isolatedTractIds has items, try to find which groups they belong to
+    if (Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length === 0 && 
+        this.isolatedTractsData.isolatedTractIds.length > 0) {
+      // Fallback: search through all groups to find which group each isolated tract belongs to
+      for (let groupIndex = 0; groupIndex < this.currentStep.districtGroups.length; groupIndex++) {
+        const group = this.currentStep.districtGroups[groupIndex];
+        const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
+        
+        for (const tractId of this.isolatedTractsData.isolatedTractIds) {
           const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
           if (tract) {
-            // Check for TRACT_GROUP_ID (enclosed tracts have this property)
-            // or ENCLOSED_BY property
-            isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
+            const isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
+            list.push({ tractId, groupIndex, groupLabel, isEnclosed });
           }
         }
-        list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+      }
+    } else {
+      // Normal case: use isolatedTractsByGroup
+      for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
+        const groupIndex = parseInt(groupIndexStr);
+        const group = this.currentStep.districtGroups[groupIndex];
+        const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
+        
+        for (const tractId of tractIds) {
+          // Check if tract is enclosed by looking for it in the district groups
+          let isEnclosed = false;
+          if (group) {
+            const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
+            if (tract) {
+              // Check for TRACT_GROUP_ID (enclosed tracts have this property)
+              // or ENCLOSED_BY property
+              isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
+            }
+          }
+          list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+        }
       }
     }
     

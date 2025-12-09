@@ -1,17 +1,9 @@
 <div class="page-header">
-  <button mat-icon-button (click)="onHomeClick()" class="home-button" aria-label="Home">
-    <mat-icon>home</mat-icon>
-  </button>
-  <div class="state-select-group" *ngIf="showStateSelector">
-    <select id="stateSelect" [(ngModel)]="internalSelectedState" (change)="onStateChange()">
-      <option value="ALL">United States</option>
-      <option *ngFor="let state of states" [value]="state.code">
-        {{ state.name }} ({{ state.districts }} districts)
-      </option>
-    </select>
+  <div class="home-section" (click)="onHomeClick()">
+    <img src="/images/logo/favicon-64.png" alt="GeoDistricts" class="logo-icon" width="24" height="24">
+    <p class="logo-text">GeoDistricts</p>
   </div>
   <nav class="header-nav">
-    <!-- <a routerLink="/contribute" class="header-link">Contribute</a> -->
     <a routerLink="/about" class="header-link">About</a>
   </nav>
 </div>

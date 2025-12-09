@@ -6,6 +6,9 @@
 @use '@angular/material' as mat;
 @use './styles/material-theme' as custom-theme;
 
+// Import Leaflet CSS from node_modules (avoids CORS issues with CDN)
+@import 'leaflet/dist/leaflet.css';
+
 // Material Theme CSS Variables from material-theme.json
 // Light theme colors
 :root {

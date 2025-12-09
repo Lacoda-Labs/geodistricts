@@ -251,6 +251,7 @@
   padding: 2px 16px;
   border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
   display: flex;
+  flex-direction: column;
   gap: 10px;
   flex-shrink: 0;
   justify-content: space-between;
@@ -258,10 +259,11 @@
 
 .state-selection {
   display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.page-header .state-select-group {
+.state-select-group {
   display: flex;
   align-items: center;
   flex: 1;
@@ -277,6 +279,7 @@
     cursor: pointer;
     transition: border-color 0.2s ease;
     width: 100%;
+    height: 26px;
 
     &:hover {
       border-color: var(--mat-sys-outline, #72787E);
