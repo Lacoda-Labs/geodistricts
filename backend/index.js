@@ -1013,8 +1013,8 @@ app.get('/api/census/counties', async (req, res) => {
       state: state
     }));
     
-    // Cache the result
-    await setCache(cacheKey, counties);
+    // Cache the result (never expires - census data is static)
+    await setCache(cacheKey, counties, null);
     
     res.json(counties);
   } catch (error) {
@@ -1151,8 +1151,8 @@ app.get('/api/census/tract-data', async (req, res) => {
     
     const transformedData = transformCensusResponse(response.data, params);
     
-    // Cache the result
-    await setCache(cacheKey, transformedData);
+    // Cache the result (never expires - census data is static)
+    await setCache(cacheKey, transformedData, null);
     console.log(`💾 FIRESTORE CACHE: Stored ${transformedData.length} tracts for state ${state}, county ${county}`);
     
     // Log if this was a fresh fetch due to force invalidate
@@ -1166,6 +1166,77 @@ app.get('/api/census/tract-data', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to fetch census tract data',
       message: error.message 
+    });
+  }
+});
+
+/**
+ * Bulk fetch tract data for multiple counties in a state
+ * POST /api/census/tract-data/bulk
+ * Body: { state: "WV", counties: ["001", "003", ...], forceInvalidate: false }
+ */
+app.post('/api/census/tract-data/bulk', async (req, res) => {
+  try {
+    const { state, counties, forceInvalidate = false } = req.body;
+
+    if (!state || !counties || !Array.isArray(counties)) {
+      return res.status(400).json({
+        error: 'State and counties array are required',
+        message: 'Use { state: "WV", counties: ["001", "003", ...] }'
+      });
+    }
+
+    console.log(`🔄 BULK FETCH: Starting bulk fetch for ${state} with ${counties.length} counties`);
+
+    // Process counties in batches to avoid overwhelming the Census API
+    const BATCH_SIZE = 5; // Process 5 counties at a time
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < counties.length; i += BATCH_SIZE) {
+      const batch = counties.slice(i, i + BATCH_SIZE);
+      console.log(`📦 Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(counties.length/BATCH_SIZE)}: counties ${batch.join(', ')}`);
+
+      // Fetch data for this batch concurrently
+      const batchPromises = batch.map(county => {
+        const tractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}&county=${county}${forceInvalidate ? '&forceInvalidate=true' : ''}`;
+        return axios.get(tractDataUrl).then(response => {
+          const data = response.data || [];
+          console.log(`✅ Fetched ${data.length} tracts for county ${county}`);
+          return data;
+        }).catch(error => {
+          console.warn(`⚠️ Failed to fetch tract data for county ${county}:`, error.message);
+          errors.push({ county, error: error.message });
+          return [];
+        });
+      });
+
+      // Wait for this batch to complete before starting the next
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Small delay between batches to be respectful to the API
+      if (i + BATCH_SIZE < counties.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    const allTracts = results.flat();
+    console.log(`✅ BULK FETCH COMPLETE: Retrieved ${allTracts.length} tracts total for ${state} (${errors.length} errors)`);
+
+    res.json({
+      state,
+      counties: counties.length,
+      tracts: allTracts.length,
+      errors: errors.length,
+      data: allTracts
+    });
+
+  } catch (error) {
+    console.error('Error in bulk tract data fetch:', error);
+    res.status(500).json({
+      error: 'Failed to fetch bulk census tract data',
+      message: error.message
     });
   }
 });
@@ -1376,8 +1447,8 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       features: response.data.features || []
     };
     
-    // Cache the response
-    await setCache(cacheKey, geojsonResponse);
+    // Cache the response (never expires - census boundaries are static)
+    await setCache(cacheKey, geojsonResponse, null);
     
     console.log(`Retrieved ${geojsonResponse.features.length} tract boundaries for state ${state}`);
     
@@ -1461,8 +1532,8 @@ app.get('/api/census/state-boundaries', async (req, res) => {
       features: response.data.features || []
     };
     
-    // Cache the response
-    await setCache(cacheKey, geojsonResponse);
+    // Cache the response (never expires - census boundaries are static)
+    await setCache(cacheKey, geojsonResponse, null);
     
     console.log(`✅ Retrieved ${geojsonResponse.features.length} state boundary feature(s) for state ${state}`);
     
@@ -3225,26 +3296,19 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       const counties = countiesResponse.data || [];
       console.log(`📊 Found ${counties.length} counties for state ${state}`);
       
-      // Fetch tract data for each county and combine
-      // Use forceInvalidate option from request instead of hardcoding
-      const demographicDataPromises = counties.map(county => {
-        const countyFips = county.COUNTY || county.county || county.fips;
-        const tractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data?state=${state}&county=${countyFips}${forceInvalidate ? '&forceInvalidate=true' : ''}`;
-        return axios.get(tractDataUrl).then(response => {
-          const data = response.data || [];
-          // If cached data was empty (2 bytes = "[]"), log a warning
-          if (Array.isArray(data) && data.length === 0) {
-            console.warn(`⚠️ Empty tract data for county ${countyFips} (may need fresh fetch)`);
-          }
-          return data;
-        }).catch(error => {
-          console.warn(`⚠️ Failed to fetch tract data for county ${countyFips}:`, error.message);
-          return [];
-        });
+      // Use bulk fetch for better performance with many counties
+      const countyFipsCodes = counties.map(county => county.COUNTY || county.county || county.fips);
+      console.log(`📦 Using bulk fetch for ${countyFipsCodes.length} counties in ${state}`);
+
+      const bulkTractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data/bulk`;
+      const bulkResponse = await axios.post(bulkTractDataUrl, {
+        state: state,
+        counties: countyFipsCodes,
+        forceInvalidate: forceInvalidate
       });
-      
-      const demographicDataArrays = await Promise.all(demographicDataPromises);
-      const demographicData = demographicDataArrays.flat();
+
+      const demographicData = bulkResponse.data.data || [];
+      console.log(`✅ Bulk fetch complete: ${demographicData.length} tracts across ${counties.length} counties`);
       
       console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
       const boundaries = boundariesResponse.data;
