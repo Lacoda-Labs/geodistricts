@@ -149,10 +149,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // Load selected state from localStorage
+    // Load selected state from localStorage, default to 'ALL' for US view
     const savedState = localStorage.getItem('selectedState');
     if (savedState) {
       this.selectedState = savedState;
+    } else {
+      this.selectedState = 'ALL';
     }
   }
 
@@ -182,9 +184,31 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private initializeMap(): void {
     const mapElement = document.getElementById('usMap');
-    if (!mapElement || this.map) return;
+    if (!mapElement) {
+      // If map element doesn't exist yet (e.g., view hasn't rendered), retry after a short delay
+      setTimeout(() => this.initializeMap(), 100);
+      return;
+    }
 
-    // Default to United States view
+    // If map already exists and is valid, check if container is still in DOM
+    if (this.map) {
+      try {
+        // Check if map container is still valid
+        const container = this.map.getContainer();
+        if (container && container.parentNode) {
+          // Map is still valid, just update the view
+          this.updateMapView();
+          return;
+        }
+      } catch (e) {
+        // Map container was removed, need to reinitialize
+        console.log('Map container was removed, reinitializing...');
+        this.map.remove();
+        this.map = null;
+      }
+    }
+
+    // Initialize new map
     this.map = L.map('usMap', {
       scrollWheelZoom: true
     }).setView([39.8283, -98.5795], 4); // Center of US
@@ -209,6 +233,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Update layers based on checkbox state
     this.updateMapLayers();
+    
+    // Update map view based on selected state
+    this.updateMapView();
   }
 
 
@@ -216,10 +243,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.selectedState) {
       // Persist selected state to localStorage
       localStorage.setItem('selectedState', this.selectedState);
-      this.updateMapView();
+      
+      // Re-initialize map when switching views (DOM element may have been recreated)
+      setTimeout(() => {
+        this.initializeMap();
+      }, 100);
+      
       // Only run algorithm if not "ALL"
       if (this.selectedState !== 'ALL') {
-        this.runAlgorithm();
+        // Wait a bit longer to ensure map is fully initialized
+        setTimeout(() => {
+          this.runAlgorithm();
+        }, 300);
       } else {
         // Clear algorithm result when showing "ALL"
         this.algorithmResult = null;
@@ -2467,6 +2502,118 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const variance = ((group.totalPopulation - targetPopulationForGroup) / targetPopulationForGroup) * 100;
     
     return variance;
+  }
+
+  // US View Methods
+  private expandedStates: Set<string> = new Set();
+
+  /**
+   * Get US data for display in the summary row
+   * TODO: Replace with actual data from API/backend
+   */
+  getUSData(source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
+    // Placeholder data - replace with actual data
+    if (source === 'swing') {
+      return '22';
+    }
+    if (source === '119th') {
+      return type === 'D' ? '43' : '22';
+    }
+    if (source === 'geodistricts') {
+      return type === 'D' ? '34' : '22';
+    }
+    return '0';
+  }
+
+  /**
+   * Get US data change indicator
+   * TODO: Replace with actual data from API/backend
+   */
+  getUSDataChange(source: '119th' | 'geodistricts', type: 'D' | 'R'): string | null {
+    // Placeholder data - replace with actual data
+    if (source === '119th' && type === 'D') {
+      return '+34';
+    }
+    if (source === 'geodistricts' && type === 'D') {
+      return '+16';
+    }
+    return null;
+  }
+
+  /**
+   * Get state data for display in state rows
+   * TODO: Replace with actual data from API/backend
+   */
+  getStateData(stateCode: string, source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
+    // Placeholder data - replace with actual data
+    // For now, return same values as US summary
+    if (source === 'swing') {
+      return '22';
+    }
+    if (source === '119th') {
+      return type === 'D' ? '43' : '22';
+    }
+    if (source === 'geodistricts') {
+      return type === 'D' ? '34' : '22';
+    }
+    return '0';
+  }
+
+  /**
+   * Get state data change indicator
+   * TODO: Replace with actual data from API/backend
+   */
+  getStateDataChange(stateCode: string, source: '119th' | 'geodistricts', type: 'D' | 'R'): string | null {
+    // Placeholder data - replace with actual data
+    if (source === '119th' && type === 'D') {
+      return '+34';
+    }
+    if (source === 'geodistricts' && type === 'D') {
+      return '+16';
+    }
+    return null;
+  }
+
+  /**
+   * Get district count for a state
+   */
+  getStateDistrictCount(stateCode: string): number {
+    const state = this.states.find(s => s.code === stateCode);
+    return state ? state.districts : 0;
+  }
+
+  /**
+   * Check if a flag image exists (for error handling)
+   */
+  flagExists(flagCode: string): boolean {
+    // We'll rely on the onerror handler in the template
+    return true;
+  }
+
+  /**
+   * Toggle state expansion in the US view table
+   */
+  toggleStateExpansion(stateCode: string): void {
+    if (this.expandedStates.has(stateCode)) {
+      this.expandedStates.delete(stateCode);
+    } else {
+      this.expandedStates.add(stateCode);
+    }
+  }
+
+  /**
+   * Check if a state is expanded
+   */
+  isStateExpanded(stateCode: string): boolean {
+    return this.expandedStates.has(stateCode);
+  }
+
+  /**
+   * Select a state from the US view table
+   */
+  selectStateFromTable(stateCode: string): void {
+    this.selectedState = stateCode;
+    this.onStateChange();
   }
 
 }

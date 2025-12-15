@@ -2,61 +2,142 @@
   <app-page-header (homeClick)="goHome()">
   </app-page-header>
   <div class="body">
-    <section class="map-section">
-      <div class="map-container">
-        <div id="usMap" class="map"></div>
-        <!-- Loading Overlay -->
-        <div *ngIf="isLoading" class="loading-overlay">
-          <div class="loading-spinner-container">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">Loading district data...</p>
+    <!-- US View (when ALL is selected) -->
+    <ng-container *ngIf="selectedState === 'ALL'">
+      <section class="us-map-section">
+        <div class="map-container">
+          <div id="usMap" class="map"></div>
+          <!-- Loading Overlay -->
+          <div *ngIf="isLoading" class="loading-overlay">
+            <div class="loading-spinner-container">
+              <div class="loading-spinner"></div>
+              <p class="loading-text">Loading district data...</p>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="info-section">
-      <div class="info-header">
-        <div class="state-selection">
-          <div class="state-select-group">
-            <select id="stateSelect" [(ngModel)]="selectedState" (change)="onStateChange()">
-              <option value="ALL">United States</option>
-              <option *ngFor="let state of states" [value]="state.code">
-                {{ state.name }} ({{ state.districts }} districts)
-              </option>
-            </select>
+      <section class="us-data-section">
+        <!-- US Summary Row -->
+        <div class="us-summary-row">
+          <div class="state-info">
+            <img src="/images/state-flags/23x15/US.png" alt="US Flag" class="state-flag" 
+                 onerror="this.style.display='none'">
+            <span class="state-label">US (435)</span>
           </div>
-          <div class="map-controls">
-            <mat-checkbox [(ngModel)]="showTractBoundaries" (change)="onTractBoundariesChange()"
-              class="tract-boundaries-checkbox">
-              tracts
-            </mat-checkbox>
-            <button mat-button (click)="detectIsolatedTracts()" [disabled]="!currentStep || isDetectingIsolation"
-              class="detect-isolation-btn" *ngIf="algorithmResult">
-              {{ isDetectingIsolation ? 'Detecting...' : 'Detect Isolation' }}
-            </button>
+          <div class="data-column">
+            <div class="data-label-group">
+              <span class="data-label blue">D: {{ getUSData('119th', 'D') }}<span class="change-indicator" *ngIf="getUSDataChange('119th', 'D')"> ({{ getUSDataChange('119th', 'D') }})</span></span>
+              <span class="data-label red">R: {{ getUSData('119th', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column">
+            <div class="data-label-group">
+              <span class="data-label blue">D: {{ getUSData('geodistricts', 'D') }}<span class="change-indicator" *ngIf="getUSDataChange('geodistricts', 'D')"> ({{ getUSDataChange('geodistricts', 'D') }})</span></span>
+              <span class="data-label red">R: {{ getUSData('geodistricts', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column swing-column">
+            <span class="data-label red">+{{ getUSData('swing', 'value') }}</span>
           </div>
         </div>
-        <div class="step-controls" *ngIf="algorithmResult">
-          <span class="step-info">Steps:</span>
-          <div class="step-buttons">
-            <button mat-button (click)="previousStep()" [disabled]="currentStepIndex <= 0" class="step-btn">
-              Prev
-            </button>
-            <span class="step-info">
-              Step {{ currentStepIndex + 1 }} of {{ getTotalSteps() || '?' }}
+
+        <!-- Table Header -->
+        <div class="table-header-row">
+          <div class="table-header-cell">State</div>
+          <div class="table-header-cell">119th Congress</div>
+          <div class="table-header-cell">GeoDistricts</div>
+          <div class="table-header-cell">Swing</div>
+        </div>
+
+        <!-- State Rows -->
+        <div class="state-row" *ngFor="let state of states" (click)="selectStateFromTable(state.code)">
+          <div class="state-info">
+            <span class="expander-icon" (click)="toggleStateExpansion(state.code); $event.stopPropagation()">
+              {{ isStateExpanded(state.code) ? '▼' : '▶' }}
             </span>
-            <button mat-button (click)="nextStep()" [disabled]="!canGoToNextStep()" class="step-btn">
-              Next
-            </button>
+            <img [src]="'/images/state-flags/23x15/' + state.code + '.png'" 
+                 [alt]="state.name + ' Flag'" 
+                 class="state-flag"
+                 (error)="$event.target.style.display='none'">
+            <span class="state-label">{{ state.code }} ({{ state.districts }})</span>
+          </div>
+          <div class="data-column">
+            <div class="data-label-group">
+              <span class="data-label blue">D: {{ getStateData(state.code, '119th', 'D') }}<span class="change-indicator" *ngIf="getStateDataChange(state.code, '119th', 'D')"> ({{ getStateDataChange(state.code, '119th', 'D') }})</span></span>
+              <span class="data-label red">R: {{ getStateData(state.code, '119th', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column">
+            <div class="data-label-group">
+              <span class="data-label blue">D: {{ getStateData(state.code, 'geodistricts', 'D') }}<span class="change-indicator" *ngIf="getStateDataChange(state.code, 'geodistricts', 'D')"> ({{ getStateDataChange(state.code, 'geodistricts', 'D') }})</span></span>
+              <span class="data-label red">R: {{ getStateData(state.code, 'geodistricts', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column swing-column">
+            <span class="data-label red">+{{ getStateData(state.code, 'swing', 'value') }}</span>
           </div>
         </div>
-        <div class="run-all-controls" *ngIf="selectedState">
-          <a (click)="resetToStart(); $event.preventDefault()" class="start-link"
-            [class.disabled]="isLoading || isRunningAllSteps">Start</a>
-          <button mat-button (click)="runAllSteps()" [disabled]="isRunningAllSteps" class="run-all-btn">
-            {{ isRunningAllSteps ? 'Running All Steps...' : 'Run All Steps' }}
-          </button>
+      </section>
+    </ng-container>
+
+    <!-- State View (when a specific state is selected) -->
+    <ng-container *ngIf="selectedState !== 'ALL'">
+      <section class="map-section">
+        <div class="map-container">
+          <div id="usMap" class="map"></div>
+          <!-- Loading Overlay -->
+          <div *ngIf="isLoading" class="loading-overlay">
+            <div class="loading-spinner-container">
+              <div class="loading-spinner"></div>
+              <p class="loading-text">Loading district data...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="info-section">
+      <div class="info-header">
+        <div class="state-rows-header">
+          <div class="header-row">
+            <div class="header-cell state-column">State</div>
+            <div class="header-cell congress-column">119th Congress</div>
+            <div class="header-cell geodistricts-column">GeoDistricts</div>
+            <div class="header-cell swing-column">Swing</div>
+          </div>
+        </div>
+        <div class="state-row" *ngIf="selectedState && selectedState !== 'ALL'">
+          <div class="state-button">
+            <img [src]="'/images/state-flags/23x15/' + selectedState + '.png'" 
+                 [alt]="selectedState + ' Flag'" 
+                 class="state-flag"
+                 (error)="$event.target.style.display='none'">
+            <span class="state-abbr">{{ selectedState }}</span>
+            <span class="state-districts">({{ getStateDistrictCount(selectedState) }})</span>
+          </div>
+          <div class="data-column congress-column">
+            <div class="data-badge democratic">
+              <span>D: {{ getStateData(selectedState, '119th', 'D') }}</span>
+              <span class="change-indicator" *ngIf="getStateDataChange(selectedState, '119th', 'D')">({{ getStateDataChange(selectedState, '119th', 'D') }})</span>
+            </div>
+            <div class="data-badge republican">
+              <span>R: {{ getStateData(selectedState, '119th', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column geodistricts-column">
+            <div class="data-badge democratic dimmed">
+              <span>D: {{ getStateData(selectedState, 'geodistricts', 'D') }}</span>
+              <span class="change-indicator" *ngIf="getStateDataChange(selectedState, 'geodistricts', 'D')">({{ getStateDataChange(selectedState, 'geodistricts', 'D') }})</span>
+            </div>
+            <div class="data-badge republican dimmed">
+              <span>R: {{ getStateData(selectedState, 'geodistricts', 'R') }}</span>
+            </div>
+          </div>
+          <div class="data-column swing-column">
+            <div class="data-badge republican swing">
+              <span>+{{ getStateData(selectedState, 'swing', 'value') }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -177,6 +258,7 @@
         </div>
       </div>
     </section>
+    </ng-container>
   </div>
   <div class="page-footer">
     <div class="copyright">
