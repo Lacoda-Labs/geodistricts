@@ -281,25 +281,25 @@
   letter-spacing: 0.5px;
   padding: 4px;
   box-sizing: border-box;
-  
+
   &.state-column {
     width: 96px;
     padding-left: 21px;
     padding-right: 0;
   }
-  
+
   &.congress-column {
     width: 132px;
     padding-left: 6px;
     padding-right: 0;
   }
-  
+
   &.geodistricts-column {
     width: 132px;
     padding-left: 6px;
     padding-right: 0;
   }
-  
+
   &.swing-column {
     width: 34px;
     font-size: 11px;
@@ -327,7 +327,7 @@
   border-radius: 6px;
   box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
-  
+
   .state-flag {
     width: 23px;
     height: 15px;
@@ -335,7 +335,7 @@
     object-position: center;
     pointer-events: none;
   }
-  
+
   .state-abbr {
     font-family: 'Inter', sans-serif;
     font-weight: 400;
@@ -347,7 +347,7 @@
     align-items: center;
     justify-content: center;
   }
-  
+
   .state-districts {
     font-family: 'Inter', sans-serif;
     font-weight: 400;
@@ -367,19 +367,19 @@
   gap: 4px;
   padding: 0 4px;
   box-sizing: border-box;
-  
+
   &.congress-column {
     width: 132px;
     padding-left: 2px;
     padding-right: 4px;
   }
-  
+
   &.geodistricts-column {
     width: 132px;
     padding-left: 2px;
     padding-right: 4px;
   }
-  
+
   &.swing-column {
     width: 34px;
     display: flex;
@@ -401,29 +401,29 @@
   line-height: normal;
   white-space: nowrap;
   color: white;
-  
+
   &.democratic {
     background-color: #0033ff;
-    
+
     &.dimmed {
       background-color: #5577ff;
     }
   }
-  
+
   &.republican {
     background-color: #b71c1c;
-    
+
     &.dimmed {
       background-color: #ef5350;
       color: white;
     }
-    
+
     &.swing {
       background-color: #ef5350;
       justify-content: center;
     }
   }
-  
+
   .change-indicator {
     font-size: 12px;
   }
@@ -572,6 +572,49 @@
   }
 }
 
+.dg-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+
+  .dg-header-left {
+    flex: 1;
+    text-align: center;
+
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface, #181C20);
+    }
+  }
+
+  .dg-header-right {
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    white-space: nowrap;
+  }
+
+  .dg-header-label {
+    display: flex;
+    justify-content: flex-end;
+    width: 165px;
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    white-space: nowrap;
+  }
+
+  .dg-header-value {
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+  }
+}
+
 .district-groups-container {
   flex: 1;
   overflow-y: auto;
@@ -599,7 +642,7 @@
 
   thead {
     background-color: var(--mat-sys-surface-container-high, #E3E7EC);
-    
+
     th {
       padding: 12px 16px;
       text-align: left;
@@ -614,24 +657,24 @@
     tr {
       border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
       transition: background-color 0.2s ease;
-      
+
       &:last-child {
         border-bottom: none;
       }
-      
+
       &:hover {
         background-color: var(--mat-sys-surface-container-high, #E3E7EC);
       }
-      
+
       &.selected {
         background-color: var(--mat-sys-primary-container, #1a4d6b);
         color: var(--mat-sys-on-primary-container, #ffffff);
         font-weight: 600;
-        
+
         &:hover {
           background-color: var(--mat-sys-primary-container, #1a4d6b);
         }
-        
+
         td {
           color: var(--mat-sys-on-primary-container, #ffffff);
         }
@@ -642,11 +685,11 @@
       padding: 12px 16px;
       font-size: 0.875rem;
       color: var(--mat-sys-on-surface, #181C20);
-      
+
       &:first-child {
         font-weight: 500;
       }
-      
+
       &:last-child {
         font-weight: 600;
         font-family: monospace;
@@ -689,7 +732,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   ::ng-deep .mat-icon {
     font-size: 18px;
     width: 18px;
@@ -699,7 +742,7 @@
     align-items: center;
     justify-content: center;
   }
-  
+
   &:hover {
     color: var(--mat-sys-primary, #2B638B);
   }
@@ -773,10 +816,12 @@
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.2);
     opacity: 0.8;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -804,96 +849,204 @@
 .us-summary-row,
 .table-header-row,
 .state-row {
-  display: grid;
-  grid-template-columns: minmax(150px, auto) minmax(180px, 1fr) minmax(180px, 1fr) 100px; // State column, 119th Congress, GeoDistricts, Swing
+  display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  padding: 4px 0;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 0;
 }
 
 .us-summary-row {
-  background-color: rgba(255, 255, 255, 0.05); // Slightly lighter for highlight
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  padding: 5px 0;
+
+  .state-button {
+    width: auto;
+    padding-left: 8px;
+  }
 }
 
 .table-header-row {
-  background-color: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #ffffff;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  height: 28px;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.table-header-cell {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  letter-spacing: 0.5px;
+  padding: 4px;
+  box-sizing: border-box;
+
+  &:first-child {
+    width: 96px;
+    padding-left: 21px;
+    padding-right: 0;
+  }
+
+  &:nth-child(2) {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &:nth-child(3) {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &:last-child {
+    width: 34px;
+    font-size: 11px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 }
 
 .state-row {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  padding: 4px 0;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  border-bottom: 1px solid transparent;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--mat-sys-surface-container, #EBEEF3);
   }
 }
 
-// State info column (flag + label)
-.state-info {
+// State button in us-data-section
+.us-data-section .state-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.state-flag {
-  width: 23px;
-  height: 15px;
-  object-fit: contain;
+  gap: 3px;
+  height: 20px;
+  padding: 0 4px 0 4px;
+  border-radius: 6px;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
-}
+  width: 96px;
+  box-sizing: border-box;
 
-.state-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #ffffff;
-  white-space: nowrap;
-}
-
-.expander-icon {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.75rem;
-  cursor: pointer;
-  flex-shrink: 0;
-  user-select: none;
-  margin-right: 4px;
-
-  &:hover {
-    color: rgba(255, 255, 255, 0.9);
+  .arrow-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    flex-shrink: 0;
   }
-}
 
-// Data columns
-.data-column {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
+  .state-flag {
+    width: 23px;
+    height: 15px;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
 
-  &.swing-column {
+  .state-abbr {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .state-districts {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
     justify-content: center;
   }
 }
 
-.data-label-group {
+// Data columns in us-data-section
+.us-data-section .data-column {
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 4px;
+  box-sizing: border-box;
+
+  &.congress-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.geodistricts-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.swing-column {
+    width: 34px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.us-data-section .data-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: normal;
+  white-space: nowrap;
+  color: white;
+
+  &.democratic {
+    background-color: #0033ff;
+
+    &.dimmed {
+      background-color: #5577ff;
+    }
+  }
+
+  &.republican {
+    background-color: #b71c1c;
+
+    &.dimmed {
+      background-color: #ef5350;
+      color: white;
+    }
+
+    &.swing {
+      background-color: #ef5350;
+      justify-content: center;
+    }
+  }
+
+  .change-indicator {
+    font-size: 12px;
+  }
 }
 
 .data-label {

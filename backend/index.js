@@ -2915,8 +2915,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
  * POST /api/algorithm/:algorithm/execute/step-by-step
  * Execute algorithm with step-by-step streaming (Server-Sent Events)
  */
-// Store algorithm state in memory (keyed by state+algorithm+maxIterations)
-const algorithmStateStore = new Map();
+// Note: Algorithm state is now cached in Firestore/Cloud Storage (stateless for Cloud Run)
 
 /**
  * Generate a key for algorithm state storage
@@ -2926,11 +2925,474 @@ function getAlgorithmStateKey(state, maxIterations) {
 }
 
 /**
+ * Ensure Step 0 uses TIGER state boundaries instead of tract-based union polygons
+ * This is a centralized function to handle step 0 union polygon logic consistently
+ * @param {Object} stepData - Step data with districtGroups
+ * @param {string} state - State code
+ * @param {number} stepNumber - Step number (should be 0)
+ * @param {Object} req - Express request object (for building URLs)
+ * @returns {Promise<Object>} Updated step data with TIGER state boundaries
+ */
+async function ensureStep0UsesTigerBoundaries(stepData, state, stepNumber, req) {
+  // Only process step 0
+  if (stepNumber !== 0 && stepNumber !== '0') {
+    return stepData;
+  }
+  
+  if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) {
+    console.warn(`⚠️ STEP 0: No district groups in step data, cannot set TIGER boundaries`);
+    return stepData;
+  }
+  
+  const step0Group = stepData.districtGroups[0];
+  console.log(`🔍 STEP 0: Ensuring TIGER state boundary is set (current: hasUnionPolygon=${!!step0Group.unionPolygon}, hasUnionPolygons=${!!step0Group.unionPolygons})`);
+  
+  // First, try to load union polygons from cache to check if TIGER-based ones exist
+  try {
+    const groupsWithUnions = await loadUnionPolygonsFromCache(state, stepNumber, stepData.districtGroups);
+    stepData.districtGroups = groupsWithUnions;
+    const updatedStep0Group = stepData.districtGroups[0];
+    
+    // Check if we have a valid TIGER-based union polygon
+    let hasValidTigerBoundary = false;
+    if (updatedStep0Group.unionPolygon && updatedStep0Group.unionPolygonCacheKey) {
+      try {
+        const unionCacheDoc = await firestore.collection('census_cache').doc(updatedStep0Group.unionPolygonCacheKey).get();
+        if (unionCacheDoc.exists) {
+          const metadata = unionCacheDoc.data();
+          hasValidTigerBoundary = metadata.tigerBased === true || metadata.source === 'tiger-state-boundary';
+        }
+      } catch (e) {
+        // If we can't check metadata, assume it's not TIGER-based
+        hasValidTigerBoundary = false;
+      }
+    }
+    
+    // If no valid TIGER boundary, fetch it
+    if (!hasValidTigerBoundary) {
+      console.log(`⚠️ STEP 0: No valid TIGER state boundary found, fetching from TIGERweb...`);
+      try {
+        const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
+        const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
+        const stateBoundaries = stateBoundariesResponse.data;
+        
+        if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
+          const mainStateBoundary = stateBoundaries.features[0];
+          updatedStep0Group.unionPolygon = mainStateBoundary;
+          updatedStep0Group.unionPolygons = [mainStateBoundary];
+          console.log(`✅ STEP 0: Fetched and set TIGER state boundary from TIGERweb`);
+          
+          // Cache the TIGER state boundary
+          try {
+            const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
+            if (Object.keys(unionCacheKeys).length > 0) {
+              console.log(`💾 STEP 0: Cached TIGER state boundary polygon for step 0`);
+            }
+          } catch (cacheError) {
+            console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
+          }
+        } else {
+          console.error(`❌ STEP 0: TIGER state boundaries response empty`);
+        }
+      } catch (stateBoundaryError) {
+        console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries: ${stateBoundaryError.message}`);
+      }
+    } else {
+      console.log(`✅ STEP 0: Valid TIGER state boundary already loaded from cache`);
+    }
+  } catch (unionLoadError) {
+    console.warn(`⚠️ STEP 0: Failed to load union polygons from cache: ${unionLoadError.message}, fetching TIGER boundaries...`);
+    // Fetch TIGER boundaries as fallback
+    try {
+      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
+      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
+      const stateBoundaries = stateBoundariesResponse.data;
+      
+      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
+        const mainStateBoundary = stateBoundaries.features[0];
+        step0Group.unionPolygon = mainStateBoundary;
+        step0Group.unionPolygons = [mainStateBoundary];
+        console.log(`✅ STEP 0: Fetched TIGER state boundary as fallback`);
+        
+        // Cache the TIGER state boundary
+        try {
+          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
+          if (Object.keys(unionCacheKeys).length > 0) {
+            console.log(`💾 STEP 0: Cached TIGER state boundary polygon for step 0 (fallback)`);
+          }
+        } catch (cacheError) {
+          console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
+        }
+      }
+    } catch (stateBoundaryError) {
+      console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries as fallback: ${stateBoundaryError.message}`);
+    }
+  }
+  
+  return stepData;
+}
+
+/**
+ * Normalize algorithm state for caching (remove full geometries, store only tract IDs)
+ * @param {Object} algorithmState - Algorithm state with potentially full geometries
+ * @param {string} tractCacheKey - Tract cache key for reference
+ * @returns {Object} Normalized algorithm state with only tract IDs
+ */
+function normalizeAlgorithmState(algorithmState, tractCacheKey) {
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  
+  // Normalize uniqueTracts to uniqueTractIds
+  const uniqueTractIds = algorithmState.uniqueTracts 
+    ? algorithmState.uniqueTracts.map(tract => getTractId(tract)).filter(Boolean)
+    : (algorithmState.uniqueTractIds || []);
+  
+  // Normalize currentGroups to store only tract IDs
+  const normalizedCurrentGroups = algorithmState.currentGroups ? algorithmState.currentGroups.map(group => {
+    // If already normalized (has censusTractIds), return as-is
+    if (group.censusTractIds && !group.censusTracts) {
+      return group;
+    }
+    
+    const normalizedGroup = {
+      startDistrictNumber: group.startDistrictNumber,
+      endDistrictNumber: group.endDistrictNumber,
+      totalDistricts: group.totalDistricts,
+      totalPopulation: group.totalPopulation,
+      bounds: group.bounds,
+      centroid: group.centroid,
+      censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
+    };
+    if (group.unionPolygonCacheKey) {
+      normalizedGroup.unionPolygonCacheKey = group.unionPolygonCacheKey;
+    }
+    return normalizedGroup;
+  }) : [];
+  
+  // Normalize steps array to store only tract IDs
+  const normalizedSteps = algorithmState.steps ? algorithmState.steps.map(step => {
+    if (!step) return step;
+    // If already normalized (has districtGroups with censusTractIds), return as-is
+    if (step.districtGroups && step.districtGroups.length > 0 && 
+        step.districtGroups[0].censusTractIds && !step.districtGroups[0].censusTracts) {
+      return step;
+    }
+    if (!step.districtGroups) return step;
+    const normalized = normalizeStepData(step, tractCacheKey);
+    return normalized.normalized;
+  }) : [];
+  
+  return {
+    uniqueTractIds,
+    tractCacheKey: algorithmState.tractCacheKey || tractCacheKey,
+    currentGroups: normalizedCurrentGroups,
+    iteration: algorithmState.iteration,
+    steps: normalizedSteps,
+    algorithmHistory: algorithmState.algorithmHistory || [],
+    totalStatePopulation: algorithmState.totalStatePopulation,
+    targetDistrictPopulation: algorithmState.targetDistrictPopulation,
+    maxIterations: algorithmState.maxIterations,
+    state: algorithmState.state
+  };
+}
+
+/**
+ * Cache algorithm state to Firestore/Cloud Storage (stateless for Cloud Run)
+ * @param {string} stateKey - Algorithm state key
+ * @param {Object} algorithmState - Algorithm state object
+ * @returns {Promise<void>}
+ */
+async function cacheAlgorithmState(stateKey, algorithmState) {
+  try {
+    // Normalize algorithm state to remove full geometries (store only tract IDs)
+    const tractCacheKey = algorithmState.tractCacheKey || `state_tracts_${algorithmState.state || stateKey.split('_')[0]}`;
+    const normalizedState = normalizeAlgorithmState(algorithmState, tractCacheKey);
+    
+    const cacheKey = `algorithm_state_${stateKey}`;
+    const stateSize = JSON.stringify(normalizedState).length;
+    const stateSizeMB = (stateSize / (1024 * 1024)).toFixed(2);
+    const FIRESTORE_MAX_SIZE = 1024 * 1024; // 1MB
+    
+    // Use Cloud Storage for large state objects (> 1MB)
+    if (stateSize > FIRESTORE_MAX_SIZE) {
+      console.log(`📦 CLOUD STORAGE: Storing algorithm state (${stateSizeMB} MB) for ${stateKey} in Cloud Storage`);
+      
+      try {
+        const cloudStoragePath = await cloudStorageCache.set(cacheKey, normalizedState, {
+          state: normalizedState.state,
+          source: 'algorithm-state-cache'
+        });
+        
+        // Store metadata reference in Firestore
+        const metadataEntry = {
+          cloudStoragePath: cloudStoragePath,
+          timestamp: Date.now(),
+          ttl: 24 * 60 * 60 * 1000, // 24 hours
+          version: CACHE_VERSION,
+          algorithmVersion: ALGORITHM_VERSION,
+          source: 'algorithm-state-cache-metadata',
+          cloudStorage: true,
+          state: normalizedState.state,
+          size: stateSize,
+          sizeMB: parseFloat(stateSizeMB)
+        };
+        
+        await firestore.collection('census_cache').doc(cacheKey).set(metadataEntry);
+        console.log(`💾 CLOUD STORAGE: Stored algorithm state for ${stateKey} at ${cloudStoragePath}`);
+      } catch (error) {
+        console.error(`❌ CLOUD STORAGE: Failed to store algorithm state: ${error.message}`);
+        throw error;
+      }
+    } else {
+      // Store directly in Firestore for smaller state objects
+      const cacheEntry = {
+        data: normalizedState,
+        timestamp: Date.now(),
+        ttl: 24 * 60 * 60 * 1000, // 24 hours
+        version: CACHE_VERSION,
+        algorithmVersion: ALGORITHM_VERSION,
+        source: 'algorithm-state-cache',
+        cloudStorage: false,
+        state: normalizedState.state,
+        size: stateSize,
+        sizeMB: parseFloat(stateSizeMB)
+      };
+      
+      await firestore.collection('census_cache').doc(cacheKey).set(cacheEntry);
+      console.log(`💾 FIRESTORE: Stored algorithm state for ${stateKey} (${stateSizeMB} MB)`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to cache algorithm state for ${stateKey}: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Reconstruct uniqueTracts from uniqueTractIds using tract cache
+ * @param {Object} algorithmState - Algorithm state (may have uniqueTractIds or uniqueTracts)
+ * @returns {Promise<Array>} Array of tract features
+ */
+async function reconstructUniqueTracts(algorithmState) {
+  // If already has uniqueTracts, return it
+  if (algorithmState.uniqueTracts && Array.isArray(algorithmState.uniqueTracts)) {
+    return algorithmState.uniqueTracts;
+  }
+  
+  // Otherwise, reconstruct from uniqueTractIds using tract cache
+  if (!algorithmState.uniqueTractIds || !Array.isArray(algorithmState.uniqueTractIds)) {
+    console.warn(`⚠️ Algorithm state has neither uniqueTracts nor uniqueTractIds`);
+    return [];
+  }
+  
+  const tractCacheKey = algorithmState.tractCacheKey || `state_tracts_${algorithmState.state}`;
+  console.log(`🔄 Reconstructing ${algorithmState.uniqueTractIds.length} tracts from cache: ${tractCacheKey}`);
+  
+  try {
+    // Get tract cache
+    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+    if (!stateTractDoc.exists) {
+      console.error(`❌ Tract cache not found: ${tractCacheKey}`);
+      return [];
+    }
+    
+    const stateTractData = stateTractDoc.data();
+    let tractMap = null;
+    
+    // Get tract map from Cloud Storage or Firestore
+    if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+      const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
+      if (cloudStorageResult && cloudStorageResult.data) {
+        tractMap = cloudStorageResult.data;
+      }
+    } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+      const chunkDocs = await Promise.all(
+        stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+      );
+      const allTracts = [];
+      for (const chunkDoc of chunkDocs) {
+        if (chunkDoc.exists && chunkDoc.data().data) {
+          allTracts.push(...chunkDoc.data().data);
+        }
+      }
+      tractMap = allTracts;
+    } else if (stateTractData.data) {
+      tractMap = stateTractData.data;
+    }
+    
+    if (!tractMap) {
+      console.error(`❌ Could not retrieve tract map from cache: ${tractCacheKey}`);
+      return [];
+    }
+    
+    // Build lookup map
+    const { getTractId } = require('./services/geodistrict-algorithm');
+    const lookupMap = new Map();
+    
+    if (Array.isArray(tractMap)) {
+      if (tractMap.length > 0 && Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+        // [id, tract] pairs
+        for (const [id, tract] of tractMap) {
+          lookupMap.set(id, tract);
+        }
+      } else {
+        // Just tracts
+        for (const tract of tractMap) {
+          const tractId = getTractId(tract);
+          if (tractId) {
+            lookupMap.set(tractId, tract);
+          }
+        }
+      }
+    }
+    
+    // Reconstruct uniqueTracts from IDs
+    const uniqueTracts = [];
+    for (const tractId of algorithmState.uniqueTractIds) {
+      const tract = lookupMap.get(tractId);
+      if (tract) {
+        uniqueTracts.push(tract);
+      }
+    }
+    
+    console.log(`✅ Reconstructed ${uniqueTracts.length} tracts from ${algorithmState.uniqueTractIds.length} IDs`);
+    return uniqueTracts;
+  } catch (error) {
+    console.error(`❌ Failed to reconstruct uniqueTracts: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Retrieve algorithm state from cache (stateless for Cloud Run)
+ * @param {string} stateKey - Algorithm state key
+ * @returns {Promise<Object|null>} Algorithm state or null if not found/expired
+ */
+async function getCachedAlgorithmState(stateKey) {
+  try {
+    const cacheKey = `algorithm_state_${stateKey}`;
+    console.log(`🔍 GET-CACHED-STATE: Looking for cached algorithm state with key: ${cacheKey}`);
+    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    
+    if (!doc.exists) {
+      console.log(`⚠️ GET-CACHED-STATE: Algorithm state cache document not found: ${cacheKey}`);
+      // Try to list what documents exist for debugging
+      try {
+        const allDocs = await firestore.collection('census_cache')
+          .where('source', '==', 'algorithm-state-cache-metadata')
+          .where('state', '==', stateKey.split('_')[0])
+          .limit(5)
+          .get();
+        console.log(`🔍 GET-CACHED-STATE: Found ${allDocs.size} algorithm state metadata docs for state ${stateKey.split('_')[0]}`);
+        allDocs.forEach(d => {
+          console.log(`   - Doc ID: ${d.id}, state: ${d.data().state}, size: ${d.data().sizeMB}MB`);
+        });
+      } catch (listError) {
+        console.warn(`⚠️ GET-CACHED-STATE: Could not list docs: ${listError.message}`);
+      }
+      return null;
+    }
+    
+    const cachedEntry = doc.data();
+    
+    console.log(`🔍 GET-CACHED-STATE: Found document, checking validity...`);
+    console.log(`   - Has cloudStorage: ${!!cachedEntry.cloudStorage}`);
+    console.log(`   - Has cloudStoragePath: ${!!cachedEntry.cloudStoragePath}`);
+    console.log(`   - Has data: ${!!cachedEntry.data}`);
+    console.log(`   - Algorithm version: ${cachedEntry.algorithmVersion || 'none'}`);
+    console.log(`   - Current version: ${ALGORITHM_VERSION}`);
+    console.log(`   - Timestamp: ${cachedEntry.timestamp}, TTL: ${cachedEntry.ttl}`);
+    
+    // Check if expired
+    if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+      console.log(`⚠️ GET-CACHED-STATE: Cached algorithm state for ${stateKey} is expired`);
+      return null;
+    }
+    
+    // Check algorithm version
+    if (cachedEntry.algorithmVersion !== ALGORITHM_VERSION) {
+      console.log(`⚠️ GET-CACHED-STATE: Cached algorithm state version mismatch (${cachedEntry.algorithmVersion || 'none'} != ${ALGORITHM_VERSION}) for ${stateKey}`);
+      return null;
+    }
+    
+    // Retrieve data based on storage location
+    if (cachedEntry.cloudStorage && cachedEntry.cloudStoragePath) {
+      // Fetch from Cloud Storage
+      console.log(`🔍 GET-CACHED-STATE: Fetching from Cloud Storage: ${cachedEntry.cloudStoragePath}`);
+      try {
+        const cloudStorageResult = await cloudStorageCache.get(cacheKey);
+        if (cloudStorageResult && cloudStorageResult.data) {
+          console.log(`✅ GET-CACHED-STATE: Retrieved algorithm state for ${stateKey} from Cloud Storage`);
+          console.log(`   - Has uniqueTracts: ${!!cloudStorageResult.data.uniqueTracts}`);
+          console.log(`   - Has uniqueTractIds: ${!!cloudStorageResult.data.uniqueTractIds}`);
+          console.log(`   - Iteration: ${cloudStorageResult.data.iteration}`);
+          return cloudStorageResult.data;
+        } else {
+          console.warn(`⚠️ GET-CACHED-STATE: Cloud Storage returned no data for ${cacheKey}`);
+        }
+      } catch (error) {
+        console.error(`❌ GET-CACHED-STATE: Failed to retrieve algorithm state from Cloud Storage: ${error.message}`);
+        return null;
+      }
+    } else {
+      // Fetch from Firestore
+      if (cachedEntry.data) {
+        console.log(`✅ GET-CACHED-STATE: Retrieved algorithm state for ${stateKey} from Firestore`);
+        console.log(`   - Has uniqueTracts: ${!!cachedEntry.data.uniqueTracts}`);
+        console.log(`   - Has uniqueTractIds: ${!!cachedEntry.data.uniqueTractIds}`);
+        console.log(`   - Iteration: ${cachedEntry.data.iteration}`);
+        return cachedEntry.data;
+      } else {
+        console.warn(`⚠️ GET-CACHED-STATE: Firestore document has no data field`);
+      }
+    }
+    
+    console.warn(`⚠️ GET-CACHED-STATE: Could not retrieve algorithm state data for ${stateKey}`);
+    return null;
+  } catch (error) {
+    console.error(`❌ Failed to retrieve cached algorithm state for ${stateKey}: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Delete cached algorithm state
+ * @param {string} stateKey - Algorithm state key
+ * @returns {Promise<void>}
+ */
+async function deleteCachedAlgorithmState(stateKey) {
+  try {
+    const cacheKey = `algorithm_state_${stateKey}`;
+    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    
+    if (doc.exists) {
+      const cachedEntry = doc.data();
+      
+      // Delete from Cloud Storage if applicable
+      if (cachedEntry.cloudStorage && cachedEntry.cloudStoragePath) {
+        try {
+          await cloudStorageCache.delete(cacheKey);
+          console.log(`🗑️ Deleted algorithm state from Cloud Storage for ${stateKey}`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to delete algorithm state from Cloud Storage: ${error.message}`);
+        }
+      }
+      
+      // Delete from Firestore
+      await firestore.collection('census_cache').doc(cacheKey).delete();
+      console.log(`🗑️ Deleted algorithm state cache for ${stateKey}`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to delete cached algorithm state for ${stateKey}: ${error.message}`);
+  }
+}
+
+/**
  * GET /api/algorithm/final-step/:state
  * Get the final (completed) step for a state if available
  */
 app.get('/api/algorithm/final-step/:state', async (req, res) => {
   console.log(`🔍 GET /api/algorithm/final-step/:state called with state: ${req.params.state}`);
+  // Declare getTractId once at function scope to avoid duplicate declaration errors
+  const { getTractId } = require('./services/geodistrict-algorithm');
   try {
     const { state } = req.params;
     const maxIterations = 100; // Default max iterations
@@ -3113,7 +3575,13 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                 if (tractMap) {
                   // Use stepData field if available, otherwise use cachedEntry directly
                   const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
-                  const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state);
+                  let stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state);
+                  
+                  // For Step 0, ensure TIGER state boundaries are used
+                  if (finalStepNumber === 0 || finalStepNumber === '0') {
+                    stepData = await ensureStep0UsesTigerBoundaries(stepData, state, finalStepNumber, req);
+                  }
+                  
                   if (stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0) {
                     // If step wasn't marked as complete, update it now for future queries
                     if (!cachedEntry.isComplete) {
@@ -3124,6 +3592,59 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                         console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
                       }
                     }
+                    
+                    // Cache algorithm state so next-step endpoint can find it
+                    // Extract uniqueTracts from tractMap
+                    // getTractId already declared at function scope
+                    const uniqueTracts = [];
+                    if (Array.isArray(tractMap)) {
+                      if (tractMap.length > 0 && Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+                        uniqueTracts.push(...tractMap.map(([id, tract]) => tract));
+                      } else {
+                        uniqueTracts.push(...tractMap);
+                      }
+                    } else if (tractMap instanceof Map) {
+                      uniqueTracts.push(...Array.from(tractMap.values()));
+                    }
+                    
+                    const totalStatePopulation = uniqueTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+                    const totalDistricts = getDistrictsForState(state);
+                    const targetDistrictPopulation = totalStatePopulation / totalDistricts;
+                    
+                    // Build steps array
+                    const steps = [];
+                    for (let i = 0; i <= finalStepNumber; i++) {
+                      steps.push(null);
+                    }
+                    steps[finalStepNumber] = stepData;
+                    
+                    // Store minimal algorithm state (without full tract geometries - those are in tract cache)
+                    // Only store tract IDs to keep state small and fast to cache/retrieve
+                    // getTractId already declared above
+                    const uniqueTractIds = uniqueTracts.map(tract => getTractId(tract)).filter(Boolean);
+                    
+                    const algorithmState = {
+                      uniqueTractIds, // Store IDs only, not full geometries
+                      tractCacheKey: cachedEntry.tractCacheKey || `state_tracts_${state}`, // Reference to tract cache
+                      currentGroups: stepData.districtGroups,
+                      iteration: finalStepNumber,
+                      steps: steps,
+                      algorithmHistory: [],
+                      totalStatePopulation,
+                      targetDistrictPopulation,
+                      maxIterations,
+                      state: state
+                    };
+                    
+                    // Cache algorithm state - wait for Firestore metadata write
+                    const stateKey = getAlgorithmStateKey(state, maxIterations);
+                    try {
+                      await cacheAlgorithmState(stateKey, algorithmState);
+                      console.log(`✅ Cached algorithm state for ${stateKey} (available for next-step requests)`);
+                    } catch (cacheError) {
+                      console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
+                    }
+                    
                     return res.json({
                       step: finalStepNumber,
                       data: stepData,
@@ -3190,13 +3711,17 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       }
       
       if (hasValidData && hasTractGeometries) {
-        // Load union polygons from cache if not already loaded (reconstruction might have loaded them)
-        try {
-          const groupsWithUnions = await loadUnionPolygonsFromCache(state, finalStepNumber, stepData.districtGroups);
-          stepData.districtGroups = groupsWithUnions;
-        } catch (unionLoadError) {
-          console.warn(`⚠️ Failed to load union polygons from cache: ${unionLoadError.message}`);
-          // Continue without union polygons - they can be recreated if needed
+        // For Step 0, ALWAYS ensure TIGER state boundaries are used (never tract-based union polygons)
+        // For other steps, load union polygons from cache normally
+        if (finalStepNumber === 0 || finalStepNumber === '0') {
+          stepData = await ensureStep0UsesTigerBoundaries(stepData, state, finalStepNumber, req);
+        } else {
+          try {
+            const groupsWithUnions = await loadUnionPolygonsFromCache(state, finalStepNumber, stepData.districtGroups);
+            stepData.districtGroups = groupsWithUnions;
+          } catch (unionLoadError) {
+            console.warn(`⚠️ Failed to load union polygons from cache: ${unionLoadError.message}`);
+          }
         }
         
         // If step wasn't marked as complete, update it now for future queries
@@ -3208,6 +3733,66 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
             console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
           }
         }
+        // Cache algorithm state so next-step endpoint can find it
+        // Extract uniqueTracts from stepData
+        const uniqueTracts = [];
+        if (stepData.districtGroups && Array.isArray(stepData.districtGroups)) {
+          for (const group of stepData.districtGroups) {
+            if (group.censusTracts && Array.isArray(group.censusTracts)) {
+              uniqueTracts.push(...group.censusTracts);
+            }
+          }
+        }
+        
+        // Remove duplicates by tract ID
+        // getTractId already declared at function scope
+        const tractIdMap = new Map();
+        for (const tract of uniqueTracts) {
+          const tractId = getTractId(tract);
+          if (tractId && !tractIdMap.has(tractId)) {
+            tractIdMap.set(tractId, tract);
+          }
+        }
+        const deduplicatedTracts = Array.from(tractIdMap.values());
+        
+        const totalStatePopulation = deduplicatedTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+        const totalDistricts = getDistrictsForState(state);
+        const targetDistrictPopulation = totalStatePopulation / totalDistricts;
+        
+        // Build steps array
+        const steps = [];
+        for (let i = 0; i <= finalStepNumber; i++) {
+          steps.push(null);
+        }
+        steps[finalStepNumber] = stepData;
+        
+        // Store minimal algorithm state (without full tract geometries - those are in tract cache)
+        // Only store tract IDs to keep state small and fast to cache/retrieve
+        // getTractId already declared at function scope
+        const uniqueTractIds = deduplicatedTracts.map(tract => getTractId(tract)).filter(Boolean);
+        
+        const algorithmState = {
+          uniqueTractIds, // Store IDs only, not full geometries
+          tractCacheKey: cachedEntry.tractCacheKey || `state_tracts_${state}`, // Reference to tract cache
+          currentGroups: stepData.districtGroups,
+          iteration: finalStepNumber,
+          steps: steps,
+          algorithmHistory: [],
+          totalStatePopulation,
+          targetDistrictPopulation,
+          maxIterations,
+          state: state
+        };
+        
+        // Cache algorithm state - wait for Firestore metadata write
+        const stateKey = getAlgorithmStateKey(state, maxIterations);
+        try {
+          await cacheAlgorithmState(stateKey, algorithmState);
+          console.log(`✅ Cached algorithm state for ${stateKey} (available for next-step requests)`);
+        } catch (cacheError) {
+          console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
+        }
+        
         // Return step data (from stepData field or directly from entry)
         return res.json({
           step: finalStepNumber,
@@ -3420,38 +4005,92 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 // Reconstruct step data with tract geometries
                 let stepData = cachedEntry.stepData;
                 
-                // Load union polygon immediately from cache (before tract reconstruction)
-                // The union polygon is independent of specific tract instances, so we can load it right away
+                // For Step 0, ALWAYS use TIGER state boundaries (never use cached tract-based union polygons)
+                // Step 0 should NEVER use union polygons created from tracts - only TIGER boundaries
                 if (stepData.districtGroups && stepData.districtGroups.length > 0) {
                   const group = stepData.districtGroups[0];
                   let unionCacheKey = group.unionPolygonCacheKey;
                   
-                  if (!unionCacheKey && group.startDistrictNumber && group.endDistrictNumber) {
-                    // Generate cache key from group info (for old cached data that doesn't have the key)
-                    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
-                    unionCacheKey = `union_polygon_${state}_0_${groupKey}`;
+                  // Check if there's an old union polygon cache key (from tract-based union polygons)
+                  if (unionCacheKey) {
+                    // Check if this is a TIGER-based union polygon by checking metadata
+                    try {
+                      const unionCacheDoc = await firestore.collection('census_cache').doc(unionCacheKey).get();
+                      if (unionCacheDoc.exists) {
+                        const unionMetadata = unionCacheDoc.data();
+                        // Check if this union polygon is marked as TIGER-based
+                        const isTigerBased = unionMetadata.source === 'tiger-state-boundary' || unionMetadata.tigerBased === true;
+                        
+                        if (!isTigerBased) {
+                          // This is an old tract-based union polygon - invalidate it
+                          console.log(`🔄 STEP 0: Detected old tract-based union polygon cache, invalidating and replacing with TIGER boundaries`);
+                          try {
+                            // Delete old union polygon from Cloud Storage
+                            await cloudStorageCache.delete(unionCacheKey);
+                            // Delete metadata from Firestore
+                            await firestore.collection('census_cache').doc(unionCacheKey).delete();
+                            console.log(`🗑️ STEP 0: Deleted old tract-based union polygon cache`);
+                          } catch (deleteError) {
+                            console.warn(`⚠️ STEP 0: Failed to delete old union polygon cache: ${deleteError.message}`);
+                          }
+                          // Clear the cache key so we fetch TIGER boundaries below
+                          unionCacheKey = null;
+                          group.unionPolygonCacheKey = undefined;
+                        } else {
+                          // This is a TIGER-based union polygon - load it
+                          console.log(`🔍 STEP 0: Loading TIGER state boundary from cache (key: ${unionCacheKey})`);
+                          const cacheResult = await cloudStorageCache.get(unionCacheKey);
+                          if (cacheResult && cacheResult.data) {
+                            const unionData = cacheResult.data;
+                            if (Array.isArray(unionData)) {
+                              group.unionPolygons = unionData;
+                              group.unionPolygon = unionData.length > 0 ? unionData[0] : undefined;
+                            } else {
+                              group.unionPolygon = unionData;
+                              group.unionPolygons = [unionData];
+                            }
+                            console.log(`✅ STEP 0: Loaded TIGER state boundary from cache (verified TIGER-based)`);
+                          }
+                        }
+                      }
+                    } catch (metadataError) {
+                      console.warn(`⚠️ STEP 0: Failed to check union polygon metadata: ${metadataError.message}, will fetch TIGER boundaries`);
+                      unionCacheKey = null;
+                    }
                   }
                   
-                  if (unionCacheKey) {
+                  // If no valid TIGER-based union polygon was loaded, fetch TIGER boundaries
+                  if (!group.unionPolygon && !group.unionPolygons) {
+                    console.log(`🔍 STEP 0: Fetching TIGER state boundaries (no valid cache found)`);
                     try {
-                      console.log(`🔍 STEP 0: Loading union polygon from cache immediately (key: ${unionCacheKey})`);
-                      const cacheResult = await cloudStorageCache.get(unionCacheKey);
+                      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
+                      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
+                      const stateBoundaries = stateBoundariesResponse.data;
                       
-                      if (cacheResult && cacheResult.data) {
-                        const unionData = cacheResult.data;
-                        if (Array.isArray(unionData)) {
-                          group.unionPolygons = unionData;
-                          group.unionPolygon = unionData.length > 0 ? unionData[0] : undefined;
-                        } else {
-                          group.unionPolygon = unionData;
+                      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
+                        const mainStateBoundary = stateBoundaries.features[0];
+                        group.unionPolygon = mainStateBoundary;
+                        group.unionPolygons = [mainStateBoundary];
+                        console.log(`✅ STEP 0: Fetched and set TIGER state boundary from TIGERweb`);
+                        
+                        // Cache the TIGER state boundary with metadata indicating it's TIGER-based
+                        try {
+                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
+                          // Mark the cached union polygon as TIGER-based
+                          if (Object.keys(unionCacheKeys).length > 0) {
+                            const newUnionCacheKey = unionCacheKeys[0];
+                            await firestore.collection('census_cache').doc(newUnionCacheKey).update({
+                              source: 'tiger-state-boundary',
+                              tigerBased: true
+                            });
+                            console.log(`💾 STEP 0: Cached TIGER state boundary with metadata`);
+                          }
+                        } catch (cacheError) {
+                          console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
                         }
-                        const loadedCount = Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0);
-                        console.log(`✅ STEP 0: Loaded ${loadedCount} union polygon(s) from cache immediately${loadedCount > 1 ? ` (main + ${loadedCount - 1} island(s))` : ''}`);
-                      } else {
-                        console.log(`⚠️ STEP 0: Union polygon cache not found, will create after tract loading`);
                       }
-                    } catch (cacheError) {
-                      console.warn(`⚠️ STEP 0: Failed to load union polygon from cache: ${cacheError.message}, will create after tract loading`);
+                    } catch (stateBoundaryError) {
+                      console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries: ${stateBoundaryError.message}`);
                     }
                   }
                 }
@@ -3518,60 +4157,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   stepData.districtGroups[0].censusTracts = tracts;
                   console.log(`✅ STEP 0: Using ${tracts.length} fresh tracts instead of cached reconstruction`);
                   
-                  // Union polygon should already be loaded from cache above (before tract reconstruction)
-                  // Only recreate if it wasn't loaded successfully
-                  if (!stepData.districtGroups[0].unionPolygon && !stepData.districtGroups[0].unionPolygons) {
-                    console.log(`⚠️ STEP 0: Union polygon not loaded from cache, fetching state boundaries...`);
-                    // Try to use state boundaries instead of merging tracts
-                    try {
-                      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
-                      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
-                      const stateBoundaries = stateBoundariesResponse.data;
-                      
-                      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
-                        const mainStateBoundary = stateBoundaries.features[0];
-                        stepData.districtGroups[0].unionPolygon = mainStateBoundary;
-                        stepData.districtGroups[0].unionPolygons = [mainStateBoundary];
-                        console.log(`✅ STEP 0: Using TIGER state boundary for main polygon`);
-                        
-                        // Cache the union polygon
-                        try {
-                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-                          if (Object.keys(unionCacheKeys).length > 0) {
-                            console.log(`💾 STEP 0: Cached state boundary polygon for step 0`);
-                          }
-                        } catch (cacheError) {
-                          console.warn(`⚠️ STEP 0: Failed to cache union polygon: ${cacheError.message}`);
-                        }
-                      } else {
-                        throw new Error('State boundaries response empty');
-                      }
-                    } catch (stateBoundaryError) {
-                      // Fall back to merging tracts if state boundary fetch fails
-                      console.warn(`⚠️ STEP 0: Failed to fetch state boundaries: ${stateBoundaryError.message}, falling back to merged tracts`);
-                      const { createUnionPolygon } = require('./services/geodistrict-algorithm');
-                      const unionPolygon = createUnionPolygon(stepData.districtGroups[0]);
-                      if (unionPolygon) {
-                        stepData.districtGroups[0].unionPolygon = unionPolygon;
-                        stepData.districtGroups[0].unionPolygons = [unionPolygon];
-                        console.log(`✅ STEP 0: Recreated union polygon from tracts`);
-                        
-                        // Cache the union polygon
-                        try {
-                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-                          if (Object.keys(unionCacheKeys).length > 0) {
-                            console.log(`💾 STEP 0: Cached union polygon for step 0`);
-                          }
-                        } catch (cacheError) {
-                          console.warn(`⚠️ STEP 0: Failed to cache union polygon: ${cacheError.message}`);
-                        }
-                      } else {
-                        console.warn(`⚠️ STEP 0: Failed to recreate union polygon`);
-                      }
-                    }
-                  } else {
-                    console.log(`✅ STEP 0: Union polygon already loaded from cache, skipping recreation`);
-                  }
+                  // For Step 0, ensure TIGER state boundaries are used
+                  stepData = await ensureStep0UsesTigerBoundaries(stepData, state, 0, req);
                 }
                 
                 // Reconstruct algorithm state from cached step
@@ -3579,8 +4166,12 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 const totalStatePopulation = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
                 const targetDistrictPopulation = totalStatePopulation / totalDistricts;
                 
+                // Store only tract IDs to keep state small
+                const uniqueTractIds = tracts.map(tract => getTractId(tract)).filter(Boolean);
+                
                 const algorithmState = {
-                  uniqueTracts: tracts, // Use the fresh tracts
+                  uniqueTractIds, // Store IDs only, not full geometries
+                  tractCacheKey: cachedEntry.tractCacheKey || `state_tracts_${state}`, // Reference to tract cache
                   currentGroups: stepData.districtGroups || [],
                   iteration: 0,
                   steps: [stepData], // Include the cached step 0
@@ -3592,7 +4183,13 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 };
                 
                 const stateKey = getAlgorithmStateKey(state, maxIterations);
-                algorithmStateStore.set(stateKey, algorithmState);
+                // Cache algorithm state - wait for completion so next-step can find it
+                try {
+                  await cacheAlgorithmState(stateKey, algorithmState);
+                  console.log(`✅ Cached algorithm state for ${stateKey} (available for next-step requests)`);
+                } catch (err) {
+                  console.warn(`⚠️ Failed to cache algorithm state: ${err.message}`);
+                }
                 
                 return res.json({
                   step: 0,
@@ -3617,49 +4214,38 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
         maxIterations
       );
 
-      // Store algorithm state
+      // Cache algorithm state - normalization happens automatically in cacheAlgorithmState
+      // This will remove full geometries and store only tract IDs, dramatically reducing size
       const stateKey = getAlgorithmStateKey(state, maxIterations);
-      algorithmStateStore.set(stateKey, algorithmState);
+      try {
+        await cacheAlgorithmState(stateKey, {
+          ...algorithmState,
+          tractCacheKey: `state_tracts_${state}` // Ensure tract cache key is set
+        });
+        console.log(`✅ Cached algorithm state for ${stateKey} (available for next-step requests)`);
+      } catch (err) {
+        console.warn(`⚠️ Failed to cache algorithm state: ${err.message}`);
+      }
 
       logger.info(`✅ Step 0 initialized: ${step.districtGroups[0]?.censusTracts.length || 0} tracts`);
 
-      // For Step 0, try to use state boundaries instead of merged tracts
-      // This is more efficient and uses official TIGER state boundaries
+      // For Step 0, ALWAYS use TIGER state boundaries instead of merged tracts
+      // Step 0 should NEVER create union polygons from tracts - only use TIGER boundaries
+      // Clear any union polygons that might have been created (shouldn't happen, but be safe)
       if (step.districtGroups && step.districtGroups.length > 0) {
         const step0Group = step.districtGroups[0];
-        try {
-          // Fetch state boundaries from our new endpoint
-          const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
-          const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
-          const stateBoundaries = stateBoundariesResponse.data;
-          
-          if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
-            // Use the first feature as the main state boundary polygon
-            const mainStateBoundary = stateBoundaries.features[0];
-            
-            // Get existing island polygons if any (from unionPolygons array)
-            const existingIslands = step0Group.unionPolygons && Array.isArray(step0Group.unionPolygons) && step0Group.unionPolygons.length > 1
-              ? step0Group.unionPolygons.slice(1) // Skip first (main) polygon, keep islands
-              : [];
-            
-            // Create new unionPolygons array with state boundary as main, then islands
-            const newUnionPolygons = [mainStateBoundary, ...existingIslands];
-            
-            // Update the group with state boundary as main polygon
-            step0Group.unionPolygon = mainStateBoundary;
-            step0Group.unionPolygons = newUnionPolygons;
-            
-            console.log(`✅ STEP 0: Using TIGER state boundary for main polygon (${existingIslands.length} island(s) preserved)`);
-          } else {
-            console.log(`⚠️ STEP 0: State boundaries not available, using merged tracts polygon`);
-          }
-        } catch (stateBoundaryError) {
-          // If state boundary fetch fails, fall back to merged tracts polygon
-          console.warn(`⚠️ STEP 0: Failed to fetch state boundaries: ${stateBoundaryError.message}, using merged tracts polygon`);
+        if (step0Group.unionPolygon || step0Group.unionPolygons) {
+          console.log(`⚠️ STEP 0: Clearing union polygons created from tracts (should not happen)`);
+          step0Group.unionPolygon = undefined;
+          step0Group.unionPolygons = undefined;
         }
       }
+      
+      // Ensure step 0 uses TIGER state boundaries
+      step = await ensureStep0UsesTigerBoundaries(step, state, 0, req);
 
       // Cache step 0 result (async, don't wait)
+      // NOTE: TIGER state boundaries are already set above, so they will be cached
       // Note: canonicalResult is in scope from the parent function
       const cacheStep0 = async () => {
         try {
@@ -3706,7 +4292,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
               // The canonical tract has: tractId, censusData, geometry, s4Adjacency, properties
               tractMap = Array.from(canonicalResult.tractMap.entries()).map(([tractId, canonicalTract]) => {
                 // Convert canonical tract to GeoJSON feature format for compatibility
-                // But preserve all canonical data in properties
+                // But preserve all canonical data including S4 adjacency
                 const geoJsonFeature = {
                   type: 'Feature',
                   geometry: canonicalTract.geometry,
@@ -3715,7 +4301,9 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                     // Preserve canonical structure metadata
                     _canonicalTractId: canonicalTract.tractId,
                     _hasCensusData: !!canonicalTract.censusData,
-                    _hasS4Adjacency: !!canonicalTract.s4Adjacency
+                    _hasS4Adjacency: !!canonicalTract.s4Adjacency,
+                    // Preserve S4 adjacency data if available
+                    _s4Adjacency: canonicalTract.s4Adjacency || null
                   }
                 };
                 return [tractId, geoJsonFeature];
@@ -4002,18 +4590,70 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
  * Caches step results for fast retrieval on subsequent requests
  */
 app.post('/api/algorithm/execute/next-step', async (req, res) => {
+  console.log(`🚀 NEXT-STEP: POST /api/algorithm/execute/next-step called`);
+  console.log(`   Request body:`, JSON.stringify(req.body));
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
 
     if (!state) {
+      console.error(`❌ NEXT-STEP: State is required but not provided`);
       return res.status(400).json({ error: 'State is required' });
     }
 
+    console.log(`🔍 NEXT-STEP: Processing request for state: ${state}, maxIterations: ${maxIterations}`);
     const stateKey = getAlgorithmStateKey(state, maxIterations);
-    const algorithmState = algorithmStateStore.get(stateKey);
+    console.log(`🔍 NEXT-STEP: Looking for algorithm state with key: ${stateKey}`);
+    let algorithmState = await getCachedAlgorithmState(stateKey);
 
     if (!algorithmState) {
+      console.error(`❌ NEXT-STEP: Algorithm state not found for ${stateKey}. This may be a timing issue if state was just cached.`);
       return res.status(404).json({ error: 'Algorithm not initialized. Call /execute/step-by-step first.' });
+    }
+    
+    console.log(`✅ NEXT-STEP: Found algorithm state for ${stateKey}, iteration: ${algorithmState.iteration}`);
+
+    // Reconstruct uniqueTracts if needed (from uniqueTractIds)
+    if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
+      algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+    }
+
+    // Reconstruct currentGroups with actual censusTracts from uniqueTracts if needed
+    if (algorithmState.currentGroups && algorithmState.uniqueTracts) {
+      const { getTractId } = require('./services/geodistrict-algorithm');
+      // Build lookup map from uniqueTracts
+      const tractLookup = new Map();
+      for (const tract of algorithmState.uniqueTracts) {
+        const tractId = getTractId(tract);
+        if (tractId) {
+          tractLookup.set(tractId, tract);
+        }
+      }
+      
+      // Reconstruct censusTracts for each group from censusTractIds
+      algorithmState.currentGroups = algorithmState.currentGroups.map(group => {
+        // If group already has censusTracts, return as-is
+        if (group.censusTracts && Array.isArray(group.censusTracts) && group.censusTracts.length > 0) {
+          return group;
+        }
+        
+        // Otherwise, reconstruct from censusTractIds
+        if (group.censusTractIds && Array.isArray(group.censusTractIds)) {
+          const censusTracts = group.censusTractIds
+            .map(id => tractLookup.get(id))
+            .filter(Boolean);
+          
+          return {
+            ...group,
+            censusTracts
+          };
+        }
+        
+        // No censusTractIds either - return group as-is (will likely fail later)
+        return group;
+      });
+      
+      const totalReconstructed = algorithmState.currentGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
+      console.log(`✅ Reconstructed ${totalReconstructed} tracts across ${algorithmState.currentGroups.length} currentGroups`);
     }
 
     const nextStepNumber = algorithmState.iteration + 1;
@@ -4145,10 +4785,10 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
               };
               
               if (cachedEntry.isComplete) {
-                algorithmStateStore.delete(stateKey);
+                await deleteCachedAlgorithmState(stateKey);
                 console.log(`✅ Algorithm completed after ${nextStepNumber} iterations (from cache)`);
               } else {
-                algorithmStateStore.set(stateKey, updatedState);
+                await cacheAlgorithmState(stateKey, updatedState);
               }
               
               return res.json({
@@ -4207,12 +4847,12 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     cacheStepResult();
 
     if (isComplete) {
-      // Remove state from store when complete
-      algorithmStateStore.delete(stateKey);
+      // Remove state from cache when complete
+      await deleteCachedAlgorithmState(stateKey);
       console.log(`✅ Algorithm completed after ${updatedState.iteration} iterations`);
     } else {
-      // Update stored state
-      algorithmStateStore.set(stateKey, updatedState);
+      // Cache updated state
+      await cacheAlgorithmState(stateKey, updatedState);
     }
 
     res.json({
@@ -4305,11 +4945,13 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
       const unionData = group.unionPolygons || (group.unionPolygon ? [group.unionPolygon] : null);
       
       // Log what we're caching for debugging
-      if (stepNumber === 0) {
+      const isStep0 = stepNumber === 0 || stepNumber === '0';
+      if (isStep0) {
         const hasArray = Array.isArray(group.unionPolygons);
         const hasSingle = !!group.unionPolygon;
         const arrayLength = hasArray ? group.unionPolygons.length : 0;
-        console.log(`🔍 CACHING UNION POLYGONS: Group ${groupKey} - has unionPolygons array: ${hasArray} (length: ${arrayLength}), has unionPolygon: ${hasSingle}, will cache: ${Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0)} polygon(s)`);
+        const polygonCount = Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0);
+        console.log(`🔍 STEP 0: Caching TIGER state boundary - Group ${groupKey} - has unionPolygons array: ${hasArray} (length: ${arrayLength}), has unionPolygon: ${hasSingle}, will cache: ${polygonCount} TIGER state boundary/ies`);
       }
       
       if (unionData) {
@@ -4326,13 +4968,18 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
         });
         
         // Store metadata in Firestore
+        // For Step 0, mark as TIGER-based to distinguish from tract-based union polygons
+        const isStep0 = stepNumber === 0 || stepNumber === '0';
         const metadataEntry = {
           cloudStoragePath: cloudStoragePath,
           timestamp: Date.now(),
           ttl: null, // No expiration - union polygons are static for a given step
           version: CACHE_VERSION,
-          source: 'union-polygon-cache-metadata',
-          attribution: `Union polygon(s) for ${stateCode} step ${stepNumber} group ${groupKey}`,
+          source: isStep0 ? 'tiger-state-boundary' : 'union-polygon-cache-metadata',
+          tigerBased: isStep0, // Mark Step 0 union polygons as TIGER-based
+          attribution: isStep0 
+            ? `TIGER state boundary for ${stateCode} step ${stepNumber} group ${groupKey}`
+            : `Union polygon(s) for ${stateCode} step ${stepNumber} group ${groupKey}`,
           chunked: false,
           cloudStorage: true,
           state: stateCode,
@@ -4347,7 +4994,8 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
         unionPolygonCacheKeys[i] = unionCacheKey;
         
         const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
-        console.log(`💾 CLOUD STORAGE: Cached ${polygonCount} union polygon(s) for ${stateCode} step ${stepNumber} group ${groupKey} (${unionSizeMB} MB)${polygonCount > 1 ? ` - main + ${polygonCount - 1} island(s)` : ''}`);
+        const sourceLabel = isStep0 ? 'TIGER state boundary' : 'union polygon(s)';
+        console.log(`💾 CLOUD STORAGE: Cached ${polygonCount} ${sourceLabel} for ${stateCode} step ${stepNumber} group ${groupKey} (${unionSizeMB} MB)${polygonCount > 1 ? ` - main + ${polygonCount - 1} island(s)` : ''}`);
       }
     } catch (error) {
       console.error(`❌ Failed to cache union polygon for ${stateCode} step ${stepNumber} group ${groupKey}:`, error.message);
@@ -4366,6 +5014,7 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
  */
 async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups) {
   const groupsWithUnions = [];
+  const isStep0 = stepNumber === 0 || stepNumber === '0';
   
   for (let i = 0; i < districtGroups.length; i++) {
     const group = districtGroups[i];
@@ -4393,26 +5042,68 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups)
     }
     
     try {
-      // Load from Cloud Storage
-      const cacheResult = await cloudStorageCache.get(unionCacheKey);
+      // Check metadata first to determine if this is TIGER-based or tract-based
+      const unionCacheDoc = await firestore.collection('census_cache').doc(unionCacheKey).get();
+      let isTigerBased = false;
+      let polygonType = 'unknown';
       
-      if (cacheResult && cacheResult.data) {
-        const unionData = cacheResult.data;
-        
-        // Handle both single polygon and array of polygons
-        if (Array.isArray(unionData)) {
-          group.unionPolygons = unionData;
-          group.unionPolygon = unionData.length > 0 ? unionData[0] : undefined;
-        } else {
-          group.unionPolygon = unionData;
-        }
-        
-        // Store the cache key for future reference
-        group.unionPolygonCacheKey = unionCacheKey;
-        
-        console.log(`✅ CLOUD STORAGE: Loaded union polygon from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+      if (unionCacheDoc.exists) {
+        const metadata = unionCacheDoc.data();
+        isTigerBased = metadata.tigerBased === true || metadata.source === 'tiger-state-boundary';
+        polygonType = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
       } else {
-        console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
+        // No metadata - assume it's an old tract-based union polygon
+        polygonType = 'tract-based union polygon (no metadata)';
+      }
+      
+      // For Step 0, reject tract-based union polygons and require TIGER boundaries
+      if (isStep0 && !isTigerBased) {
+        console.log(`🔄 STEP 0: Detected old ${polygonType}, invalidating and will fetch TIGER state boundary`);
+        try {
+          // Delete old union polygon from Cloud Storage
+          await cloudStorageCache.delete(unionCacheKey);
+          // Delete metadata from Firestore
+          await firestore.collection('census_cache').doc(unionCacheKey).delete();
+          console.log(`🗑️ STEP 0: Deleted old ${polygonType} cache`);
+        } catch (deleteError) {
+          console.warn(`⚠️ STEP 0: Failed to delete old union polygon cache: ${deleteError.message}`);
+        }
+        // Clear cache key and union polygon properties so caller knows to fetch TIGER boundaries
+        unionCacheKey = null;
+        group.unionPolygonCacheKey = undefined;
+        group.unionPolygon = undefined;
+        group.unionPolygons = undefined;
+        groupsWithUnions.push(group);
+        continue;
+      }
+      
+      // Load from Cloud Storage
+      if (unionCacheKey) {
+        const cacheResult = await cloudStorageCache.get(unionCacheKey);
+        
+        if (cacheResult && cacheResult.data) {
+          const unionData = cacheResult.data;
+          
+          // Handle both single polygon and array of polygons
+          if (Array.isArray(unionData)) {
+            group.unionPolygons = unionData;
+            group.unionPolygon = unionData.length > 0 ? unionData[0] : undefined;
+          } else {
+            group.unionPolygon = unionData;
+            group.unionPolygons = [unionData];
+          }
+          
+          // Store the cache key for future reference
+          group.unionPolygonCacheKey = unionCacheKey;
+          
+          // Log with clear indication of source
+          const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
+          const sourceLabel = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
+          const sizeMB = unionCacheDoc.exists ? (unionCacheDoc.data().sizeMB || 'unknown') : 'unknown';
+          console.log(`✅ CLOUD STORAGE: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB)`);
+        } else {
+          console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
+        }
       }
     } catch (error) {
       console.error(`❌ Failed to load union polygon from cache for key ${unionCacheKey}:`, error.message);
@@ -4916,20 +5607,67 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         const allLoaded = loadedCount === reconstructed.districtGroups.length;
         
         if (allLoaded) {
-          console.log(`✅ RECONSTRUCT: Loaded union polygons from cache for ${reconstructed.districtGroups.length} district groups`);
+          // Check if union polygons are TIGER-based (for step 0) or tract-based
+          // stepNumber is already defined above from normalizedStep.step
+          const isStep0 = stepNumber === 0 || stepNumber === '0';
+          let tigerCount = 0;
+          let tractCount = 0;
+          for (const group of reconstructed.districtGroups) {
+            if (group.unionPolygonCacheKey) {
+              try {
+                const unionCacheDoc = await firestore.collection('census_cache').doc(group.unionPolygonCacheKey).get();
+                if (unionCacheDoc.exists) {
+                  const metadata = unionCacheDoc.data();
+                  if (metadata.tigerBased === true || metadata.source === 'tiger-state-boundary') {
+                    tigerCount++;
+                  } else {
+                    tractCount++;
+                  }
+                }
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+          }
+          const sourceInfo = isStep0 && tigerCount > 0 
+            ? ` (${tigerCount} TIGER state boundary/ies)` 
+            : tractCount > 0 
+              ? ` (${tractCount} tract-based union polygon(s))`
+              : '';
+          console.log(`✅ RECONSTRUCT: Loaded union polygons from cache for ${reconstructed.districtGroups.length} district groups${sourceInfo}`);
         } else {
           // Some groups missing - need to recreate
-          console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
-          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+          const isStep0 = stepNumber === 0 || stepNumber === '0';
+          if (isStep0) {
+            // For Step 0, fetch TIGER state boundaries instead of creating union polygons from tracts
+            console.log(`⚠️ RECONSTRUCT: Step 0 union polygons missing from cache, fetching TIGER state boundaries...`);
+            // Note: TIGER boundaries should be fetched by the caller (e.g., in final-step endpoint)
+            // We can't fetch them here without access to req object, so we'll leave them empty
+            // The caller should handle fetching TIGER boundaries for step 0
+            console.warn(`⚠️ RECONSTRUCT: Step 0 groups missing union polygons - caller should fetch TIGER state boundaries`);
+          } else {
+            console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
+            await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+          }
         }
       } catch (error) {
-        console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
-        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+        const isStep0 = stepNumber === 0 || stepNumber === '0';
+        if (isStep0) {
+          console.warn(`⚠️ RECONSTRUCT: Failed to load Step 0 union polygons from cache: ${error.message} - caller should fetch TIGER state boundaries`);
+        } else {
+          console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
+          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+        }
       }
     } else {
-      // No state/step info - recreate union polygons
-      console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
-      await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+      // No state/step info - check if it's step 0
+      const isStep0 = stepNumber === 0 || stepNumber === '0';
+      if (isStep0) {
+        console.warn(`⚠️ RECONSTRUCT: Step 0 missing state/step info - caller should fetch TIGER state boundaries`);
+      } else {
+        console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
+        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+      }
     }
   } else {
     console.log(`⏭️ RECONSTRUCT: Skipping union polygon recreation (will be created after tract replacement)`);
@@ -4945,6 +5683,14 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
  * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
  */
 async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLogging = false, stepNumber = null) {
+  const isStep0 = stepNumber === 0 || stepNumber === '0';
+  
+  // For Step 0, NEVER create union polygons from tracts - must use TIGER state boundaries
+  if (isStep0) {
+    console.error(`❌ RECONSTRUCT: recreateUnionPolygonsForGroups called for Step 0 - this should never happen! Step 0 must use TIGER state boundaries, not tract-based union polygons.`);
+    return districtGroups; // Return groups unchanged - caller should fetch TIGER boundaries instead
+  }
+  
   const { createUnionPolygonsForGroup } = require('./services/geodistrict-algorithm');
   const { GeodistrictAlgorithmService } = require('./services/geodistrict-algorithm');
   const latLongDivisionService = require('./services/latlong-division');
@@ -4981,7 +5727,7 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
   }
   
   try {
-    // Recreate union polygons for each district group
+    // Recreate union polygons for each district group (only for non-Step-0)
     for (const group of districtGroups) {
       // Skip if already has union polygons (from cache)
       if (group.unionPolygon || group.unionPolygons) {
@@ -4989,10 +5735,8 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       }
       
       if (group.censusTracts && group.censusTracts.length > 0) {
-        // At Step 0: Create separate polygons for main + islands
-        // At other steps: Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
-        const isStep0 = stepNumber === 0 || stepNumber === '0';
-        const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, !isStep0, stepNumber);
+        // At non-Step-0 steps: Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
+        const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber);
         
         if (unionResult) {
           if (Array.isArray(unionResult) && unionResult.length > 0) {
@@ -5076,6 +5820,21 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
     }
 
     console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+
+    // Ensure S4 adjacency data is loaded (required for isolation detection)
+    if (allTracts.length > 0) {
+      const state = allTracts[0]?.properties?.['STATE'] || allTracts[0]?.properties?.state || '';
+      if (state) {
+        try {
+          const s4DataLoader = require('./services/s4-data-loader');
+          await s4DataLoader.loadS4AdjacencyData(state);
+          console.log(`✅ Loaded S4 adjacency data for ${state} before isolation detection`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
+          console.warn(`   Isolation detection may be inaccurate without adjacency data`);
+        }
+      }
+    }
 
     // Call the detection method
     const detectionResult = algorithmService.detectIsolatedTracts(districtGroups, allTracts);
@@ -5193,7 +5952,7 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
     // Update algorithm state and invalidate cached step if state and step are provided
     if (state && typeof step === 'number') {
       const stateKey = getAlgorithmStateKey(state, maxIterations);
-      const algorithmState = algorithmStateStore.get(stateKey);
+      const algorithmState = await getCachedAlgorithmState(stateKey);
       
       if (algorithmState) {
         // Update currentGroups in algorithm state with the moved groups
@@ -5206,6 +5965,9 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
             districtGroups: result.districtGroups
           };
         }
+        
+        // Cache updated algorithm state
+        await cacheAlgorithmState(stateKey, algorithmState);
         
         // Invalidate cached step so subsequent steps use the updated data
         const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
@@ -5288,7 +6050,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
     // Update algorithm state and invalidate cached step if state and step are provided
     if (state && typeof step === 'number') {
       const stateKey = getAlgorithmStateKey(state, maxIterations);
-      const algorithmState = algorithmStateStore.get(stateKey);
+      const algorithmState = await getCachedAlgorithmState(stateKey);
       
       if (algorithmState) {
         // Update currentGroups in algorithm state with the moved groups
@@ -5301,6 +6063,9 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
             districtGroups: result.districtGroups
           };
         }
+        
+        // Cache updated algorithm state
+        await cacheAlgorithmState(stateKey, algorithmState);
         
         // Invalidate cached step so subsequent steps use the updated data
         const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
@@ -5367,8 +6132,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     // Get algorithm state
     const stateKey = getAlgorithmStateKey(state, maxIterations);
     console.log(`🔍 Looking for algorithm state with key: ${stateKey}`);
-    console.log(`🔍 Available state keys: ${Array.from(algorithmStateStore.keys()).join(', ')}`);
-    let algorithmState = algorithmStateStore.get(stateKey);
+    let algorithmState = await getCachedAlgorithmState(stateKey);
 
     // If algorithm state not found, try to reconstruct it from cached step
     if (!algorithmState) {
@@ -5476,9 +6240,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         state: state
       };
       
-      // Store in state store temporarily (won't persist across restarts, but good for this session)
-      algorithmStateStore.set(stateKey, algorithmState);
-      console.log(`✅ Reconstructed algorithm state from cached step ${step} for ${state}`);
+      // Cache reconstructed algorithm state
+      await cacheAlgorithmState(stateKey, algorithmState);
+      console.log(`✅ Reconstructed and cached algorithm state from cached step ${step} for ${state}`);
     }
 
     // Get current step from algorithm state
@@ -5497,7 +6261,11 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     } else {
       // Detect isolated tracts now (for backward compatibility)
       console.log(`⚠️ No isolated tracts data in step cache, detecting now...`);
-      const allTracts = algorithmState.uniqueTracts || [];
+      // Reconstruct uniqueTracts if needed
+    if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
+      algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+    }
+    const allTracts = algorithmState.uniqueTracts || [];
       const detectionResult = algorithmService.detectIsolatedTracts(currentStep.districtGroups, allTracts);
       // Convert Map to object
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
@@ -5514,6 +6282,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       algorithmState.steps[step] = currentStep;
     }
 
+    // Reconstruct uniqueTracts if needed
+    if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
+      algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+    }
     const allTracts = algorithmState.uniqueTracts || [];
 
     // Get all groups with isolated tracts
@@ -5624,6 +6396,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
       }
     };
+    
+    // Cache updated algorithm state
+    await cacheAlgorithmState(stateKey, algorithmState);
 
     // Invalidate cached step and all subsequent steps
     const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;

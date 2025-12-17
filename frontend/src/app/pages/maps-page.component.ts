@@ -2473,6 +2473,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return targetPopulationPerDistrict * avgDistrictsPerGroup;
   }
 
+  get targetDGPopulationRounded(): number {
+    return Math.round(this.targetDGPopulation);
+  }
+
   /**
    * Calculate variance percentage for a district group
    * Variance = ((actual - target) / target) * 100
@@ -2580,6 +2584,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   getStateDistrictCount(stateCode: string): number {
     const state = this.states.find(s => s.code === stateCode);
     return state ? state.districts : 0;
+  }
+
+  /**
+   * Get state name for a state code
+   */
+  stateName(stateCode: string): string {
+    const state = this.states.find(s => s.code === stateCode);
+    return state ? state.name : stateCode;
   }
 
   /**

@@ -1,8 +1,8 @@
 # GeoDistricts: An Algorithmic Protocol to Eliminate Gerrymandering
 
-A revolutionary solution to U.S. Congressional district gerrymandering through objective, algorithmic district boundary creation.
+GeoDistricst is a digital, protocol based solution for U.S. Congressional redistricting. It eliminates gerrymandering by removing the subjective and often biased drawing district boundaries to favor a political party. 
 
-## The Problem: Gerrymandering as Subversion of Democracy
+## The Problem: Gerrymandering is a Subversion of Democracy
 
 Gerrymandering represents a true **subversion of democracy** - far beyond being just a "threat to democracy." It systematically undermines the fundamental principle of equal representation by allowing partisan manipulation of electoral boundaries.
 
@@ -56,8 +56,8 @@ GeoDistricts is fundamentally an **algorithmic protocol** - a computational meth
 ### Implementation Advantages
 - **Open Source**: All implementations are transparent and verifiable
 - **DAO Governance**: Protocol governed by decentralized autonomous organization
-- **Cost Effective**: Eliminates expensive redistricting litigation
-- **Timely**: Automated process completes in minutes, not months
+- **Government Efficiency**: Reduces costs of redistricting related activities such as: commissions and consulting, litigation, propositions, legislation, etc.
+- **Real-time Analytics**: Near real-time and predictive analytics provide accurate party representation based on voting results and registrations.
 
 ## The Future of Fair Representation
 

@@ -1417,11 +1417,17 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   }
 
   // Create union polygons for each district group
-  // At Step 0: Create separate polygons for main component (largest) and island components (smaller)
+  // At Step 0: NEVER create union polygons from tracts - use TIGER state boundaries instead (set by caller)
   // At other steps: Use forceSingleUnion=true to create one dissolved polygon per district group for visualization
   const isStep0 = step === 0 || step === '0';
   const groupsWithUnions = districtGroups.map(group => {
-    const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, !isStep0, step); // forceSingleUnion=false at Step 0, true otherwise
+    // Skip union polygon creation for Step 0 - MUST use TIGER state boundaries instead
+    let unionResult = null;
+    if (!isStep0) {
+      // Only create union polygons if NOT Step 0
+      unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, step); // forceSingleUnion=true for non-Step-0
+    }
+    // For Step 0, unionResult will be null - caller must set TIGER state boundaries
     
     // At Step 0, unionResult is an array: [mainPolygon, ...islandPolygons]
     // At other steps, unionResult is a single polygon or array
@@ -1457,8 +1463,9 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   });
 
   // Detect isolated tracts if algorithmService and allTracts are provided
-  // Island tracts (tracts in smaller connected components) are excluded from detection in all steps
+  // At Step 0, also detect and group island tracts (geographic islands)
   let isolatedTractsData = null;
+  let islandTractsData = null;
   if (algorithmService && allTracts && allTracts.length > 0) {
     try {
       const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts, step);
@@ -1474,9 +1481,28 @@ function createStep(step, level, districtGroups, description, divisionDirection,
         groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
       };
       
-      // Log summary for Step 0
-      if (step === 0 && detectionResult.isolatedTractIds.size === 0) {
-        console.log(`🏝️ Step 0: All disconnected components are considered geographic islands (excluded from isolation detection)`);
+      // At Step 0, also store island tract groups
+      if (isStep0 && detectionResult.islandTractsByGroup && detectionResult.islandTractsByGroup.size > 0) {
+        const islandTractsByGroup = {};
+        detectionResult.islandTractsByGroup.forEach((islandGroups, groupIndex) => {
+          // islandGroups is an array of arrays (groups of adjacent island tracts)
+          islandTractsByGroup[groupIndex] = islandGroups;
+        });
+        
+        const totalIslandTracts = Object.values(islandTractsByGroup).reduce((sum, groups) => 
+          sum + groups.reduce((s, g) => s + g.length, 0), 0
+        );
+        
+        islandTractsData = {
+          islandTractsByGroup,
+          totalIslandTracts,
+          totalIslandGroups: Object.values(islandTractsByGroup).reduce((sum, groups) => sum + groups.length, 0),
+          groupsWithIslands: Object.keys(islandTractsByGroup).length
+        };
+        
+        console.log(`🏝️ Step 0: Detected ${totalIslandTracts} island tract(s) grouped into ${islandTractsData.totalIslandGroups} island group(s) across ${islandTractsData.groupsWithIslands} district group(s)`);
+      } else if (isStep0 && detectionResult.isolatedTractIds.size === 0) {
+        console.log(`🏝️ Step 0: No island tracts detected (all tracts are in main component)`);
       }
     } catch (error) {
       console.warn(`⚠️ Failed to detect isolated tracts for step ${step}: ${error.message}`);
@@ -1493,7 +1519,8 @@ function createStep(step, level, districtGroups, description, divisionDirection,
     divisionDirection: divisionDirection || 'latitude',
     divisionLine,
     divisionLines: divisionLines || [],
-    isolatedTractsData: isolatedTractsData || undefined // Only include if detected
+    isolatedTractsData: isolatedTractsData || undefined, // Only include if detected
+    islandTractsData: islandTractsData || undefined // Only include at Step 0 if detected
   };
 }
 
@@ -1567,8 +1594,9 @@ class GeodistrictAlgorithmService {
       tract.properties.sibling_DG = null; // No sibling for initial state
     }
 
-    // Create step 0 with union polygons - pass algorithmService and allTracts so union polygons are created
-    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude', undefined, [], this, uniqueTracts);
+    // Create step 0 WITHOUT union polygons - Step 0 should use TIGER state boundaries instead
+    // Pass null for algorithmService and allTracts to skip union polygon creation
+    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude', undefined, [], null, null);
 
     // Return step 0 and algorithm state
     return {
@@ -1886,14 +1914,14 @@ class GeodistrictAlgorithmService {
     
     // Fallback: For now, return empty graph (geometric intersection would require additional libraries)
     // In production, you'd want to implement geometric intersection here
+    console.error(`❌ CRITICAL: S4 adjacency data not available for ${state || 'unknown state'}, using empty adjacency graph!`);
+    console.error(`   This will cause isolation detection to fail (all tracts will appear isolated).`);
+    console.error(`   S4 data should be loaded before calling buildGeometryAdjacencyGraph.`);
+    
     const graph = new Map();
     for (const tract of tracts) {
       const id = getTractId(tract);
       graph.set(id, []);
-    }
-    
-    if (process.env.DEBUG_CACHE === 'true') {
-      console.log(`⚠️ S4 adjacency data not available, using empty adjacency graph (geometric intersection not implemented)`);
     }
     
     return graph;
@@ -1969,8 +1997,14 @@ class GeodistrictAlgorithmService {
     // Build adjacency graph for all tracts
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
     
+    // Debug: Log adjacency graph stats
+    const totalGraphEntries = adjacencyGraph.size;
+    const totalTractsInGroups = districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
+    logger.debug(`🔍 DETECT ISOLATED: Built adjacency graph with ${totalGraphEntries} entries for ${allTracts.length} total tracts, ${totalTractsInGroups} tracts in groups`);
+    
     const isolatedTractsByGroup = new Map(); // Map<groupIndex, Set<tractId>>
     const isolatedTractIds = new Set(); // All isolated tract IDs across all groups
+    const islandTractsByGroup = new Map(); // Map<groupIndex, Array<Array<tractId>>> - For Step 0: groups of adjacent island tracts
     const groupStats = []; // Array of {groupIndex, maxReachable, totalTracts, groupLabel} for all groups
     
     // Check each group for isolated tracts
@@ -1992,6 +2026,22 @@ class GeodistrictAlgorithmService {
         totalTracts: totalTractsInGroup,
         groupLabel: `${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}`
       });
+      
+      // Debug: Log if maxReachableCount is suspiciously low
+      if (maxReachableCount < totalTractsInGroup * 0.1) {
+        console.warn(`⚠️ DETECT ISOLATED: Suspiciously low maxReachableCount for group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${maxReachableCount} out of ${totalTractsInGroup} tracts`);
+        // Check if adjacency graph has entries for sample tracts
+        const sampleTractIds = group.censusTracts.slice(0, 5).map(t => getTractId(t)).filter(Boolean);
+        for (const tractId of sampleTractIds) {
+          const hasGraphEntry = adjacencyGraph.has(tractId);
+          const neighbors = adjacencyGraph.get(tractId) || [];
+          const neighborsInGroup = neighbors.filter(n => {
+            const groupTractIds = new Set(group.censusTracts.map(t => getTractId(t)).filter(Boolean));
+            return groupTractIds.has(n);
+          }).length;
+          console.warn(`   Sample tract ${tractId}: hasGraphEntry=${hasGraphEntry}, totalNeighbors=${neighbors.length}, neighborsInGroup=${neighborsInGroup}`);
+        }
+      }
       
       // If max reachable < total, we have isolated tracts
       if (maxReachableCount < totalTractsInGroup) {
@@ -2089,36 +2139,101 @@ class GeodistrictAlgorithmService {
         }
         
         if (groupIsolatedTractIds.size > 0) {
-          // Island tracts (tracts in smaller connected components) should be excluded from isolation detection in ALL steps
-          // The main component (largest reachable component) is the "mainland" and smaller components are islands
-          // At Step 0, these are geographic islands (like CA's 5 island tracts)
-          // In later steps, these are tracts in smaller components that should be treated as islands
-          console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected${isStep0 ? ' at Step 0' : ''} (excluded from isolation detection)`);
-          console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
-          console.log(`   Island components: ${groupIsolatedTractIds.size} tract(s) in smaller components`);
-          
-          // Debug: Log first few island tract IDs
-          const islandArray = Array.from(groupIsolatedTractIds).slice(0, 5);
-          console.log(`   Sample island tracts: ${islandArray.join(', ')}`);
-          
-          // Don't add to isolated sets - these are island tracts (geographic islands at Step 0, or smaller components in later steps)
-          // Continue to next group without marking these as isolated
-          continue;
-        } else {
-          // Only add to isolated sets if they're NOT island tracts
-          // This case should not happen (if size > 0, we continue above), but keep for safety
-          for (const tractId of groupIsolatedTractIds) {
-            isolatedTractIds.add(tractId);
+          if (isStep0) {
+            // At Step 0, isolated tracts are geographic islands (like CA's 5 island tracts)
+            // Group adjacent island tracts together
+            const islandGroups = this.groupAdjacentIslandTracts(Array.from(groupIsolatedTractIds), adjacencyGraph);
+            
+            console.log(`🏝️ Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} island tract(s) detected at Step 0, grouped into ${islandGroups.length} island group(s)`);
+            console.log(`   Main component (mainland): ${mainComponentTractId} (${mainComponentReachableCount} reachable)`);
+            
+            // Log each island group
+            islandGroups.forEach((islandGroup, idx) => {
+              console.log(`   Island group ${idx + 1}: ${islandGroup.length} tract(s) - ${islandGroup.slice(0, 5).join(', ')}${islandGroup.length > 5 ? '...' : ''}`);
+            });
+            
+            // Store island groups for this district group
+            islandTractsByGroup.set(groupIndex, islandGroups);
+            
+            // Don't add to isolated sets - these are geographic islands
+            continue;
+          } else {
+            // At Step 1 and later, isolated tracts are NOT geographic islands
+            // They are tracts disconnected due to division - these SHOULD be detected
+            for (const tractId of groupIsolatedTractIds) {
+              isolatedTractIds.add(tractId);
+            }
+            isolatedTractsByGroup.set(groupIndex, groupIsolatedTractIds);
+            console.log(`🔍 Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} isolated tract(s) detected`);
+            
+            // Debug: Log first few isolated tract IDs
+            const isolatedArray = Array.from(groupIsolatedTractIds).slice(0, 10);
+            console.log(`   Isolated tract IDs: ${isolatedArray.join(', ')}${groupIsolatedTractIds.size > 10 ? '...' : ''}`);
           }
-          isolatedTractsByGroup.set(groupIndex, groupIsolatedTractIds);
-          console.log(`🔍 Group ${group.startDistrictNumber}-${group.endDistrictNumber}: ${groupIsolatedTractIds.size} isolated tract(s) detected`);
         }
       }
     }
     
     logger.debug(`✅ DETECT ISOLATED: Found ${isolatedTractIds.size} isolated tracts across ${isolatedTractsByGroup.size} groups`);
+    if (isStep0 && islandTractsByGroup.size > 0) {
+      const totalIslandTracts = Array.from(islandTractsByGroup.values()).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.length, 0), 0);
+      logger.debug(`🏝️ DETECT ISLANDS: Found ${totalIslandTracts} island tracts grouped into ${islandTractsByGroup.size} district group(s) at Step 0`);
+    }
     
-    return { isolatedTractsByGroup, isolatedTractIds, groupStats };
+    return { 
+      isolatedTractsByGroup, 
+      isolatedTractIds, 
+      groupStats,
+      islandTractsByGroup: isStep0 ? islandTractsByGroup : new Map() // Only return at Step 0
+    };
+  }
+
+  /**
+   * Group adjacent island tracts together
+   * Island tracts that are adjacent to each other form a group
+   * @param {Array<string>} islandTractIds - Array of island tract IDs
+   * @param {Map<string, Array<string>>} adjacencyGraph - Adjacency graph for all tracts
+   * @returns {Array<Array<string>>} Array of island groups, where each group is an array of adjacent tract IDs
+   */
+  groupAdjacentIslandTracts(islandTractIds, adjacencyGraph) {
+    if (islandTractIds.length === 0) {
+      return [];
+    }
+    
+    const islandTractSet = new Set(islandTractIds);
+    const visited = new Set();
+    const islandGroups = [];
+    
+    for (const tractId of islandTractIds) {
+      if (visited.has(tractId)) {
+        continue;
+      }
+      
+      // BFS to find all adjacent island tracts
+      const islandGroup = [];
+      const queue = [tractId];
+      visited.add(tractId);
+      
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        islandGroup.push(currentId);
+        
+        // Find adjacent island tracts
+        const neighbors = adjacencyGraph.get(currentId) || [];
+        for (const neighborId of neighbors) {
+          if (islandTractSet.has(neighborId) && !visited.has(neighborId)) {
+            visited.add(neighborId);
+            queue.push(neighborId);
+          }
+        }
+      }
+      
+      if (islandGroup.length > 0) {
+        islandGroups.push(islandGroup);
+      }
+    }
+    
+    return islandGroups;
   }
 
   /**
