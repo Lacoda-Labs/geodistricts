@@ -1464,31 +1464,34 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private renderDivisionLines(): void {
     if (!this.map || !this.currentStep) return;
 
-    // Clear existing division lines
+    // Clear existing division lines (division lines are hidden)
     this.clearDivisionLines();
+    
+    // // Division lines are hidden - return early without rendering
+    // return;
 
-    // Check if this is the final step (all steps complete)
-    const isFinalStep = this.totalSteps > 0 && this.currentStepIndex === this.totalSteps - 1;
+    // // Check if this is the final step (all steps complete)
+    // const isFinalStep = this.totalSteps > 0 && this.currentStepIndex === this.totalSteps - 1;
 
-    // Add static lines for all previous steps
-    for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
-      const step = this.loadedSteps[stepIdx];
-      if (step && step.divisionLines && step.divisionLines.length > 0) {
-        this.addStaticDivisionLinesForStep(step, stepIdx);
-      }
-    }
+    // // Add static lines for all previous steps
+    // for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
+    //   const step = this.loadedSteps[stepIdx];
+    //   if (step && step.divisionLines && step.divisionLines.length > 0) {
+    //     this.addStaticDivisionLinesForStep(step, stepIdx);
+    //   }
+    // }
 
-    // For final step, render all division lines as static (no animation)
-    // For intermediate steps, animate the current step's division lines
-    if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
-      if (isFinalStep) {
-        // Final step: render all division lines as static
-        this.addStaticDivisionLinesForStep(this.currentStep, this.currentStepIndex);
-      } else {
-        // Intermediate step: animate current step's division lines
-        this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
-      }
-    }
+    // // For final step, render all division lines as static (no animation)
+    // // For intermediate steps, animate the current step's division lines
+    // if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
+    //   if (isFinalStep) {
+    //     // Final step: render all division lines as static
+    //     this.addStaticDivisionLinesForStep(this.currentStep, this.currentStepIndex);
+    //   } else {
+    //     // Intermediate step: animate current step's division lines
+    //     this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
+    //   }
+    // }
   }
 
   /**
