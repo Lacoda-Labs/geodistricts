@@ -1151,3 +1151,21 @@
     color: rgba(255, 255, 255, 0.9);
   }
 }
+
+// Custom map toggle control styles
+:host ::ng-deep .leaflet-control-custom {
+  margin-top: 10px !important;
+  
+  .leaflet-control-custom-button {
+    transition: background-color 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+    
+    &:hover {
+      background-color: rgba(25, 118, 210, 0.1) !important;
+    }
+    
+    .material-icons {
+      user-select: none;
+    }
+  }
+}

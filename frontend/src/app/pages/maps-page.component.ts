@@ -40,6 +40,7 @@ declare global {
 export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedState: string = '';
   showTractBoundaries: boolean = false;
+  showDivisionLines: boolean = false;
   isLoading: boolean = false;
   errorMessage: string = '';
   canRunNextStep: boolean = false;
@@ -71,6 +72,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private totalSteps: number = 0; // Total number of steps (known when complete)
   private isLoadingSteps: boolean = false; // Track if we're currently loading steps
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
+  private mapToggleControl: L.Control | null = null; // Custom toggle control
 
   // US States with their congressional district counts
   states = [
@@ -231,11 +233,141 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize tract layer
     this.tractLayer = L.layerGroup().addTo(this.map);
 
+    // Add custom toggle control
+    this.addMapToggleControl();
+
     // Update layers based on checkbox state
     this.updateMapLayers();
     
     // Update map view based on selected state
     this.updateMapView();
+  }
+
+  /**
+   * Add custom toggle control to the map
+   */
+  private addMapToggleControl(): void {
+    if (!this.map) return;
+
+    // Store reference to component for callbacks
+    const component = this;
+
+    // Create custom control class
+    const ToggleControl = L.Control.extend({
+      onAdd: (map: L.Map) => {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        container.style.backgroundColor = 'white';
+        container.style.border = '2px solid rgba(0,0,0,0.2)';
+        container.style.borderRadius = '4px';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '0';
+
+        // Tracts toggle button
+        const tractsButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
+        tractsButton.href = '#';
+        tractsButton.title = 'Toggle Tract Boundaries';
+        tractsButton.style.width = '30px';
+        tractsButton.style.height = '30px';
+        tractsButton.style.display = 'flex';
+        tractsButton.style.alignItems = 'center';
+        tractsButton.style.justifyContent = 'center';
+        tractsButton.style.textDecoration = 'none';
+        tractsButton.style.color = '#333';
+        tractsButton.style.borderBottom = '1px solid rgba(0,0,0,0.1)';
+        
+        const tractsIcon = L.DomUtil.create('span', 'material-icons', tractsButton);
+        tractsIcon.innerHTML = 'grid_on';
+        tractsIcon.style.fontSize = '18px';
+        tractsIcon.style.lineHeight = '1';
+
+        // Division lines toggle button
+        const divisionButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
+        divisionButton.href = '#';
+        divisionButton.title = 'Toggle Division Lines';
+        divisionButton.style.width = '30px';
+        divisionButton.style.height = '30px';
+        divisionButton.style.display = 'flex';
+        divisionButton.style.alignItems = 'center';
+        divisionButton.style.justifyContent = 'center';
+        divisionButton.style.textDecoration = 'none';
+        divisionButton.style.color = '#333';
+
+        const divisionIcon = L.DomUtil.create('span', 'material-icons', divisionButton);
+        divisionIcon.innerHTML = 'show_chart';
+        divisionIcon.style.fontSize = '18px';
+        divisionIcon.style.lineHeight = '1';
+
+        // Update button states
+        const updateButtonStates = () => {
+          if (component.showTractBoundaries) {
+            tractsButton.style.backgroundColor = '#1976d2';
+            tractsButton.style.color = 'white';
+          } else {
+            tractsButton.style.backgroundColor = 'transparent';
+            tractsButton.style.color = '#333';
+          }
+
+          if (component.showDivisionLines) {
+            divisionButton.style.backgroundColor = '#1976d2';
+            divisionButton.style.color = 'white';
+          } else {
+            divisionButton.style.backgroundColor = 'transparent';
+            divisionButton.style.color = '#333';
+          }
+        };
+
+        // Initial state
+        updateButtonStates();
+
+        // Prevent map click/drag when clicking buttons
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(container, 'mousewheel', L.DomEvent.stopPropagation);
+
+        // Tracts button click handler
+        L.DomEvent.on(tractsButton, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          component.showTractBoundaries = !component.showTractBoundaries;
+          localStorage.setItem('showTractBoundaries', component.showTractBoundaries.toString());
+          component.updateMapLayers();
+          updateButtonStates();
+        });
+
+        // Division lines button click handler
+        L.DomEvent.on(divisionButton, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          component.showDivisionLines = !component.showDivisionLines;
+          component.renderDivisionLines();
+          updateButtonStates();
+        });
+
+        return container;
+      },
+
+      onRemove: (map: L.Map) => {
+        // Cleanup if needed
+      }
+    });
+
+    // Create and add control
+    this.mapToggleControl = new ToggleControl({
+      position: 'topleft'
+    });
+
+    this.mapToggleControl.addTo(this.map);
+
+    // Position the control below the zoom control
+    // Wait for map to be fully initialized
+    setTimeout(() => {
+      const customControl = document.querySelector('.leaflet-control-custom');
+      const zoomControl = document.querySelector('.leaflet-control-zoom');
+      if (customControl && zoomControl) {
+        const zoomControlRect = zoomControl.getBoundingClientRect();
+        (customControl as HTMLElement).style.marginTop = `${zoomControlRect.height + 10}px`;
+      }
+    }, 100);
   }
 
 
@@ -1464,34 +1596,36 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private renderDivisionLines(): void {
     if (!this.map || !this.currentStep) return;
 
-    // Clear existing division lines (division lines are hidden)
+    // Clear existing division lines
     this.clearDivisionLines();
     
-    // // Division lines are hidden - return early without rendering
-    // return;
+    // Only render if division lines are enabled
+    if (!this.showDivisionLines) {
+      return;
+    }
 
-    // // Check if this is the final step (all steps complete)
-    // const isFinalStep = this.totalSteps > 0 && this.currentStepIndex === this.totalSteps - 1;
+    // Check if this is the final step (all steps complete)
+    const isFinalStep = this.totalSteps > 0 && this.currentStepIndex === this.totalSteps - 1;
 
-    // // Add static lines for all previous steps
-    // for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
-    //   const step = this.loadedSteps[stepIdx];
-    //   if (step && step.divisionLines && step.divisionLines.length > 0) {
-    //     this.addStaticDivisionLinesForStep(step, stepIdx);
-    //   }
-    // }
+    // Add static lines for all previous steps
+    for (let stepIdx = 0; stepIdx < this.currentStepIndex; stepIdx++) {
+      const step = this.loadedSteps[stepIdx];
+      if (step && step.divisionLines && step.divisionLines.length > 0) {
+        this.addStaticDivisionLinesForStep(step, stepIdx);
+      }
+    }
 
-    // // For final step, render all division lines as static (no animation)
-    // // For intermediate steps, animate the current step's division lines
-    // if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
-    //   if (isFinalStep) {
-    //     // Final step: render all division lines as static
-    //     this.addStaticDivisionLinesForStep(this.currentStep, this.currentStepIndex);
-    //   } else {
-    //     // Intermediate step: animate current step's division lines
-    //     this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
-    //   }
-    // }
+    // For final step, render all division lines as static (no animation)
+    // For intermediate steps, animate the current step's division lines
+    if (this.currentStep.divisionLines && this.currentStep.divisionLines.length > 0) {
+      if (isFinalStep) {
+        // Final step: render all division lines as static
+        this.addStaticDivisionLinesForStep(this.currentStep, this.currentStepIndex);
+      } else {
+        // Intermediate step: animate current step's division lines
+        this.animateCurrentStepDivisionLines(this.currentStep, this.currentStepIndex);
+      }
+    }
   }
 
   /**
