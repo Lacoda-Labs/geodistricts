@@ -19,40 +19,13 @@
 
       <section class="us-data-section">
         <!-- US Summary Row -->
-        <div class="us-summary-row">
-          <div class="state-button">
-            <img src="/images/state-flags/23x15/US.png" alt="US Flag" class="state-flag"
-              onerror="this.style.display='none'">
-            <span class="state-abbr">US</span>
-            <span class="state-districts">(435)</span>
-          </div>
-          <div class="data-column congress-column">
-            <div class="data-badge democratic">
-              <span>D: {{ getUSData('119th', 'D') }}</span>
-              <span class="change-indicator" *ngIf="getUSDataChange('119th', 'D')">({{ getUSDataChange('119th', 'D')
-                }})</span>
-            </div>
-            <div class="data-badge republican">
-              <span>R: {{ getUSData('119th', 'R') }}</span>
-              <span>&nbsp;</span>
-            </div>
-          </div>
-          <div class="data-column geodistricts-column">
-            <div class="data-badge democratic dimmed">
-              <span>D: {{ getUSData('geodistricts', 'D') }}</span>
-              <span class="change-indicator" *ngIf="getUSDataChange('geodistricts', 'D')">({{
-                getUSDataChange('geodistricts', 'D') }})</span>
-            </div>
-            <div class="data-badge republican dimmed">
-              <span>R: {{ getUSData('geodistricts', 'R') }}</span>
-            </div>
-          </div>
-          <div class="data-column swing-column">
-            <div class="data-badge republican swing">
-              <span>+{{ getUSData('swing', 'value') }}</span>
-            </div>
-          </div>
-        </div>
+        <app-state-row 
+          [data]="getUSRowData()"
+          [showArrow]="false"
+          [clickable]="false"
+          variant="no-bkg"
+          section="us-data">
+        </app-state-row>
 
         <!-- Table Header -->
         <div class="table-header-row">
@@ -63,41 +36,15 @@
         </div>
 
         <!-- State Rows -->
-        <div class="state-row" *ngFor="let state of states" (click)="selectStateFromTable(state.code)">
-          <div class="state-button">
-            <mat-icon class="arrow-icon" fontIcon="keyboard_arrow_right" *ngIf="state.code !== 'US'"></mat-icon>
-            <img [src]="'/images/state-flags/23x15/' + state.code + '.png'" [alt]="state.name + ' Flag'"
-              class="state-flag" (error)="$event.target.style.display='none'">
-            <span class="state-abbr">{{ state.code }}</span>
-            <span class="state-districts">({{ state.districts }})</span>
-          </div>
-          <div class="data-column congress-column">
-            <div class="data-badge democratic">
-              <span>D: {{ getStateData(state.code, '119th', 'D') }}</span>
-              <span class="change-indicator" *ngIf="getStateDataChange(state.code, '119th', 'D')">({{
-                getStateDataChange(state.code, '119th', 'D') }})</span>
-            </div>
-            <div class="data-badge republican">
-              <span>R: {{ getStateData(state.code, '119th', 'R') }}</span>
-              <span>&nbsp;</span>
-            </div>
-          </div>
-          <div class="data-column geodistricts-column">
-            <div class="data-badge democratic dimmed">
-              <span>D: {{ getStateData(state.code, 'geodistricts', 'D') }}</span>
-              <span class="change-indicator" *ngIf="getStateDataChange(state.code, 'geodistricts', 'D')">({{
-                getStateDataChange(state.code, 'geodistricts', 'D') }})</span>
-            </div>
-            <div class="data-badge republican dimmed">
-              <span>R: {{ getStateData(state.code, 'geodistricts', 'R') }}</span>
-            </div>
-          </div>
-          <div class="data-column swing-column">
-            <div class="data-badge republican swing">
-              <span>+{{ getStateData(state.code, 'swing', 'value') }}</span>
-            </div>
-          </div>
-        </div>
+        <app-state-row 
+          *ngFor="let state of states"
+          [data]="getStateRowData(state.code)"
+          [showArrow]="true"
+          [clickable]="true"
+          variant="no-bkg"
+          section="us-data"
+          (rowClick)="selectStateFromTable($event)">
+        </app-state-row>
       </section>
     </ng-container>
 
@@ -127,39 +74,14 @@
               <div class="header-cell swing-column">Swing</div>
             </div>
           </div>
-          <div class="state-row" *ngIf="selectedState && selectedState !== 'ALL'">
-            <div class="state-button">
-              <img [src]="'/images/state-flags/23x15/' + selectedState + '.png'" [alt]="selectedState + ' Flag'"
-                class="state-flag" (error)="$event.target.style.display='none'">
-              <span class="state-abbr">{{ selectedState }}</span>
-              <span class="state-districts">({{ getStateDistrictCount(selectedState) }})</span>
-            </div>
-            <div class="data-column congress-column">
-              <div class="data-badge democratic">
-                <span>D: {{ getStateData(selectedState, '119th', 'D') }}</span>
-                <span class="change-indicator" *ngIf="getStateDataChange(selectedState, '119th', 'D')">({{
-                  getStateDataChange(selectedState, '119th', 'D') }})</span>
-              </div>
-              <div class="data-badge republican">
-                <span>R: {{ getStateData(selectedState, '119th', 'R') }}</span>
-              </div>
-            </div>
-            <div class="data-column geodistricts-column">
-              <div class="data-badge democratic dimmed">
-                <span>D: {{ getStateData(selectedState, 'geodistricts', 'D') }}</span>
-                <span class="change-indicator" *ngIf="getStateDataChange(selectedState, 'geodistricts', 'D')">({{
-                  getStateDataChange(selectedState, 'geodistricts', 'D') }})</span>
-              </div>
-              <div class="data-badge republican dimmed">
-                <span>R: {{ getStateData(selectedState, 'geodistricts', 'R') }}</span>
-              </div>
-            </div>
-            <div class="data-column swing-column">
-              <div class="data-badge republican swing">
-                <span>+{{ getStateData(selectedState, 'swing', 'value') }}</span>
-              </div>
-            </div>
-          </div>
+          <app-state-row 
+            *ngIf="selectedState && selectedState !== 'ALL'"
+            [data]="getStateRowData(selectedState)"
+            [showArrow]="false"
+            [clickable]="false"
+            variant="no-bkg"
+            section="info">
+          </app-state-row>
         </div>
 
         <div class="info-body">

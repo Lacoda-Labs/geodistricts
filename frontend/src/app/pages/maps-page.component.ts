@@ -13,6 +13,7 @@ import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
+import { StateRowComponent, StateRowData } from '../components/state-row.component';
 import { environment } from '../../environments/environment';
 
 declare global {
@@ -33,6 +34,7 @@ declare global {
     MatCheckboxModule,
     MatChipsModule,
     PageHeaderComponent,
+    StateRowComponent,
   ],
   templateUrl: './maps-page.component.html',
   styleUrls: ['./maps-page.component.scss'],
@@ -2763,6 +2765,47 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectStateFromTable(stateCode: string): void {
     this.selectedState = stateCode;
     this.onStateChange();
+  }
+
+  /**
+   * Get US row data for StateRowComponent
+   */
+  getUSRowData(): StateRowData {
+    const congressDChangeStr = this.getUSDataChange('119th', 'D');
+    const geodistrictsDChangeStr = this.getUSDataChange('geodistricts', 'D');
+    return {
+      stateCode: 'US',
+      stateName: 'United States',
+      districts: 435,
+      congressD: parseInt(this.getUSData('119th', 'D')) || 0,
+      congressR: parseInt(this.getUSData('119th', 'R')) || 0,
+      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, '')) : undefined,
+      geodistrictsD: parseInt(this.getUSData('geodistricts', 'D')) || 0,
+      geodistrictsR: parseInt(this.getUSData('geodistricts', 'R')) || 0,
+      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, '')) : undefined,
+      swing: parseInt(this.getUSData('swing', 'value')) || 0
+    };
+  }
+
+  /**
+   * Get state row data for StateRowComponent
+   */
+  getStateRowData(stateCode: string): StateRowData {
+    const state = this.states.find(s => s.code === stateCode);
+    const congressDChangeStr = this.getStateDataChange(stateCode, '119th', 'D');
+    const geodistrictsDChangeStr = this.getStateDataChange(stateCode, 'geodistricts', 'D');
+    return {
+      stateCode: stateCode,
+      stateName: state?.name,
+      districts: state?.districts || 0,
+      congressD: parseInt(this.getStateData(stateCode, '119th', 'D')) || 0,
+      congressR: parseInt(this.getStateData(stateCode, '119th', 'R')) || 0,
+      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, '')) : undefined,
+      geodistrictsD: parseInt(this.getStateData(stateCode, 'geodistricts', 'D')) || 0,
+      geodistrictsR: parseInt(this.getStateData(stateCode, 'geodistricts', 'R')) || 0,
+      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, '')) : undefined,
+      swing: parseInt(this.getStateData(stateCode, 'swing', 'value')) || 0
+    };
   }
 
 }

@@ -1,0 +1,194 @@
+:host{
+  background-color: var(--mat-sys-surface-container);
+}
+// State row component styles matching Figma no-bkg variant
+.state-row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 0;
+  padding: 5px 2px 5px 2px;
+  min-height: 20px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  border-bottom: 1px solid transparent;
+
+  &.no-bkg {
+    // no-bkg variant: no background color
+    background-color: transparent;
+  }
+
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--mat-sys-surface-container, #EBEEF3);
+    }
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.state-button {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 4px 0 4px;
+  border-radius: 6px;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  width: 96px;
+  box-sizing: border-box;
+
+  .arrow-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    flex-shrink: 0;
+  }
+
+  .state-flag {
+    width: 23px;
+    height: 15px;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .state-abbr {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .state-districts {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.data-column {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  box-sizing: border-box;
+
+  &.congress-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.geodistricts-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.swing-column {
+    width: 34px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.data-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: normal;
+  white-space: nowrap;
+  // no-bkg variant: no background color
+  background-color: transparent;
+
+  &.democratic {
+    // no-bkg variant: no background color, use blue text from Figma
+    background-color: transparent;
+    color: #2F59FF;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed blue
+      background-color: transparent;
+      color: #2F59FF;
+      opacity: 0.7;
+    }
+  }
+
+  &.republican {
+    // no-bkg variant: no background color, use red text from Figma
+    background-color: transparent;
+    color: #FF2828;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed red
+      background-color: transparent;
+      color: #FF2828;
+      opacity: 0.7;
+    }
+
+    &.swing {
+      // no-bkg variant: no background color, use red text
+      background-color: transparent;
+      color: #FF2828;
+      justify-content: center;
+    }
+  }
+
+  .change-indicator {
+    font-size: 12px;
+  }
+}
+
+// Styles for us-data-section (dark background)
+:host-context(.us-data-section) {
+  .data-badge {
+    &.democratic {
+      color: #2F59FF;
+
+      &.dimmed {
+        color: #2F59FF;
+        opacity: 0.7;
+      }
+    }
+
+    &.republican {
+      color: #FF2828;
+
+      &.dimmed {
+        color: #FF2828;
+        opacity: 0.7;
+      }
+
+      &.swing {
+        color: #FF2828;
+      }
+    }
+  }
+}
+

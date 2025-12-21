@@ -4208,7 +4208,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       }
 
       // Initialize algorithm and get step 0
-      const { step, state: algorithmState } = await algorithmService.initializeAlgorithm(
+      let { step, state: algorithmState } = await algorithmService.initializeAlgorithm(
         tracts,
         totalDistricts,
         maxIterations

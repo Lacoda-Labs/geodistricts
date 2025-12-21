@@ -22,11 +22,13 @@
   height: 50%;
   background-color: var(--mat-sys-surface-container, #EBEEF3);
   position: relative;
+  min-width: 0; // Allow flex item to shrink
 
   // Tablet and Desktop: full height, on the right
   @media (min-width: 768px) {
     height: 100%;
-    flex: 1;
+    flex: 1 1 auto; // Grow and shrink, take remaining space
+    min-width: 300px; // Ensure minimum width so map doesn't disappear
     order: 2; // Map appears on the right
   }
 }
@@ -258,19 +260,30 @@
   flex-direction: column;
   overflow: hidden;
   width: 100%;
+  min-width: 0; // Allow flex item to shrink below content size
+  box-sizing: border-box;
+  align-items: center; // Center contents horizontally
 
-  // Mobile: center the fixed-width info-section
+  // Mobile: fit container width and center contents
   @media (max-width: 767px) {
-    margin: 0 auto;
-    max-width: 402px;
+    width: 100%;
+    max-width: 100%;
   }
 
-  // Tablet and Desktop: fixed width on the left
+  // Tablet and Desktop: fit container width on the left
   @media (min-width: 768px) {
-    width: 402px;
+    width: 100%;
     height: 100%;
-    flex-shrink: 0;
+    flex: 1; // Don't grow, but allow shrink, use natural width
+    min-width: 402px; // Ensure minimum width
+    max-width: 440px; // Limit maximum width
     order: 1; // Info section appears on the left
+  }
+
+  // Center child content
+  > * {
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -285,28 +298,30 @@
 }
 
 .state-rows-header {
-  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  // no-bkg variant: no background color
+  background-color: transparent;
   border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
-  height: 28px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  min-height: 20px;
   width: 100%;
 }
 
 .header-row {
   display: flex;
   align-items: center;
-  height: 28px;
-  padding: 2px;
+  min-height: 20px;
+  padding: 5px 2px 5px 2px;
   box-sizing: border-box;
 }
 
 .header-cell {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 12px;
   line-height: 16px;
   color: var(--mat-sys-on-surface-variant, #42474E);
   letter-spacing: 0.5px;
-  padding: 4px;
+  padding: 0;
   box-sizing: border-box;
 
   &.state-column {
@@ -427,26 +442,39 @@
   font-size: 12px;
   line-height: normal;
   white-space: nowrap;
-  color: white;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  color: var(--mat-sys-on-surface, #181C20);
 
   &.democratic {
-    background-color: #0033ff;
+    // no-bkg variant: no background color, use blue text from Figma
+    background-color: transparent;
+    color: #2F59FF;
 
     &.dimmed {
-      background-color: #5577ff;
+      // no-bkg variant: no background color, dimmed blue
+      background-color: transparent;
+      color: #2F59FF;
+      opacity: 0.7;
     }
   }
 
   &.republican {
-    background-color: #b71c1c;
+    // no-bkg variant: no background color, use red text from Figma
+    background-color: transparent;
+    color: #FF2828;
 
     &.dimmed {
-      background-color: #ef5350;
-      color: white;
+      // no-bkg variant: no background color, dimmed red
+      background-color: transparent;
+      color: #FF2828;
+      opacity: 0.7;
     }
 
     &.swing {
-      background-color: #ef5350;
+      // no-bkg variant: no background color, use red text
+      background-color: transparent;
+      color: #FF2828;
       justify-content: center;
     }
   }
@@ -563,7 +591,6 @@
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
-  padding: 16px;
 }
 
 .step-header {
@@ -606,7 +633,7 @@
   gap: 16px;
   margin-bottom: 16px;
   flex-wrap: wrap;
-
+  padding: 16px;
   .dg-header-left {
     flex: 1;
     text-align: center;
@@ -861,35 +888,50 @@
   background-color: #EBEEF3; // Light blue-gray background
   position: relative;
   min-height: 0;
+  min-width: 0; // Allow flex item to shrink
 
   // Tablet and Desktop: full height, on the right
   @media (min-width: 768px) {
     height: 100%;
-    flex: 1;
+    flex: 1 1 auto; // Grow and shrink, take remaining space
+    min-width: 300px; // Ensure minimum width so map doesn't disappear
     order: 2; // Map appears on the right
   }
 }
 
 .us-data-section {
-  background-color: #1a1a1a; // Dark gray/black background
-  color: #ffffff;
+  background-color: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
   padding: 0;
   overflow-y: auto;
   flex: 1;
   width: 100%;
+  min-width: 0; // Allow flex item to shrink below content size
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center; // Center contents horizontally
 
-  // Mobile: center the fixed-width us-data-section
+  // Mobile: fit container width and center contents
   @media (max-width: 767px) {
-    margin: 0 auto;
-    max-width: 402px;
+    width: 100%;
+    max-width: 100%;
   }
 
-  // Tablet and Desktop: fixed width on the left
+  // Tablet and Desktop: fit container width on the left
   @media (min-width: 768px) {
-    width: 402px;
-    flex-shrink: 0;
+    // width: 100%;
+    flex: 1; // Don't grow, but allow shrink, use natural width
+    min-width: 402px; // Ensure minimum width
+    max-width: 440px; // Limit maximum width
     order: 1; // Data section appears on the left
   }
+
+  // // Center child content
+  // > * {
+  //   width: 100%;
+  //   max-width: 100%;
+  // }
 }
 
 // Common grid layout for all rows
@@ -898,39 +940,42 @@
 .state-row {
   display: flex;
   align-items: center;
-  padding: 4px 0;
   box-sizing: border-box;
-  width: 100%;
+  // width: 100%;
   gap: 0;
 }
 
 .us-summary-row {
-  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
-  padding: 5px 0;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  padding: 5px 2px 5px 2px;
+  min-height: 20px;
 
   .state-button {
     width: auto;
-    padding-left: 8px;
+    padding-left: 4px;
   }
 }
 
 .table-header-row {
-  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  // no-bkg variant: no background color
+  background-color: transparent;
   border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
-  height: 28px;
-  padding: 2px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  // min-height: 20px;
+  padding: 5px 2px 5px 2px;
   display: flex;
   align-items: center;
 }
 
 .table-header-cell {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 12px;
   line-height: 16px;
   color: var(--mat-sys-on-surface-variant, #42474E);
   letter-spacing: 0.5px;
-  padding: 4px;
+  padding: 0;
   box-sizing: border-box;
 
   &:first-child {
@@ -961,14 +1006,20 @@
 }
 
 .state-row {
-  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
-  padding: 4px 0;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  padding: 5px 2px 5px 2px;
+  min-height: 20px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   border-bottom: 1px solid transparent;
 
   &:hover {
     background-color: var(--mat-sys-surface-container, #EBEEF3);
+  }
+
+  &:last-child {
+    border-bottom: none;
   }
 }
 
@@ -1067,26 +1118,39 @@
   font-size: 12px;
   line-height: normal;
   white-space: nowrap;
-  color: white;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  color: #ffffff;
 
   &.democratic {
-    background-color: #0033ff;
+    // no-bkg variant: no background color, use blue text from Figma
+    background-color: transparent;
+    color: #2F59FF;
 
     &.dimmed {
-      background-color: #2F59FF;
+      // no-bkg variant: no background color, dimmed blue
+      background-color: transparent;
+      color: #2F59FF;
+      opacity: 0.7;
     }
   }
 
   &.republican {
-    background-color: #b71c1c;
+    // no-bkg variant: no background color, use red text from Figma
+    background-color: transparent;
+    color: #FF2828;
 
     &.dimmed {
-      background-color: #FF2828;
-      color: white;
+      // no-bkg variant: no background color, dimmed red
+      background-color: transparent;
+      color: #FF2828;
+      opacity: 0.7;
     }
 
     &.swing {
-      background-color: #ef5350;
+      // no-bkg variant: no background color, use red text
+      background-color: transparent;
+      color: #FF2828;
       justify-content: center;
     }
   }
@@ -1125,9 +1189,10 @@
 .table-header-cell {
   display: flex;
   align-items: center;
-  font-size: 0.875rem;
+  font-size: 12px;
   font-weight: 600;
-  color: #ffffff;
+  // color: #ffffff;
+  // height: 32px;
 
   &:last-child {
     // Swing column

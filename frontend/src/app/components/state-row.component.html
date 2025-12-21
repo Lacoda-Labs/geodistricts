@@ -1,0 +1,38 @@
+<div class="state-row" 
+     [class.no-bkg]="variant === 'no-bkg'"
+     [class.clickable]="clickable"
+     (click)="onRowClick()">
+  <div class="state-button">
+    <mat-icon class="arrow-icon" fontIcon="keyboard_arrow_right" *ngIf="showArrow && data.stateCode !== 'US'"></mat-icon>
+    <img [src]="'/images/state-flags/23x15/' + data.stateCode + '.png'" 
+         [alt]="(data.stateName || data.stateCode) + ' Flag'"
+         class="state-flag" 
+         (error)="$event.target.style.display='none'">
+    <span class="state-abbr">{{ data.stateCode }}</span>
+    <span class="state-districts">({{ data.districts }})</span>
+  </div>
+  <div class="data-column congress-column">
+    <div class="data-badge democratic" [class.dimmed]="false">
+      <span>D: {{ data.congressD }}</span>
+      <span class="change-indicator" *ngIf="data.congressDChange">({{ data.congressDChange }})</span>
+    </div>
+    <div class="data-badge republican" [class.dimmed]="false">
+      <span>R: {{ data.congressR }}</span>
+    </div>
+  </div>
+  <div class="data-column geodistricts-column">
+    <div class="data-badge democratic dimmed">
+      <span>D: {{ data.geodistrictsD }}</span>
+      <span class="change-indicator" *ngIf="data.geodistrictsDChange">(+{{ data.geodistrictsDChange }})</span>
+    </div>
+    <div class="data-badge republican dimmed">
+      <span>R: {{ data.geodistrictsR }}</span>
+    </div>
+  </div>
+  <div class="data-column swing-column">
+    <div class="data-badge republican swing">
+      <span>+{{ data.swing }}</span>
+    </div>
+  </div>
+</div>
+
