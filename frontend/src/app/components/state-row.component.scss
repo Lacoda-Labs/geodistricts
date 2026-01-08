@@ -13,9 +13,14 @@
   transition: background-color 0.2s ease, border-color 0.2s ease;
   border-bottom: 1px solid transparent;
 
-  &.no-bkg {
-    // no-bkg variant: no background color
+  &.background-off {
+    // background-off: no background color
     background-color: transparent;
+  }
+
+  &.background-on {
+    // background-on: has background color
+    background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
   }
 
   &.clickable {

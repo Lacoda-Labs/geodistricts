@@ -1,5 +1,6 @@
 <div class="state-row" 
-     [class.no-bkg]="variant === 'no-bkg'"
+     [class.background-off]="background === 'off'"
+     [class.background-on]="background === 'on'"
      [class.clickable]="clickable"
      (click)="onRowClick()">
   <div class="state-button">

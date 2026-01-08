@@ -23,7 +23,7 @@
           [data]="getUSRowData()"
           [showArrow]="false"
           [clickable]="false"
-          variant="no-bkg"
+          background="off"
           section="us-data">
         </app-state-row>
 
@@ -41,7 +41,7 @@
           [data]="getStateRowData(state.code)"
           [showArrow]="true"
           [clickable]="true"
-          variant="no-bkg"
+          background="off"
           section="us-data"
           (rowClick)="selectStateFromTable($event)">
         </app-state-row>
@@ -79,7 +79,7 @@
             [data]="getStateRowData(selectedState)"
             [showArrow]="false"
             [clickable]="false"
-            variant="no-bkg"
+            background="off"
             section="info">
           </app-state-row>
         </div>

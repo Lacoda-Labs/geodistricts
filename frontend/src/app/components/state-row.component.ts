@@ -26,7 +26,7 @@ export class StateRowComponent {
   @Input() data!: StateRowData;
   @Input() showArrow: boolean = true;
   @Input() clickable: boolean = true;
-  @Input() variant: 'default' | 'no-bkg' = 'no-bkg';
+  @Input() background: 'off' | 'on' = 'off';
   @Input() section: 'us-data' | 'info' = 'us-data'; // Determines text color (white for us-data, colored for info)
   
   @Output() rowClick = new EventEmitter<string>();
