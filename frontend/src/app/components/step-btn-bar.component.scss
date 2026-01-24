@@ -1,0 +1,101 @@
+.step-btn-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.step-btns {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  &:active:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    color: rgba(66, 71, 78, 1);
+  }
+}
+
+// Specific button styles
+.start-btn {
+  width: 48px;
+  
+  .mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.prev-step-btn,
+.play-btn,
+.next-step-btn,
+.end-btn {
+  width: 48px;
+  
+  .mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.show-tracts-btn,
+.restart-btn {
+  width: 48px;
+  
+  .mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+// Ensure Material button styles don't interfere
+::ng-deep {
+  .step-btn-bar {
+    .mat-mdc-icon-button {
+      --mdc-icon-button-state-layer-size: 40px;
+      padding: 0;
+      
+      .mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .mat-mdc-icon-button:disabled {
+      opacity: 0.38;
+    }
+  }
+}

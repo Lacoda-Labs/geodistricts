@@ -82,6 +82,23 @@
             background="off"
             section="info">
           </app-state-row>
+          <app-step-btn-bar
+            [variant]="isAdminMode ? 'admin' : 'public'"
+            [canGoToFirst]="canGoToFirstStep()"
+            [canGoToPrevious]="canGoToPreviousStep()"
+            [canGoToNext]="canGoToNextStep()"
+            [canGoToLast]="canGoToLastStep()"
+            [isPlaying]="isPlaying"
+            [currentStepIndex]="currentStepIndex"
+            [totalSteps]="getTotalSteps()"
+            (firstStep)="goToFirstStep()"
+            (previousStep)="previousStep()"
+            (playPause)="playSteps()"
+            (nextStep)="nextStep()"
+            (lastStep)="goToLastStep()"
+            (toggleTracts)="toggleTractBoundaries()"
+            (restart)="resetToStart()">
+          </app-step-btn-bar>
         </div>
 
         <div class="info-body">

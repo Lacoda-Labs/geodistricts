@@ -14,6 +14,7 @@ import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, Geodis
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
+import { StepBtnBarComponent } from '../components/step-btn-bar.component';
 import { environment } from '../../environments/environment';
 
 declare global {
@@ -35,6 +36,7 @@ declare global {
     MatChipsModule,
     PageHeaderComponent,
     StateRowComponent,
+    StepBtnBarComponent,
   ],
   templateUrl: './maps-page.component.html',
   styleUrls: ['./maps-page.component.scss'],
@@ -60,6 +62,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
+  isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
+  private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
   private tractLayer: L.LayerGroup | null = null;
@@ -75,6 +79,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private isLoadingSteps: boolean = false; // Track if we're currently loading steps
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
   private mapToggleControl: L.Control | null = null; // Custom toggle control
+  isPlaying: boolean = false; // Track if auto-playing steps
+  private playInterval: any = null; // Interval for auto-playing steps
 
   // US States with their congressional district counts
   states = [
@@ -135,6 +141,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Check if admin mode is enabled via URL hash
+    if (typeof window !== 'undefined') {
+      this.isAdminMode = window.location.hash === '#admin';
+      
+      // Listen for hash changes
+      this.hashChangeHandler = () => {
+        this.isAdminMode = window.location.hash === '#admin';
+      };
+      window.addEventListener('hashchange', this.hashChangeHandler);
+    }
+    
     // Check if we're on production (geodistricts.org)
     const isProduction = typeof window !== 'undefined' && 
       (window.location.hostname === 'geodistricts.org' || 
@@ -179,6 +196,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Stop auto-playing if active
+    this.pauseSteps();
+
+    // Remove hash change listener
+    if (typeof window !== 'undefined' && this.hashChangeHandler) {
+      window.removeEventListener('hashchange', this.hashChangeHandler);
+    }
+
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.clearDivisionLines();
     if (this.map) {
@@ -418,6 +443,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     
     this.updateMapLayers();
+  }
+
+  toggleTractBoundaries(): void {
+    this.showTractBoundaries = !this.showTractBoundaries;
+    this.onTractBoundariesChange();
   }
 
   private updateMapLayers(): void {
@@ -1222,6 +1252,106 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   goHome(): void {
     this.router.navigate(['/home']);
+  }
+
+  goToFirstStep(): void {
+    if (this.currentStepIndex === 0) {
+      return; // Already at first step
+    }
+    // Go to step 0
+    const step = this.loadedSteps[0];
+    if (step) {
+      this.currentStepIndex = 0;
+      this.currentStep = step;
+      this.selectedDistrictGroupIndex = null;
+      this.isolatedTractIds.clear();
+      this.isolatedTractsData = null;
+      this.bridgeTractIds.clear();
+      this.bridgeTractsData = null;
+      this.renderFinalDistricts();
+    } else {
+      // Step 0 not loaded, reset to start
+      this.resetToStart();
+    }
+  }
+
+  goToLastStep(): void {
+    const lastIndex = this.getTotalSteps() - 1;
+    if (lastIndex <= 0 || this.currentStepIndex === lastIndex) {
+      return; // Already at last step or no steps available
+    }
+    
+    const step = this.loadedSteps[lastIndex];
+    if (step) {
+      this.currentStepIndex = lastIndex;
+      this.currentStep = step;
+      this.selectedDistrictGroupIndex = null;
+      this.isolatedTractIds.clear();
+      this.isolatedTractsData = null;
+      this.bridgeTractIds.clear();
+      this.bridgeTractsData = null;
+      this.renderFinalDistricts();
+    } else {
+      // Last step not loaded, need to load it
+      // This would require loading all steps up to the last one
+      console.log('Last step not loaded yet. Loading steps...');
+      // For now, just go to the highest loaded step
+      let highestIndex = 0;
+      for (let i = this.loadedSteps.length - 1; i >= 0; i--) {
+        if (this.loadedSteps[i]) {
+          highestIndex = i;
+          break;
+        }
+      }
+      if (highestIndex > this.currentStepIndex) {
+        const step = this.loadedSteps[highestIndex];
+        if (step) {
+          this.currentStepIndex = highestIndex;
+          this.currentStep = step;
+          this.selectedDistrictGroupIndex = null;
+          this.renderFinalDistricts();
+        }
+      }
+    }
+  }
+
+  playSteps(): void {
+    if (this.isPlaying) {
+      this.pauseSteps();
+      return;
+    }
+
+    this.isPlaying = true;
+    const playDelay = 2000; // 2 seconds between steps
+
+    this.playInterval = setInterval(() => {
+      if (!this.canGoToNextStep()) {
+        this.pauseSteps();
+        return;
+      }
+      this.nextStep();
+    }, playDelay);
+  }
+
+  pauseSteps(): void {
+    this.isPlaying = false;
+    if (this.playInterval) {
+      clearInterval(this.playInterval);
+      this.playInterval = null;
+    }
+  }
+
+  canGoToFirstStep(): boolean {
+    return this.currentStepIndex > 0;
+  }
+
+  canGoToPreviousStep(): boolean {
+    return this.currentStepIndex > 0;
+  }
+
+  canGoToLastStep(): boolean {
+    const total = this.getTotalSteps();
+    return total > 0 && this.currentStepIndex < total - 1;
   }
 
   private renderFinalDistricts(): void {

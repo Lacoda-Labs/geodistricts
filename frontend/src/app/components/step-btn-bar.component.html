@@ -1,0 +1,73 @@
+<div class="step-btn-bar" [attr.data-variant]="variant">
+  <!-- Admin variant: Show tracts button -->
+  <button 
+    *ngIf="variant === 'admin'"
+    class="icon-btn show-tracts-btn"
+    (click)="onToggleTracts()"
+    mat-icon-button
+    [attr.aria-label]="'Toggle tract boundaries'">
+    <mat-icon fontIcon="dashboard_2"></mat-icon>
+  </button>
+
+  <!-- Step navigation buttons -->
+  <div class="step-btns">
+    <!-- First/Start button -->
+    <button 
+      class="icon-btn start-btn"
+      (click)="onFirstStep()"
+      [disabled]="!canGoToFirst"
+      mat-icon-button
+      [attr.aria-label]="'Go to first step'">
+      <mat-icon fontIcon="first_page"></mat-icon>
+    </button>
+
+    <!-- Previous step button -->
+    <button 
+      class="icon-btn prev-step-btn"
+      (click)="onPreviousStep()"
+      [disabled]="!canGoToPrevious"
+      mat-icon-button
+      [attr.aria-label]="'Go to previous step'">
+      <mat-icon fontIcon="chevron_left"></mat-icon>
+    </button>
+
+    <!-- Play/Pause button -->
+    <button 
+      class="icon-btn play-btn"
+      (click)="onPlayPause()"
+      mat-icon-button
+      [attr.aria-label]="isPlaying ? 'Pause' : 'Play'">
+      <mat-icon [fontIcon]="isPlaying ? 'pause_circle' : 'play_circle'"></mat-icon>
+    </button>
+
+    <!-- Next step button -->
+    <button 
+      class="icon-btn next-step-btn"
+      (click)="onNextStep()"
+      [disabled]="!canGoToNext"
+      mat-icon-button
+      [attr.aria-label]="'Go to next step'">
+      <mat-icon fontIcon="keyboard_arrow_right"></mat-icon>
+    </button>
+
+    <!-- Last/End button -->
+    <button 
+      class="icon-btn end-btn"
+      (click)="onLastStep()"
+      [disabled]="!canGoToLast"
+      mat-icon-button
+      [attr.aria-label]="'Go to last step'">
+      <mat-icon fontIcon="last_page"></mat-icon>
+    </button>
+  </div>
+
+  <!-- Admin variant: Restart algorithm button -->
+  <button 
+    *ngIf="variant === 'admin'"
+    class="icon-btn restart-btn"
+    (click)="onRestart()"
+    mat-icon-button
+    [attr.aria-label]="'Restart algorithm'">
+    <mat-icon fontIcon="restart_alt"></mat-icon>
+  </button>
+</div>
