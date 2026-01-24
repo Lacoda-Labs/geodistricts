@@ -219,25 +219,45 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // If map already exists and is valid, check if container is still in DOM
+    // If map already exists, check if it's attached to the correct DOM element
     if (this.map) {
       try {
-        // Check if map container is still valid
         const container = this.map.getContainer();
-        if (container && container.parentNode) {
-          // Map is still valid, just update the view
+        // Check if the map container is the same as the current mapElement
+        // If not, or if container was removed from DOM, we need to reinitialize
+        if (container && container.parentNode && container === mapElement) {
+          // Map is still valid and attached to the correct element, just update the view
+          console.log('🗺️ Map already initialized, updating view...');
+          // Force map to invalidate size in case container dimensions changed
+          setTimeout(() => {
+            if (this.map) {
+              this.map.invalidateSize();
+            }
+          }, 100);
           this.updateMapView();
           return;
+        } else {
+          // Map container is different or was removed, need to reinitialize
+          console.log('🗺️ Map container changed or removed, reinitializing...');
+          this.map.remove();
+          this.map = null;
         }
       } catch (e) {
         // Map container was removed, need to reinitialize
-        console.log('Map container was removed, reinitializing...');
-        this.map.remove();
+        console.log('🗺️ Map container error, reinitializing...', e);
+        if (this.map) {
+          try {
+            this.map.remove();
+          } catch (removeError) {
+            // Ignore errors during removal
+          }
+        }
         this.map = null;
       }
     }
 
     // Initialize new map
+    console.log('🗺️ Initializing new map...');
     this.map = L.map('usMap', {
       scrollWheelZoom: true
     }).setView([39.8283, -98.5795], 4); // Center of US
@@ -268,6 +288,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // Update map view based on selected state
     this.updateMapView();
+    
+    // Force map to invalidate size after a short delay to ensure container is properly sized
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 200);
   }
 
   /**
@@ -403,6 +430,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Persist selected state to localStorage
       localStorage.setItem('selectedState', this.selectedState);
       
+      // Clear existing layers when switching states
+      if (this.tractLayer) {
+        this.tractLayer.clearLayers();
+      }
+      this.tractGeoJsonLayers.clear();
+      this.tractIdToLayer.clear();
+      this.clearDivisionLines();
+      
       // Re-initialize map when switching views (DOM element may have been recreated)
       setTimeout(() => {
         this.initializeMap();
@@ -419,9 +454,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
-        if (this.tractLayer) {
-          this.tractLayer.clearLayers();
-        }
       }
     } else {
       // Clear saved state if no state is selected
@@ -1534,17 +1566,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               const unionBounds = geoJson.getBounds();
               if (unionBounds && unionBounds.isValid()) {
                 const isMain = polygonIndex === 0;
-                if (this.currentStepIndex === 0 && isMain) {
-                  console.log(`🗺️ MAIN polygon bounds: ${unionBounds.getSouth()} to ${unionBounds.getNorth()} (lat), ${unionBounds.getWest()} to ${unionBounds.getEast()} (lng)`);
-                  console.log(`🗺️ MAIN polygon center: ${unionBounds.getCenter()}, size: ${unionBounds.getNorth() - unionBounds.getSouth()} x ${unionBounds.getEast() - unionBounds.getWest()}`);
+                // Log bounds for final step (step 4) or step 0
+                if ((this.currentStepIndex === 0 || this.currentStepIndex >= 4) && isMain) {
+                  console.log(`🗺️ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon bounds for district ${district.startDistrictNumber}: ${unionBounds.getSouth()} to ${unionBounds.getNorth()} (lat), ${unionBounds.getWest()} to ${unionBounds.getEast()} (lng)`);
+                  console.log(`🗺️ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon center: ${unionBounds.getCenter()}, size: ${unionBounds.getNorth() - unionBounds.getSouth()} x ${unionBounds.getEast() - unionBounds.getWest()}`);
                 }
                 bounds.extend(unionBounds);
                 hasBounds = true;
               } else {
                 const isMain = polygonIndex === 0;
-                if (this.currentStepIndex === 0 && isMain) {
-                  console.error(`❌ MAIN polygon bounds invalid! unionBounds:`, unionBounds);
-                }
+                console.error(`❌ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon bounds invalid for district ${district.startDistrictNumber}! unionBounds:`, unionBounds);
               }
             } catch (error) {
               console.error(`⚠️ Error rendering union polygon ${polygonIndex} for district ${district.startDistrictNumber}-${district.endDistrictNumber}:`, error, unionPolygon);
@@ -1577,8 +1608,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
               const unionBounds = geoJson.getBounds();
               if (unionBounds && unionBounds.isValid()) {
+                // Log bounds for final step
+                if (this.currentStepIndex >= 4) {
+                  console.log(`🗺️ Single union polygon bounds for district ${district.startDistrictNumber}: ${unionBounds.getSouth()} to ${unionBounds.getNorth()} (lat), ${unionBounds.getWest()} to ${unionBounds.getEast()} (lng)`);
+                }
                 bounds.extend(unionBounds);
                 hasBounds = true;
+              } else {
+                console.error(`❌ Single union polygon bounds invalid for district ${district.startDistrictNumber}! unionBounds:`, unionBounds);
               }
             } catch (error) {
               console.error(`⚠️ Error rendering single union polygon for district ${district.startDistrictNumber}-${district.endDistrictNumber}:`, error);
@@ -1681,7 +1718,33 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Fit map to show all districts
     if (hasBounds && bounds.isValid() && this.map) {
+      console.log(`🗺️ Fitting map to bounds:`, {
+        south: bounds.getSouth(),
+        north: bounds.getNorth(),
+        west: bounds.getWest(),
+        east: bounds.getEast(),
+        center: bounds.getCenter(),
+        isValid: bounds.isValid()
+      });
       this.map.fitBounds(bounds, { padding: [20, 20] });
+      // Force invalidate size after fitting bounds to ensure map renders correctly
+      setTimeout(() => {
+        if (this.map) {
+          this.map.invalidateSize();
+        }
+      }, 100);
+    } else {
+      console.warn('⚠️ Cannot fit map to bounds:', {
+        hasBounds,
+        isValid: bounds.isValid(),
+        mapExists: !!this.map,
+        bounds: hasBounds ? {
+          south: bounds.getSouth(),
+          north: bounds.getNorth(),
+          west: bounds.getWest(),
+          east: bounds.getEast()
+        } : 'no bounds'
+      });
     }
 
     // Render division lines for current step and all previous steps
