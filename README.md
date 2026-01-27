@@ -15,145 +15,120 @@ cd geodistricts && ./scripts/quick-start.sh
 
 Visit [geodistricts.org](https://geodistricts.org) for live demos and interactive maps.
 
-<details>
-<summary><strong>🧮 Algorithm Overview</strong> - How GeoDistricts creates fair districts</summary>
+## 🧮 Algorithm Overview
 
-<p>GeoDistricts implements a hierarchical, geography-based algorithm that:</p>
-<ul>
-<li><strong>Population Equality</strong>: Targets &lt;1% variance between districts</li>
-<li><strong>Contiguity</strong>: Maintains geographic continuity where possible</li>
-<li><strong>Objectivity</strong>: Deterministic, automated process using census data only</li>
-<li><strong>Two-Phase Approach</strong>: County-level grouping → Tract-level refinement</li>
-</ul>
+GeoDistricts implements a hierarchical, geography-based algorithm that:
 
-<p><strong>Key Features:</strong></p>
-<ul>
-<li>Recursive geographic division (alternating latitude/longitude)</li>
-<li>Step-by-step visualization and debugging</li>
-<li>Population variance tracking</li>
-<li>Contiguity scoring</li>
-</ul>
+- **Population Equality**: Targets <1% variance between districts
+- **Contiguity**: Maintains geographic continuity where possible
+- **Objectivity**: Deterministic, automated process using census data only
+- **Two-Phase Approach**: County-level grouping → Tract-level refinement
 
-<p>→ <a href="doc/pages/GeodistrictingAlgorithmSpecification.md"><strong>Complete Algorithm Specification</strong></a></p>
-</details>
+**Key Features:**
+- Recursive geographic division (alternating latitude/longitude)
+- Step-by-step visualization and debugging
+- Population variance tracking
+- Contiguity scoring
 
-<details>
-<summary><strong>🏗️ Architecture & Tech Stack</strong> - System design and components</summary>
+→ **[Complete Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)**
 
-<p><strong>Frontend:</strong> Angular 17+, TypeScript, SCSS, Interactive mapping with Leaflet<br>
-<strong>Backend:</strong> Node.js, Express, Census API integration<br>
-<strong>Data:</strong> U.S. Census Bureau TIGER/Line shapefiles, Population data via Census API<br>
-<strong>Infrastructure:</strong> Google Cloud Run, Cloud Storage, Secret Manager<br>
-<strong>CI/CD:</strong> GitHub Actions for automated testing and deployment</p>
+## 🏗️ Architecture & Tech Stack
 
-<p><strong>Project Structure:</strong></p>
-<pre><code>├── frontend/         # Angular web client
+**Frontend:** Angular 17+, TypeScript, SCSS, Interactive mapping with Leaflet  
+**Backend:** Node.js, Express, Census API integration  
+**Data:** U.S. Census Bureau TIGER/Line shapefiles, Population data via Census API  
+**Infrastructure:** Google Cloud Run, Cloud Storage, Secret Manager  
+**CI/CD:** GitHub Actions for automated testing and deployment
+
+**Project Structure:**
+```
+├── frontend/         # Angular web client
 ├── backend/          # Node.js API server
 ├── doc/             # Comprehensive documentation
 ├── scripts/         # Setup and deployment utilities
-└── data/            # Census data cache</code></pre>
+└── data/            # Census data cache
+```
 
-<p>→ <a href="doc/GeoDistrictsProjectOverview.md"><strong>Architecture Details</strong></a></p>
-</details>
+→ **[Architecture Details](doc/GeoDistrictsProjectOverview.md)**
 
-<details>
-<summary><strong>🚀 Development Setup</strong> - Get the project running locally</summary>
+## 🚀 Development Setup
 
-<p><strong>Prerequisites:</strong> Node.js 18+, Angular CLI, Docker (optional)</p>
+**Prerequisites:** Node.js 18+, Angular CLI, Docker (optional)
 
-<p><strong>Quick Setup:</strong></p>
-<pre><code>git clone https://github.com/Lacoda-Labs/geodistricts.git
+**Quick Setup:**
+```bash
+git clone https://github.com/Lacoda-Labs/geodistricts.git
 cd geodistricts
-./scripts/quick-start.sh  # Installs deps & starts dev servers</code></pre>
+./scripts/quick-start.sh  # Installs deps & starts dev servers
+```
 
-<p><strong>Manual Setup:</strong></p>
-<ul>
-<li>Backend: <code>cd backend && npm install && npm run dev</code></li>
-<li>Frontend: <code>cd frontend && npm install && ng serve</code></li>
-<li>Census API: Run <code>./scripts/setup-api-keys.sh</code> for direct API access</li>
-</ul>
+**Manual Setup:**
+- Backend: `cd backend && npm install && npm run dev`
+- Frontend: `cd frontend && npm install && ng serve`
+- Census API: Run `./scripts/setup-api-keys.sh` for direct API access
 
-<p>→ <a href="doc/pages/GITHUB_SETUP.md"><strong>Detailed Setup Guide</strong></a></p>
-</details>
+→ **[Detailed Setup Guide](doc/pages/GITHUB_SETUP.md)**
 
-<details>
-<summary><strong>📊 Data Sources</strong> - Census data and voter registration</summary>
+## 📊 Data Sources
 
-<p><strong>Census Data:</strong> Population, geography from U.S. Census Bureau APIs<br>
-<strong>Geographic Boundaries:</strong> TIGER/Line shapefiles for tract/county boundaries<br>
-<strong>Voter Registration:</strong> Party affiliation data by precinct/county (help needed!)</p>
+**Census Data:** Population, geography from U.S. Census Bureau APIs  
+**Geographic Boundaries:** TIGER/Line shapefiles for tract/county boundaries  
+**Voter Registration:** Party affiliation data by precinct/county (help needed!)
 
-<p><strong>Current Status:</strong> 5/50 states configured (AZ, CA, FL, NY, TX)<br>
-<strong>Priority Need:</strong> Voter data sources for remaining 46 states</p>
+**Current Status:** 5/50 states configured (AZ, CA, FL, NY, TX)  
+**Priority Need:** Voter data sources for remaining 46 states
 
-<p>→ <a href="doc/pages/STATE_DATA_SOURCES.md"><strong>State Data Sources</strong></a> • <a href=".github/ISSUE_TEMPLATE/data-source-request.md"><strong>Request Template</strong></a></p>
-</details>
+→ **[State Data Sources](doc/pages/STATE_DATA_SOURCES.md)** • **[Request Template](.github/ISSUE_TEMPLATE/data-source-request.md)**
 
-<details>
-<summary><strong>☁️ Deployment</strong> - Cloud infrastructure and CI/CD</summary>
+## ☁️ Deployment
 
-<p><strong>Platforms:</strong> Google Cloud Run, GitHub Pages<br>
-<strong>CI/CD:</strong> Automated testing, building, and deployment via GitHub Actions<br>
-<strong>Domains:</strong> Custom domain setup with SSL certificates</p>
+**Platforms:** Google Cloud Run, GitHub Pages  
+**CI/CD:** Automated testing, building, and deployment via GitHub Actions  
+**Domains:** Custom domain setup with SSL certificates
 
-<p><strong>Quick Deploy:</strong></p>
-<pre><code>./scripts/deploy.sh  # Full GCP deployment</code></pre>
+**Quick Deploy:**
+```bash
+./scripts/deploy.sh  # Full GCP deployment
+```
 
-<p>→ <a href="doc/pages/GCP_SETUP.md"><strong>GCP Setup Guide</strong></a> • <a href="doc/pages/DOMAIN_SETUP_GUIDE.md"><strong>Domain Setup</strong></a></p>
-</details>
+→ **[GCP Setup Guide](doc/pages/GCP_SETUP.md)** • **[Domain Setup](doc/pages/DOMAIN_SETUP_GUIDE.md)**
 
-<details>
-<summary><strong>🤝 Contributing</strong> - How developers can help</summary>
+## 🤝 Contributing
 
-<p><strong>Priority Areas:</strong></p>
-<ol>
-<li><strong>Data Collection</strong>: Find voter registration sources for remaining states</li>
-<li><strong>Algorithm Enhancement</strong>: Improve contiguity scoring, performance optimization</li>
-<li><strong>UI/UX</strong>: Better visualization, accessibility improvements</li>
-<li><strong>Testing</strong>: Unit tests, integration tests, algorithm validation</li>
-</ol>
+**Priority Areas:**
+1. **Data Collection**: Find voter registration sources for remaining states
+2. **Algorithm Enhancement**: Improve contiguity scoring, performance optimization
+3. **UI/UX**: Better visualization, accessibility improvements
+4. **Testing**: Unit tests, integration tests, algorithm validation
 
-<p><strong>Getting Started:</strong></p>
-<ol>
-<li>Fork the repository</li>
-<li>Create a feature branch</li>
-<li>Make your changes following our <a href="CONTRIBUTING.md">contributing guidelines</a></li>
-<li>Submit a pull request</li>
-</ol>
+**Getting Started:**
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes following our [contributing guidelines](CONTRIBUTING.md)
+4. Submit a pull request
 
-<p>→ <a href="CONTRIBUTING.md"><strong>Contributing Guide</strong></a> • <a href=".github/ISSUE_TEMPLATE/"><strong>Issue Templates</strong></a></p>
-</details>
+→ **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)**
 
-<details>
-<summary><strong>📚 Documentation</strong> - Complete project documentation</summary>
+## 📚 Documentation
 
-<p><strong>Core Documentation:</strong></p>
-<ul>
-<li><a href="doc/GeoDistrictsProjectOverview.md"><strong>Project Overview</strong></a> - Complete solution brief and architecture</li>
-<li><a href="doc/pages/GeodistrictingAlgorithmSpecification.md"><strong>Algorithm Specification</strong></a> - Detailed algorithm design</li>
-<li><a href="doc/pages/IMPLEMENTATION_VERIFICATION.md"><strong>Implementation Guide</strong></a> - Verification procedures</li>
-</ul>
+**Core Documentation:**
+- **[Project Overview](doc/GeoDistrictsProjectOverview.md)** - Complete solution brief and architecture
+- **[Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)** - Detailed algorithm design
+- **[Implementation Guide](doc/pages/IMPLEMENTATION_VERIFICATION.md)** - Verification procedures
 
-<p><strong>Setup & Deployment:</strong></p>
-<ul>
-<li><a href="doc/pages/GCP_SETUP.md"><strong>GCP Setup</strong></a> - Cloud infrastructure configuration</li>
-<li><a href="doc/pages/CENSUS_SERVICE_README.md"><strong>API Integration</strong></a> - Census data integration</li>
-<li><a href="doc/pages/DOMAIN_SETUP_GUIDE.md"><strong>Domain Setup</strong></a> - Custom domain configuration</li>
-</ul>
+**Setup & Deployment:**
+- **[GCP Setup](doc/pages/GCP_SETUP.md)** - Cloud infrastructure configuration
+- **[API Integration](doc/pages/CENSUS_SERVICE_README.md)** - Census data integration
+- **[Domain Setup](doc/pages/DOMAIN_SETUP_GUIDE.md)** - Custom domain configuration
 
-<p><strong>Development:</strong></p>
-<ul>
-<li><a href="CONTRIBUTING.md"><strong>Contributing Guidelines</strong></a> - How to contribute code</li>
-<li><a href="doc/pages/CACHING_DESIGN.md"><strong>Caching Design</strong></a> - Performance optimization</li>
-<li><a href="doc/pages/DIVISION_BOXES_COMPONENT.md"><strong>UI Components</strong></a> - Frontend component docs</li>
-</ul>
+**Development:**
+- **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute code
+- **[Caching Design](doc/pages/CACHING_DESIGN.md)** - Performance optimization
+- **[UI Components](doc/pages/DIVISION_BOXES_COMPONENT.md)** - Frontend component docs
 
-<p><strong>Campaign & Outreach:</strong></p>
-<ul>
-<li><a href="doc/pages/CAMPAIGN_DESIGN_ASSETS.md"><strong>Campaign Assets</strong></a> - Marketing materials</li>
-<li><a href="doc/pages/SOCIAL_MEDIA_LAUNCH_GUIDE.md"><strong>Social Media Guide</strong></a> - Launch strategy</li>
-</ul>
-</details>
+**Campaign & Outreach:**
+- **[Campaign Assets](doc/pages/CAMPAIGN_DESIGN_ASSETS.md)** - Marketing materials
+- **[Social Media Guide](doc/pages/SOCIAL_MEDIA_LAUNCH_GUIDE.md)** - Launch strategy
 
 ---
 
