@@ -82,6 +82,9 @@ For detailed implementation specifications and related documentation, see:
 - [Backend Algorithm Execution Proposal](pages/backend-algorithm-execution-proposal.md) - Execution strategy
 
 ### Data Sources & Services
+- [Census Population Data](pages/CENSUS_POPULATION_DATA.md) - Demographic statistics integration
+- [TIGER/Line Shapefiles](pages/TIGER_LINE_SHAPEFILES.md) - Geographic boundaries and spatial data
+- [State Election Data](pages/STATE_ELECTION_DATA.md) - Voter registration and party affiliation
 - [Census Service README](pages/CENSUS_SERVICE_README.md) - Census data integration
 - [Census API Key Setup](pages/CENSUS_API_KEY_SETUP.md) - API configuration
 - [Census Proxy Implementation](pages/CENSUS_PROXY_IMPLEMENTATION.md) - Proxy service details
@@ -95,6 +98,7 @@ For detailed implementation specifications and related documentation, see:
 - [How to Create Union Polygons](pages/251204-how-to-create-union-polygons.md) - Polygon operations
 
 ### Infrastructure & Setup
+- [Architecture Details](pages/ARCHITECTURE_DETAILS.md) - System design and components
 - [GCP Setup](pages/GCP_SETUP.md) - Google Cloud Platform configuration
 - [Domain Setup Guide](pages/DOMAIN_SETUP_GUIDE.md) - Domain configuration
 - [GitHub Setup](pages/GITHUB_SETUP.md) - Repository setup

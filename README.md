@@ -49,7 +49,7 @@ GeoDistricts implements a hierarchical, geography-based algorithm that:
 └── data/            # Census data cache
 ```
 
-→ **[Architecture Details](doc/GeoDistrictsProjectOverview.md)**
+→ **[Architecture Details](doc/pages/ARCHITECTURE_DETAILS.md)**
 
 ## 🚀 Development Setup
 
@@ -71,14 +71,19 @@ cd geodistricts
 
 ## 📊 Data Sources
 
-**Census Data:** Population, geography from U.S. Census Bureau APIs  
-**Geographic Boundaries:** TIGER/Line shapefiles for tract/county boundaries  
-**Voter Registration:** Party affiliation data by precinct/county (help needed!)
+**Census Population Data:** Demographic statistics from U.S. Census Bureau APIs
+→ **[Census Population Data Details](doc/pages/CENSUS_POPULATION_DATA.md)**
+
+**TIGER/Line Shapefiles:** Geographic boundaries and spatial data
+→ **[TIGER/Line Shapefiles Details](doc/pages/TIGER_LINE_SHAPEFILES.md)**
+
+**State Election Data:** Voter registration and party affiliation statistics
+→ **[State Election Data Details](doc/pages/STATE_ELECTION_DATA.md)**
 
 **Current Status:** 5/50 states configured (AZ, CA, FL, NY, TX)  
 **Priority Need:** Voter data sources for remaining 46 states
 
-→ **[State Data Sources](doc/pages/STATE_DATA_SOURCES.md)** • **[Request Template](.github/ISSUE_TEMPLATE/data-source-request.md)**
+→ **[State Data Sources Status](doc/pages/STATE_DATA_SOURCES.md)** • **[Request Template](.github/ISSUE_TEMPLATE/data-source-request.md)**
 
 ## ☁️ Deployment
 
@@ -109,27 +114,6 @@ cd geodistricts
 
 → **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)**
 
-## 📚 Documentation
-
-**Core Documentation:**
-- **[Project Overview](doc/GeoDistrictsProjectOverview.md)** - Complete solution brief and architecture
-- **[Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)** - Detailed algorithm design
-- **[Implementation Guide](doc/pages/IMPLEMENTATION_VERIFICATION.md)** - Verification procedures
-
-**Setup & Deployment:**
-- **[GCP Setup](doc/pages/GCP_SETUP.md)** - Cloud infrastructure configuration
-- **[API Integration](doc/pages/CENSUS_SERVICE_README.md)** - Census data integration
-- **[Domain Setup](doc/pages/DOMAIN_SETUP_GUIDE.md)** - Custom domain configuration
-
-**Development:**
-- **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute code
-- **[Caching Design](doc/pages/CACHING_DESIGN.md)** - Performance optimization
-- **[UI Components](doc/pages/DIVISION_BOXES_COMPONENT.md)** - Frontend component docs
-
-**Campaign & Outreach:**
-- **[Campaign Assets](doc/pages/CAMPAIGN_DESIGN_ASSETS.md)** - Marketing materials
-- **[Social Media Guide](doc/pages/SOCIAL_MEDIA_LAUNCH_GUIDE.md)** - Launch strategy
-
 ---
 
 ## 📄 License & Legal
@@ -141,18 +125,3 @@ cd geodistricts
 - [Terms of Service](/terms) - Service terms and conditions
 
 ---
-
-## 🆘 Priority: Voter Data Collection
-
-**Critical Need:** Voter registration data for 46 remaining states to enable party balance calculations.
-
-**Impact:** Without complete voter data, we cannot demonstrate how GeoDistricts preserves political balance while eliminating gerrymandering.
-
-**How to Help:**
-1. Research your state's election office for voter registration statistics
-2. Submit data source details via our [request template](.github/ISSUE_TEMPLATE/data-source-request.md)
-3. Contributors recognized in documentation and social media (with permission)
-
-**Current Progress:** 5/50 states complete (10%) - AZ, CA, FL, NY, TX configured
-
-→ **[Data Sources Status](doc/pages/STATE_DATA_SOURCES.md)** • **[Voter Data Plan](doc/pages/VOTER_REGISTRATION_DATA_PLAN.md)**
