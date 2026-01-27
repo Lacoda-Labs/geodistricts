@@ -2,8 +2,6 @@
 
 **An algorithmic protocol for U.S. Congressional redistricting that eliminates gerrymandering through objective, geography-based district creation.**
 
-![Voter Data Progress](https://img.shields.io/badge/Voter%20Data-5%2F50%20states-10%25-brightgreen) [![Help Wanted](https://img.shields.io/badge/Help%20Wanted-46%20states-orange)](.github/ISSUE_TEMPLATE/data-source-request.md)
-
 GeoDistricts creates fair, unbiased congressional districts using an automated algorithm that relies solely on geographic and demographic data from the U.S. Census Bureau. No human intervention, no political bias - just mathematics and geography.
 
 ## 🚀 Quick Start

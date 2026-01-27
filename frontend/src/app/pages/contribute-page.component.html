@@ -105,13 +105,6 @@
           </mat-icon>
         </div>
         <div class="card-content" [class.expanded]="expandedSections['fund']">
-          <p>
-            Servers cost money. Development takes time. Democracy is worth it.
-          </p>
-          <p>
-            Your dollars keep the infrastructure running, the maps loading, and the algorithm improving.
-            Every contribution directly funds the fight against gerrymandering.
-          </p>
           <div class="donation-options">
             <div class="donation-option" *ngIf="donationLinks.givesendgo">
               <a mat-button [href]="donationLinks.givesendgo" target="_blank" rel="noopener" class="donation-button">
