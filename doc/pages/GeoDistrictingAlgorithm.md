@@ -5,18 +5,19 @@ United States Constitution gives States authority to manage how they elect repre
 See https://grok.com/share/bGVnYWN5_7b9f1ac1-7d40-47cd-b711-a5bcf62a8feb
 
 ## Problem  
-States gerrymandering district boundaries based on registered voters in order to manipulate election outcomes.
+State gerrymandering of district boundaries based on registered voter party in order to manipulate election outcomes.
 
 ## Constraints
-US Constitution and statutes (e.g., Voting Rights Act)
+US Constitution and statutes (e.g., Voting Rights Act). however, VRA and any other remedies designed to address gerrymandering and disenfranchising factions (based on race or other protected class) become obsolete with geodistricts; because of geodistricts objective approach which also and more directly cures the ills of gerrymandering.
 
 ## Solution
-Define an algorithm that objectively generates district boundaries based on census data and geographic principles.
+An algorithmic protocol that objectively generates district boundaries based on census data and geographic division of cencus tracks.
 
 ## Assumptions
 - VRA sections found unconstitutional may no longer need consideration or are inherently met by the design of an algorithm that objectively defines congressional districts based on census tracts and geographically based apportionment.
 - Census tracts are trusted to be objectively defined.
 - Congressional representative apportionments are trusted to be objectively calculated based on statute that limits total to 435 based on census results.
+- VRA code that makes redisticting based on Race is often used as a reason to oppose gerrmandering (in court) when truth is race is a secondary motivation with party being first and primary.
 
 ## Benefits
 Democracy is preserved as no centralized state authority can be compromised into gerrymandering.

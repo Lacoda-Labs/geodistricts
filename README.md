@@ -1,193 +1,171 @@
 # GeoDistricts
 
-A modern web application that demonstrates objective, geographically-based congressional district mapping. Built with Angular and Node.js, deployed on Google Cloud Run. GeoDistricts uses an algorithmic approach to create fair, unbiased congressional districts based solely on geographic and demographic data.
+**An algorithmic protocol for U.S. Congressional redistricting that eliminates gerrymandering through objective, geography-based district creation.**
 
 ![Voter Data Progress](https://img.shields.io/badge/Voter%20Data-5%2F50%20states-10%25-brightgreen) [![Help Wanted](https://img.shields.io/badge/Help%20Wanted-46%20states-orange)](.github/ISSUE_TEMPLATE/data-source-request.md)
+
+GeoDistricts creates fair, unbiased congressional districts using an automated algorithm that relies solely on geographic and demographic data from the U.S. Census Bureau. No human intervention, no political bias - just mathematics and geography.
 
 ## 🚀 Quick Start
 
 ```bash
-# Clone the repository
+git clone https://github.com/Lacoda-Labs/geodistricts.git
+cd geodistricts && ./scripts/quick-start.sh
+```
+
+Visit [geodistricts.org](https://geodistricts.org) for live demos and interactive maps.
+
+<details>
+<summary><strong>🧮 Algorithm Overview</strong> - How GeoDistricts creates fair districts</summary>
+
+GeoDistricts implements a hierarchical, geography-based algorithm that:
+- **Population Equality**: Targets <1% variance between districts
+- **Contiguity**: Maintains geographic continuity where possible
+- **Objectivity**: Deterministic, automated process using census data only
+- **Two-Phase Approach**: County-level grouping → Tract-level refinement
+
+**Key Features:**
+- Recursive geographic division (alternating latitude/longitude)
+- Step-by-step visualization and debugging
+- Population variance tracking
+- Contiguity scoring
+
+→ **[Complete Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)**
+</details>
+
+<details>
+<summary><strong>🏗️ Architecture & Tech Stack</strong> - System design and components</summary>
+
+**Frontend:** Angular 17+, TypeScript, SCSS, Interactive mapping with Leaflet
+**Backend:** Node.js, Express, Census API integration
+**Data:** U.S. Census Bureau TIGER/Line shapefiles, Population data via Census API
+**Infrastructure:** Google Cloud Run, Cloud Storage, Secret Manager
+**CI/CD:** GitHub Actions for automated testing and deployment
+
+**Project Structure:**
+```
+├── frontend/         # Angular web client
+├── backend/          # Node.js API server
+├── doc/             # Comprehensive documentation
+├── scripts/         # Setup and deployment utilities
+└── data/            # Census data cache
+```
+
+→ **[Architecture Details](doc/GeoDistrictsProjectOverview.md)**
+</details>
+
+<details>
+<summary><strong>🚀 Development Setup</strong> - Get the project running locally</summary>
+
+**Prerequisites:** Node.js 18+, Angular CLI, Docker (optional)
+
+**Quick Setup:**
+```bash
 git clone https://github.com/Lacoda-Labs/geodistricts.git
 cd geodistricts
-
-# Set up API keys (optional - for direct Census API access)
-chmod +x scripts/setup-api-keys.sh
-./scripts/setup-api-keys.sh
-
-# Run quick setup (installs dependencies and starts dev servers)
-chmod +x scripts/quick-start.sh
-./scripts/quick-start.sh
+./scripts/quick-start.sh  # Installs deps & starts dev servers
 ```
 
-## 📁 Project Structure
+**Manual Setup:**
+- Backend: `cd backend && npm install && npm run dev`
+- Frontend: `cd frontend && npm install && ng serve`
+- Census API: Run `./scripts/setup-api-keys.sh` for direct API access
 
+→ **[Detailed Setup Guide](doc/pages/GITHUB_SETUP.md)**
+</details>
+
+<details>
+<summary><strong>📊 Data Sources</strong> - Census data and voter registration</summary>
+
+**Census Data:** Population, geography from U.S. Census Bureau APIs
+**Geographic Boundaries:** TIGER/Line shapefiles for tract/county boundaries
+**Voter Registration:** Party affiliation data by precinct/county (help needed!)
+
+**Current Status:** 5/50 states configured (AZ, CA, FL, NY, TX)
+**Priority Need:** Voter data sources for remaining 46 states
+
+→ **[State Data Sources](doc/pages/STATE_DATA_SOURCES.md)** • **[Request Template](.github/ISSUE_TEMPLATE/data-source-request.md)**
+</details>
+
+<details>
+<summary><strong>☁️ Deployment</strong> - Cloud infrastructure and CI/CD</summary>
+
+**Platforms:** Google Cloud Run, GitHub Pages
+**CI/CD:** Automated testing, building, and deployment via GitHub Actions
+**Domains:** Custom domain setup with SSL certificates
+
+**Quick Deploy:**
+```bash
+./scripts/deploy.sh  # Full GCP deployment
 ```
-geodistricts/
-├── backend/          # Node.js API server
-├── frontend/         # Angular web client
-├── deploy/           # Deployment configurations
-└── .github/          # GitHub Actions workflows
-```
 
-## Getting Started
+→ **[GCP Setup Guide](doc/pages/GCP_SETUP.md)** • **[Domain Setup](doc/pages/DOMAIN_SETUP_GUIDE.md)**
+</details>
 
-### Prerequisites
+<details>
+<summary><strong>🤝 Contributing</strong> - How developers can help</summary>
 
-- Node.js 18+
-- Angular CLI
-- Docker
-- Google Cloud SDK
+**Priority Areas:**
+1. **Data Collection**: Find voter registration sources for remaining states
+2. **Algorithm Enhancement**: Improve contiguity scoring, performance optimization
+3. **UI/UX**: Better visualization, accessibility improvements
+4. **Testing**: Unit tests, integration tests, algorithm validation
 
-### Backend Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create a `.env` file with your environment variables:
-   ```
-   PORT=8080
-   NODE_ENV=development
-   ```
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   ng serve
-   ```
-
-## Deployment
-
-### Google Cloud Run
-
-1. Build and push the Docker image:
-   ```bash
-   cd backend
-   docker build -t gcr.io/PROJECT_ID/geodistricts-api .
-   docker push gcr.io/PROJECT_ID/geodistricts-api
-   ```
-
-2. Deploy to Cloud Run:
-   ```bash
-   gcloud run deploy geodistricts-api \
-     --image gcr.io/PROJECT_ID/geodistricts-api \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated
-   ```
-
-### GitHub Actions
-
-The project includes a GitHub Actions workflow that automatically:
-- Runs tests on pull requests
-- Builds and deploys to Cloud Run on pushes to main
-
-To set up GitHub Actions:
-1. Add the following secrets to your GitHub repository:
-   - `GCP_PROJECT_ID`: Your Google Cloud project ID
-   - `GCP_SA_KEY`: Your Google Cloud service account key
-
-## 🧮 Geodistrict Algorithm
-
-This project implements a geographically-based geodistricting algorithm that creates congressional districts using an objective, algorithmic method. The algorithm:
-
-- Divides census tracts into district groups recursively
-- Alternates between latitude and longitude divisions
-- Maintains geographic contiguity
-- Balances population across districts
-- Provides step-by-step visualization
-- Uses publicly available U.S. Census Bureau data
-
-### Accessing the Algorithm
-
-Navigate to `/maps` or `/geodistrict` in the application to view and interact with the algorithm. The application provides interactive maps showing how districts are created using the algorithmic approach.
-
-### API Key Setup
-
-For direct Census API access (recommended), see [CENSUS_API_KEY_SETUP.md](doc/CENSUS_API_KEY_SETUP.md) for detailed setup instructions.
-
-## 🆘 Help Wanted: Voter Registration Data for All 50 States
-
-We need your help! To calculate party balance in geodistricts, we need voter registration party data for all 50 states + DC. Currently, we only have data sources for **5 states (10% complete)**.
-
-### How You Can Help
-
-1. **Find Data Sources**: Research your state's election office website for voter registration statistics
-2. **Create an Issue**: Use our [State Data Source Request template](.github/ISSUE_TEMPLATE/data-source-request.md)
-3. **Share Information**: Provide links, formats, costs, and access methods
-4. **Help Implement**: Optionally help implement the data loader (see [CONTRIBUTING.md](CONTRIBUTING.md))
-
-### What We Need
-
-For each state, we need:
-- **Geographic granularity**: Precinct or county level (preferably precinct)
-- **Data fields**: Total voters, Democratic, Republican, Other/Independent
-- **Format**: CSV, Excel, or API access
-- **Cost**: Free or low-cost preferred
-
-### Current Status
-
-- ✅ **Configured**: 5 states (AZ, CA, FL, NY, TX)
-- 🔍 **Help Needed**: 46 states
-
-See [State Data Sources Tracking](doc/STATE_DATA_SOURCES.md) for detailed status.
-
-### Resources
-
-- [Voter Registration Data Plan](doc/VOTER_REGISTRATION_DATA_PLAN.md) - Detailed requirements
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
-- [Campaign Content Templates](doc/CAMPAIGN_CONTENT_TEMPLATES.md) - Social media templates
-
-**Contributors will be recognized in project documentation and social media (with permission).**
-
-## Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-Quick start:
+**Getting Started:**
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+3. Make changes following our [contributing guidelines](CONTRIBUTING.md)
+4. Submit a pull request
 
-**Priority**: Help us find voter registration data sources for all 50 states! See [Help Wanted](#-help-wanted-voter-registration-data-for-all-50-states) section above.
+→ **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)**
+</details>
 
-## Privacy & Terms
+<details>
+<summary><strong>📚 Documentation</strong> - Complete project documentation</summary>
 
-This application includes:
-- [Privacy Policy](/privacy) - Information about data collection and usage
-- [Terms of Service](/terms) - Terms and conditions for using the service
+**Core Documentation:**
+- **[Project Overview](doc/GeoDistrictsProjectOverview.md)** - Complete solution brief and architecture
+- **[Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)** - Detailed algorithm design
+- **[Implementation Guide](doc/pages/IMPLEMENTATION_VERIFICATION.md)** - Verification procedures
 
-## License
+**Setup & Deployment:**
+- **[GCP Setup](doc/pages/GCP_SETUP.md)** - Cloud infrastructure configuration
+- **[API Integration](doc/pages/CENSUS_SERVICE_README.md)** - Census data integration
+- **[Domain Setup](doc/pages/DOMAIN_SETUP_GUIDE.md)** - Custom domain configuration
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+**Development:**
+- **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute code
+- **[Caching Design](doc/pages/CACHING_DESIGN.md)** - Performance optimization
+- **[UI Components](doc/pages/DIVISION_BOXES_COMPONENT.md)** - Frontend component docs
 
+**Campaign & Outreach:**
+- **[Campaign Assets](doc/pages/CAMPAIGN_DESIGN_ASSETS.md)** - Marketing materials
+- **[Social Media Guide](doc/pages/SOCIAL_MEDIA_LAUNCH_GUIDE.md)** - Launch strategy
+</details>
 
-## notes:
-```
-gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="geodistricts-api" AND resource.labels.location="us-central1" AND severity>=DEFAULT AND timestamp >= "2025-12-02T21:10:00-08:00"' --project=geodistricts --format="value(timestamp, textPayload)" --limit=1000 > console.debug/gcp-service-geodistricts-api.log
-```
+---
+
+## 📄 License & Legal
+
+**License:** MIT License - see [LICENSE](LICENSE) file for details
+
+**Privacy & Terms:**
+- [Privacy Policy](/privacy) - Data collection and usage
+- [Terms of Service](/terms) - Service terms and conditions
+
+---
+
+## 🆘 Priority: Voter Data Collection
+
+**Critical Need:** Voter registration data for 46 remaining states to enable party balance calculations.
+
+**Impact:** Without complete voter data, we cannot demonstrate how GeoDistricts preserves political balance while eliminating gerrymandering.
+
+**How to Help:**
+1. Research your state's election office for voter registration statistics
+2. Submit data source details via our [request template](.github/ISSUE_TEMPLATE/data-source-request.md)
+3. Contributors recognized in documentation and social media (with permission)
+
+**Current Progress:** 5/50 states complete (10%) - AZ, CA, FL, NY, TX configured
+
+→ **[Data Sources Status](doc/pages/STATE_DATA_SOURCES.md)** • **[Voter Data Plan](doc/pages/VOTER_REGISTRATION_DATA_PLAN.md)**
