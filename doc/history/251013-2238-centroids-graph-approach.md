@@ -1,0 +1,1 @@
+approach is get centroid of tract returned by findStartingTract(), then get all tracts that have centroid north of tract #1 centroid.latitude 
