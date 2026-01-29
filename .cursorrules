@@ -55,8 +55,15 @@ When working on specific areas, reference relevant documentation from `doc/pages
 - `doc/pages/MAINTENANCE_TEMPLATES.md` - Maintenance procedures
 
 **Planning & Analysis:**
-- `doc/pages/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md` - Comparison strategy
-- `doc/pages/VOTER_REGISTRATION_DATA_PLAN.md` - Voter data integration
+- `doc/history/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md` - Comparison strategy (existing vs geodistricts)
+- `doc/history/VOTER_REGISTRATION_DATA_PLAN.md` - Voter data integration
+
+**Protocol & Implementers:**
+- `doc/protocol/GDPIPs/README.md` - GDPIP index (required/optional specs)
+- `doc/protocol/REFERENCE_IMPLEMENTATION.md` - Reference implementation and gen AI context
+- `doc/protocol/IMPLEMENTER_GUIDE.md` - Implementer guide
+- `doc/protocol/GOVERNMENT_AND_ADOPTION.md` - Government research and adoption
+- `doc/protocol/process/GDPIP-PROCESS.md` - GDPIP submission process
 
 ### Documentation Usage Guidelines
 1. **Do NOT automatically load all documentation files** - This wastes context window and reduces focus

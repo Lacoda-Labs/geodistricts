@@ -13,6 +13,14 @@ There are many ways to contribute to GeoDistricts:
 5. **Feature Development** - Add new features or improve existing ones
 6. **Testing** - Help ensure code quality through testing
 
+## Protocol Changes
+
+GeoDistricts is the **reference implementation** of the GeoDistricts Protocol. The protocol itself (GDPIPs, governance, index) is maintained in a **separate repository** (see [Protocol Repository Recommendations](doc/protocol/PROTOCOL_REPO_RECOMMENDATIONS.md)).
+
+- **Algorithm or data-model changes** that affect the protocol MUST be proposed in the **protocol repo** as a GeoDistricts Protocol Improvement Proposal (GDPIP). Do not change the core algorithm or canonical data structures in this repo without a corresponding accepted GDPIP.
+- **This repo** tracks which protocol version (or GDPIP set) it implements; see [Reference Implementation](doc/protocol/REFERENCE_IMPLEMENTATION.md).
+- To contribute to the protocol (new or revised GDPIPs), follow the [GDPIP process](doc/protocol/process/GDPIP-PROCESS.md) in the protocol repo once it exists; until then, GDPIPs are maintained under `doc/protocol/GDPIPs/` in this repo.
+
 ## Voter Registration Data Contribution
 
 ### Current Priority: Finding Data Sources for All 50 States

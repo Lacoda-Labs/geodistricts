@@ -30,6 +30,8 @@ GeoDistricts implements a hierarchical, geography-based algorithm that:
 
 → **[Complete Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)**
 
+**Implementing the protocol?** This repo is the **reference implementation** of the GeoDistricts Protocol. For the protocol spec (GDPIPs) and implementer guide, see → **[GDPIP Index](doc/protocol/GDPIPs/README.md)** • **[Implementer Guide](doc/protocol/IMPLEMENTER_GUIDE.md)**
+
 ## 🏗️ Architecture & Tech Stack
 
 **Frontend:** Angular 17+, TypeScript, SCSS, Interactive mapping with Leaflet  
@@ -110,7 +112,7 @@ cd geodistricts
 3. Make your changes following our [contributing guidelines](CONTRIBUTING.md)
 4. Submit a pull request
 
-→ **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)**
+→ **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)** • **[Protocol Changes](doc/protocol/process/GDPIP-PROCESS.md)** (algorithm/data-model changes require a GDPIP in the protocol repo)
 
 ---
 
