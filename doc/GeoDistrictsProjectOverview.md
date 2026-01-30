@@ -123,7 +123,7 @@ For detailed implementation specifications and related documentation, see:
 - [Voter Registration Data Plan](history/VOTER_REGISTRATION_DATA_PLAN.md) - Voter data integration
 
 ### Protocol & Implementers
-- [Protocol (GDPIPs) Index](protocol/GDPIPs/README.md) - GeoDistricts Protocol Improvement Proposals (required/optional specs)
+- [Protocol (GDIPs) Index](protocol/GDIPs/README.md) - GeoDistricts Improvement Proposals (required/optional specs)
 - [Reference Implementation](protocol/REFERENCE_IMPLEMENTATION.md) - This repo as the protocol reference implementation
 - [Implementer Guide](protocol/IMPLEMENTER_GUIDE.md) - For state governments, consultants, developers
 - [Government and Adoption](protocol/GOVERNMENT_AND_ADOPTION.md) - Research, exploratory use, adoption/codification

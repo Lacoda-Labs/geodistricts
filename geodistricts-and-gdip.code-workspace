@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "name": "geodistricts",
+      "path": "."
+    },
+    {
+      "name": "gdip",
+      "path": "gdip"
+    }
+  ],
+  "settings": {}
+}

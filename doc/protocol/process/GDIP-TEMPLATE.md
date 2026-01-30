@@ -1,4 +1,4 @@
-# GDPIP-NNN: Title
+# GDIP-NNN: Title
 
 **Status**: Draft | Review | Accepted  
 **Type**: Required | Optional  
@@ -24,8 +24,8 @@ Why is this change needed? What problem does it solve or what capability does it
 
 ### Required vs Optional
 
-- **Required**: All conforming implementations MUST implement this GDPIP.
-- **Optional**: Implementations MAY implement this GDPIP; interoperability is preserved without it.
+- **Required**: All conforming implementations MUST implement this GDIP.
+- **Optional**: Implementations MAY implement this GDIP; interoperability is preserved without it.
 
 (Choose one and explain.)
 
@@ -36,9 +36,9 @@ Why is this change needed? What problem does it solve or what capability does it
 
 ## Reference Implementation
 
-- Link to the reference implementation (geodistricts repo) or specific files/PRs that implement this GDPIP.
-- Version or tag of the reference implementation that implements this GDPIP (when available).
+- Link to the reference implementation (geodistricts repo) or specific files/PRs that implement this GDIP.
+- Version or tag of the reference implementation that implements this GDIP (when available).
 
 ## References
 
-- Links to related GDPIPs, docs, or external references (e.g. Census API, TIGER/Line).
+- Links to related GDIPs, docs, or external references (e.g. Census API, TIGER/Line).

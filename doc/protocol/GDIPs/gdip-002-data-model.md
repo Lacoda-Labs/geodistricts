@@ -1,9 +1,9 @@
-# GDPIP-001: Data Model
+# GDIP-002: Data Model
 
 **Status**: Draft  
 **Type**: Required  
 **Created**: 2026-01-28  
-**Updated**: 2026-01-28
+**Updated**: 2026-01-29
 
 ## Summary
 
@@ -11,7 +11,7 @@ Defines the canonical data structures for the GeoDistricts protocol: states, cou
 
 ## Motivation
 
-Implementers and tooling (including LLM-generated code) need a single, clear data model so that geodistrict boundaries and metadata can be produced, exchanged, and validated consistently. This GDPIP establishes the minimal required fields and semantics.
+Implementers and tooling (including LLM-generated code) need a single, clear data model so that geodistrict boundaries and metadata can be produced, exchanged, and validated consistently. This GDIP establishes the minimal required fields and semantics.
 
 ## Specification
 
@@ -27,7 +27,7 @@ Implementers and tooling (including LLM-generated code) need a single, clear dat
 
 **Census tract (input)**  
 - `geoid` (string, required): 11-digit GEOID.  
-- `population` (number, required): Total population for the tract (decennial or ACS source per GDPIP-002).  
+- `population` (number, required): Total population for the tract (decennial or ACS source per GDIP-003).  
 - `geometry` (optional for protocol spec): Geographic boundary (e.g. GeoJSON). Protocol algorithm uses tract identity and population; geometry is required for boundary output and visualization (see reference implementation).
 
 **County (derived or input)**  
@@ -67,11 +67,11 @@ Implementers and tooling (including LLM-generated code) need a single, clear dat
 ### Data model impact
 
 - New implementations must use GEOID as the canonical tract key and 5-digit FIPS for counties.  
-- No breaking change to existing reference implementation; this GDPIP formalizes existing structures.
+- No breaking change to existing reference implementation; this GDIP formalizes existing structures.
 
 ### Backward Compatibility
 
-- Fully backward compatible; this GDPIP documents the current reference implementation data model.
+- Fully backward compatible; this GDIP documents the current reference implementation data model.
 
 ## Reference Implementation
 
@@ -80,6 +80,6 @@ Implementers and tooling (including LLM-generated code) need a single, clear dat
 
 ## References
 
-- [GDPIP-002: Required Data Sources](gdpip-002-required-data-sources.md)  
-- [GDPIP-003: Core Algorithm](gdpip-003-core-algorithm.md)  
+- [GDIP-003: Required Data Sources](gdip-003-required-data-sources.md)  
+- [GDIP-004: Core Algorithm](gdip-004-core-algorithm.md)  
 - U.S. Census Bureau: [GEOID](https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html), [FIPS codes](https://www.census.gov/library/reference/code-lists/ansi/ansi-codes-for-states.html)

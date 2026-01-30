@@ -1,10 +1,10 @@
 # GeoDistricts Protocol Repository: Recommendations
 
-This document provides recommendations for creating and maintaining a **separate GitHub repository** for the GeoDistricts Protocol (GDPIPs, governance, index). This repository (geodistricts) is the **reference implementation**, not the protocol repo.
+This document provides recommendations for creating and maintaining a **separate GitHub repository** for the GeoDistricts Protocol (GDIPs, governance, index). This repository (geodistricts) is the **reference implementation**, not the protocol repo.
 
 ## Purpose of the Protocol Repo
 
-- **Host**: GDPIPs (GeoDistricts Protocol Improvement Proposals), GDPIP process/governance docs, protocol index and changelog.
+- **Host**: GDIPs (GeoDistricts Improvement Proposals), GDIP process/governance docs, protocol index and changelog.
 - **Scope**: Specification and process only. No application code.
 - **Relationship**: Protocol repo = source of truth for the spec; geodistricts repo = reference implementation that implements the protocol and links to the protocol repo by version/tag.
 
@@ -38,7 +38,7 @@ This document provides recommendations for creating and maintaining a **separate
 
 - Lower operational overhead; Lacoda-Labs already hosts related OSS.
 - The protocol can be moved or mirrored to a separate org later if neutrality becomes important for adoption (e.g. state governments, other implementers).
-- Document in the protocol repo README that the protocol is open for adoption by any implementer and that governance is transparent (GDPIP process).
+- Document in the protocol repo README that the protocol is open for adoption by any implementer and that governance is transparent (GDIP process).
 
 ## Repository Layout
 
@@ -46,37 +46,38 @@ Suggested structure for the protocol repo:
 
 ```
 geodistricts-protocol/
-├── README.md                 # Project intro, link to reference implementation, index of GDPIPs
+├── README.md                 # Project intro, link to reference implementation, index of GDIPs
 ├── process/                  # Governance and process
-│   ├── GDPIP-PROCESS.md      # How to submit, discuss, adopt GDPIPs
-│   ├── GDPIP-TEMPLATE.md     # Template for new GDPIPs
+│   ├── GDIP-PROCESS.md      # How to submit, discuss, adopt GDIPs
+│   ├── GDIP-TEMPLATE.md     # Template for new GDIPs
 │   └── GOVERNANCE.md         # Maintainers, releases, versioning
-├── GDPIPs/                    # Numbered spec files
-│   ├── README.md             # Index: list of GDPIPs (required vs optional), status
-│   ├── gdpip-001-*.md        # Example: data model
-│   ├── gdpip-002-*.md        # Example: required data sources
+├── GDIPs/                    # Numbered spec files
+│   ├── README.md             # Index: list of GDIPs (required vs optional), status
+│   ├── gdip-001-*.md        # Example: purpose and guidelines (Meta)
+│   ├── gdip-002-*.md        # Example: data model
+│   ├── gdip-003-*.md        # Example: required data sources
 │   └── ...
 └── CHANGELOG.md              # Optional: protocol release history
 ```
 
-- **GDPIPs/**: One file (or small set) per GDPIP; naming e.g. `gdpip-NNN-short-title.md`.
+- **GDIPs/**: One file (or small set) per GDIP; naming e.g. `gdip-NNN-short-title.md`.
 - **process/**: Single source of truth for how to change the protocol; no application code.
 
 ## Relationship Between Repos
 
 | Repo | Role | Contents |
 |------|------|----------|
-| **Protocol repo** (e.g. `Lacoda-Labs/geodistricts-protocol`) | Spec and process | GDPIPs, process/, README with index, CHANGELOG |
+| **Protocol repo** (e.g. `Lacoda-Labs/geodistricts-protocol`) | Spec and process | GDIPs, process/, README with index, CHANGELOG |
 | **geodistricts** (this repo) | Reference implementation | Application code, docs that reference protocol by version/tag |
 
 - In the **protocol repo** README: link to the reference implementation (e.g. `Lacoda-Labs/geodistricts` or project URL), and state that implementers can use the protocol independently.
-- In the **geodistricts** repo: document which protocol version (or GDPIP set) this implementation follows; link to the protocol repo. See `doc/protocol/REFERENCE_IMPLEMENTATION.md` (created in this repo) and CONTRIBUTING.md section "Protocol changes."
+- In the **geodistricts** repo: document which protocol version (or GDIP set) this implementation follows; link to the protocol repo. See `doc/protocol/REFERENCE_IMPLEMENTATION.md` (created in this repo) and CONTRIBUTING.md section "Protocol changes."
 
 ## Creating the New Repo
 
 1. Create a new repository under the chosen org (e.g. `Lacoda-Labs/geodistricts-protocol`).
-2. Copy the contents of this project's `doc/protocol/process/` and `doc/protocol/GDPIPs/` (index and any initial GDPIPs) into the new repo's `process/` and `GDPIPs/` directories.
-3. Add a README in the new repo that includes the index of GDPIPs and a link to the reference implementation.
-4. Optionally add a LICENSE (e.g. CC-BY or MIT for docs) and CONTRIBUTING that points to the GDPIP process.
+2. Copy the contents of this project's `doc/protocol/process/` and `doc/protocol/GDIPs/` (index and any initial GDIPs) into the new repo's `process/` and `GDIPs/` directories.
+3. Add a README in the new repo that includes the index of GDIPs and a link to the reference implementation.
+4. Optionally add a LICENSE (e.g. CC-BY or MIT for docs) and CONTRIBUTING that points to the GDIP process.
 
-The reference implementation (this repo) will retain a copy of the process template and GDPIP index under `doc/protocol/` for local reference and for drafting GDPIPs until the protocol repo is created; once the protocol repo exists, links should point to it as the canonical source.
+The reference implementation (this repo) will retain a copy of the process template and GDIP index under `doc/protocol/` for local reference and for drafting GDIPs until the protocol repo is created; once the protocol repo exists, links should point to it as the canonical source.

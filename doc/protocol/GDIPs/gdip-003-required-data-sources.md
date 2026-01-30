@@ -1,9 +1,9 @@
-# GDPIP-002: Required Data Sources
+# GDIP-003: Required Data Sources
 
 **Status**: Draft  
 **Type**: Required  
 **Created**: 2026-01-28  
-**Updated**: 2026-01-28
+**Updated**: 2026-01-29
 
 ## Summary
 
@@ -11,7 +11,7 @@ Defines the **required** data sources for the GeoDistricts protocol: census trac
 
 ## Motivation
 
-The algorithm is deterministic and objective only if all implementations use the same class of inputs: census-based population, census geography (TIGER/Line or equivalent), and statutory district counts. This GDPIP locks required sources so that geodistrict outputs are comparable and auditable.
+The algorithm is deterministic and objective only if all implementations use the same class of inputs: census-based population, census geography (TIGER/Line or equivalent), and statutory district counts. This GDIP locks required sources so that geodistrict outputs are comparable and auditable.
 
 ## Specification
 
@@ -30,7 +30,7 @@ The algorithm is deterministic and objective only if all implementations use the
 
 - **Source**: U.S. Census Bureau decennial census or American Community Survey (ACS) 5-year estimates.
 - **Granularity**: Census tract.
-- **Required field**: Total population per tract (GEOID). Implementations MUST map source data to GEOID and population (see GDPIP-001).
+- **Required field**: Total population per tract (GEOID). Implementations MUST map source data to GEOID and population (see GDIP-002).
 - **Reference**: [Census API](https://www.census.gov/data/developers/data-sets.html), [CENSUS_POPULATION_DATA](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/CENSUS_POPULATION_DATA.md).
 
 #### 3. Tract and county geography
@@ -46,11 +46,11 @@ The algorithm is deterministic and objective only if all implementations use the
 
 ### Required vs Optional
 
-**Required**: All conforming implementations MUST use census tract population from Census Bureau (or equivalent official census), TIGER/Line (or equivalent) geography for tracts and counties, and the correct congressional district count per state. Optional data sources (e.g. voter registration) are defined in separate GDPIPs.
+**Required**: All conforming implementations MUST use census tract population from Census Bureau (or equivalent official census), TIGER/Line (or equivalent) geography for tracts and counties, and the correct congressional district count per state. Optional data sources (e.g. voter registration) are defined in separate GDIPs.
 
 ### Data model impact
 
-- Inputs must map to GDPIP-001 data model (GEOID, FIPS, population). No new entities.
+- Inputs must map to GDIP-002 data model (GEOID, FIPS, population). No new entities.
 
 ### Backward Compatibility
 
@@ -64,6 +64,6 @@ The algorithm is deterministic and objective only if all implementations use the
 
 ## References
 
-- [GDPIP-001: Data Model](gdpip-001-data-model.md)  
-- [GDPIP-003: Core Algorithm](gdpip-003-core-algorithm.md)  
-- [GDPIP-004: Demographics for New Geodistricts](gdpip-004-demographics.md) (optional)
+- [GDIP-002: Data Model](gdip-002-data-model.md)  
+- [GDIP-004: Core Algorithm](gdip-004-core-algorithm.md)  
+- [GDIP-005: Demographics for New Geodistricts](gdip-005-demographics.md) (optional)

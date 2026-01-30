@@ -15,11 +15,11 @@ There are many ways to contribute to GeoDistricts:
 
 ## Protocol Changes
 
-GeoDistricts is the **reference implementation** of the GeoDistricts Protocol. The protocol itself (GDPIPs, governance, index) is maintained in a **separate repository** (see [Protocol Repository Recommendations](doc/protocol/PROTOCOL_REPO_RECOMMENDATIONS.md)).
+GeoDistricts is the **reference implementation** of the GeoDistricts Protocol. The protocol itself (GDIPs, governance, index) is maintained in a **separate repository** (see [Protocol Repository Recommendations](doc/protocol/PROTOCOL_REPO_RECOMMENDATIONS.md)).
 
-- **Algorithm or data-model changes** that affect the protocol MUST be proposed in the **protocol repo** as a GeoDistricts Protocol Improvement Proposal (GDPIP). Do not change the core algorithm or canonical data structures in this repo without a corresponding accepted GDPIP.
-- **This repo** tracks which protocol version (or GDPIP set) it implements; see [Reference Implementation](doc/protocol/REFERENCE_IMPLEMENTATION.md).
-- To contribute to the protocol (new or revised GDPIPs), follow the [GDPIP process](doc/protocol/process/GDPIP-PROCESS.md) in the protocol repo once it exists; until then, GDPIPs are maintained under `doc/protocol/GDPIPs/` in this repo.
+- **Algorithm or data-model changes** that affect the protocol MUST be proposed in the **protocol repo** as a GeoDistricts Improvement Proposal (GDIP). Do not change the core algorithm or canonical data structures in this repo without a corresponding accepted GDIP.
+- **This repo** tracks which protocol version (or GDIP set) it implements; see [Reference Implementation](doc/protocol/REFERENCE_IMPLEMENTATION.md).
+- To contribute to the protocol (new or revised GDIPs), follow the [GDIP process](doc/protocol/process/GDIP-PROCESS.md) in the protocol repo once it exists; until then, GDIPs are maintained under `doc/protocol/GDIPs/` in this repo.
 
 ## Voter Registration Data Contribution
 

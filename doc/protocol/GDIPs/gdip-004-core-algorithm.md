@@ -1,9 +1,9 @@
-# GDPIP-003: Core Algorithm (Geodistrict Boundary Calculation)
+# GDIP-004: Core Algorithm (Geodistrict Boundary Calculation)
 
 **Status**: Draft  
 **Type**: Required  
 **Created**: 2026-01-28  
-**Updated**: 2026-01-28
+**Updated**: 2026-01-29
 
 ## Summary
 
@@ -11,7 +11,7 @@ Specifies the core algorithm that computes geodistrict boundaries from census tr
 
 ## Motivation
 
-Implementers and tooling need a single, unambiguous specification so that geodistrict boundaries are comparable across implementations and reproducible. This GDPIP encodes the protocol contract for the boundary-generation algorithm.
+Implementers and tooling need a single, unambiguous specification so that geodistrict boundaries are comparable across implementations and reproducible. This GDIP encodes the protocol contract for the boundary-generation algorithm.
 
 ## Specification
 
@@ -26,8 +26,8 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 #### 2. Inputs and outputs
 
-- **Input**: State (abbreviation or FIPS), census tract data (GEOID, population, boundaries per GDPIP-001 and GDPIP-002), county data (FIPS, boundaries or county–tract mapping), number of congressional districts for the state.
-- **Output**: Set of geodistricts (one per district number), each with assigned tract GEOIDs and population; optional population variance and contiguity score per district (GDPIP-001).
+- **Input**: State (abbreviation or FIPS), census tract data (GEOID, population, boundaries per GDIP-002 and GDIP-003), county data (FIPS, boundaries or county–tract mapping), number of congressional districts for the state.
+- **Output**: Set of geodistricts (one per district number), each with assigned tract GEOIDs and population; optional population variance and contiguity score per district (GDIP-002).
 
 #### 3. High-level steps
 
@@ -56,7 +56,7 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 ### Data model / algorithm impact
 
-- Output conforms to GDPIP-001 (geodistricts with district number, tract list, population). No new required fields.
+- Output conforms to GDIP-002 (geodistricts with district number, tract list, population). No new required fields.
 
 ### Backward Compatibility
 
@@ -70,6 +70,6 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 ## References
 
-- [GDPIP-001: Data Model](gdpip-001-data-model.md)  
-- [GDPIP-002: Required Data Sources](gdpip-002-required-data-sources.md)  
+- [GDIP-002: Data Model](gdip-002-data-model.md)  
+- [GDIP-003: Required Data Sources](gdip-003-required-data-sources.md)  
 - [LATLONG_ALGORITHM_DESIGN](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/LATLONG_ALGORITHM_DESIGN.md), [TRACT_DIVISION_README](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/TRACT_DIVISION_README.md)

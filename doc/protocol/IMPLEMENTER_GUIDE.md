@@ -19,10 +19,10 @@ This guide is for **implementers** of the GeoDistricts Protocol: state governmen
 
 ### Option 2: Build Your Own Implementation
 
-- **Protocol**: Implement the required GDPIPs (data model, required data sources, core algorithm). See [GDPIPs index](GDPIPs/README.md) and the individual GDPIP files in `doc/protocol/GDPIPs/`.
-- **Required inputs**: Census tract population, TIGER/Line (or equivalent) boundaries, congressional district count per state. See [GDPIP-002](GDPIPs/gdpip-002-required-data-sources.md).
-- **Algorithm**: Implement init → county-level division → tract-level refinement as in [GDPIP-003](GDPIPs/gdpip-003-core-algorithm.md). Output must conform to [GDPIP-001](GDPIPs/gdpip-001-data-model.md) (geodistricts with tract GEOIDs and population).
-- **Optional**: Demographics (GDPIP-004) and comparison metrics (GDPIP-005) if you need per-district demographics or existing-district comparison.
+- **Protocol**: Implement the required GDIPs (data model, required data sources, core algorithm). See [GDIPs index](GDIPs/README.md) and the individual GDIP files in `doc/protocol/GDIPs/`.
+- **Required inputs**: Census tract population, TIGER/Line (or equivalent) boundaries, congressional district count per state. See [GDIP-003](GDIPs/gdip-003-required-data-sources.md).
+- **Algorithm**: Implement init → county-level division → tract-level refinement as in [GDIP-004](GDIPs/gdip-004-core-algorithm.md). Output must conform to [GDIP-002](GDIPs/gdip-002-data-model.md) (geodistricts with tract GEOIDs and population).
+- **Optional**: Demographics (GDIP-005) and comparison metrics (GDIP-006) if you need per-district demographics or existing-district comparison.
 
 ### Option 3: Integrate via API
 
@@ -30,13 +30,13 @@ This guide is for **implementers** of the GeoDistricts Protocol: state governmen
 
 ## How to Verify Compliance
 
-- **Population equality**: Per-district population variance from target (total state population / number of districts) should be &lt;1%. See GDPIP-003.
+- **Population equality**: Per-district population variance from target (total state population / number of districts) should be &lt;1%. See GDIP-004.
 - **Contiguity**: Optional. Contiguity score = percentage of tracts in a district with at least one adjacent tract in the same district. Document if below a threshold (e.g. 80%).
-- **Comparison metrics**: If you implement GDPIP-005, document how you match existing districts to geography (e.g. tract centroid containment) and how you aggregate voter or demographic data.
+- **Comparison metrics**: If you implement GDIP-006, document how you match existing districts to geography (e.g. tract centroid containment) and how you aggregate voter or demographic data.
 
 ## Links
 
-- **Protocol (GDPIPs)**: [doc/protocol/GDPIPs/](GDPIPs/README.md) — index and required/optional specs.
+- **Protocol (GDIPs)**: [doc/protocol/GDIPs/](GDIPs/README.md) — index and required/optional specs.
 - **Reference implementation**: [doc/protocol/REFERENCE_IMPLEMENTATION.md](REFERENCE_IMPLEMENTATION.md) — what this repo implements and how to use it.
 - **Data sources**: [STATE_DATA_SOURCES](../pages/STATE_DATA_SOURCES.md), [CENSUS_POPULATION_DATA](../pages/CENSUS_POPULATION_DATA.md), [TIGER_LINE_SHAPEFILES](../pages/TIGER_LINE_SHAPEFILES.md).
 - **Comparison plan**: [CONGRESSIONAL_DISTRICT_COMPARISON_PLAN](../history/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md) — data and methods for comparing existing vs. geodistricts.

@@ -59,11 +59,11 @@ When working on specific areas, reference relevant documentation from `doc/pages
 - `doc/history/VOTER_REGISTRATION_DATA_PLAN.md` - Voter data integration
 
 **Protocol & Implementers:**
-- `doc/protocol/GDPIPs/README.md` - GDPIP index (required/optional specs)
+- `doc/protocol/GDIPs/README.md` - GDIP index (required/optional specs)
 - `doc/protocol/REFERENCE_IMPLEMENTATION.md` - Reference implementation and gen AI context
 - `doc/protocol/IMPLEMENTER_GUIDE.md` - Implementer guide
 - `doc/protocol/GOVERNMENT_AND_ADOPTION.md` - Government research and adoption
-- `doc/protocol/process/GDPIP-PROCESS.md` - GDPIP submission process
+- `doc/protocol/process/GDIP-PROCESS.md` - GDIP submission process
 
 ### Documentation Usage Guidelines
 1. **Do NOT automatically load all documentation files** - This wastes context window and reduces focus
