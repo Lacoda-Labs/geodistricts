@@ -3,11 +3,11 @@
 **Status**: Draft  
 **Type**: Required  
 **Created**: 2026-01-28  
-**Updated**: 2026-01-29
+**Updated**: 2026-01-30
 
 ## Summary
 
-Specifies the core algorithm that computes geodistrict boundaries from census tracts and population: initialization, county-level division, tract-level refinement, and output. The algorithm is deterministic, uses only census and geographic inputs (no political data), and produces districts that satisfy population equality (target &lt;1% variance) and prefer contiguity where possible.
+Specifies the core algorithm that computes geodistrict boundaries from census tracts and population: initialization, lat/long division, contiguity management, and output. The algorithm is deterministic, uses only census and geographic inputs (no political data), and produces districts that satisfy population equality (target &lt;1% variance) and prefer contiguity where possible.
 
 ## Motivation
 
@@ -22,23 +22,23 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 1. **Population equality first**: Districts MUST be as close to equal population as possible; target variance &lt;1% from ideal (total state population / number of districts).
 2. **Contiguity preferred**: Districts SHOULD be contiguous where possible; discontiguity is acceptable for geographic barriers (e.g. islands, water).
 3. **Objective and automated**: No human intervention; algorithm runs deterministically from census and geographic inputs only.
-4. **Hierarchical division**: Use counties as natural grouping units first; then refine with census tracts.
+4. **Direct tract division**: Work directly with census tracts using latitude/longitude dividing lines for geographic distribution.
 
 #### 2. Inputs and outputs
 
-- **Input**: State (abbreviation or FIPS), census tract data (GEOID, population, boundaries per GDIP-002 and GDIP-003), county data (FIPS, boundaries or county–tract mapping), number of congressional districts for the state.
+- **Input**: State (abbreviation or FIPS), census tract data (GEOID, population, boundaries per GDIP-002 and GDIP-003), number of congressional districts for the state.
 - **Output**: Set of geodistricts (one per district number), each with assigned tract GEOIDs and population; optional population variance and contiguity score per district (GDIP-002).
 
 #### 3. High-level steps
 
-1. **Initialize**: Fetch all counties and tracts for the state; compute county populations (sum of tract populations); compute target population per district = total state population / number of districts; set max allowed variance (e.g. 1% of target). Initialize one district group containing all counties/tracts.
-2. **County-level division**: Repeat until each group has ≤1 district: (a) Select the group with the most districts (tie-break: largest population). (b) If the group has 1 district, skip. (c) Compute split: if even number of districts, split 50/50; if odd, split (n−1)/2 and (n+1)/2. (d) Sort counties geographically (e.g. by centroid); alternate sort direction by iteration (e.g. latitude then longitude, then longitude then latitude). (e) Accumulate county populations until ≥ target for the first sub-group; assign counties to two new groups. (f) If a county would exceed target, split at tract level (see step 3). (g) Create new district groups with updated start/end district numbers and populations.
-3. **Tract-level refinement**: For each group with &gt;1 district: (a) Sort tracts geographically (same alternating direction as county sort). (b) Accumulate tract populations until ≥ target for the first sub-group; split at tract boundary (do not split individual tracts). (c) Handle edge cases: if a single tract exceeds target population, assign it whole and log variance; if remainder is below target, merge or adjust per implementation. (d) Recursively or iteratively continue until each group has exactly one district.
+1. **Initialize**: Fetch all census tracts for the state; compute total state population (sum of tract populations); compute target population per district = total state population / number of districts; set max allowed variance (e.g. 1% of target). Initialize one district group containing all tracts.
+2. **Lat/long division**: Repeat until each group has 1 district: (a) Select the group with the most districts (tie-break: largest population). (b) If the group has 1 district, skip. (c) Compute split: if even number of districts, split 50/50; if odd, split (n−1)/2 and (n+1)/2. (d) Sort tracts geographically by alternating latitude/longitude boundaries (e.g. iteration 1: south boundary for latitude, iteration 2: east boundary for longitude). (e) Accumulate tract populations until ≥ target for the first sub-group; split at tract boundary (do not split individual tracts). (f) Keep enclosed tracts with their enclosing tracts. (g) Create new district groups with updated start/end district numbers and populations.
+3. **Contiguity management**: For each division result: (a) Detect isolated tracts using adjacency data. (b) Move isolated tracts to adjacent connected groups while maintaining population balance. (c) Handle bridge tracts that connect isolated components.
 4. **Validation and output**: Compute per-district population variance and (optionally) contiguity score; output list of districts with tract GEOIDs and population; log variances and any discontiguous districts.
 
 #### 4. Geographic sorting
 
-- **Direction**: Alternating by division iteration—e.g. odd iterations: sort by latitude (north–south) then longitude (west–east); even: longitude then latitude. Implementations may use centroid or representative point of each tract/county.
+- **Direction**: Alternating by division iteration—e.g. iteration 1: sort by south boundary (latitude, north–south); iteration 2: sort by east boundary (longitude, west–east). Uses tract boundary coordinates for precise geographic ordering.
 - **Stability**: Sort MUST be deterministic (e.g. stable sort, then secondary key by GEOID).
 
 #### 5. Odd/even split
@@ -52,7 +52,7 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 ### Required vs Optional
 
-**Required**: All conforming implementations MUST implement the above flow (initialize → county-level division → tract-level refinement → output) with deterministic geographic sorting and odd/even split rules. Optional: contiguity scoring, step-by-step output for visualization.
+**Required**: All conforming implementations MUST implement the above flow (initialize → lat/long division → contiguity management → output) with deterministic geographic sorting and odd/even split rules. Optional: contiguity scoring, step-by-step output for visualization.
 
 ### Data model / algorithm impact
 
@@ -66,10 +66,10 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 - [doc/pages/GeodistrictingAlgorithmSpecification.md](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/GeodistrictingAlgorithmSpecification.md) (full spec).  
 - [doc/GeoDistrictsProjectOverview.md](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/GeoDistrictsProjectOverview.md) (overview).  
-- Backend: `backend/services/geodistrict-algorithm.js` (or equivalent in reference implementation).
+- Backend: `backend/services/geodistrict-algorithm.js` and `backend/services/latlong-division.js` (or equivalent in reference implementation).
 
 ## References
 
 - [GDIP-002: Data Model](gdip-002-data-model.md)  
 - [GDIP-003: Required Data Sources](gdip-003-required-data-sources.md)  
-- [LATLONG_ALGORITHM_DESIGN](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/LATLONG_ALGORITHM_DESIGN.md), [TRACT_DIVISION_README](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/TRACT_DIVISION_README.md)
+- Reference implementation uses lat/long division as described in the algorithm specification.

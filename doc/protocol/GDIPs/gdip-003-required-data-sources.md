@@ -3,7 +3,7 @@
 **Status**: Draft  
 **Type**: Required  
 **Created**: 2026-01-28  
-**Updated**: 2026-01-29
+**Updated**: 2026-01-30
 
 ## Summary
 
@@ -23,7 +23,7 @@ The algorithm is deterministic and objective only if all implementations use the
 |-------|-------------|----------------------|------------------|
 | **Tract population** | Total population per census tract | U.S. Census Bureau (decennial census or ACS) | Census API: `https://api.census.gov/data`; variables e.g. B01003_001E (total population). Geographic identifiers: STATE, COUNTY, TRACT → GEOID (11-digit). |
 | **Tract boundaries** | Geographic boundaries of census tracts | U.S. Census Bureau TIGER/Line Shapefiles | TIGER/Line or TIGERweb: `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb`; GeoJSON or shapefile. |
-| **County boundaries** (or county–tract relationship) | Counties and their constituent tracts | Same as above (TIGER/Line) | County FIPS + tract GEOID relationship; boundaries for county-level division and visualization. |
+| **County-tract relationship** | County FIPS codes for tract GEOIDs | TIGER/Line or Census API | Extract state/county FIPS from 11-digit tract GEOID; used for data organization and optional county-level reporting. |
 | **District count** | Number of congressional districts for the state | Statutory apportionment (e.g. Census apportionment, 435 total) | Integer per state; source may be internal (e.g. congressional-districts service) or Census/legislative reference. |
 
 #### 2. Tract population
@@ -36,7 +36,7 @@ The algorithm is deterministic and objective only if all implementations use the
 #### 3. Tract and county geography
 
 - **Source**: U.S. Census Bureau TIGER/Line Shapefiles or TIGERweb services.
-- **Required**: Tract boundaries (or centroid/representative point for algorithm steps that only need ordering); county–tract relationship or county boundaries for county-level division.
+- **Required**: Tract boundaries (or representative point for geographic sorting); county-tract relationship for data organization and optional county-level reporting.
 - **Reference**: [TIGER/Line](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html), [TIGER_LINE_SHAPEFILES](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/TIGER_LINE_SHAPEFILES.md).
 
 #### 4. District count

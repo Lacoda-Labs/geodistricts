@@ -17,7 +17,7 @@ This directory contains numbered **GeoDistricts Improvement Proposals (GDIPs)**.
 | [GDIP-001](gdip-001-purpose-and-guidelines.md) | Purpose and Guidelines | Meta | Living | What a GDIP is, types, workflow, how to submit. Process documentation (like EIP-1). |
 | [GDIP-002](gdip-002-data-model.md) | Data Model | Required | Draft | Canonical structures for states, counties, tracts, district groups, geodistricts. |
 | [GDIP-003](gdip-003-required-data-sources.md) | Required Data Sources | Required | Draft | Census population, TIGER/Line boundaries, district count per state. |
-| [GDIP-004](gdip-004-core-algorithm.md) | Core Algorithm | Required | Draft | Geodistrict boundary calculation: init, county-level division, tract-level refinement. |
+| [GDIP-004](gdip-004-core-algorithm.md) | Core Algorithm | Required | Draft | Geodistrict boundary calculation: init, lat/long division, contiguity management. |
 | [GDIP-005](gdip-005-demographics.md) | Demographics for New Geodistricts | Optional | Draft | Aggregating party, race, age, etc. per geodistrict when optional data is available. |
 | [GDIP-006](gdip-006-comparison-metrics.md) | Comparison Metrics | Optional | Draft | Metrics for comparing existing districts vs geodistricts (variance, contiguity, partisan balance). |
 
