@@ -7,7 +7,7 @@
 When working on specific areas, reference relevant documentation from `doc/pages/` as needed:
 
 ### Algorithm & Core Logic
-- `doc/pages/GeodistrictingAlgorithmSpecification.md` - Complete algorithm specification
+- `https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md` - Complete algorithm specification
 - `doc/pages/GeoDistrictingAlgorithm.md` - Algorithm implementation details
 - `doc/pages/algo-abstract-steps.md` - High-level algorithm steps
 - `doc/pages/LATLONG_ALGORITHM_DESIGN.md` - Geographic division strategy

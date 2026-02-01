@@ -6,7 +6,7 @@ This repository (**geodistricts**) is the **reference implementation** of the Ge
 
 - **Protocol version**: This implementation follows the protocol as specified by the GDIP index in the protocol repo. Until the protocol repo is created, the canonical GDIPs are maintained in this repo under `doc/protocol/GDIPs/`.
 - **Required GDIPs** (implemented):
-  - **GDIP-002 (Data Model)**: Canonical structures for states, counties, tracts, district groups, geodistricts. Implemented in backend API and frontend types; see [GeodistrictingAlgorithmSpecification](../pages/GeodistrictingAlgorithmSpecification.md) and [ARCHITECTURE_DETAILS](../pages/ARCHITECTURE_DETAILS.md).
+  - **GDIP-002 (Data Model)**: Canonical structures for states, counties, tracts, district groups, geodistricts. Implemented in backend API and frontend types; see [GeodistrictingAlgorithmSpecification](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md) and [ARCHITECTURE_DETAILS](../pages/ARCHITECTURE_DETAILS.md).
   - **GDIP-003 (Required Data Sources)**: Census population, TIGER/Line boundaries, district count per state. Implemented via Census API integration and TIGER/cache; see [CENSUS_POPULATION_DATA](../pages/CENSUS_POPULATION_DATA.md), [TIGER_LINE_SHAPEFILES](../pages/TIGER_LINE_SHAPEFILES.md).
   - **GDIP-004 (Core Algorithm)**: Geodistrict boundary calculation (init, county-level division, tract-level refinement). Implemented in `backend/services/geodistrict-algorithm.js` (or equivalent); step-by-step output for visualization in frontend (maps-page, geodistrict-viewer).
 - **Optional GDIPs** (partial or planned):

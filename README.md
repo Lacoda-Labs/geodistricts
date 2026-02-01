@@ -28,7 +28,7 @@ GeoDistricts implements a hierarchical, geography-based algorithm that:
 - Population variance tracking
 - Contiguity scoring
 
-→ **[Complete Algorithm Specification](doc/pages/GeodistrictingAlgorithmSpecification.md)**
+→ **[Complete Algorithm Specification](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md)**
 
 **Implementing the protocol?** This repo is the **reference implementation** of the GeoDistricts Protocol. For the protocol spec (GDIPs) and implementer guide, see → **[GDIP Index](doc/protocol/GDIPs/README.md)** • **[Implementer Guide](doc/protocol/IMPLEMENTER_GUIDE.md)**
 

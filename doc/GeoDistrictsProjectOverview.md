@@ -72,7 +72,7 @@ Democracy is preserved as no centralized state authority can be compromised into
 For detailed implementation specifications and related documentation, see:
 
 ### Algorithm Design
-- [Geodistricting Algorithm Specification](pages/GeodistrictingAlgorithmSpecification.md) - Complete algorithm specification
+- [Geodistricting Algorithm Specification](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md) - Complete algorithm specification
 - [GeoDistricting Algorithm](pages/GeoDistrictingAlgorithm.md) - Algorithm implementation details
 - [Algorithm Abstract Steps](pages/algo-abstract-steps.md) - High-level algorithm steps
 - [Latitude/Longitude Division Design](pages/LATLONG_ALGORITHM_DESIGN.md) - Geographic division strategy

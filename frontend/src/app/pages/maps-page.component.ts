@@ -63,6 +63,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
+  isPulsingTracts: boolean = false; // Track if tract pulsing visualization is active
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
@@ -1006,6 +1007,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   previousStep(): void {
+    // Stop pulsing when leaving step 0
+    this.stopTractPulsing();
+
     if (this.currentStepIndex > 0) {
       const prevIndex = this.currentStepIndex - 1;
       // Ensure we check the array properly - handle both dense and sparse arrays
@@ -1158,6 +1162,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   nextStep(): void {
+    // Stop pulsing when leaving step 0
+    this.stopTractPulsing();
+
     const nextIndex = this.currentStepIndex + 1;
     const step = this.loadedSteps[nextIndex];
     
@@ -1386,10 +1393,83 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return total > 0 && this.currentStepIndex < total - 1;
   }
 
+  private startTractPulsing(): void {
+    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
+      return;
+    }
+
+    this.isPulsingTracts = true;
+    const districtGroup = this.currentStep.districtGroups[0]; // Step 0 should have only one district group
+    const tractIds = districtGroup.censusTracts || [];
+
+    if (tractIds.length === 0) {
+      return;
+    }
+
+    console.log(`🎯 Starting tract pulsing visualization for ${tractIds.length} tracts`);
+
+    let currentIndex = 0;
+    const pulseInterval = setInterval(() => {
+      if (!this.isPulsingTracts || currentIndex >= tractIds.length) {
+        clearInterval(pulseInterval);
+        this.isPulsingTracts = false;
+        console.log(`✅ Tract pulsing visualization completed`);
+        return;
+      }
+
+      const tractId = tractIds[currentIndex];
+      this.highlightTractPulse(tractId, currentIndex + 1);
+      currentIndex++;
+    }, 2000); // 2 seconds per tract as mentioned in archive
+  }
+
+  private stopTractPulsing(): void {
+    this.isPulsingTracts = false;
+    // Clear any existing pulsing highlights
+    this.clearTractHighlights();
+  }
+
+  private highlightTractPulse(tractId: string, sequenceNumber: number): void {
+    const tractLayer = this.tractIdToLayer.get(tractId);
+    if (!tractLayer) {
+      console.warn(`⚠️ Tract ${tractId} not found in layer map for pulsing`);
+      return;
+    }
+
+    // Add pulsing class to the tract
+    const element = tractLayer.getElement();
+    if (element) {
+      element.classList.add('tract-pulse-highlight');
+      console.log(`💫 Pulsing tract ${tractId} (sequence #${sequenceNumber})`);
+
+      // Remove highlight after animation
+      setTimeout(() => {
+        element.classList.remove('tract-pulse-highlight');
+      }, 1500); // Remove before next pulse
+    }
+  }
+
+  private clearTractHighlights(): void {
+    // Clear any pulsing highlights from all tract elements
+    this.tractIdToLayer.forEach((layer) => {
+      const element = layer.getElement();
+      if (element) {
+        element.classList.remove('tract-pulse-highlight');
+      }
+    });
+  }
+
   private renderFinalDistricts(): void {
     if (!this.map) {
       console.error('⚠️ Map not initialized');
       return;
+    }
+
+    // Start pulsing visualization for step 0 in admin mode
+    if (this.currentStepIndex === 0 && this.isAdminMode) {
+      this.startTractPulsing();
+    } else {
+      this.stopTractPulsing();
     }
     if (!this.tractLayer) {
       console.error('⚠️ Tract layer not initialized');

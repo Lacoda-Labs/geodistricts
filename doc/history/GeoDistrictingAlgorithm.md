@@ -68,5 +68,5 @@ Democracy is preserved as no centralized state authority can be compromised into
 - 🔄 County-level division (in progress)
 - ⏳ Contiguity scoring and validation
 
-For detailed implementation specifications, see `GeodistrictingAlgorithmSpecification.md`.
+For detailed implementation specifications, see [GeodistrictingAlgorithmSpecification.md](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md).
 

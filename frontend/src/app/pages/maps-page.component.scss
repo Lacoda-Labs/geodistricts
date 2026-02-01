@@ -1221,17 +1221,102 @@
 // Custom map toggle control styles
 :host ::ng-deep .leaflet-control-custom {
   margin-top: 10px !important;
-  
+
   .leaflet-control-custom-button {
     transition: background-color 0.2s ease, color 0.2s ease;
     cursor: pointer;
-    
+
     &:hover {
       background-color: rgba(25, 118, 210, 0.1) !important;
     }
-    
+
     .material-icons {
       user-select: none;
     }
   }
+}
+
+// Tract pulsing animation for step 0 visualization
+:host ::ng-deep .tract-pulse-highlight {
+  animation: tract-pulse 1.5s ease-in-out;
+  z-index: 1000 !important;
+}
+
+@keyframes tract-pulse {
+  0% {
+    fill: var(--mat-sys-primary, #1976d2) !important;
+    fill-opacity: 0.3 !important;
+    stroke: var(--mat-sys-primary, #1976d2) !important;
+    stroke-width: 3px !important;
+  }
+  50% {
+    fill: var(--mat-sys-primary, #1976d2) !important;
+    fill-opacity: 0.7 !important;
+    stroke: var(--mat-sys-primary, #1976d2) !important;
+    stroke-width: 5px !important;
+  }
+  100% {
+    fill: var(--mat-sys-primary, #1976d2) !important;
+    fill-opacity: 0.3 !important;
+    stroke: var(--mat-sys-primary, #1976d2) !important;
+    stroke-width: 3px !important;
+  }
+}
+
+// Step 0 info styles
+.step-0-info {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: var(--mat-sys-surface-container, #f5f5f5);
+  border-radius: 8px;
+  border: 1px solid var(--mat-sys-outline-variant, #c4c7c5);
+
+  .step-0-header {
+    margin-bottom: 12px;
+
+    h4 {
+      margin: 0 0 8px 0;
+      color: var(--mat-sys-primary, #1976d2);
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0;
+      color: var(--mat-sys-on-surface, #1c1b1f);
+      font-size: 14px;
+    }
+  }
+
+  .next-step-info {
+    h5 {
+      margin: 0 0 8px 0;
+      color: var(--mat-sys-secondary, #565f6c);
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    p {
+      margin: 0 0 12px 0;
+      color: var(--mat-sys-on-surface-variant, #49454e);
+      font-size: 14px;
+    }
+
+    .pulsing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--mat-sys-primary, #1976d2);
+      font-size: 14px;
+      font-weight: 500;
+
+      .pulsing-icon {
+        animation: spin 2s linear infinite;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
