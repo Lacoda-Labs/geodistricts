@@ -1236,32 +1236,7 @@
   }
 }
 
-// Tract pulsing animation for step 0 visualization
-:host ::ng-deep .tract-pulse-highlight {
-  animation: tract-pulse 1.5s ease-in-out;
-  z-index: 1000 !important;
-}
-
-@keyframes tract-pulse {
-  0% {
-    fill: var(--mat-sys-primary, #1976d2) !important;
-    fill-opacity: 0.3 !important;
-    stroke: var(--mat-sys-primary, #1976d2) !important;
-    stroke-width: 3px !important;
-  }
-  50% {
-    fill: var(--mat-sys-primary, #1976d2) !important;
-    fill-opacity: 0.7 !important;
-    stroke: var(--mat-sys-primary, #1976d2) !important;
-    stroke-width: 5px !important;
-  }
-  100% {
-    fill: var(--mat-sys-primary, #1976d2) !important;
-    fill-opacity: 0.3 !important;
-    stroke: var(--mat-sys-primary, #1976d2) !important;
-    stroke-width: 3px !important;
-  }
-}
+// Tract pulsing is now handled via Leaflet layer styling, no CSS animation needed
 
 // Step 0 info styles
 .step-0-info {

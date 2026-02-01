@@ -64,6 +64,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
   isPulsingTracts: boolean = false; // Track if tract pulsing visualization is active
+  pulsingTractId: string | null = null; // Track which tract is currently pulsing
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
@@ -1430,33 +1431,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private highlightTractPulse(tractId: string, sequenceNumber: number): void {
-    const tractLayer = this.tractIdToLayer.get(tractId);
-    if (!tractLayer) {
-      console.warn(`⚠️ Tract ${tractId} not found in layer map for pulsing`);
-      return;
-    }
+    console.log(`💫 Pulsing tract ${tractId} (sequence #${sequenceNumber})`);
 
-    // Add pulsing class to the tract
-    const element = tractLayer.getElement();
-    if (element) {
-      element.classList.add('tract-pulse-highlight');
-      console.log(`💫 Pulsing tract ${tractId} (sequence #${sequenceNumber})`);
+    // Set the pulsing tract ID to trigger re-rendering with highlight
+    this.pulsingTractId = tractId;
 
-      // Remove highlight after animation
-      setTimeout(() => {
-        element.classList.remove('tract-pulse-highlight');
-      }, 1500); // Remove before next pulse
-    }
+    // Re-render to show the pulsing highlight
+    this.renderFinalDistricts();
+
+    // Clear the pulsing after animation duration
+    setTimeout(() => {
+      this.pulsingTractId = null;
+      this.renderFinalDistricts(); // Re-render to remove highlight
+    }, 1500); // Remove before next pulse
   }
 
   private clearTractHighlights(): void {
-    // Clear any pulsing highlights from all tract elements
-    this.tractIdToLayer.forEach((layer) => {
-      const element = layer.getElement();
-      if (element) {
-        element.classList.remove('tract-pulse-highlight');
-      }
-    });
+    this.pulsingTractId = null;
+    this.renderFinalDistricts(); // Re-render to clear highlights
   }
 
   private renderFinalDistricts(): void {
@@ -1733,7 +1725,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             const tractId = this.getTractId(tract);
             const isIsolated = this.isolatedTractIds.has(tractId);
             const isBridge = this.bridgeTractIds.has(tractId);
-            
+            const isPulsing = this.pulsingTractId === tractId;
+
             // Debug: Log first few isolated tracts being rendered
             if (isIsolated && this.isolatedTractIds.size > 0) {
               const isolatedArray = Array.from(this.isolatedTractIds);
@@ -1742,13 +1735,28 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 console.log(`🎨 Rendering isolated tract: ${tractId}, isIsolated: ${isIsolated}, in Set: ${this.isolatedTractIds.has(tractId)}`);
               }
             }
+
+            // Debug: Log pulsing tract
+            if (isPulsing) {
+              console.log(`💫 Rendering pulsing tract: ${tractId}`);
+            }
+
+            let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
+            // Pulsing tracts get special highlighting
+            if (isPulsing) {
+              tractColor = '#1976d2'; // Primary blue for pulsing
+            }
             
-            const tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
-            
-            // Determine border weight and color: bridge tracts get white 3px border
+            // Determine border weight and color: bridge tracts get white 3px border, pulsing tracts get blue 3px border
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
             let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
             if (isBridge) {
+              borderWeight = 3;
+              borderColor = '#ffffff';
+            } else if (isPulsing) {
+              borderWeight = 3;
+              borderColor = '#1976d2';
+            }
               borderWeight = 3.0; // 3px for bridge tracts
               borderColor = '#ffffff'; // White border for bridge tracts
             } else if (isIsolated) {
@@ -1760,8 +1768,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               style: {
                 color: borderColor,
                 weight: borderWeight,
-                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : 0.2), // Full opacity for bridge tracts when boundaries not shown
-                fillOpacity: isIsolated ? 0.9 : 0.7, // Higher opacity for isolated tracts
+                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : (isPulsing ? 1.0 : 0.2)), // Full opacity for bridge and pulsing tracts when boundaries not shown
+                fillOpacity: isPulsing ? 1.0 : (isIsolated ? 0.9 : 0.7), // Highest opacity for pulsing tracts
                 fillColor: tractColor
               }
             }).bindPopup(`
@@ -3064,7 +3072,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Get state row data for StateRowComponent
    */
   getStateRowData(stateCode: string): StateRowData {
-    const state = this.states.find(s => s.code === stateCode);
+    const state = this.states.find((s: any) => s.code === stateCode);
     const congressDChangeStr = this.getStateDataChange(stateCode, '119th', 'D');
     const geodistrictsDChangeStr = this.getStateDataChange(stateCode, 'geodistricts', 'D');
     return {
@@ -3080,6 +3088,5 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       swing: parseInt(this.getStateData(stateCode, 'swing', 'value')) || 0
     };
   }
-
 }
 
