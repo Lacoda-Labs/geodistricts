@@ -1407,15 +1407,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    console.log(`🎯 Starting tract pulsing visualization for ${tractIds.length} tracts`);
+    console.log(`🎯 Starting continuous tract pulsing visualization for ${tractIds.length} tracts`);
 
     let currentIndex = 0;
     const pulseInterval = setInterval(() => {
-      if (!this.isPulsingTracts || currentIndex >= tractIds.length) {
+      if (!this.isPulsingTracts) {
         clearInterval(pulseInterval);
-        this.isPulsingTracts = false;
-        console.log(`✅ Tract pulsing visualization completed`);
+        console.log(`🛑 Tract pulsing visualization stopped`);
         return;
+      }
+
+      // Loop back to beginning when we reach the end
+      if (currentIndex >= tractIds.length) {
+        currentIndex = 0;
+        console.log(`🔄 Restarting tract pulsing cycle`);
       }
 
       const tractId = tractIds[currentIndex];
@@ -1742,20 +1747,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
-            // Pulsing tracts get special highlighting
-            if (isPulsing) {
-              tractColor = '#1976d2'; // Primary blue for pulsing
-            }
+            // Pulsing tracts keep their original color but get enhanced styling
             
-            // Determine border weight and color: bridge tracts get white 3px border, pulsing tracts get blue 3px border
+            // Determine border weight and color: bridge tracts get white 3px border, pulsing tracts get thickened border
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
             let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
             } else if (isPulsing) {
-              borderWeight = 3;
-              borderColor = '#1976d2';
+              borderWeight = 4; // Thickened border for pulsing tracts
+              borderColor = this.showTractBoundaries ? '#1976d2' : '#000000'; // Blue when showing boundaries, black otherwise
             }
               borderWeight = 3.0; // 3px for bridge tracts
               borderColor = '#ffffff'; // White border for bridge tracts
@@ -1768,8 +1770,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               style: {
                 color: borderColor,
                 weight: borderWeight,
-                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : (isPulsing ? 1.0 : 0.2)), // Full opacity for bridge and pulsing tracts when boundaries not shown
-                fillOpacity: isPulsing ? 1.0 : (isIsolated ? 0.9 : 0.7), // Highest opacity for pulsing tracts
+                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : (isPulsing ? 0.9 : 0.2)), // High opacity for pulsing tracts when boundaries not shown
+                fillOpacity: isPulsing ? 0.9 : (isIsolated ? 0.9 : 0.7), // Enhanced opacity for pulsing tracts
                 fillColor: tractColor
               }
             }).bindPopup(`
