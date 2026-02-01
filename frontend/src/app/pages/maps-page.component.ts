@@ -65,6 +65,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
   isPulsingTracts: boolean = false; // Track if tract pulsing visualization is active
   pulsingTractId: string | null = null; // Track which tract is currently pulsing
+  hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
+  isSortingVisualization: boolean = false; // Track if we're currently showing sorting visualization
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
@@ -862,6 +864,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.bridgeTractIds.clear();
     this.bridgeTractsData = null;
     this.selectedDistrictGroupIndex = null; // Clear selection
+    this.hasShownSorting = false; // Reset sorting visualization state
+    this.isSortingVisualization = false; // Reset sorting visualization state
 
     // Directly call the step-by-step endpoint to get step 0, bypassing final step check
     // This ensures we always get step 0, not the final step
@@ -1166,6 +1170,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Stop pulsing when leaving step 0
     this.stopTractPulsing();
 
+    // Special handling for step 0 -> check if we need to show sorting first
+    if (this.currentStepIndex === 0 && this.isAdminMode && !this.hasShownSorting) {
+      this.showSortingVisualization();
+      return;
+    }
+
     const nextIndex = this.currentStepIndex + 1;
     const step = this.loadedSteps[nextIndex];
     
@@ -1456,6 +1466,115 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderFinalDistricts(); // Re-render to clear highlights
   }
 
+  private showSortingVisualization(): void {
+    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
+      return;
+    }
+
+    console.log(`🔄 Showing sorting visualization for step 0`);
+    this.isSortingVisualization = true;
+    this.hasShownSorting = true;
+
+    const districtGroup = this.currentStep.districtGroups[0];
+    const originalTracts = districtGroup.censusTracts || [];
+
+    if (originalTracts.length === 0) {
+      return;
+    }
+
+    // Sort tracts by latitude (north to south) then longitude (west to east)
+    const sortedTracts = [...originalTracts].sort((a, b) => {
+      // Get centroids for comparison
+      const centroidA = this.getTractCentroid(a);
+      const centroidB = this.getTractCentroid(b);
+
+      if (!centroidA || !centroidB) return 0;
+
+      // Sort by latitude (north to south), then by longitude (west to east)
+      if (Math.abs(centroidA.lat - centroidB.lat) > 0.0001) {
+        return centroidB.lat - centroidA.lat; // North first
+      } else {
+        return centroidA.lng - centroidB.lng; // West first
+      }
+    });
+
+    console.log(`📊 Sorted ${sortedTracts.length} tracts by lat/lng for visualization`);
+
+    // Update the district group with sorted tracts for visualization
+    districtGroup.censusTracts = sortedTracts;
+
+    // Re-render to show sorted tracts
+    this.renderFinalDistricts();
+
+    // Start pulsing the sorted tracts
+    setTimeout(() => {
+      this.startSortedTractPulsing(sortedTracts);
+    }, 1000); // Brief pause to show sorting result
+  }
+
+  private getTractCentroid(tract: any): {lat: number, lng: number} | null {
+    if (!tract || !tract.geometry) return null;
+
+    // Calculate centroid of the tract geometry
+    let totalLat = 0;
+    let totalLng = 0;
+    let pointCount = 0;
+
+    const processCoordinates = (coords: any) => {
+      if (Array.isArray(coords)) {
+        if (typeof coords[0] === 'number') {
+          // [lng, lat] point
+          totalLng += coords[0];
+          totalLat += coords[1];
+          pointCount++;
+        } else {
+          // Array of coordinates
+          coords.forEach(processCoordinates);
+        }
+      }
+    };
+
+    processCoordinates(tract.geometry.coordinates);
+
+    if (pointCount === 0) return null;
+
+    return {
+      lat: totalLat / pointCount,
+      lng: totalLng / pointCount
+    };
+  }
+
+  private startSortedTractPulsing(sortedTracts: any[]): void {
+    if (sortedTracts.length === 0) {
+      return;
+    }
+
+    this.isPulsingTracts = true;
+    console.log(`🎯 Starting sorted tract pulsing visualization for ${sortedTracts.length} tracts`);
+
+    let currentIndex = 0;
+    const pulseInterval = setInterval(() => {
+      if (!this.isPulsingTracts || !this.isSortingVisualization) {
+        clearInterval(pulseInterval);
+        console.log(`🛑 Sorted tract pulsing stopped`);
+        return;
+      }
+
+      // Loop back to beginning when we reach the end
+      if (currentIndex >= sortedTracts.length) {
+        currentIndex = 0;
+        console.log(`🔄 Restarting sorted tract pulsing cycle`);
+      }
+
+      const tract = sortedTracts[currentIndex];
+      const tractId = this.getTractId(tract);
+      if (tractId) {
+        this.highlightTractPulse(tractId, currentIndex + 1);
+      }
+      currentIndex++;
+    }, 2000); // 2 seconds per tract
+  }
+
   private renderFinalDistricts(): void {
     if (!this.map) {
       console.error('⚠️ Map not initialized');
@@ -1464,8 +1583,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Start pulsing visualization for step 0 in admin mode
     if (this.currentStepIndex === 0 && this.isAdminMode) {
+      console.log(`🎯 Starting pulsing: stepIndex=${this.currentStepIndex}, adminMode=${this.isAdminMode}`);
       this.startTractPulsing();
     } else {
+      console.log(`🛑 Stopping pulsing: stepIndex=${this.currentStepIndex}, adminMode=${this.isAdminMode}`);
       this.stopTractPulsing();
     }
     if (!this.tractLayer) {

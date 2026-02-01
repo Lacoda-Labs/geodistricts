@@ -103,18 +103,18 @@
 
         <div class="info-body">
           <div class="step-info-container" *ngIf="currentStep">
-            <!-- Step 0 Sorting Information -->
+            <!-- Step 0 Information -->
             <div class="step-0-info" *ngIf="currentStepIndex === 0 && isAdminMode">
               <div class="step-0-header">
-                <h4>Step 0: Initial State</h4>
-                <p>The entire state is shown as one district group containing all census tracts.</p>
+                <h4>{{ isSortingVisualization ? 'Step 0.2: Sorted Tracts' : 'Step 0.1: Initial State' }}</h4>
+                <p>{{ isSortingVisualization ? 'Census tracts have been sorted by latitude and longitude for geographic division.' : 'The entire state is shown as one district group containing all census tracts.' }}</p>
               </div>
               <div class="next-step-info">
-                <h5>Next Step: Sort Census Tracts</h5>
-                <p>The algorithm will sort census tracts by latitude and longitude to prepare for geographic division.</p>
+                <h5>{{ isSortingVisualization ? 'Next Step: Geographic Division' : 'Next Step: Sort Census Tracts' }}</h5>
+                <p>{{ isSortingVisualization ? 'The algorithm will now begin dividing the state using lat/long lines.' : 'The algorithm will sort census tracts by latitude and longitude to prepare for geographic division.' }}</p>
                 <div class="pulsing-indicator" *ngIf="isPulsingTracts">
                   <mat-icon fontIcon="sync" class="pulsing-icon"></mat-icon>
-                  <span>Visualizing tract sequence...</span>
+                  <span>{{ isSortingVisualization ? 'Visualizing sorted sequence...' : 'Visualizing tract sequence...' }}</span>
                 </div>
               </div>
             </div>
