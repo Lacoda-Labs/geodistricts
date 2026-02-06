@@ -87,6 +87,74 @@
   height: 100%;
 }
 
+// Sort-order slider: vertical on right (latitude N→S), horizontal on bottom (longitude W→E). Track length ≥90% of map.
+.sort-slider-wrapper {
+  position: absolute;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+
+  &.vertical {
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
+    max-width: 44px;
+    .sort-slider {
+      transform: rotate(-90deg);
+      width: 45vh;
+      margin: 4px 0;
+      @media (min-width: 768px) {
+        width: 90vh;
+      }
+    }
+    .sort-slider-value {
+      font-size: 0.65rem;
+      color: var(--mat-sys-on-surface-variant, #444);
+    }
+  }
+
+  &.horizontal {
+    bottom: 8px;
+    left: 5%;
+    width: 90%;
+    transform: none;
+    flex-direction: row;
+    max-height: 40px;
+    box-sizing: border-box;
+    .sort-slider {
+      flex: 1;
+      min-width: 0;
+    }
+    .sort-slider-value {
+      font-size: 0.65rem;
+      color: var(--mat-sys-on-surface-variant, #444);
+      min-width: 3ch;
+    }
+  }
+}
+
+.sort-slider-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mat-sys-primary, #2B638B);
+}
+
+.sort-slider {
+  accent-color: var(--mat-sys-primary, #2B638B);
+  cursor: pointer;
+}
+
+.sort-slider-value {
+  font-variant-numeric: tabular-nums;
+}
+
 .map-controls {
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);

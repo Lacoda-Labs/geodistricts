@@ -63,16 +63,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
-  isPulsingTracts: boolean = false; // Track if tract pulsing visualization is active
-  pulsingTractId: string | null = null; // Track which tract is currently pulsing
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
   isSortingVisualization: boolean = false; // Track if we're currently showing sorting visualization
+  /** Raw slider position 0..sliderMax. Mapped to tract range: when positions < tracts each step = range of tracts; when positions > tracts multiple steps = same tract. */
+  sortSliderValue: number = 0;
+  readonly sliderMax: number = 1000;
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
   private tractLayer: L.LayerGroup | null = null;
+  /** Guard to prevent re-entrant render (stops render loop) */
+  private isRenderingDistricts = false;
   private tractGeoJsonLayers: Map<L.GeoJSON, string> = new Map(); // Store layer -> color mapping
   private tractIdToLayer: Map<string, L.GeoJSON> = new Map(); // Store tract ID -> layer mapping for popup access
+  /** Tract IDs currently highlighted by slider (for setStyle updates only; no full re-render) */
+  private lastSliderHighlightedTractIds: Set<string> = new Set();
   private subscriptions: Subscription[] = [];
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
@@ -866,6 +871,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedDistrictGroupIndex = null; // Clear selection
     this.hasShownSorting = false; // Reset sorting visualization state
     this.isSortingVisualization = false; // Reset sorting visualization state
+    this.sortSliderValue = 0;
 
     // Directly call the step-by-step endpoint to get step 0, bypassing final step check
     // This ensures we always get step 0, not the final step
@@ -1012,9 +1018,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   previousStep(): void {
-    // Stop pulsing when leaving step 0
-    this.stopTractPulsing();
-
     if (this.currentStepIndex > 0) {
       const prevIndex = this.currentStepIndex - 1;
       // Ensure we check the array properly - handle both dense and sparse arrays
@@ -1029,6 +1032,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
         this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
+        this.sortSliderValue = 0;
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
         // Step not loaded yet, request it from backend
@@ -1167,9 +1171,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   nextStep(): void {
-    // Stop pulsing when leaving step 0
-    this.stopTractPulsing();
-
     // Special handling for step 0 -> check if we need to show sorting first
     if (this.currentStepIndex === 0 && this.isAdminMode && !this.hasShownSorting) {
       this.showSortingVisualization();
@@ -1184,6 +1185,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStepIndex = nextIndex;
       this.currentStep = step;
       this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
+      this.sortSliderValue = 0;
       this.renderFinalDistricts();
     } else {
       // Step not loaded yet, request it from backend
@@ -1404,71 +1406,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return total > 0 && this.currentStepIndex < total - 1;
   }
 
-  private startTractPulsing(): void {
-    if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
-      return;
-    }
-
-    this.isPulsingTracts = true;
-    const districtGroup = this.currentStep.districtGroups[0]; // Step 0 should have only one district group
-    const tracts = districtGroup.censusTracts || [];
-
-    if (tracts.length === 0) {
-      return;
-    }
-
-    console.log(`🎯 Starting continuous tract pulsing visualization for ${tracts.length} tracts`);
-
-    let currentIndex = 0;
-    const pulseInterval = setInterval(() => {
-      if (!this.isPulsingTracts) {
-        clearInterval(pulseInterval);
-        console.log(`🛑 Tract pulsing visualization stopped`);
-        return;
-      }
-
-      // Loop back to beginning when we reach the end
-      if (currentIndex >= tracts.length) {
-        currentIndex = 0;
-        console.log(`🔄 Restarting tract pulsing cycle`);
-      }
-
-      const tract = tracts[currentIndex];
-      const tractId = this.getTractId(tract);
-      if (tractId) {
-        this.highlightTractPulse(tractId, currentIndex + 1);
-      }
-      currentIndex++;
-    }, 2000); // 2 seconds per tract as mentioned in archive
-  }
-
-  private stopTractPulsing(): void {
-    this.isPulsingTracts = false;
-    // Clear any existing pulsing highlights
-    this.clearTractHighlights();
-  }
-
-  private highlightTractPulse(tractId: string, sequenceNumber: number): void {
-    console.log(`💫 Pulsing tract ${tractId} (sequence #${sequenceNumber})`);
-
-    // Set the pulsing tract ID to trigger re-rendering with highlight
-    this.pulsingTractId = tractId;
-
-    // Re-render to show the pulsing highlight
-    this.renderFinalDistricts();
-
-    // Clear the pulsing after animation duration
-    setTimeout(() => {
-      this.pulsingTractId = null;
-      this.renderFinalDistricts(); // Re-render to remove highlight
-    }, 1500); // Remove before next pulse
-  }
-
-  private clearTractHighlights(): void {
-    this.pulsingTractId = null;
-    this.renderFinalDistricts(); // Re-render to clear highlights
-  }
-
   private showSortingVisualization(): void {
     if (!this.currentStep || !this.currentStep.districtGroups || this.currentStep.districtGroups.length === 0) {
       return;
@@ -1506,13 +1443,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Update the district group with sorted tracts for visualization
     districtGroup.censusTracts = sortedTracts;
 
-    // Re-render to show sorted tracts
+    // Re-render to show sorted tracts; slider will control highlight
+    this.sortSliderValue = 0;
     this.renderFinalDistricts();
-
-    // Start pulsing the sorted tracts
-    setTimeout(() => {
-      this.startSortedTractPulsing(sortedTracts);
-    }, 1000); // Brief pause to show sorting result
   }
 
   private getTractCentroid(tract: any): {lat: number, lng: number} | null {
@@ -1547,50 +1480,128 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
-  private startSortedTractPulsing(sortedTracts: any[]): void {
-    if (sortedTracts.length === 0) {
-      return;
+  /** Division direction for current step (used for slider orientation and sort order). Step 0 uses latitude. */
+  get sortDirection(): 'latitude' | 'longitude' {
+    if (!this.currentStep) return 'latitude';
+    return this.currentStep.divisionDirection || 'latitude';
+  }
+
+  /** Sorted tracts for the active DG (step 0 single group, or selected DG). Empty if none. */
+  get sortedTractsForSlider(): GeoJsonFeature[] {
+    if (!this.currentStep?.districtGroups?.length) return [];
+    const dgIndex = this.currentStepIndex === 0
+      ? 0
+      : this.selectedDistrictGroupIndex ?? -1;
+    if (dgIndex < 0 || dgIndex >= this.currentStep.districtGroups.length) return [];
+    const group = this.currentStep.districtGroups[dgIndex];
+    const tracts = group?.censusTracts || [];
+    if (tracts.length === 0) return [];
+    const dir = this.sortDirection;
+    return [...tracts].sort((a, b) => {
+      const ca = this.getTractCentroid(a);
+      const cb = this.getTractCentroid(b);
+      if (!ca || !cb) return 0;
+      if (dir === 'latitude') {
+        if (Math.abs(ca.lat - cb.lat) > 0.0001) return cb.lat - ca.lat; // North first
+        return ca.lng - cb.lng; // West first
+      } else {
+        if (Math.abs(ca.lng - cb.lng) > 0.0001) return ca.lng - cb.lng; // West first
+        return cb.lat - ca.lat; // North first (secondary)
+      }
+    });
+  }
+
+  /** Whether the sort-order slider should be shown. Only when tract boundaries are visible (individual tracts), and step 0 or a DG is selected. */
+  get showSortSlider(): boolean {
+    if (!this.showTractBoundaries) return false;
+    const tracts = this.sortedTractsForSlider;
+    if (tracts.length === 0) return false;
+    if (this.currentStepIndex === 0) return true;
+    return this.selectedDistrictGroupIndex !== null;
+  }
+
+  /**
+   * Tract IDs that correspond to the slider's current position only (not a range from start).
+   * When slider positions > tracts: one tract per position; when positions < tracts: one graduation = range of tracts.
+   */
+  getTractIdsAtSliderPosition(): Set<string> {
+    const set = new Set<string>();
+    const sorted = this.sortedTractsForSlider;
+    const N = sorted.length;
+    if (N === 0 || this.sortSliderValue <= 0) return set;
+    const v = this.sortSliderValue;
+    const M = this.sliderMax;
+    const startIndex = Math.max(0, Math.min(N - 1, Math.floor((v - 1) * N / M)));
+    const endIndex = Math.min(N - 1, Math.floor(v * N / M) - 1);
+    if (endIndex < startIndex) return set;
+    for (let i = startIndex; i <= endIndex; i++) {
+      const id = this.getTractId(sorted[i]);
+      if (id) set.add(id);
     }
+    return set;
+  }
 
-    this.isPulsingTracts = true;
-    console.log(`🎯 Starting sorted tract pulsing visualization for ${sortedTracts.length} tracts`);
+  /** Count of tracts at current slider position (for display). */
+  getSliderHighlightCount(): number {
+    return this.getTractIdsAtSliderPosition().size;
+  }
 
-    let currentIndex = 0;
-    const pulseInterval = setInterval(() => {
-      if (!this.isPulsingTracts || !this.isSortingVisualization) {
-        clearInterval(pulseInterval);
-        console.log(`🛑 Sorted tract pulsing stopped`);
-        return;
-      }
+  /**
+   * Update only the border style (class-like) on tract layers for the current slider position.
+   * Does not re-render the map; uses setStyle on existing layers for performance.
+   */
+  private updateSliderHighlightOnLayers(): void {
+    if (!this.showTractBoundaries || this.tractIdToLayer.size === 0) return;
+    const newIds = this.getTractIdsAtSliderPosition();
+    const toUnhighlight = new Set(this.lastSliderHighlightedTractIds);
+    newIds.forEach(id => toUnhighlight.delete(id));
+    const toHighlight = new Set(newIds);
+    this.lastSliderHighlightedTractIds.forEach(id => toHighlight.delete(id));
 
-      // Loop back to beginning when we reach the end
-      if (currentIndex >= sortedTracts.length) {
-        currentIndex = 0;
-        console.log(`🔄 Restarting sorted tract pulsing cycle`);
-      }
+    const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
+    const normalColor = this.showTractBoundaries ? '#000000' : undefined;
+    toUnhighlight.forEach(tractId => {
+      const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
+      if (!layer) return;
+      const tractColor = this.tractGeoJsonLayers.get(layer) ?? '#888';
+      (layer as any).setStyle({
+        weight: normalWeight,
+        color: normalColor ?? tractColor,
+        opacity: this.showTractBoundaries ? 0.8 : 0.2,
+        fillOpacity: 0.7,
+        fillColor: tractColor
+      });
+    });
 
-      const tract = sortedTracts[currentIndex];
-      const tractId = this.getTractId(tract);
-      if (tractId) {
-        this.highlightTractPulse(tractId, currentIndex + 1);
-      }
-      currentIndex++;
-    }, 2000); // 2 seconds per tract
+    toHighlight.forEach(tractId => {
+      const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
+      if (!layer) return;
+      (layer as any).setStyle({
+        weight: 4,
+        color: '#1976d2',
+        opacity: 0.9,
+        fillOpacity: 0.9,
+        fillColor: (this.tractGeoJsonLayers.get(layer) as string) ?? '#888'
+      });
+    });
+
+    this.lastSliderHighlightedTractIds = new Set(newIds);
+  }
+
+  onSortSliderInput(value: number): void {
+    const n = Number(value);
+    if (isNaN(n)) return;
+    this.sortSliderValue = Math.max(0, Math.min(Math.round(n), this.sliderMax));
+    this.updateSliderHighlightOnLayers();
   }
 
   private renderFinalDistricts(): void {
+    if (this.isRenderingDistricts) {
+      return; // Prevent re-entrant render (stops render loop)
+    }
     if (!this.map) {
       console.error('⚠️ Map not initialized');
       return;
-    }
-
-    // Start pulsing visualization for step 0 in admin mode
-    if (this.currentStepIndex === 0 && this.isAdminMode) {
-      console.log(`🎯 Starting pulsing: stepIndex=${this.currentStepIndex}, adminMode=${this.isAdminMode}`);
-      this.startTractPulsing();
-    } else {
-      console.log(`🛑 Stopping pulsing: stepIndex=${this.currentStepIndex}, adminMode=${this.isAdminMode}`);
-      this.stopTractPulsing();
     }
     if (!this.tractLayer) {
       console.error('⚠️ Tract layer not initialized');
@@ -1601,12 +1612,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    this.isRenderingDistricts = true;
+    try {
     console.log('🖼️ Rendering districts on map...');
 
     // Clear existing layers and reset tracking
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
     this.tractIdToLayer.clear();
+    this.lastSliderHighlightedTractIds.clear();
     this.clearDivisionLines();
 
     const bounds = L.latLngBounds([]);
@@ -1648,6 +1662,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Slider highlight is applied via setStyle in updateSliderHighlightOnLayers (not during render)
     let totalTracts = 0;
 
     // Render final districts (all steps calculated)
@@ -1854,7 +1869,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             const tractId = this.getTractId(tract);
             const isIsolated = this.isolatedTractIds.has(tractId);
             const isBridge = this.bridgeTractIds.has(tractId);
-            const isPulsing = this.pulsingTractId === tractId;
 
             // Debug: Log first few isolated tracts being rendered
             if (isIsolated && this.isolatedTractIds.size > 0) {
@@ -1865,23 +1879,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               }
             }
 
-            // Debug: Log pulsing tract
-            if (isPulsing) {
-              console.log(`💫 Rendering pulsing tract: ${tractId}`);
-            }
-
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
-            // Pulsing tracts keep their original color but get enhanced styling
-            
-            // Determine border weight and color: bridge tracts get white 3px border, pulsing tracts get thickened border
+
+            // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
             let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
-            } else if (isPulsing) {
-              borderWeight = 4; // Thickened border for pulsing tracts
-              borderColor = this.showTractBoundaries ? '#1976d2' : '#000000'; // Blue when showing boundaries, black otherwise
             }
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
@@ -1889,8 +1894,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               style: {
                 color: borderColor,
                 weight: borderWeight,
-                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : (isPulsing ? 0.9 : 0.2)), // High opacity for pulsing tracts when boundaries not shown
-                fillOpacity: isPulsing ? 0.9 : (isIsolated ? 0.9 : 0.7), // Enhanced opacity for pulsing tracts
+                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : 0.2),
+                fillOpacity: isIsolated ? 0.9 : 0.7,
                 fillColor: tractColor
               }
             }).bindPopup(`
@@ -1924,6 +1929,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     console.log(`✅ Rendered ${totalTracts} tracts across ${districtsToRender.length} districts`);
+
+    if (this.showTractBoundaries && totalTracts > 0) {
+      this.updateSliderHighlightOnLayers();
+    }
 
     // Fit map to show all districts
     if (hasBounds && bounds.isValid() && this.map) {
@@ -1960,6 +1969,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Hide division lines when a district is selected
     if (this.selectedDistrictGroupIndex === null) {
       this.renderDivisionLines();
+    }
+    } finally {
+      this.isRenderingDistricts = false;
     }
   }
 
@@ -2483,6 +2495,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Select the new district
       this.selectedDistrictGroupIndex = index;
     }
+    this.sortSliderValue = 0; // Reset sort-order slider when DG changes
     // Re-render the map with the new highlighting
     this.renderFinalDistricts();
   }

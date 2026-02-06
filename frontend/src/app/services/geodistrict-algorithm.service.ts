@@ -89,7 +89,7 @@ export interface GeodistrictOptions {
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
-export const ALGORITHM_VERSION = '20251203-0600'; // Fixed caching bug - state validation, clear map layers on state change, race condition check
+export const ALGORITHM_VERSION = '20251203-2215'; // Cache invalidation bump (keep in sync with backend)
 
 // Interface for S4 adjacency data
 interface S4TractData {

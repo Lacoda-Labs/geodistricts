@@ -19,7 +19,7 @@ Use this structure when appending a session to the daily archive file
 Use 24-hour time with no colon (e.g. `1430`, `0032`).
 
 ```markdown
-## HHMM
+## HHMM [summarize the chat in a few words]
 
 ### Prompt
 
