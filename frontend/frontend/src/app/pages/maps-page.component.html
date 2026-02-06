@@ -1,0 +1,251 @@
+<div class="page-container">
+  <app-page-header (homeClick)="goHome()">
+  </app-page-header>
+  <div class="body">
+    <!-- US View (when ALL is selected) -->
+    <ng-container *ngIf="selectedState === 'ALL'">
+      <section class="us-map-section">
+        <div class="map-container">
+          <div id="usMap" class="map"></div>
+          <!-- Loading Overlay -->
+          <div *ngIf="isLoading" class="loading-overlay">
+            <div class="loading-spinner-container">
+              <div class="loading-spinner"></div>
+              <p class="loading-text">Loading district data...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="us-data-section">
+        <!-- US Summary Row -->
+        <app-state-row 
+          [data]="getUSRowData()"
+          [showArrow]="false"
+          [clickable]="false"
+          background="off"
+          section="us-data">
+        </app-state-row>
+
+        <!-- Table Header -->
+        <div class="table-header-row">
+          <div class="table-header-cell">State</div>
+          <div class="table-header-cell">119th Congress</div>
+          <div class="table-header-cell">GeoDistricts</div>
+          <div class="table-header-cell">Swing</div>
+        </div>
+
+        <!-- State Rows -->
+        <app-state-row 
+          *ngFor="let state of states"
+          [data]="getStateRowData(state.code)"
+          [showArrow]="true"
+          [clickable]="true"
+          background="off"
+          section="us-data"
+          (rowClick)="selectStateFromTable($event)">
+        </app-state-row>
+      </section>
+    </ng-container>
+
+    <!-- State View (when a specific state is selected) -->
+    <ng-container *ngIf="selectedState !== 'ALL'">
+      <section class="map-section">
+        <div class="map-container">
+          <div id="usMap" class="map"></div>
+          <!-- Loading Overlay -->
+          <div *ngIf="isLoading" class="loading-overlay">
+            <div class="loading-spinner-container">
+              <div class="loading-spinner"></div>
+              <p class="loading-text">Loading district data...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="info-section">
+        <div class="info-header">
+          <div class="state-rows-header">
+            <div class="header-row">
+              <div class="header-cell state-column" (click)="selectedState = 'ALL'; onStateChange()"
+                style="cursor: pointer;">State</div>
+              <div class="header-cell congress-column">119th Congress</div>
+              <div class="header-cell geodistricts-column">GeoDistricts</div>
+              <div class="header-cell swing-column">Swing</div>
+            </div>
+          </div>
+          <app-state-row 
+            *ngIf="selectedState && selectedState !== 'ALL'"
+            [data]="getStateRowData(selectedState)"
+            [showArrow]="false"
+            [clickable]="false"
+            background="off"
+            section="info">
+          </app-state-row>
+          <app-step-btn-bar
+            [variant]="isAdminMode ? 'admin' : 'public'"
+            [canGoToFirst]="canGoToFirstStep()"
+            [canGoToPrevious]="canGoToPreviousStep()"
+            [canGoToNext]="canGoToNextStep()"
+            [canGoToLast]="canGoToLastStep()"
+            [isPlaying]="isPlaying"
+            [currentStepIndex]="currentStepIndex"
+            [totalSteps]="getTotalSteps()"
+            (firstStep)="goToFirstStep()"
+            (previousStep)="previousStep()"
+            (playPause)="playSteps()"
+            (nextStep)="nextStep()"
+            (lastStep)="goToLastStep()"
+            (toggleTracts)="toggleTractBoundaries()"
+            (restart)="resetToStart()">
+          </app-step-btn-bar>
+        </div>
+
+        <div class="info-body">
+          <div class="step-info-container" *ngIf="currentStep">
+            <!-- Step 0 Information -->
+            <div class="step-0-info" *ngIf="currentStepIndex === 0 && isAdminMode">
+              <div class="step-0-header">
+                <h4>{{ isSortingVisualization ? 'Step 0.2: Sorted Tracts' : 'Step 0.1: Initial State' }}</h4>
+                <p>{{ isSortingVisualization ? 'Census tracts have been sorted by latitude and longitude for geographic division.' : 'The entire state is shown as one district group containing all census tracts.' }}</p>
+              </div>
+              <div class="next-step-info">
+                <h5>{{ isSortingVisualization ? 'Next Step: Geographic Division' : 'Next Step: Sort Census Tracts' }}</h5>
+                <p>{{ isSortingVisualization ? 'The algorithm will now begin dividing the state using lat/long lines.' : 'The algorithm will sort census tracts by latitude and longitude to prepare for geographic division.' }}</p>
+                <div class="pulsing-indicator" *ngIf="isPulsingTracts">
+                  <mat-icon fontIcon="sync" class="pulsing-icon"></mat-icon>
+                  <span>{{ isSortingVisualization ? 'Visualizing sorted sequence...' : 'Visualizing tract sequence...' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Isolated Tracts Table -->
+            <div class="isolated-tracts-container"
+              *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              <div class="isolated-tracts-header">
+                <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
+                <div class="header-buttons">
+                  <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                    class="move-isolated-btn">
+                    {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
+                  </button>
+                  <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
+                    class="detect-bridge-btn" *ngIf="!bridgeTractsData">
+                    {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
+                  </button>
+                  <button mat-button (click)="moveBridgeTracts()" [disabled]="isMovingBridgeTracts || !bridgeTractsData"
+                    class="move-bridge-btn" *ngIf="bridgeTractsData">
+                    {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
+                  </button>
+                </div>
+              </div>
+              <div class="isolated-tracts-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tract ID</th>
+                      <th>Group</th>
+                      <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
+                      class="tract-row-clickable">
+                      <td class="tract-id-cell">
+                        {{ item.tractId }}
+                        <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                      </td>
+                      <td>{{ item.groupLabel }}</td>
+                      <td *ngIf="bridgeTractsData">
+                        <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
+                          (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                          {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount
+                          }}
+                          adjacent)
+                        </span>
+                        <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- No Isolation Message -->
+            <div class="no-isolation-message"
+              *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+              <div class="no-isolation-content">
+                <p class="no-isolation-title">No isolation tracts found</p>
+                <div class="group-stats-list">
+                  <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
+                    <span class="group-label">District {{ stat.groupLabel }}:</span>
+                    <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
+                    <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dg-header">
+              <div class="dg-header-left">
+                <h4>{{getStateDistrictCount(selectedState)}} {{stateName(selectedState)}} GeoDistricts</h4>
+              </div>
+              <div class="dg-header-right">
+                <div class="dg-header-label">State Population:</div>
+                <div class="dg-header-value">{{ statePopulation.toLocaleString() }}</div>
+              </div>
+              <div class="dg-header-right">
+                <div class="dg-header-label">Target DG Population:</div>
+                <div class="dg-header-value">{{ targetDGPopulationRounded.toLocaleString() }}</div>
+              </div>
+            </div>
+
+            <div class="district-groups-container">
+              <div class="district-groups-list">
+                <table class="district-groups-table">
+                  <thead>
+                    <tr>
+                      <th>District</th>
+                      <th>Population</th>
+                      <th>Variance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let group of currentStep.districtGroups; let i = index"
+                      [class.selected]="selectedDistrictGroupIndex === i" (click)="selectDistrictGroup(i)"
+                      style="cursor: pointer;">
+                      <td>
+                        Districts {{ group.startDistrictNumber }}
+                        <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
+                          - {{ group.endDistrictNumber }}
+                        </span>
+                      </td>
+                      <td>{{ group.totalPopulation.toLocaleString() }}</td>
+                      <td [class.variance-positive]="getGroupVariance(group) > 0"
+                        [class.variance-negative]="getGroupVariance(group) < 0">
+                        {{ getGroupVariance(group).toFixed(2) }}%
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="no-step-info" *ngIf="!currentStep">
+            <p>Select a state and run the algorithm to see step and district group information.</p>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </div>
+  <div class="page-footer">
+    <div class="copyright">
+      © 2025 Lacoda Labs
+    </div>
+    <nav class="footer-nav">
+      <a routerLink="/privacy" class="footer-link">privacy</a>
+      <a routerLink="/terms" class="footer-link">terms</a>
+    </nav>
+  </div>
+</div>

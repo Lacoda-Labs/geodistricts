@@ -1411,13 +1411,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.isPulsingTracts = true;
     const districtGroup = this.currentStep.districtGroups[0]; // Step 0 should have only one district group
-    const tracts = districtGroup.censusTracts || [];
+    const tractIds = districtGroup.censusTracts || [];
 
-    if (tracts.length === 0) {
+    if (tractIds.length === 0) {
       return;
     }
 
-    console.log(`🎯 Starting continuous tract pulsing visualization for ${tracts.length} tracts`);
+    console.log(`🎯 Starting continuous tract pulsing visualization for ${tractIds.length} tracts`);
 
     let currentIndex = 0;
     const pulseInterval = setInterval(() => {
@@ -1428,16 +1428,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       // Loop back to beginning when we reach the end
-      if (currentIndex >= tracts.length) {
+      if (currentIndex >= tractIds.length) {
         currentIndex = 0;
         console.log(`🔄 Restarting tract pulsing cycle`);
       }
 
-      const tract = tracts[currentIndex];
-      const tractId = this.getTractId(tract);
-      if (tractId) {
-        this.highlightTractPulse(tractId, currentIndex + 1);
-      }
+      const tractId = tractIds[currentIndex];
+      this.highlightTractPulse(tractId, currentIndex + 1);
       currentIndex++;
     }, 2000); // 2 seconds per tract as mentioned in archive
   }
@@ -1883,7 +1880,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               borderWeight = 4; // Thickened border for pulsing tracts
               borderColor = this.showTractBoundaries ? '#1976d2' : '#000000'; // Blue when showing boundaries, black otherwise
             }
-
+              borderWeight = 3.0; // 3px for bridge tracts
+              borderColor = '#ffffff'; // White border for bridge tracts
+            } else if (isIsolated) {
+              borderWeight = this.showTractBoundaries ? 0.5 : 0.5;
+            }
+            
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
               style: {
@@ -3170,6 +3172,28 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Get state row data for StateRowComponent
+   */
+  getStateRowData(code: string): StateRowData {
+    const state = this.states.find((s: any) => s.code === code);
+    const congressDChangeStr = this.getStateDataChange(code, '119th', 'D');
+    const geodistrictsDChangeStr = this.getStateDataChange(code, 'geodistricts', 'D');
+
+    return {
+      stateCode: code,
+      stateName: state?.name,
+      districts: state?.districts || 0,
+      congressD: parseInt(this.getStateData(code, '119th', 'D')) || 0,
+      congressR: parseInt(this.getStateData(code, '119th', 'R')) || 0,
+      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, '')) : undefined,
+      geodistrictsD: parseInt(this.getStateData(code, 'geodistricts', 'D')) || 0,
+      geodistrictsR: parseInt(this.getStateData(code, 'geodistricts', 'R')) || 0,
+      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, '')) : undefined,
+      swing: parseInt(this.getStateData(code, 'swing', 'value')) || 0
+    };
+  }
+
+  /**
    * Get US row data for StateRowComponent
    */
   getUSRowData(): StateRowData {
@@ -3179,34 +3203,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       stateCode: 'US',
       stateName: 'United States',
       districts: 435,
-      congressD: parseInt(this.getUSData('119th', 'D'), 10) || 0,
-      congressR: parseInt(this.getUSData('119th', 'R'), 10) || 0,
-      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      geodistrictsD: parseInt(this.getUSData('geodistricts', 'D'), 10) || 0,
-      geodistrictsR: parseInt(this.getUSData('geodistricts', 'R'), 10) || 0,
-      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      swing: parseInt(this.getUSData('swing', 'value'), 10) || 0
+      congressD: parseInt(this.getUSData('119th', 'D')) || 0,
+      congressR: parseInt(this.getUSData('119th', 'R')) || 0,
+      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, '')) : undefined,
+      geodistrictsD: parseInt(this.getUSData('geodistricts', 'D')) || 0,
+      geodistrictsR: parseInt(this.getUSData('geodistricts', 'R')) || 0,
+      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, '')) : undefined,
+      swing: parseInt(this.getUSData('swing', 'value')) || 0
     };
   }
 
-  /**
-   * Get state row data for StateRowComponent
-   */
-  getStateRowData(stateCode: string) {
-    const state = this.states.find((s: { code: string }) => s.code === stateCode);
-    const congressDChangeStr = this.getStateDataChange(stateCode, '119th', 'D');
-    const geodistrictsDChangeStr = this.getStateDataChange(stateCode, 'geodistricts', 'D');
-    return {
-      stateCode: stateCode,
-      stateName: state?.name,
-      districts: state?.districts ?? 0,
-      congressD: parseInt(this.getStateData(stateCode, '119th', 'D'), 10) || 0,
-      congressR: parseInt(this.getStateData(stateCode, '119th', 'R'), 10) || 0,
-      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      geodistrictsD: parseInt(this.getStateData(stateCode, 'geodistricts', 'D'), 10) || 0,
-      geodistrictsR: parseInt(this.getStateData(stateCode, 'geodistricts', 'R'), 10) || 0,
-      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0
-    };
-  }
-}

@@ -67,6 +67,11 @@ archive/
     └── server-restart-fixes.md
 ```
 
+## Archive entry format
+
+- **Template:** See `.cursor/archive/ARCHIVE_ENTRY_TEMPLATE.md` for the standard structure (daily file `YYMMDD.md`, section `## HHMM`, optional `### Prompt` / `### Response / actions`).
+- **Secrets:** Do not commit sensitive data. A pre-commit hook can block commits that contain secret patterns in staged files under `.cursor/`. See `.cursor/ARCHIVE_PRE_COMMIT_SPEC.md` and `scripts/check-archive-secrets.sh`.
+
 ## Notes
 
 - All files in `.cursor/` are tracked in git

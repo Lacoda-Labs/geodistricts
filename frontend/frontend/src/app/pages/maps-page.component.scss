@@ -1,0 +1,1297 @@
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+
+  // Tablet and Desktop: row layout with info-section on left, map on right
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+}
+
+.map-section {
+  height: 50%;
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+  position: relative;
+  min-width: 0; // Allow flex item to shrink
+
+  // Tablet and Desktop: full height, on the right
+  @media (min-width: 768px) {
+    height: 100%;
+    flex: 1 1 auto; // Grow and shrink, take remaining space
+    min-width: 300px; // Ensure minimum width so map doesn't disappear
+    order: 2; // Map appears on the right
+  }
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.loading-spinner-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--mat-sys-outline-variant, #C2C7CE);
+  border-top-color: var(--mat-sys-primary, #2B638B);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: var(--mat-sys-on-surface-container, #181C20);
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+.map-controls {
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tract-boundaries-checkbox {
+  font-size: 0.875rem;
+}
+
+.detect-isolation-btn {
+  font-size: 0.875rem;
+  margin-left: 8px;
+  padding: 4px 12px;
+  min-width: auto;
+}
+
+.detect-bridge-btn,
+.move-bridge-btn,
+.move-isolated-btn {
+  font-size: 0.875rem;
+  padding: 4px 12px;
+  min-width: auto;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.isolated-tracts-container {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--mat-sys-surface-container-high, #E6E8EE);
+  border-radius: 4px;
+  border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.no-isolation-message {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--mat-sys-surface-container-high, #E6E8EE);
+  border-radius: 4px;
+  border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.no-isolation-content {
+  .no-isolation-title {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface, #181C20);
+  }
+
+  .group-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .group-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.875rem;
+    padding: 6px 8px;
+    background-color: var(--mat-sys-surface-container, #EBEEF3);
+    border-radius: 4px;
+
+    .group-label {
+      font-weight: 600;
+      color: var(--mat-sys-on-surface, #181C20);
+      min-width: 100px;
+    }
+
+    .stat-value {
+      color: var(--mat-sys-on-surface-variant, #42474E);
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+.isolated-tracts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.isolated-tracts-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--mat-sys-on-surface, #181C20);
+}
+
+.isolated-tracts-table {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.isolated-tracts-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.isolated-tracts-table th,
+.isolated-tracts-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+}
+
+.isolated-tracts-table th {
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.isolated-tracts-table td {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.tract-row-clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tract-row-clickable:hover {
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+}
+
+.tract-id-cell {
+  font-weight: 600;
+  color: var(--mat-sys-primary, #2B638B);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enclosed-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--mat-sys-primary, #2B638B);
+  vertical-align: middle;
+}
+
+.bridge-tract-info {
+  display: block;
+  margin: 2px 0;
+  color: var(--mat-sys-primary, #2B638B);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.bridge-tract-info:hover {
+  color: var(--mat-sys-primary-container, #1a4d6b);
+}
+
+.info-section {
+  height: 50%;
+  background-color: var(--mat-sys-surface-container-high, #E6E8EE);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0; // Allow flex item to shrink below content size
+  box-sizing: border-box;
+  align-items: center; // Center contents horizontally
+
+  // Mobile: fit container width and center contents
+  @media (max-width: 767px) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  // Tablet and Desktop: fit container width on the left
+  @media (min-width: 768px) {
+    width: 100%;
+    height: 100%;
+    flex: 1; // Don't grow, but allow shrink, use natural width
+    min-width: 402px; // Ensure minimum width
+    max-width: 440px; // Limit maximum width
+    order: 1; // Info section appears on the left
+  }
+
+  // Center child content
+  > * {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+.info-header {
+  background-color: var(--mat-sys-surface-container-highest, #E0E2E8);
+  border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.state-rows-header {
+  // no-bkg variant: no background color
+  background-color: transparent;
+  border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  min-height: 20px;
+  width: 100%;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 5px 2px 5px 2px;
+  box-sizing: border-box;
+}
+
+.header-cell {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  letter-spacing: 0.5px;
+  padding: 0;
+  box-sizing: border-box;
+
+  &.state-column {
+    width: 96px;
+    padding-left: 21px;
+    padding-right: 0;
+  }
+
+  &.congress-column {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &.geodistricts-column {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &.swing-column {
+    width: 34px;
+    font-size: 11px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.state-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 0;
+}
+
+.state-button {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 4px 0 4px;
+  border-radius: 6px;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+
+  .state-flag {
+    width: 23px;
+    height: 15px;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+  }
+
+  .state-abbr {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .state-districts {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.data-column {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  box-sizing: border-box;
+
+  &.congress-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.geodistricts-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.swing-column {
+    width: 34px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.data-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: normal;
+  white-space: nowrap;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  color: var(--mat-sys-on-surface, #181C20);
+
+  &.democratic {
+    // no-bkg variant: no background color, use blue text from Figma
+    background-color: transparent;
+    color: #2F59FF;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed blue
+      background-color: transparent;
+      color: #2F59FF;
+      opacity: 0.7;
+    }
+  }
+
+  &.republican {
+    // no-bkg variant: no background color, use red text from Figma
+    background-color: transparent;
+    color: #FF2828;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed red
+      background-color: transparent;
+      color: #FF2828;
+      opacity: 0.7;
+    }
+
+    &.swing {
+      // no-bkg variant: no background color, use red text
+      background-color: transparent;
+      color: #FF2828;
+      justify-content: center;
+    }
+  }
+
+  .change-indicator {
+    font-size: 12px;
+  }
+}
+
+.state-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.state-select-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 300px;
+
+  select {
+    padding: 4px 8px;
+    border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+    border-radius: 4px;
+    background-color: var(--mat-sys-surface, white);
+    color: var(--mat-sys-on-surface, #181C20);
+    font-size: 0.75rem; // xs font
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    width: 100%;
+    height: 26px;
+
+    &:hover {
+      border-color: var(--mat-sys-outline, #72787E);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mat-sys-primary, #2B638B);
+    }
+  }
+}
+
+.step-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.show-steps-checkbox {
+  font-size: 0.75rem; // xs font
+}
+
+.step-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-btn {
+  font-size: 0.75rem; // xs font
+  min-width: auto;
+  padding: 4px 8px;
+}
+
+.step-info {
+  font-size: 0.75rem; // xs font
+  color: var(--mat-sys-on-surface-variant, #42474E);
+}
+
+.run-all-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.start-link {
+  font-size: 0.75rem; // xs font
+  color: var(--mat-sys-primary, #2B638B);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  user-select: none;
+
+  &:hover:not(.disabled) {
+    color: var(--mat-sys-primary-container, #1a4d6b);
+  }
+
+  &.disabled {
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    cursor: not-allowed;
+    opacity: 0.5;
+    text-decoration: none;
+  }
+}
+
+.run-all-btn {
+  font-size: 0.75rem; // xs font
+  min-width: auto;
+  padding: 4px 12px;
+}
+
+.info-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-info-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.step-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--mat-sys-on-surface, #181C20);
+  }
+
+  .step-description {
+    font-size: 0.875rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    margin: 0 0 8px 0;
+  }
+
+  .step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+
+    .meta-item {
+      padding: 4px 8px;
+      background-color: var(--mat-sys-surface-container, #EBEEF3);
+      border-radius: 4px;
+    }
+  }
+}
+
+.dg-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  .dg-header-left {
+    flex: 1;
+    text-align: center;
+
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface, #181C20);
+    }
+  }
+
+  .dg-header-right {
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    white-space: nowrap;
+  }
+
+  .dg-header-label {
+    display: flex;
+    justify-content: flex-end;
+    width: 165px;
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    white-space: nowrap;
+  }
+
+  .dg-header-value {
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+  }
+}
+
+.district-groups-container {
+  flex: 1;
+  overflow-y: auto;
+
+  h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--mat-sys-on-surface, #181C20);
+  }
+}
+
+.district-groups-list {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.district-groups-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--mat-sys-surface-container, #EBEEF3);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+
+  thead {
+    background-color: var(--mat-sys-surface-container-high, #E3E7EC);
+
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--mat-sys-on-surface, #181C20);
+      border-bottom: 2px solid var(--mat-sys-outline-variant, #C2C7CE);
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+      transition: background-color 0.2s ease;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background-color: var(--mat-sys-surface-container-high, #E3E7EC);
+      }
+
+      &.selected {
+        background-color: var(--mat-sys-primary-container, #1a4d6b);
+        color: var(--mat-sys-on-primary-container, #ffffff);
+        font-weight: 600;
+
+        &:hover {
+          background-color: var(--mat-sys-primary-container, #1a4d6b);
+        }
+
+        td {
+          color: var(--mat-sys-on-primary-container, #ffffff);
+        }
+      }
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface, #181C20);
+
+      &:first-child {
+        font-weight: 500;
+      }
+
+      &:last-child {
+        font-weight: 600;
+        font-family: monospace;
+      }
+    }
+  }
+
+  .variance-positive {
+    color: #d32f2f; // Red for positive variance (over target)
+  }
+
+  .variance-negative {
+    color: #1976d2; // Blue for negative variance (under target)
+  }
+}
+
+.no-step-info {
+  padding: 16px;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  font-size: 0.875rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.home-button {
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  width: 18px;
+  height: 18px;
+  min-width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ::ng-deep .mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &:hover {
+    color: var(--mat-sys-primary, #2B638B);
+  }
+}
+
+.header-nav {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.header-link {
+  font-size: 0.75rem; // xs font
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--mat-sys-primary, #2B638B);
+  }
+}
+
+.page-footer {
+  display: flex;
+  align-content: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #1a1a1a; // Dark background matching data section
+  flex-shrink: 0;
+}
+
+.footer-nav {
+  display: flex;
+  gap: 16px;
+}
+
+.footer-link {
+  font-size: 0.75rem; // xs font
+  color: rgba(255, 255, 255, 0.7); // Light gray text
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.copyright {
+  font-size: 0.75rem; // xs font
+  color: rgba(255, 255, 255, 0.7); // Light gray text
+}
+
+// Leaflet map styles
+:host ::ng-deep .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+// Animated line drawing effects
+:host ::ng-deep .animated-line-dot {
+  pointer-events: none !important;
+
+  div {
+    animation: pulse 0.5s infinite;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// US View Styles (when ALL is selected)
+.us-map-section {
+  height: 250px;
+  background-color: #EBEEF3; // Light blue-gray background
+  position: relative;
+  min-height: 0;
+  min-width: 0; // Allow flex item to shrink
+
+  // Tablet and Desktop: full height, on the right
+  @media (min-width: 768px) {
+    height: 100%;
+    flex: 1 1 auto; // Grow and shrink, take remaining space
+    min-width: 300px; // Ensure minimum width so map doesn't disappear
+    order: 2; // Map appears on the right
+  }
+}
+
+.us-data-section {
+  background-color: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  width: 100%;
+  min-width: 0; // Allow flex item to shrink below content size
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center; // Center contents horizontally
+
+  // Mobile: fit container width and center contents
+  @media (max-width: 767px) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  // Tablet and Desktop: fit container width on the left
+  @media (min-width: 768px) {
+    // width: 100%;
+    flex: 1; // Don't grow, but allow shrink, use natural width
+    min-width: 402px; // Ensure minimum width
+    max-width: 440px; // Limit maximum width
+    order: 1; // Data section appears on the left
+  }
+
+  // // Center child content
+  // > * {
+  //   width: 100%;
+  //   max-width: 100%;
+  // }
+}
+
+// Common grid layout for all rows
+.us-summary-row,
+.table-header-row,
+.state-row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  // width: 100%;
+  gap: 0;
+}
+
+.us-summary-row {
+  // no-bkg variant: no background color
+  background-color: transparent;
+  padding: 5px 2px 5px 2px;
+  min-height: 20px;
+
+  .state-button {
+    width: auto;
+    padding-left: 4px;
+  }
+}
+
+.table-header-row {
+  // no-bkg variant: no background color
+  background-color: transparent;
+  border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+  // min-height: 20px;
+  padding: 5px 2px 5px 2px;
+  display: flex;
+  align-items: center;
+}
+
+.table-header-cell {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  letter-spacing: 0.5px;
+  padding: 0;
+  box-sizing: border-box;
+
+  &:first-child {
+    width: 96px;
+    padding-left: 21px;
+    padding-right: 0;
+  }
+
+  &:nth-child(2) {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &:nth-child(3) {
+    width: 132px;
+    padding-left: 6px;
+    padding-right: 0;
+  }
+
+  &:last-child {
+    width: 34px;
+    font-size: 11px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.state-row {
+  // no-bkg variant: no background color
+  background-color: transparent;
+  padding: 5px 2px 5px 2px;
+  min-height: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  border-bottom: 1px solid transparent;
+
+  &:hover {
+    background-color: var(--mat-sys-surface-container, #EBEEF3);
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// State button in us-data-section
+.us-data-section .state-button {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 4px 0 4px;
+  border-radius: 6px;
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  width: 96px;
+  box-sizing: border-box;
+
+  .arrow-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    flex-shrink: 0;
+  }
+
+  .state-flag {
+    width: 23px;
+    height: 15px;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .state-abbr {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .state-districts {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface, #181C20);
+    white-space: nowrap;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Data columns in us-data-section
+.us-data-section .data-column {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  box-sizing: border-box;
+
+  &.congress-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.geodistricts-column {
+    width: 132px;
+    padding-left: 2px;
+    padding-right: 4px;
+  }
+
+  &.swing-column {
+    width: 34px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.us-data-section .data-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: normal;
+  white-space: nowrap;
+  // no-bkg variant: no background color
+  background-color: transparent;
+  color: #ffffff;
+
+  &.democratic {
+    // no-bkg variant: no background color, use blue text from Figma
+    background-color: transparent;
+    color: #2F59FF;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed blue
+      background-color: transparent;
+      color: #2F59FF;
+      opacity: 0.7;
+    }
+  }
+
+  &.republican {
+    // no-bkg variant: no background color, use red text from Figma
+    background-color: transparent;
+    color: #FF2828;
+
+    &.dimmed {
+      // no-bkg variant: no background color, dimmed red
+      background-color: transparent;
+      color: #FF2828;
+      opacity: 0.7;
+    }
+
+    &.swing {
+      // no-bkg variant: no background color, use red text
+      background-color: transparent;
+      color: #FF2828;
+      justify-content: center;
+    }
+  }
+
+  .change-indicator {
+    font-size: 12px;
+  }
+}
+
+.data-label {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.2;
+
+  &.blue {
+    background-color: #1976d2; // Blue for Democrat
+    color: #ffffff;
+  }
+
+  &.red {
+    background-color: #d32f2f; // Red for Republican/Swing
+    color: #ffffff;
+  }
+
+  .change-indicator {
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.9;
+  }
+}
+
+.table-header-cell {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  // color: #ffffff;
+  // height: 32px;
+
+  &:last-child {
+    // Swing column
+    justify-content: center;
+  }
+}
+
+.expander-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+// Custom map toggle control styles
+:host ::ng-deep .leaflet-control-custom {
+  margin-top: 10px !important;
+
+  .leaflet-control-custom-button {
+    transition: background-color 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+
+    &:hover {
+      background-color: rgba(25, 118, 210, 0.1) !important;
+    }
+
+    .material-icons {
+      user-select: none;
+    }
+  }
+}
+
+// Tract pulsing is now handled via Leaflet layer styling, no CSS animation needed
+
+// Step 0 info styles
+.step-0-info {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: var(--mat-sys-surface-container, #f5f5f5);
+  border-radius: 8px;
+  border: 1px solid var(--mat-sys-outline-variant, #c4c7c5);
+
+  .step-0-header {
+    margin-bottom: 12px;
+
+    h4 {
+      margin: 0 0 8px 0;
+      color: var(--mat-sys-primary, #1976d2);
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0;
+      color: var(--mat-sys-on-surface, #1c1b1f);
+      font-size: 14px;
+    }
+  }
+
+  .next-step-info {
+    h5 {
+      margin: 0 0 8px 0;
+      color: var(--mat-sys-secondary, #565f6c);
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    p {
+      margin: 0 0 12px 0;
+      color: var(--mat-sys-on-surface-variant, #49454e);
+      font-size: 14px;
+    }
+
+    .pulsing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--mat-sys-primary, #1976d2);
+      font-size: 14px;
+      font-weight: 500;
+
+      .pulsing-icon {
+        animation: spin 2s linear infinite;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
