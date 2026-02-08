@@ -1404,8 +1404,9 @@ function createUnionPolygon(group) {
 /**
  * Create a step object with union polygons for each district group
  * Also detects and stores isolated tracts data for the step
+ * @param {Set<string>|string[]|null} step0IslandTractIds - Optional. At steps > 0, tract IDs that are geographic islands (from step 0); these are excluded from isolation so they are not flagged as isolated.
  */
-function createStep(step, level, districtGroups, description, divisionDirection, divisionLine, divisionLines, algorithmService = null, allTracts = null) {
+function createStep(step, level, districtGroups, description, divisionDirection, divisionLine, divisionLines, algorithmService = null, allTracts = null, step0IslandTractIds = null) {
   // Build adjacency graph if we have algorithmService and allTracts (needed for finding connected components)
   let adjacencyGraph = null;
   if (algorithmService && allTracts && allTracts.length > 0) {
@@ -1468,7 +1469,7 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   let islandTractsData = null;
   if (algorithmService && allTracts && allTracts.length > 0) {
     try {
-      const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts, step);
+      const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts, step, step0IslandTractIds);
       // Convert Map to object for JSON serialization
       const isolatedTractsByGroup = {};
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
@@ -1873,39 +1874,48 @@ class GeodistrictAlgorithmService {
       return new Map();
     }
 
-    // Try to use S4 adjacency data if available
+    // Try to use S4 adjacency data if available (state must be abbreviation e.g. 'CO', not FIPS)
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
       const cacheKey = state.toLowerCase();
       const s4AdjacencyGraph = s4DataLoader.getS4AdjacencyData(cacheKey);
       
       if (s4AdjacencyGraph) {
-        const tractIds = new Set(tracts.map(t => getTractId(t)));
+        const tractIds = new Set(tracts.map(t => getTractId(t)).filter(Boolean));
         const graph = new Map();
         
         // Initialize all tracts
         for (const tract of tracts) {
           const id = getTractId(tract);
-          graph.set(id, []);
+          if (id) graph.set(id, []);
         }
         
         // Populate adjacencies from S4 data
+        let tractsWithNeighbors = 0;
+        let totalAdjacencies = 0;
         for (const tract of tracts) {
           const id = getTractId(tract);
+          if (!id) continue;
           const s4Neighbors = s4AdjacencyGraph.get(id) || [];
-          
-          // Filter to only include neighbors that are in our tract set
           const validNeighbors = s4Neighbors.filter(neighborId => tractIds.has(neighborId));
           graph.set(id, validNeighbors);
+          if (validNeighbors.length > 0) {
+            tractsWithNeighbors++;
+            totalAdjacencies += validNeighbors.length;
+          }
         }
         
-        // Debug: Count total adjacency relationships
-        let totalAdjacencies = 0;
-        for (const [tractId, neighbors] of graph.entries()) {
-          totalAdjacencies += neighbors.length;
+        // Diagnostic: if few tracts have neighbors, log potential ID mismatch (e.g. CO "nearly all isolated")
+        const pctWithNeighbors = tractIds.size > 0 ? (100 * tractsWithNeighbors / tractIds.size) : 0;
+        if (pctWithNeighbors < 50 && tractIds.size > 10) {
+          const sampleInputIds = Array.from(tractIds).slice(0, 5);
+          const sampleS4Keys = Array.from(s4AdjacencyGraph.keys()).slice(0, 5);
+          console.warn(`⚠️ ADJACENCY: Only ${pctWithNeighbors.toFixed(1)}% of tracts have S4 neighbors (${tractsWithNeighbors}/${tractIds.size}). Possible ID format mismatch.`);
+          console.warn(`   Sample input tract IDs: ${sampleInputIds.join(', ')}`);
+          console.warn(`   Sample S4 graph keys:   ${sampleS4Keys.join(', ')}`);
         }
         if (process.env.DEBUG_CACHE === 'true') {
-          console.log(`✅ Built adjacency graph using S4 data: ${totalAdjacencies} total relationships for ${tracts.length} tracts`);
+          console.log(`✅ Built adjacency graph using S4 data: ${totalAdjacencies} total relationships for ${tracts.length} tracts (${tractsWithNeighbors} tracts with neighbors)`);
         }
         
         return graph;
@@ -1914,14 +1924,15 @@ class GeodistrictAlgorithmService {
     
     // Fallback: For now, return empty graph (geometric intersection would require additional libraries)
     // In production, you'd want to implement geometric intersection here
-    console.error(`❌ CRITICAL: S4 adjacency data not available for ${state || 'unknown state'}, using empty adjacency graph!`);
+    const sampleIds = tracts.slice(0, 3).map(t => getTractId(t));
+    console.error(`❌ CRITICAL: S4 adjacency data not available for state '${state}' (from first tract), using empty adjacency graph!`);
     console.error(`   This will cause isolation detection to fail (all tracts will appear isolated).`);
-    console.error(`   S4 data should be loaded before calling buildGeometryAdjacencyGraph.`);
+    console.error(`   Sample tract IDs from input: ${sampleIds.join(', ')}. Ensure S4 is loaded and state matches.`);
     
     const graph = new Map();
     for (const tract of tracts) {
       const id = getTractId(tract);
-      graph.set(id, []);
+      if (id) graph.set(id, []);
     }
     
     return graph;
@@ -1984,10 +1995,12 @@ class GeodistrictAlgorithmService {
    * @param {Array} districtGroups - All district groups
    * @param {Array} allTracts - All tracts in the dataset
    * @param {number} stepNumber - Step number (optional, used to exclude island tracts at Step 0)
+   * @param {Set<string>|string[]|null} step0IslandTractIds - Optional. Geographic island tract IDs from step 0; at steps > 0 these are excluded from isolation (per doc 251204).
    * @returns {Object} - Object with isolatedTractsByGroup (Map of groupIndex -> Set of tractIds) and isolatedTractIds (Set of all isolated tract IDs)
    */
-  detectIsolatedTracts(districtGroups, allTracts, stepNumber = null) {
+  detectIsolatedTracts(districtGroups, allTracts, stepNumber = null, step0IslandTractIds = null) {
     const isStep0 = stepNumber === 0 || stepNumber === '0';
+    const islandSet = step0IslandTractIds instanceof Set ? step0IslandTractIds : (Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : null);
     logger.debug(`🔍 DETECT ISOLATED: Starting isolation detection for ${districtGroups.length} groups with ${allTracts.length} total tracts (island tracts will be excluded in all steps)`);
     
     if (districtGroups.length < 1) {
@@ -2136,6 +2149,13 @@ class GeodistrictAlgorithmService {
         if (groupIsolatedTractIds.has(mainComponentTractId)) {
           console.error(`❌ CRITICAL BUG: Main component tract ${mainComponentTractId} found in isolated set! Removing it.`);
           groupIsolatedTractIds.delete(mainComponentTractId);
+        }
+        
+        // Exclude step-0 geographic island tracts from isolation in all steps (doc 251204)
+        if (!isStep0 && islandSet && islandSet.size > 0) {
+          for (const islandId of islandSet) {
+            groupIsolatedTractIds.delete(islandId);
+          }
         }
         
         if (groupIsolatedTractIds.size > 0) {
@@ -3575,8 +3595,28 @@ class GeodistrictAlgorithmService {
     let currentGroups = [initialGroup];
     let iteration = 0;
 
-    // Create initial step (step 0 has all tracts in one group, so no isolated tracts possible)
-    steps.push(createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude', undefined, undefined, null, null));
+    // Create initial step with algorithmService and allTracts so we detect island tracts (for exclusion in later steps, doc 251204)
+    const step0 = createStep(0, 0, currentGroups, 'Initial state: All tracts in single group', 'latitude', undefined, undefined, this, uniqueTracts, null);
+    steps.push(step0);
+
+    // Flatten step-0 island tract IDs so we exclude them from isolation in steps 1+ (they are geographic islands, not division-induced; doc 251204)
+    let step0IslandTractIds = null;
+    if (step0.islandTractsData && step0.islandTractsData.islandTractsByGroup) {
+      const islandSet = new Set();
+      for (const islandGroups of Object.values(step0.islandTractsData.islandTractsByGroup)) {
+        // islandGroups is Array<Array<string>> (groups of adjacent island tract IDs)
+        if (Array.isArray(islandGroups)) {
+          for (const group of islandGroups) {
+            if (Array.isArray(group)) group.forEach(id => islandSet.add(id));
+            else if (typeof group === 'string') islandSet.add(group);
+          }
+        }
+      }
+      if (islandSet.size > 0) {
+        step0IslandTractIds = islandSet;
+        console.log(`🏝️ Step 0: ${islandSet.size} geographic island tract(s) will be excluded from isolation in later steps`);
+      }
+    }
 
     // Main algorithm loop
     while (currentGroups.some(group => group.totalDistricts > 1) && iteration < maxIterations) {
@@ -3809,7 +3849,7 @@ class GeodistrictAlgorithmService {
       }
       
       const step = createStep(iteration, iteration, groupsForStep,
-        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines, this, uniqueTracts);
+        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines, this, uniqueTracts, step0IslandTractIds);
       
       // Add resolution summary to step if available
       if (resolutionSummary) {
@@ -4100,7 +4140,7 @@ class GeodistrictAlgorithmService {
       // currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
       
       const step = createStep(iteration, iteration, currentGroups,
-        `Division ${iteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts);
+        `Division ${iteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
       steps.push(step);
       
       yield { step: iteration, data: step, isComplete: false };

@@ -3386,6 +3386,42 @@ async function deleteCachedAlgorithmState(stateKey) {
 }
 
 /**
+ * GET /api/algorithm/final-step-states
+ * Returns list of state codes that have a completed final step (current algorithm version).
+ */
+app.get('/api/algorithm/final-step-states', async (req, res) => {
+  try {
+    const currentVersion = ALGORITHM_VERSION;
+    const stateCodesSet = new Set();
+
+    // Query docs with isComplete: true (final steps)
+    const completeQuery = firestore.collection('census_cache')
+      .where('isComplete', '==', true);
+
+    const completeSnapshot = await completeQuery.get();
+
+    for (const doc of completeSnapshot.docs) {
+      const entry = doc.data();
+      if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+          entry.algorithmVersion === currentVersion &&
+          entry.state) {
+        stateCodesSet.add(entry.state);
+      }
+    }
+
+    const stateCodes = Array.from(stateCodesSet).sort();
+    console.log(`✅ GET /api/algorithm/final-step-states: ${stateCodes.length} states with final step`);
+    return res.json({ stateCodes });
+  } catch (error) {
+    console.error('❌ Final-step-states lookup error:', error);
+    res.status(500).json({
+      error: 'Final-step-states lookup failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/algorithm/final-step/:state
  * Get the final (completed) step for a state if available
  */

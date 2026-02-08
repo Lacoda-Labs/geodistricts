@@ -6,8 +6,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
-import { Subscription, concat, lastValueFrom, of } from 'rxjs';
-import { concatMap, tap, last } from 'rxjs/operators';
+import { Subscription, concat, lastValueFrom, of, forkJoin } from 'rxjs';
+import { concatMap, tap, last, map, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
@@ -118,6 +118,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isPlaying: boolean = false; // Track if auto-playing steps
   private playInterval: any = null; // Interval for auto-playing steps
 
+  /** US map view: states with completed final step and their step data */
+  usMapStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep }> = [];
+  /** Total district count across completed states (435 when all done) */
+  usMapTotalDistricts: number = 0;
+  /** State codes that have a completed final step (for table completion indicator) */
+  completedStateCodes: Set<string> = new Set();
+
   // US States with their congressional district counts
   states = [
     { code: 'CA', name: 'California', districts: 52 },
@@ -226,6 +233,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.updateMapView();
           if (this.selectedState !== 'ALL') {
             this.runAlgorithm();
+          } else {
+            this.loadUSMapDistricts();
           }
         }, 300);
       }
@@ -492,6 +501,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // Only run algorithm if not "ALL"
       if (this.selectedState !== 'ALL') {
+        this.usMapStepDataByState = [];
+        this.usMapTotalDistricts = 0;
+        this.completedStateCodes = new Set();
         // Wait a bit longer to ensure map is fully initialized
         setTimeout(() => {
           this.runAlgorithm();
@@ -501,6 +513,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
+        // Load US map districts (completed states only)
+        setTimeout(() => {
+          this.loadUSMapDistricts();
+        }, 300);
       }
     } else {
       // Clear saved state if no state is selected
@@ -531,6 +547,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private updateMapLayers(): void {
     if (!this.map || !this.tractLayer) return;
+
+    if (this.selectedState === 'ALL' && this.usMapStepDataByState.length > 0) {
+      this.renderUSMapDistricts(this.usMapStepDataByState);
+      return;
+    }
 
     // When toggling between tracts and union polygons, we need to re-render
     // because we're switching between different geometries
@@ -564,6 +585,122 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const stateCenter = this.getStateCenter(this.selectedState);
     this.map.setView(stateCenter, 7);
+  }
+
+  /**
+   * Load district data for US map view: fetch completed states and their final steps, then render.
+   */
+  loadUSMapDistricts(): void {
+    if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.usMapStepDataByState = [];
+    this.usMapTotalDistricts = 0;
+    this.completedStateCodes = new Set();
+    this.cdr.markForCheck();
+
+    const sub = this.geodistrictService.getFinalStepStates().pipe(
+      catchError(() => of({ stateCodes: [] as string[] })),
+      concatMap(({ stateCodes }) => {
+        this.completedStateCodes = new Set(stateCodes);
+        if (stateCodes.length === 0) {
+          this.isLoading = false;
+          this.cdr.markForCheck();
+          return of([]);
+        }
+        return forkJoin(
+          stateCodes.map(code =>
+            this.geodistrictService.getFinalStep(code).pipe(
+              map(res => ({ stateCode: code, stepData: res.data } as { stateCode: string; stepData: GeodistrictStep })),
+              catchError(() => of(null))
+            )
+          )
+        ).pipe(
+          map(results => results.filter((r): r is { stateCode: string; stepData: GeodistrictStep } => r !== null))
+        );
+      })
+    ).subscribe({
+      next: (data) => {
+        this.usMapStepDataByState = data;
+        this.usMapTotalDistricts = data.reduce((sum, { stepData }) => sum + (stepData.districtGroups?.length ?? 0), 0);
+        this.renderUSMapDistricts(data);
+        this.isLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.errorMessage = err?.message || 'Failed to load US map districts';
+        this.cdr.markForCheck();
+      }
+    });
+    this.subscriptions.push(sub);
+  }
+
+  /**
+   * Render district polygons for US map view (completed states only). Clicking a district switches to that state.
+   */
+  private renderUSMapDistricts(completedStatesData: Array<{ stateCode: string; stepData: GeodistrictStep }>): void {
+    if (!this.map || !this.tractLayer) return;
+    this.tractLayer.clearLayers();
+    this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
+
+    let globalDistrictIndex = 0;
+    const totalDistricts = 435;
+
+    for (const { stateCode, stepData } of completedStatesData) {
+      const groups = stepData.districtGroups || [];
+      const stateName = this.states.find(s => s.code === stateCode)?.name || stateCode;
+
+      for (const district of groups) {
+        const unionPolygons = (district as any).unionPolygons;
+        const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+        const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
+        const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
+
+        if (polygonsToRender.length === 0) continue;
+
+        const color = this.getDistrictColor(globalDistrictIndex, totalDistricts);
+        const districtLabel = district.startDistrictNumber === district.endDistrictNumber
+          ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
+        const popupContent = `<strong>${stateName} ${districtLabel}</strong><br>
+          <strong>Population:</strong> ${(district.totalPopulation ?? 0).toLocaleString()}<br>
+          <strong>Tracts:</strong> ${district.censusTracts?.length ?? 0}<br>
+          <em>Click to view ${stateName}</em>`;
+
+        for (const unionPolygon of polygonsToRender) {
+          if (!unionPolygon?.geometry) continue;
+          try {
+            const geoJson = L.geoJSON(unionPolygon, {
+              style: {
+                color,
+                weight: 1.5,
+                opacity: 1,
+                fillOpacity: 0.7,
+                fillColor: color
+              },
+              onEachFeature: (feature, layer) => {
+                layer.on('click', () => this.selectStateFromDistrict(stateCode));
+              }
+            }).bindPopup(popupContent);
+            (geoJson as any).stateCode = stateCode;
+            this.tractLayer!.addLayer(geoJson);
+            this.tractGeoJsonLayers.set(geoJson, color);
+          } catch (e) {
+            console.warn('Error rendering US map district polygon:', e);
+          }
+        }
+        globalDistrictIndex++;
+      }
+    }
+  }
+
+  /**
+   * Switch to single-state view when user clicks a district on the US map.
+   */
+  selectStateFromDistrict(stateCode: string): void {
+    this.selectedState = stateCode;
+    this.onStateChange();
   }
 
   private getStateCenter(stateCode: string): [number, number] {
@@ -3932,10 +4069,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   getUSRowData(): StateRowData {
     const congressDChangeStr = this.getUSDataChange('119th', 'D');
     const geodistrictsDChangeStr = this.getUSDataChange('geodistricts', 'D');
+    const districtCount = this.selectedState === 'ALL' ? this.usMapTotalDistricts : 435;
     return {
       stateCode: 'US',
       stateName: 'United States',
-      districts: 435,
+      districts: districtCount,
       congressD: parseInt(this.getUSData('119th', 'D'), 10) || 0,
       congressR: parseInt(this.getUSData('119th', 'R'), 10) || 0,
       congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, ''), 10) : undefined,

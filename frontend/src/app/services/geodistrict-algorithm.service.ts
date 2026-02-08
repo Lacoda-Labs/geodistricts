@@ -450,6 +450,28 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Get the final step for a state (for US map view).
+   * Returns 404 if no final step is cached. Does not fall back to step 0.
+   */
+  getFinalStep(state: string): Observable<{ step: number; data: GeodistrictStep; isComplete: boolean }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const finalStepUrl = `${backendUrl}/api/algorithm/final-step/${state}`;
+    return this.http.get<{ step: number; data: GeodistrictStep; isComplete: boolean }>(finalStepUrl, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /**
+   * Get list of state codes that have a completed final step (for US map view).
+   */
+  getFinalStepStates(): Observable<{ stateCodes: string[] }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    return this.http.get<{ stateCodes: string[] }>(`${backendUrl}/api/algorithm/final-step-states`, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /**
    * Execute the next step of the algorithm
    * Returns an Observable that emits the next step
    */
