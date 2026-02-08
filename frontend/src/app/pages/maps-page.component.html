@@ -57,10 +57,11 @@
           <div *ngIf="showSortSlider" class="sort-slider-wrapper" [class.vertical]="sortDirection === 'latitude'" [class.horizontal]="sortDirection === 'longitude'">
             <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'N' : 'W' }}</label>
             <input type="range" class="sort-slider" [min]="0" [max]="sliderMax" [value]="getSliderDisplayValue()"
+                   [style.width.px]="sliderTrackLengthPx ?? undefined"
                    (input)="onSortSliderInput($any($event.target).valueAsNumber)"
-                   [attr.aria-label]="'Sorted tracts: highlight first N of ' + sortedTractsForSlider.length">
+                   [attr.aria-label]="'Sorted tracts: position of ' + sortedTractCountForSlider">
             <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'S' : 'E' }}</label>
-            <span class="sort-slider-value">{{ getSliderHighlightCount() }} / {{ sortedTractsForSlider.length }}</span>
+            <span class="sort-slider-value">{{ getSliderHighlightCount() }} / {{ sortedTractCountForSlider }}</span>
           </div>
           <!-- Loading Overlay -->
           <div *ngIf="isLoading" class="loading-overlay">

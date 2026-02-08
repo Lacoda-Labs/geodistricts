@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -87,6 +87,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private pendingSliderUpdateTimer: ReturnType<typeof setTimeout> | null = null;
   /** Line on map showing sort-position boundary (southernmost lat or easternmost lng of highlighted tracts). */
   private sliderPositionLineLayer: L.Polyline | null = null;
+  /** State bounds used for slider track length and min zoom (set when fitting map to state). */
+  private stateBoundsForSlider: L.LatLngBounds | null = null;
+  /** Slider track length in px to align with state extent on map (set from projected bounds). */
+  sliderTrackLengthPx: number | null = null;
   private subscriptions: Subscription[] = [];
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
@@ -155,7 +159,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -288,11 +293,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Log initial zoom level
     console.log(`🗺️ Map initialized - Current zoom level: ${this.map.getZoom()}`);
 
-    // Listen for zoom changes
+    // Listen for zoom and move so we can update slider track length and enforce min zoom
     this.map.on('zoomend', () => {
       if (this.map) {
         console.log(`🔍 Map zoom changed - New zoom level: ${this.map.getZoom()}`);
+        this.updateSliderTrackLength();
       }
+    });
+    this.map.on('moveend', () => {
+      this.updateSliderTrackLength();
     });
 
     // Add OpenStreetMap tiles
@@ -1502,13 +1511,40 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  /** Bounds for sort order (matches backend: southernmost lat, easternmost lng). Uses properties when set, else geometry. */
+  private getTractBoundsForSort(tract: any): { minLat: number; maxLat: number; minLng: number; maxLng: number } | null {
+    if (!tract) return null;
+    const p = tract.properties;
+    if (typeof p?.MIN_LAT === 'number' && typeof p?.MAX_LAT === 'number' && typeof p?.MIN_LNG === 'number' && typeof p?.MAX_LNG === 'number') {
+      return { minLat: p.MIN_LAT, maxLat: p.MAX_LAT, minLng: p.MIN_LNG, maxLng: p.MAX_LNG };
+    }
+    if (!tract.geometry) return null;
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    const processCoords = (coords: any) => {
+      if (Array.isArray(coords)) {
+        if (typeof coords[0] === 'number') {
+          const lng = coords[0], lat = coords[1];
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+        } else {
+          coords.forEach(processCoords);
+        }
+      }
+    };
+    processCoords(tract.geometry.coordinates);
+    if (minLat > maxLat || minLng > maxLng) return null;
+    return { minLat, maxLat, minLng, maxLng };
+  }
+
   /** Division direction for current step (used for slider orientation and sort order). Step 0 uses latitude. */
   get sortDirection(): 'latitude' | 'longitude' {
     if (!this.currentStep) return 'latitude';
     return this.currentStep.divisionDirection || 'latitude';
   }
 
-  /** Sorted tracts for the active DG (step 0 single group, or selected DG). Empty if none. */
+  /** Sorted tracts for the active DG (step 0 single group, or selected DG). Uses same coordinates as algorithm: latitude = southernmost point (minLat) north-first; longitude = easternmost point (maxLng) west-first. */
   get sortedTractsForSlider(): GeoJsonFeature[] {
     if (!this.currentStep?.districtGroups?.length) return [];
     const dgIndex = this.currentStepIndex === 0
@@ -1520,24 +1556,28 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (tracts.length === 0) return [];
     const dir = this.sortDirection;
     return [...tracts].sort((a, b) => {
-      const ca = this.getTractCentroid(a);
-      const cb = this.getTractCentroid(b);
-      if (!ca || !cb) return 0;
+      const ba = this.getTractBoundsForSort(a);
+      const bb = this.getTractBoundsForSort(b);
+      if (!ba || !bb) return 0;
       if (dir === 'latitude') {
-        if (Math.abs(ca.lat - cb.lat) > 0.0001) return cb.lat - ca.lat; // North first
-        return ca.lng - cb.lng; // West first
+        // North first by southernmost point (minLat descending), tie-break west first (minLng)
+        if (Math.abs(ba.minLat - bb.minLat) > 0.0001) return bb.minLat - ba.minLat;
+        return ba.minLng - bb.minLng;
       } else {
-        if (Math.abs(ca.lng - cb.lng) > 0.0001) return ca.lng - cb.lng; // West first
-        return cb.lat - ca.lat; // North first (secondary)
+        // West first by easternmost point (maxLng ascending), tie-break north first (maxLat)
+        if (Math.abs(ba.maxLng - bb.maxLng) > 0.0001) return ba.maxLng - bb.maxLng;
+        return bb.maxLat - ba.maxLat;
       }
     });
   }
 
   /** Whether the sort-order slider should be shown. Only when tract boundaries are visible (individual tracts), and step 0 or a DG is selected. */
   get showSortSlider(): boolean {
-    if (!this.showTractBoundaries) return false;
-    const tracts = this.sortedTractsForSlider;
-    if (tracts.length === 0) return false;
+    if (!this.showTractBoundaries || !this.currentStep?.districtGroups?.length) return false;
+    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
+    if (dgIndex < 0 || dgIndex >= this.currentStep.districtGroups.length) return false;
+    const count = this.currentStep.districtGroups[dgIndex]?.censusTracts?.length ?? 0;
+    if (count === 0) return false;
     if (this.currentStepIndex === 0) return true;
     return this.selectedDistrictGroupIndex !== null;
   }
@@ -1567,18 +1607,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Map slider position to tract ID set using pre-sorted ID array only (no tract math).
-   * v=0 → none; v>0 → indices startIndex..endIndex from sortedIds.
+   * Map slider position to tract ID set: only the tract(s) at the current position (per 260205-tractslider: highlight only tract(s) at slider position, not range from start).
+   * v=0 → none; v>0 → single tract at index floor(v*N/M) so at most one tract is highlighted for fast setStyle.
    */
   private tractIdsAtPosition(sortedIds: string[], v: number): Set<string> {
     const set = new Set<string>();
     const N = sortedIds.length;
     if (N === 0 || v <= 0) return set;
     const M = this.sliderMax;
-    const startIndex = Math.max(0, Math.min(N - 1, Math.floor((v - 1) * N / M)));
-    const endIndex = Math.min(N - 1, Math.floor(v * N / M) - 1);
-    if (endIndex < startIndex) return set;
-    for (let i = startIndex; i <= endIndex; i++) set.add(sortedIds[i]);
+    const index = Math.min(N - 1, Math.floor(v * N / M));
+    set.add(sortedIds[index]);
     return set;
   }
 
@@ -1594,10 +1632,59 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sortSliderValue;
   }
 
-  /** Count of tracts at current slider position (for display). */
+  /** Count of tracts at current slider position (for display). Always 0 or 1 when highlighting only at position. */
   getSliderHighlightCount(): number {
     const ids = this.getOrBuildSortedTractIds();
     return this.tractIdsAtPosition(ids, this.sortSliderValue).size;
+  }
+
+  /** Cached tract count for slider (avoids sortedTractsForSlider getter on every change detection). */
+  get sortedTractCountForSlider(): number {
+    return this.getOrBuildSortedTractIds().length;
+  }
+
+  /**
+   * Update slider track length in pixels to match state bounds extent on the map (so slider aligns with state regardless of zoom).
+   * Vertical (latitude): track length = state height in px. Horizontal (longitude): track length = state width in px.
+   */
+  private updateSliderTrackLength(): void {
+    if (!this.map || !this.stateBoundsForSlider?.isValid()) {
+      this.sliderTrackLengthPx = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    const ne = this.map.latLngToContainerPoint(this.stateBoundsForSlider.getNorthEast());
+    const sw = this.map.latLngToContainerPoint(this.stateBoundsForSlider.getSouthWest());
+    const isLat = this.sortDirection === 'latitude';
+    const lengthPx = isLat ? Math.round(sw.y - ne.y) : Math.round(ne.x - sw.x);
+    const minLength = 80;
+    this.sliderTrackLengthPx = Math.max(minLength, lengthPx);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Clear all slider highlights and the position line. Called at start of slide handler so previous highlight is removed before applying new one.
+   */
+  private clearSliderHighlight(): void {
+    const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
+    const normalColor = this.showTractBoundaries ? '#000000' : undefined;
+    this.lastSliderHighlightedTractIds.forEach(tractId => {
+      const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
+      if (!layer) return;
+      const tractColor = this.tractGeoJsonLayers.get(layer) ?? '#888';
+      (layer as any).setStyle({
+        weight: normalWeight,
+        color: normalColor ?? tractColor,
+        opacity: this.showTractBoundaries ? 0.8 : 0.2,
+        fillOpacity: 0.7,
+        fillColor: tractColor
+      });
+    });
+    this.lastSliderHighlightedTractIds = new Set();
+    if (this.sliderPositionLineLayer && this.map) {
+      this.map.removeLayer(this.sliderPositionLineLayer);
+      this.sliderPositionLineLayer = null;
+    }
   }
 
   /**
@@ -1698,6 +1785,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isNaN(n)) return;
     const raw = Math.max(0, Math.min(Math.round(n), this.sliderMax));
     this.sortSliderValue = this.sortDirection === 'latitude' ? this.sliderMax - raw : raw;
+
+    this.clearSliderHighlight();
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const elapsed = now - this.lastSliderUpdateTime;
@@ -2068,14 +2157,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         center: bounds.getCenter(),
         isValid: bounds.isValid()
       });
+      this.stateBoundsForSlider = bounds;
       this.map.fitBounds(bounds, { padding: [20, 20] });
+      // Furthest zoom out = this fit level (user cannot zoom out beyond zoom-to-fit)
+      this.map.setMinZoom(this.map.getZoom());
+      this.updateSliderTrackLength();
       // Force invalidate size after fitting bounds to ensure map renders correctly
       setTimeout(() => {
         if (this.map) {
           this.map.invalidateSize();
+          this.updateSliderTrackLength();
         }
       }, 100);
     } else {
+      this.stateBoundsForSlider = null;
+      this.sliderTrackLengthPx = null;
+      this.cdr.markForCheck();
       console.warn('⚠️ Cannot fit map to bounds:', {
         hasBounds,
         isValid: bounds.isValid(),
