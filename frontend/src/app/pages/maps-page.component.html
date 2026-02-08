@@ -53,16 +53,7 @@
       <section class="map-section">
         <div class="map-container">
           <div id="usMap" class="map"></div>
-          <!-- Sort-order slider: only when tract boundaries are shown (vertical for latitude, horizontal for longitude) -->
-          <div *ngIf="showSortSlider" class="sort-slider-wrapper" [class.vertical]="sortDirection === 'latitude'" [class.horizontal]="sortDirection === 'longitude'">
-            <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'N' : 'W' }}</label>
-            <input type="range" class="sort-slider" [min]="0" [max]="sliderMax" [value]="getSliderDisplayValue()"
-                   [style.width.px]="sliderTrackLengthPx ?? undefined"
-                   (input)="onSortSliderInput($any($event.target).valueAsNumber)"
-                   [attr.aria-label]="'Sorted tracts: position of ' + sortedTractCountForSlider">
-            <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'S' : 'E' }}</label>
-            <span class="sort-slider-value">{{ getSliderHighlightCount() }} / {{ sortedTractCountForSlider }}</span>
-          </div>
+          <!-- Division line is the control when tract boundaries are shown; labels are on the map above/below the line -->
           <!-- Loading Overlay -->
           <div *ngIf="isLoading" class="loading-overlay">
             <div class="loading-spinner-container">

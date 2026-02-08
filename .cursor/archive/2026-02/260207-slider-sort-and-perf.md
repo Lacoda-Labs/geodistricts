@@ -62,13 +62,27 @@ Change the length of the slider to align with the state boundaries regardless of
 
 ### Actions
 
-- **Min zoom = zoom-to-fit:** After `fitBounds(bounds, { padding: [20, 20] })` in `renderFinalDistricts`, call `this.map.setMinZoom(this.map.getZoom())` so the user cannot zoom out past the fit level.
+- **Min zoom = zoom-to-fit:** After `fitBounds(bounds, { padding: [20, 20] })` in `renderFinalDistricts`, set min zoom so the user cannot zoom out past the fit level. Initially used `setMinZoom(this.map.getZoom())`; for CO the zoom-out limit appeared as level 7 instead of the fit level 6 (timing). **Fix:** use `getBoundsZoom(bounds, false, L.point(20, 20))` and `setMinZoom(fitZoom)` so min zoom matches the zoom that fitBounds uses, independent of `getZoom()` lag.
 - **Slider track length from state bounds:** Store **stateBoundsForSlider** when fitting; **updateSliderTrackLength()** projects bounds to container pixels and sets **sliderTrackLengthPx** to state height (latitude/vertical) or width (longitude/horizontal), clamped to at least 80px. Called after fit, on `zoomend` and `moveend`, so the track stays aligned with the state. Template: `[style.width.px]="sliderTrackLengthPx ?? undefined"` on the sort slider input.
 - **Change detection:** Injected `ChangeDetectorRef`; `cdr.markForCheck()` after updating/clearing `sliderTrackLengthPx` so the template updates from Leaflet callbacks. Clear `stateBoundsForSlider` and `sliderTrackLengthPx` when bounds are invalid.
 
 ---
 
+## Slider vertical padding and alignment (reverted)
+
+### Prompt
+
+Slider appeared to be missing padding at the top; later “top position of slider is still above bounds of state.”
+
+### Actions
+
+- **Padding:** Added `padding-top: 14px` and `padding-bottom: 14px` to `.sort-slider-wrapper.vertical` so the track has space from the map edges.
+- **State-aligned top (attempted, reverted):** Added `sliderTrackTopPx` (ne.y) and positioned the vertical wrapper with `top: calc(var(--slider-track-top-px) - 38px)` when `state-aligned` so the track top would match the state north edge. Result: “top of slider is at top of page” — timing/coordinates were wrong (e.g. map container not sized yet). **Reverted:** removed `sliderTrackTopPx`, `state-aligned` class, and the top positioning; slider is again centered (`top: 50%; transform: translateY(-50%)`) with track length from state bounds and the 14px vertical padding kept.
+
+---
+
 ## Files touched (this chat)
 
-- [frontend/src/app/pages/maps-page.component.ts](frontend/src/app/pages/maps-page.component.ts): getTractBoundsForSort, sortedTractsForSlider (sort by minLat/maxLng), tractIdsAtPosition (single tract at position), clearSliderHighlight, onSortSliderInput (clear then update), sortedTractCountForSlider, showSortSlider (no sort); stateBoundsForSlider, sliderTrackLengthPx, updateSliderTrackLength(), setMinZoom after fitBounds, zoomend/moveend listeners, ChangeDetectorRef.
+- [frontend/src/app/pages/maps-page.component.ts](frontend/src/app/pages/maps-page.component.ts): getTractBoundsForSort, sortedTractsForSlider (sort by minLat/maxLng), tractIdsAtPosition (single tract at position), clearSliderHighlight, onSortSliderInput (clear then update), sortedTractCountForSlider, showSortSlider (no sort); stateBoundsForSlider, sliderTrackLengthPx, updateSliderTrackLength(), getBoundsZoom + setMinZoom after fitBounds, zoomend/moveend listeners, ChangeDetectorRef.
 - [frontend/src/app/pages/maps-page.component.html](frontend/src/app/pages/maps-page.component.html): slider label and value use sortedTractCountForSlider; sort slider input has [style.width.px]="sliderTrackLengthPx ?? undefined".
+- [frontend/src/app/pages/maps-page.component.scss](frontend/src/app/pages/maps-page.component.scss): vertical slider padding-top/padding-bottom 14px.

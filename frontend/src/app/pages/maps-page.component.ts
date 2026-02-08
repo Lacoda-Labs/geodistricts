@@ -81,6 +81,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Cached sorted tract IDs for current step/DG so slider position → IDs needs no per-event sort. */
   private cachedSortedTractIds: string[] = [];
   private cachedSortedTractIdsKey = '';
+  /** Cached sorted tract entries with bounds + population and prefix sum for division-line split and population (O(log N) / O(1)). */
+  private cachedSortedTractEntries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }> = [];
+  private cachedNorthPrefixSum: number[] = []; // northPrefixSum[i] = sum of population for tracts 0..i-1
+  private cachedTotalPopulation = 0;
+  private divisionLineDragHandle: L.Marker | null = null;
+  private divisionLineLabelNorth: L.Marker | null = null;
+  private divisionLineLabelSouth: L.Marker | null = null;
+  private divisionLineDragging = false;
+  /** When step has multiple DGs, one division line per DG. */
+  private divisionLineControlsByDg: Array<{ line: L.Polyline; handle: L.Marker; labelNorth: L.Marker; labelSouth: L.Marker; dgIndex: number }> = [];
+  /** Per-DG split value (0..sliderMax) when showing multiple DGs. */
+  private sortSliderValueByDgIndex: Record<number, number> = {};
+  /** Cached sorted entries per DG for multi-DG division lines (key = dgIndex). */
+  private cachedSortedTractEntriesByDg: Map<number, { entries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }>; prefixSum: number[]; total: number }> = new Map();
   /** Throttle slider updates to reduce work while dragging. */
   private static readonly SLIDER_THROTTLE_MS = 100;
   private lastSliderUpdateTime = 0;
@@ -420,12 +434,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           updateButtonStates();
         });
 
-        // Division lines button click handler
+        // Division lines button click handler (toggles both historical division lines and sort slider lines)
         L.DomEvent.on(divisionButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
           component.showDivisionLines = !component.showDivisionLines;
           component.renderDivisionLines();
+          component.updateDivisionLineAndLabels();
           updateButtonStates();
         });
 
@@ -897,6 +912,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sortSliderValue = 0;
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
+    this.cachedSortedTractEntries = [];
+    this.cachedNorthPrefixSum = [];
+    this.cachedSortedTractEntriesByDg.clear();
 
     // Directly call the step-by-step endpoint to get step 0, bypassing final step check
     // This ensures we always get step 0, not the final step
@@ -1058,8 +1076,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractsData = null;
         this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
         this.sortSliderValue = 0;
+        this.sortSliderValueByDgIndex = {};
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
+    this.cachedSortedTractEntries = [];
+    this.cachedNorthPrefixSum = [];
+    this.cachedSortedTractEntriesByDg.clear();
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
         // Step not loaded yet, request it from backend
@@ -1215,6 +1237,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sortSliderValue = 0;
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
+    this.cachedSortedTractEntries = [];
+    this.cachedNorthPrefixSum = [];
+    this.cachedSortedTractEntriesByDg.clear();
       this.renderFinalDistricts();
     } else {
       // Step not loaded yet, request it from backend
@@ -1476,6 +1501,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sortSliderValue = 0;
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
+    this.cachedSortedTractEntries = [];
+    this.cachedNorthPrefixSum = [];
+    this.cachedSortedTractEntriesByDg.clear();
     this.renderFinalDistricts();
   }
 
@@ -1538,10 +1566,29 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return { minLat, maxLat, minLng, maxLng };
   }
 
-  /** Division direction for current step (used for slider orientation and sort order). Step 0 uses latitude. */
+  /** Division direction for current step (used for slider orientation and sort order). Step 0–1 = latitude (horizontal line); step 2+ alternates so E/W splits draw vertical (N-S) lines. */
   get sortDirection(): 'latitude' | 'longitude' {
     if (!this.currentStep) return 'latitude';
-    return this.currentStep.divisionDirection || 'latitude';
+    if (this.currentStep.divisionDirection) return this.currentStep.divisionDirection;
+    // Fallback: step 0 and 1 = latitude (algorithm first division is lat), step 2 = longitude, then alternate
+    return this.currentStepIndex <= 1 ? 'latitude' : (this.currentStepIndex % 2 === 0 ? 'longitude' : 'latitude');
+  }
+
+  /** Bounds of a district group from its tracts (min/max lat/lng). */
+  private getDistrictGroupBounds(dgIndex: number): L.LatLngBounds | null {
+    if (!this.currentStep?.districtGroups?.[dgIndex]?.censusTracts?.length) return null;
+    const tracts = this.currentStep.districtGroups[dgIndex].censusTracts;
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    for (const tract of tracts) {
+      const b = this.getTractBoundsForSort(tract);
+      if (!b) continue;
+      minLat = Math.min(minLat, b.minLat);
+      maxLat = Math.max(maxLat, b.maxLat);
+      minLng = Math.min(minLng, b.minLng);
+      maxLng = Math.max(maxLng, b.maxLng);
+    }
+    if (minLat > maxLat || minLng > maxLng) return null;
+    return L.latLngBounds(L.latLng(minLat, minLng), L.latLng(maxLat, maxLng));
   }
 
   /** Sorted tracts for the active DG (step 0 single group, or selected DG). Uses same coordinates as algorithm: latitude = southernmost point (minLat) north-first; longitude = easternmost point (maxLng) west-first. */
@@ -1571,15 +1618,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** Whether the sort-order slider should be shown. Only when tract boundaries are visible (individual tracts), and step 0 or a DG is selected. */
+  /** Whether the sort-order division line(s) should be shown. When tract boundaries on: step 0, or a DG selected, or step has multiple DGs (one line per DG). */
   get showSortSlider(): boolean {
     if (!this.showTractBoundaries || !this.currentStep?.districtGroups?.length) return false;
-    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
+    if (this.currentStepIndex === 0) {
+      return (this.currentStep.districtGroups[0]?.censusTracts?.length ?? 0) > 0;
+    }
+    if (this.currentStep.districtGroups.length > 1) {
+      return this.currentStep.districtGroups.some(g => (g?.censusTracts?.length ?? 0) > 0);
+    }
+    const dgIndex = this.selectedDistrictGroupIndex ?? -1;
     if (dgIndex < 0 || dgIndex >= this.currentStep.districtGroups.length) return false;
-    const count = this.currentStep.districtGroups[dgIndex]?.censusTracts?.length ?? 0;
-    if (count === 0) return false;
-    if (this.currentStepIndex === 0) return true;
-    return this.selectedDistrictGroupIndex !== null;
+    return (this.currentStep.districtGroups[dgIndex]?.censusTracts?.length ?? 0) > 0;
   }
 
   /** Cache key for sorted tract IDs (invalidates when step or DG changes). */
@@ -1604,6 +1654,171 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractIds = ids;
     this.cachedSortedTractIdsKey = key;
     return ids;
+  }
+
+  /** Build cached sorted tract entries with bounds + population and north prefix sum (same key as sorted IDs). */
+  private getOrBuildSortedTractEntries(): Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }> {
+    const key = this.getSortedTractIdsCacheKey();
+    if (this.cachedSortedTractEntries.length > 0 && this.cachedSortedTractIdsKey === key) {
+      return this.cachedSortedTractEntries;
+    }
+    const sorted = this.sortedTractsForSlider;
+    const entries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }> = [];
+    let sum = 0;
+    this.cachedNorthPrefixSum = [0];
+    for (let i = 0; i < sorted.length; i++) {
+      const tract = sorted[i];
+      const b = this.getTractBoundsForSort(tract);
+      const tractId = this.getTractId(tract) ?? '';
+      const population = tract.properties?.POPULATION ?? 0;
+      if (!b) continue;
+      entries.push({
+        tractId,
+        minLat: b.minLat,
+        maxLat: b.maxLat,
+        minLng: b.minLng,
+        maxLng: b.maxLng,
+        population
+      });
+      sum += population;
+      this.cachedNorthPrefixSum.push(sum);
+    }
+    this.cachedSortedTractEntries = entries;
+    this.cachedTotalPopulation = sum;
+    return entries;
+  }
+
+  /** Split index (0..N) from current slider value. */
+  private getSplitIndexFromSliderValue(): number {
+    const ids = this.getOrBuildSortedTractIds();
+    const N = ids.length;
+    if (N === 0) return 0;
+    const v = this.sortSliderValue;
+    const M = this.sliderMax;
+    return Math.min(N, Math.max(0, Math.floor(v * N / M)));
+  }
+
+  /** Split index that gives ~50% population on each side (midpoint for initial division line). */
+  private getMidpointSplitIndex(): number {
+    const entries = this.getOrBuildSortedTractEntries();
+    const N = entries.length;
+    if (N === 0) return 0;
+    const half = this.cachedTotalPopulation / 2;
+    for (let i = 0; i <= N; i++) {
+      if ((this.cachedNorthPrefixSum[i] ?? 0) >= half) return i;
+    }
+    return N;
+  }
+
+  /** Line position (lat for latitude split, lng for longitude) from split index. */
+  private getDivisionLinePositionFromSplitIndex(splitIndex: number): number | null {
+    const entries = this.getOrBuildSortedTractEntries();
+    const N = entries.length;
+    if (N === 0) return null;
+    const isLat = this.sortDirection === 'latitude';
+    if (splitIndex <= 0) {
+      return isLat ? entries[0].maxLat + 0.001 : entries[0].minLng - 0.001;
+    }
+    if (splitIndex >= N) {
+      return isLat ? entries[N - 1].minLat - 0.001 : entries[N - 1].maxLng + 0.001;
+    }
+    if (isLat) {
+      return (entries[splitIndex - 1].minLat + entries[splitIndex].maxLat) / 2;
+    }
+    return (entries[splitIndex - 1].maxLng + entries[splitIndex].minLng) / 2;
+  }
+
+  /** Split index from line position (binary search). North = tracts with minLat > lineLat; West = tracts with maxLng < lineLng. */
+  private getSplitIndexFromDivisionLinePosition(lineValue: number): number {
+    const entries = this.getOrBuildSortedTractEntries();
+    const N = entries.length;
+    if (N === 0) return 0;
+    const isLat = this.sortDirection === 'latitude';
+    if (isLat) {
+      let lo = 0;
+      let hi = N;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (entries[mid].minLat > lineValue) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    } else {
+      let lo = 0;
+      let hi = N;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (entries[mid].maxLng < lineValue) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    }
+  }
+
+  /** Population on north/west side (indices 0..splitIndex-1) and south/east side. */
+  private getPopulationsForSplitIndex(splitIndex: number): { first: number; second: number } {
+    const first = this.cachedNorthPrefixSum[splitIndex] ?? 0;
+    const second = this.cachedTotalPopulation - first;
+    return { first, second };
+  }
+
+  /** Build and cache sorted tract entries for a given DG (for multi-DG division lines). */
+  private getOrBuildSortedTractEntriesForDg(dgIndex: number): { entries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }>; prefixSum: number[]; total: number } | null {
+    if (!this.currentStep?.districtGroups?.[dgIndex]?.censusTracts?.length) return null;
+    const cached = this.cachedSortedTractEntriesByDg.get(dgIndex);
+    if (cached) return cached;
+    const tracts = this.currentStep.districtGroups[dgIndex].censusTracts;
+    const dir = this.sortDirection;
+    const sorted = [...tracts].sort((a, b) => {
+      const ba = this.getTractBoundsForSort(a);
+      const bb = this.getTractBoundsForSort(b);
+      if (!ba || !bb) return 0;
+      if (dir === 'latitude') {
+        if (Math.abs(ba.minLat - bb.minLat) > 0.0001) return bb.minLat - ba.minLat;
+        return ba.minLng - bb.minLng;
+      } else {
+        if (Math.abs(ba.maxLng - bb.maxLng) > 0.0001) return ba.maxLng - bb.maxLng;
+        return bb.maxLat - ba.maxLat;
+      }
+    });
+    const entries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }> = [];
+    let sum = 0;
+    const prefixSum = [0];
+    for (let i = 0; i < sorted.length; i++) {
+      const tract = sorted[i];
+      const b = this.getTractBoundsForSort(tract);
+      const tractId = this.getTractId(tract) ?? '';
+      const population = tract.properties?.POPULATION ?? 0;
+      if (!b) continue;
+      entries.push({ tractId, minLat: b.minLat, maxLat: b.maxLat, minLng: b.minLng, maxLng: b.maxLng, population });
+      sum += population;
+      prefixSum.push(sum);
+    }
+    const result = { entries, prefixSum, total: sum };
+    this.cachedSortedTractEntriesByDg.set(dgIndex, result);
+    return result;
+  }
+
+  private getSplitIndexFromLineValueForEntries(entries: Array<{ minLat: number; maxLng: number }>, lineValue: number, isLat: boolean): number {
+    const N = entries.length;
+    if (N === 0) return 0;
+    if (isLat) {
+      let lo = 0, hi = N;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (entries[mid].minLat > lineValue) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    } else {
+      let lo = 0, hi = N;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (entries[mid].maxLng < lineValue) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    }
   }
 
   /**
@@ -1681,10 +1896,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     });
     this.lastSliderHighlightedTractIds = new Set();
-    if (this.sliderPositionLineLayer && this.map) {
-      this.map.removeLayer(this.sliderPositionLineLayer);
-      this.sliderPositionLineLayer = null;
-    }
+    this.removeDivisionLineControls();
   }
 
   /**
@@ -1729,55 +1941,357 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.lastSliderHighlightedTractIds = new Set(newIds);
 
-    this.updateSliderPositionLine(newIds);
+    this.updateDivisionLineAndLabels();
   }
 
   /**
-   * Draw or remove the sort-position line: latitude sort = horizontal line at southernmost extent of highlighted tracts; longitude sort = vertical line at easternmost extent.
+   * Draw or update the division line (at split position), draggable handle, and population labels. Replaces slider input: line is the control.
    */
-  private updateSliderPositionLine(highlightedTractIds: Set<string>): void {
-    if (!this.map) return;
-    if (this.sliderPositionLineLayer) {
+  private updateDivisionLineAndLabels(): void {
+    if (!this.map || !this.currentStep?.districtGroups?.length) return;
+    this.removeDivisionLineControls();
+    if (!this.showDivisionLines) return;
+    const multiDg = this.currentStep.districtGroups.length > 1 && this.selectedDistrictGroupIndex === null;
+    if (multiDg) {
+      this.updateDivisionLinesForMultipleDgs();
+      return;
+    }
+    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
+    if (dgIndex < 0 || !this.currentStep?.districtGroups?.[dgIndex]) return;
+    const entries = this.getOrBuildSortedTractEntries();
+    if (entries.length === 0) return;
+    if (this.sortSliderValue === 0) {
+      const mid = this.getMidpointSplitIndex();
+      const M = this.sliderMax;
+      this.sortSliderValue = Math.round(mid * M / entries.length);
+    }
+    const splitIndex = this.getSplitIndexFromSliderValue();
+    let lineValue = this.getDivisionLinePositionFromSplitIndex(splitIndex);
+    if (lineValue == null) return;
+    const dgBounds = this.getDistrictGroupBounds(dgIndex);
+    const mapBounds = this.map.getBounds();
+    const isLat = this.sortDirection === 'latitude';
+    const west = dgBounds ? dgBounds.getWest() : mapBounds.getWest();
+    const east = dgBounds ? dgBounds.getEast() : mapBounds.getEast();
+    const south = dgBounds ? dgBounds.getSouth() : mapBounds.getSouth();
+    const north = dgBounds ? dgBounds.getNorth() : mapBounds.getNorth();
+    if (dgBounds) {
+      lineValue = isLat
+        ? Math.max(south, Math.min(north, lineValue))
+        : Math.max(west, Math.min(east, lineValue));
+    }
+    let latLngs: L.LatLng[];
+    if (isLat) {
+      latLngs = [L.latLng(lineValue, west), L.latLng(lineValue, east)];
+    } else {
+      latLngs = [L.latLng(south, lineValue), L.latLng(north, lineValue)];
+    }
+    const line = L.polyline(latLngs, {
+      color: '#1976d2',
+      weight: 3,
+      opacity: 0.95,
+      className: 'division-line-interactive ' + (isLat ? 'division-line-lat' : 'division-line-lng')
+    });
+    line.on('mouseover', () => {
+      if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
+    });
+    line.on('mouseout', () => {
+      if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = '';
+    });
+    line.on('mousedown', (e: L.LeafletMouseEvent) => {
+      L.DomEvent.stopPropagation(e);
+      if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
+      this.divisionLineDragging = true;
+      this.map!.dragging.disable();
+      this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
+      const onMove = (ev: L.LeafletMouseEvent) => {
+        if (ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
+        const newVal = isLat ? ev.latlng.lat : ev.latlng.lng;
+        this.updateDivisionLinePositionOnly(newVal);
+      };
+      const onUp = () => {
+        this.divisionLineDragging = false;
+        this.map!.dragging.enable();
+        this.map!.getContainer().style.cursor = '';
+        this.map!.off('mousemove', onMove);
+        this.map!.off('mouseup', onUp);
+        const latlngs = (this.sliderPositionLineLayer as L.Polyline)?.getLatLngs() as L.LatLng[] | undefined;
+        if (latlngs?.length) {
+          const lineVal = isLat ? latlngs[0].lat : latlngs[0].lng;
+          this.applyDivisionLinePosition(lineVal);
+        }
+      };
+      this.map!.on('mousemove', onMove);
+      this.map!.on('mouseup', onUp);
+    });
+    line.addTo(this.map);
+    this.sliderPositionLineLayer = line;
+
+    const handlePos = isLat ? L.latLng(lineValue, east) : L.latLng(north, lineValue);
+    const handleIcon = L.divIcon({
+      className: 'division-line-handle',
+      html: '<div style="width:12px;height:12px;border-radius:50%;background:#1976d2;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:' + (isLat ? 'ns-resize' : 'ew-resize') + '"></div>',
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
+    });
+    const handle = L.marker(handlePos, { draggable: true, icon: handleIcon });
+    handle.on('dragend', () => {
+      const pos = handle.getLatLng();
+      const newVal = isLat ? pos.lat : pos.lng;
+      this.applyDivisionLinePosition(newVal);
+    });
+    handle.addTo(this.map);
+    this.divisionLineDragHandle = handle;
+
+    const { first, second } = this.getPopulationsForSplitIndex(splitIndex);
+    const fmt = (n: number) => n.toLocaleString();
+    const labelOffset = 0.06;
+    const labelNorth = L.marker(
+      isLat ? L.latLng(lineValue + labelOffset, east) : L.latLng(north, lineValue + labelOffset),
+      {
+        icon: L.divIcon({
+          className: 'division-line-label',
+          html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>',
+          iconSize: [120, 24],
+          iconAnchor: [0, 12]
+        })
+      }
+    );
+    const labelSouth = L.marker(
+      isLat ? L.latLng(lineValue - labelOffset, east) : L.latLng(south, lineValue - labelOffset),
+      {
+        icon: L.divIcon({
+          className: 'division-line-label',
+          html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>',
+          iconSize: [120, 24],
+          iconAnchor: [0, 12]
+        })
+      }
+    );
+    labelNorth.addTo(this.map);
+    labelSouth.addTo(this.map);
+    this.divisionLineLabelNorth = labelNorth;
+    this.divisionLineLabelSouth = labelSouth;
+  }
+
+  private removeDivisionLineControls(): void {
+    this.divisionLineControlsByDg.forEach(({ line, handle, labelNorth, labelSouth }) => {
+      if (this.map) {
+        this.map.removeLayer(line);
+        this.map.removeLayer(handle);
+        this.map.removeLayer(labelNorth);
+        this.map.removeLayer(labelSouth);
+      }
+    });
+    this.divisionLineControlsByDg = [];
+    if (this.divisionLineDragHandle && this.map) {
+      this.map.removeLayer(this.divisionLineDragHandle);
+      this.divisionLineDragHandle = null;
+    }
+    if (this.divisionLineLabelNorth && this.map) {
+      this.map.removeLayer(this.divisionLineLabelNorth);
+      this.divisionLineLabelNorth = null;
+    }
+    if (this.divisionLineLabelSouth && this.map) {
+      this.map.removeLayer(this.divisionLineLabelSouth);
+      this.divisionLineLabelSouth = null;
+    }
+    if (this.sliderPositionLineLayer && this.map) {
       this.map.removeLayer(this.sliderPositionLineLayer);
       this.sliderPositionLineLayer = null;
     }
-    if (highlightedTractIds.size === 0) return;
+  }
 
-    const allBounds: L.LatLngBounds[] = [];
-    highlightedTractIds.forEach(tractId => {
-      const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
-      if (layer && (layer as any).getBounds) {
-        const b = (layer as any).getBounds() as L.LatLngBounds;
-        if (b && b.isValid()) allBounds.push(b);
-      }
-    });
-    if (allBounds.length === 0) return;
-    const bounds = L.latLngBounds(allBounds[0].getSouthWest(), allBounds[0].getNorthEast());
-    for (let i = 1; i < allBounds.length; i++) bounds.extend(allBounds[i]);
-
+  /** Update line, handle, and label positions and label text in place (during drag) without removing layers. */
+  private updateDivisionLinePositionOnly(lineValue: number): void {
+    if (!this.map || !this.sliderPositionLineLayer || !this.divisionLineDragHandle) return;
+    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
+    const dgBounds = dgIndex >= 0 ? this.getDistrictGroupBounds(dgIndex) : null;
     const mapBounds = this.map.getBounds();
+    const west = dgBounds ? dgBounds.getWest() : mapBounds.getWest();
+    const east = dgBounds ? dgBounds.getEast() : mapBounds.getEast();
+    const south = dgBounds ? dgBounds.getSouth() : mapBounds.getSouth();
+    const north = dgBounds ? dgBounds.getNorth() : mapBounds.getNorth();
     const isLat = this.sortDirection === 'latitude';
-    let latLngs: L.LatLng[];
+    const clamped = isLat
+      ? Math.max(south, Math.min(north, lineValue))
+      : Math.max(west, Math.min(east, lineValue));
     if (isLat) {
-      const south = bounds.getSouth();
-      latLngs = [
-        L.latLng(south, mapBounds.getWest()),
-        L.latLng(south, mapBounds.getEast())
-      ];
+      (this.sliderPositionLineLayer as L.Polyline).setLatLngs([L.latLng(clamped, west), L.latLng(clamped, east)]);
+      this.divisionLineDragHandle.setLatLng(L.latLng(clamped, east));
     } else {
-      const east = bounds.getEast();
-      latLngs = [
-        L.latLng(mapBounds.getSouth(), east),
-        L.latLng(mapBounds.getNorth(), east)
-      ];
+      (this.sliderPositionLineLayer as L.Polyline).setLatLngs([L.latLng(south, clamped), L.latLng(north, clamped)]);
+      this.divisionLineDragHandle.setLatLng(L.latLng(north, clamped));
     }
-    this.sliderPositionLineLayer = L.polyline(latLngs, {
-      color: '#1976d2',
-      weight: 2,
-      opacity: 0.9,
-      dashArray: '8,4'
-    });
-    this.sliderPositionLineLayer.addTo(this.map);
+    const splitIndex = this.getSplitIndexFromDivisionLinePosition(clamped);
+    const M = this.sliderMax;
+    const N = this.cachedSortedTractEntries.length;
+    this.sortSliderValue = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
+    const { first, second } = this.getPopulationsForSplitIndex(splitIndex);
+    const fmt = (n: number) => n.toLocaleString();
+    const labelOffset = 0.06;
+    if (this.divisionLineLabelNorth) {
+      this.divisionLineLabelNorth.setLatLng(isLat ? L.latLng(clamped + labelOffset, east) : L.latLng(north, clamped + labelOffset));
+      this.divisionLineLabelNorth.setIcon(L.divIcon({
+        className: 'division-line-label',
+        html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>',
+        iconSize: [120, 24],
+        iconAnchor: [0, 12]
+      }));
+    }
+    if (this.divisionLineLabelSouth) {
+      this.divisionLineLabelSouth.setLatLng(isLat ? L.latLng(clamped - labelOffset, east) : L.latLng(south, clamped - labelOffset));
+      this.divisionLineLabelSouth.setIcon(L.divIcon({
+        className: 'division-line-label',
+        html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>',
+        iconSize: [120, 24],
+        iconAnchor: [0, 12]
+      }));
+    }
+    this.updateSliderHighlightOnLayers();
+    this.cdr.markForCheck();
+  }
+
+  /** Draw one division line per DG when step has multiple DGs and none selected. */
+  private updateDivisionLinesForMultipleDgs(): void {
+    const isLat = this.sortDirection === 'latitude';
+    const M = this.sliderMax;
+    for (let dgIndex = 0; dgIndex < this.currentStep!.districtGroups.length; dgIndex++) {
+      const dgBounds = this.getDistrictGroupBounds(dgIndex);
+      const data = this.getOrBuildSortedTractEntriesForDg(dgIndex);
+      if (!dgBounds || !data || data.entries.length === 0) continue;
+      let v = this.sortSliderValueByDgIndex[dgIndex] ?? 0;
+      const N = data.entries.length;
+      if (v === 0) {
+        const half = data.total / 2;
+        let mid = 0;
+        for (let i = 0; i <= N; i++) {
+          if ((data.prefixSum[i] ?? 0) >= half) { mid = i; break; }
+        }
+        v = Math.round(mid * M / N);
+        this.sortSliderValueByDgIndex[dgIndex] = v;
+      }
+      const splitIndex = Math.min(N, Math.max(0, Math.floor(v * N / M)));
+      let lineValue: number;
+      if (splitIndex <= 0) {
+        lineValue = isLat ? data.entries[0].maxLat + 0.001 : data.entries[0].minLng - 0.001;
+      } else if (splitIndex >= N) {
+        lineValue = isLat ? data.entries[N - 1].minLat - 0.001 : data.entries[N - 1].maxLng + 0.001;
+      } else {
+        lineValue = isLat
+          ? (data.entries[splitIndex - 1].minLat + data.entries[splitIndex].maxLat) / 2
+          : (data.entries[splitIndex - 1].maxLng + data.entries[splitIndex].minLng) / 2;
+      }
+      const west = dgBounds.getWest();
+      const east = dgBounds.getEast();
+      const south = dgBounds.getSouth();
+      const north = dgBounds.getNorth();
+      lineValue = isLat ? Math.max(south, Math.min(north, lineValue)) : Math.max(west, Math.min(east, lineValue));
+      const latLngs = isLat
+        ? [L.latLng(lineValue, west), L.latLng(lineValue, east)]
+        : [L.latLng(south, lineValue), L.latLng(north, lineValue)];
+      const line = L.polyline(latLngs, {
+        color: '#1976d2',
+        weight: 3,
+        opacity: 0.95,
+        className: 'division-line-interactive ' + (isLat ? 'division-line-lat' : 'division-line-lng')
+      });
+      const idx = dgIndex;
+      line.on('mouseover', () => {
+        if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
+      });
+      line.on('mouseout', () => {
+        if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = '';
+      });
+      line.on('mousedown', (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
+        this.divisionLineDragging = true;
+        this.map!.dragging.disable();
+        this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
+        const onMove = (ev: L.LeafletMouseEvent) => {
+          if (ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
+          const newVal = isLat ? ev.latlng.lat : ev.latlng.lng;
+          this.applyDivisionLinePositionForDg(newVal, idx);
+        };
+        const onUp = () => {
+          this.divisionLineDragging = false;
+          this.map!.dragging.enable();
+          this.map!.getContainer().style.cursor = '';
+          this.map!.off('mousemove', onMove);
+          this.map!.off('mouseup', onUp);
+          const latlngs = (line.getLatLngs() as L.LatLng[]);
+          if (latlngs.length) {
+            const lineVal = isLat ? latlngs[0].lat : latlngs[0].lng;
+            this.applyDivisionLinePositionForDg(lineVal, idx);
+          }
+        };
+        this.map!.on('mousemove', onMove);
+        this.map!.on('mouseup', onUp);
+      });
+      line.addTo(this.map!);
+      const handlePos = isLat ? L.latLng(lineValue, east) : L.latLng(north, lineValue);
+      const handleIcon = L.divIcon({
+        className: 'division-line-handle',
+        html: '<div style="width:12px;height:12px;border-radius:50%;background:#1976d2;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:' + (isLat ? 'ns-resize' : 'ew-resize') + '"></div>',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+      });
+      const handle = L.marker(handlePos, { draggable: true, icon: handleIcon });
+      handle.on('dragend', () => {
+        const pos = handle.getLatLng();
+        this.applyDivisionLinePositionForDg(isLat ? pos.lat : pos.lng, idx);
+      });
+      handle.addTo(this.map!);
+      const { first, second } = { first: data.prefixSum[splitIndex] ?? 0, second: data.total - (data.prefixSum[splitIndex] ?? 0) };
+      const fmt = (n: number) => n.toLocaleString();
+      const labelOffset = 0.06;
+      const labelNorth = L.marker(
+        isLat ? L.latLng(lineValue + labelOffset, east) : L.latLng(north, lineValue + labelOffset),
+        { icon: L.divIcon({ className: 'division-line-label', html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>', iconSize: [120, 24], iconAnchor: [0, 12] }) }
+      );
+      const labelSouth = L.marker(
+        isLat ? L.latLng(lineValue - labelOffset, east) : L.latLng(south, lineValue - labelOffset),
+        { icon: L.divIcon({ className: 'division-line-label', html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>', iconSize: [120, 24], iconAnchor: [0, 12] }) }
+      );
+      labelNorth.addTo(this.map!);
+      labelSouth.addTo(this.map!);
+      this.divisionLineControlsByDg.push({ line, handle, labelNorth, labelSouth, dgIndex: idx });
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Apply division line position for a specific DG (multi-DG mode). */
+  private applyDivisionLinePositionForDg(lineValue: number, dgIndex: number): void {
+    const data = this.getOrBuildSortedTractEntriesForDg(dgIndex);
+    const dgBounds = this.getDistrictGroupBounds(dgIndex);
+    if (!data || !dgBounds) return;
+    const isLat = this.sortDirection === 'latitude';
+    const west = dgBounds.getWest();
+    const east = dgBounds.getEast();
+    const south = dgBounds.getSouth();
+    const north = dgBounds.getNorth();
+    const clamped = isLat ? Math.max(south, Math.min(north, lineValue)) : Math.max(west, Math.min(east, lineValue));
+    const splitIndex = this.getSplitIndexFromLineValueForEntries(data.entries, clamped, isLat);
+    const M = this.sliderMax;
+    const N = data.entries.length;
+    this.sortSliderValueByDgIndex[dgIndex] = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
+    this.updateDivisionLineAndLabels();
+    this.cdr.markForCheck();
+  }
+
+  /** Apply new division line position (lat or lng): update split, slider value, highlight, and redraw line/labels. */
+  private applyDivisionLinePosition(lineValue: number): void {
+    const entries = this.getOrBuildSortedTractEntries();
+    const N = entries.length;
+    if (N === 0) return;
+    const splitIndex = this.getSplitIndexFromDivisionLinePosition(lineValue);
+    const M = this.sliderMax;
+    this.sortSliderValue = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
+    this.clearSliderHighlight();
+    this.updateSliderHighlightOnLayers();
+    this.updateDivisionLineAndLabels();
+    this.cdr.markForCheck();
   }
 
   onSortSliderInput(value: number): void {
@@ -2158,9 +2672,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         isValid: bounds.isValid()
       });
       this.stateBoundsForSlider = bounds;
+      const padding = L.point(20, 20);
       this.map.fitBounds(bounds, { padding: [20, 20] });
-      // Furthest zoom out = this fit level (user cannot zoom out beyond zoom-to-fit)
-      this.map.setMinZoom(this.map.getZoom());
+      // Furthest zoom out = zoom level that fits bounds (use getBoundsZoom so we don't rely on getZoom() which can lag)
+      const fitZoom = this.map.getBoundsZoom(bounds, false, padding);
+      this.map.setMinZoom(fitZoom);
       this.updateSliderTrackLength();
       // Force invalidate size after fitting bounds to ensure map renders correctly
       setTimeout(() => {
@@ -2216,10 +2732,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.divisionLineMarkers = [];
 
-    if (this.sliderPositionLineLayer && this.map) {
-      this.map.removeLayer(this.sliderPositionLineLayer);
-      this.sliderPositionLineLayer = null;
-    }
+    // Do not remove interactive division line (sliderPositionLineLayer, handle, labels) here; that is the sort control, cleared only in clearSliderHighlight.
 
     // Clear animated layers
     this.animatedLineLayers.forEach(layer => {
@@ -2724,6 +3237,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sortSliderValue = 0; // Reset sort-order slider when DG changes
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
+    this.cachedSortedTractEntries = [];
+    this.cachedNorthPrefixSum = [];
+    this.cachedSortedTractEntriesByDg.clear();
     // Re-render the map with the new highlighting
     this.renderFinalDistricts();
   }

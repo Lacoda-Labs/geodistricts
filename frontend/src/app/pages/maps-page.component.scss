@@ -103,6 +103,8 @@
     transform: translateY(-50%);
     flex-direction: column;
     max-width: 44px;
+    padding-top: 14px;
+    padding-bottom: 14px;
     .sort-slider {
       transform: rotate(-90deg);
       width: 45vh;
@@ -150,6 +152,41 @@
 
 .sort-slider-value {
   font-variant-numeric: tabular-nums;
+}
+
+// Division line as control: cursor and label styling
+.division-line-interactive.path {
+  cursor: ns-resize;
+}
+.division-line-lat path {
+  cursor: ns-resize;
+}
+.division-line-lng path {
+  cursor: ew-resize;
+}
+.division-line-handle {
+  cursor: inherit;
+}
+.division-line-label {
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+}
+.division-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface, #1a1a1a);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 2px 6px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+.division-label-first {
+  margin-top: -16px;
+}
+.division-label-second {
+  margin-top: 0;
 }
 
 .map-controls {
