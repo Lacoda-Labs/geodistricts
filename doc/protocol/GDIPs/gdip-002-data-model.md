@@ -15,15 +15,13 @@ Implementers and tooling (including LLM-generated code) need a single, clear dat
 
 ## Specification
 
-### Changes
-
-#### 1. Geographic and administrative identifiers
+### 1. Geographic and administrative identifiers
 
 - **State**: Identified by 2-letter USPS abbreviation (e.g. `"AZ"`) or 2-digit FIPS code (e.g. `"04"`). Protocol uses state abbreviation in APIs; FIPS is acceptable in bulk/census contexts.
 - **County**: Identified by 5-digit FIPS code (state FIPS + county FIPS), e.g. `"04013"` (Maricopa County, AZ). No optional county name field in the protocol; implementers may add display names locally.
 - **Census tract**: Identified by **GEOID** (11-digit: state FIPS + county FIPS + tract code), e.g. `"04013400100"`. GEOID is the canonical key for tracts in all protocol inputs and outputs.
 
-#### 2. Core entities
+### 2. Core entities
 
 **Census tract (input)**  
 - `geoid` (string, required): 11-digit GEOID.  
@@ -49,13 +47,13 @@ Implementers and tooling (including LLM-generated code) need a single, clear dat
 - `contiguityScore` (number, optional): Percentage of tracts with at least one adjacent tract in the same district.  
 - `counties` (array of FIPS, optional): Counties that overlap this district.
 
-#### 3. Algorithm input
+### 3. Algorithm input
 
 - **State** (abbreviation or FIPS).  
 - **Total districts** (integer): Number of congressional districts for the state (e.g. from apportionment).  
 - **Census tract data**: For each tract, at least `geoid` and `population`; boundaries required for producing district geometries.
 
-#### 4. Algorithm output
+### 4. Algorithm output
 
 - **Districts**: Array of geodistrict objects (one per district number).  
 - **Steps** (optional): For visualization and auditing, division steps (district groups at each iteration). Format is implementation-defined but should allow replay/visualization of the algorithm.

@@ -56,7 +56,7 @@
           <!-- Sort-order slider: only when tract boundaries are shown (vertical for latitude, horizontal for longitude) -->
           <div *ngIf="showSortSlider" class="sort-slider-wrapper" [class.vertical]="sortDirection === 'latitude'" [class.horizontal]="sortDirection === 'longitude'">
             <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'N' : 'W' }}</label>
-            <input type="range" class="sort-slider" [min]="0" [max]="sliderMax" [value]="sortSliderValue"
+            <input type="range" class="sort-slider" [min]="0" [max]="sliderMax" [value]="getSliderDisplayValue()"
                    (input)="onSortSliderInput($any($event.target).valueAsNumber)"
                    [attr.aria-label]="'Sorted tracts: highlight first N of ' + sortedTractsForSlider.length">
             <label class="sort-slider-label">{{ sortDirection === 'latitude' ? 'S' : 'E' }}</label>

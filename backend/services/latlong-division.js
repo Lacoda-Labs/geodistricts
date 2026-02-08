@@ -137,10 +137,84 @@ class LatLongDivisionService {
     return groupMembers.length > 0 ? groupMembers : [tract];
   }
 
+  /**
+   * Squared distance between two tract centroids (avoids sqrt; order preserved)
+   */
+  _centroidDistanceSq(itemA, itemB) {
+    const cA = calculateTractCentroid(itemA.tract);
+    const cB = calculateTractCentroid(itemB.tract);
+    const dLat = cA.lat - cB.lat;
+    const dLng = cA.lng - cB.lng;
+    return dLat * dLat + dLng * dLng;
+  }
+
+  /**
+   * From remaining items, pick the one that is adjacent to refTract, or nearest by centroid;
+   * tie-break by GEOID ascending. GDIP-004 tie-breaker: prefer adjacent or nearest to previous tract.
+   */
+  _pickAdjacentOrNearest(remainingItems, refItem, adjacencyGraph) {
+    if (remainingItems.length === 0) return null;
+    if (remainingItems.length === 1) return remainingItems[0];
+    const refId = refItem ? getTractId(refItem.tract) : null;
+
+    if (!refId) {
+      // No previous: choose by GEOID ascending for determinism
+      return remainingItems.slice().sort((a, b) => getTractId(a.tract).localeCompare(getTractId(b.tract)))[0];
+    }
+
+    const adjacent = [];
+    const notAdjacent = [];
+    const neighbors = adjacencyGraph.get(refId) || [];
+    const neighborSet = new Set(neighbors);
+
+    for (const item of remainingItems) {
+      const id = getTractId(item.tract);
+      if (neighborSet.has(id)) adjacent.push(item);
+      else notAdjacent.push(item);
+    }
+
+    if (adjacent.length > 0) {
+      adjacent.sort((a, b) => getTractId(a.tract).localeCompare(getTractId(b.tract)));
+      return adjacent[0];
+    }
+    if (notAdjacent.length === 0) return null;
+    // Sort by centroid distance to ref, then GEOID
+    notAdjacent.sort((a, b) => {
+      const distA = this._centroidDistanceSq(a, refItem);
+      const distB = this._centroidDistanceSq(b, refItem);
+      if (distA !== distB) return distA - distB;
+      return getTractId(a.tract).localeCompare(getTractId(b.tract));
+    });
+    return notAdjacent[0];
+  }
+
+  /**
+   * Reorder a run of items (same sortValue) so each is adjacent or nearest to the previous in the sort.
+   * prevItem = item immediately before this run (or null if run is at start).
+   */
+  _reorderTieRunByAdjacencyOrNearness(run, prevItem, adjacencyGraph) {
+    if (run.length <= 1) return run;
+    const ordered = [];
+    let remaining = run.slice();
+    let ref = prevItem;
+
+    while (remaining.length > 0) {
+      const best = this._pickAdjacentOrNearest(remaining, ref, adjacencyGraph);
+      if (!best) break;
+      ordered.push(best);
+      remaining = remaining.filter((x) => x !== best);
+      ref = best;
+    }
+    return ordered;
+  }
+
   findDivisionIndex(tracts, direction, targetPopulation) {
     console.log(`📊 SORTING: Starting to sort ${tracts.length} tracts by ${direction === 'latitude' ? 'south boundary (minLat)' : 'east boundary (maxLng)'}`);
     const sortStartTime = Date.now();
-    
+
+    // Build adjacency graph for tie-breaker (adjacent or nearest to previous tract)
+    const adjacencyGraph = this.buildAdjacencyGraph(tracts);
+
     // Build tract group map for efficient lookup
     const tractGroupMap = new Map(); // Map<tractId, Set<tractIds in group>>
     for (const tract of tracts) {
@@ -287,6 +361,22 @@ class LatLongDivisionService {
           }
         }
       }
+    }
+
+    // GDIP-004 tie-breaker: within runs of equal boundary value, order by adjacency/nearness to previous tract
+    const EPS = 1e-10;
+    let i = 0;
+    while (i < tractsWithBounds.length) {
+      const sortVal = tractsWithBounds[i].sortValue;
+      let j = i + 1;
+      while (j < tractsWithBounds.length && Math.abs(tractsWithBounds[j].sortValue - sortVal) < EPS) j++;
+      if (j - i > 1) {
+        const run = tractsWithBounds.slice(i, j);
+        const prevItem = i === 0 ? null : tractsWithBounds[i - 1];
+        const reordered = this._reorderTieRunByAdjacencyOrNearness(run, prevItem, adjacencyGraph);
+        for (let k = 0; k < reordered.length; k++) tractsWithBounds[i + k] = reordered[k];
+      }
+      i = j;
     }
 
     const sortEndTime = Date.now();

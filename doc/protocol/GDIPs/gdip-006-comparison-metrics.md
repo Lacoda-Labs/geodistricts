@@ -15,26 +15,24 @@ Researchers, advocates, and legislators need to compare current districts with a
 
 ## Specification
 
-### Changes
-
-#### 1. Scope
+### 1. Scope
 
 - **Input**: (a) Geodistricts (output of GDIP-004); (b) existing district boundaries (e.g. from Census TIGER current congressional districts or state-provided shapefiles). Optional: voter registration or demographic data per geography.
 - **Output**: Comparison metrics (e.g. population variance, contiguity, partisan balance, demographic breakdown) for both existing and geodistrict maps; optionally difference metrics (e.g. change in partisan share by district).
 
-#### 2. Data sources for existing districts
+### 2. Data sources for existing districts
 
 - **Boundaries**: U.S. Census TIGER/Line current congressional districts (e.g. 116th/118th Congress), or state GIS portals. Format: GeoJSON or shapefile; district identifier (e.g. CD118FP) and state FIPS.
 - **Matching**: Existing districts are built from census blocks; they may split census tracts. Implementations MUST document how tract-level (or block-level) data is assigned to existing districts (e.g. by centroid containment or area overlay). See [CONGRESSIONAL_DISTRICT_COMPARISON_PLAN](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md).
 
-#### 3. Metrics
+### 3. Metrics
 
 - **Population variance**: Per district, (population − target) / target; report for both existing and geodistrict maps. Compare: e.g. mean absolute variance, max variance.
 - **Contiguity**: Per district, percentage of tracts (or blocks) with at least one adjacent tract in the same district. Report for both maps; compare.
 - **Partisan balance** (optional): If voter registration or election data is available, aggregate to each district (existing and geodistrict). Report party share per district; compare e.g. efficiency gap, mean district partisan lean.
 - **Demographics** (optional): If demographic data is available (GDIP-005), report per-district demographics for both maps; compare e.g. racial composition, age distribution.
 
-#### 4. No impact on boundaries
+### 4. No impact on boundaries
 
 - This GDIP does NOT change the core algorithm. Comparisons are performed **after** geodistricts are generated. The protocol does not use comparison results to redraw boundaries.
 

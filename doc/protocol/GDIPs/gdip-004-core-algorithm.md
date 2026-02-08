@@ -15,37 +15,36 @@ Implementers and tooling need a single, unambiguous specification so that geodis
 
 ## Specification
 
-### Changes
-
-#### 1. Core principles (invariants)
+### 1. Core principles (invariants)
 
 1. **Population equality first**: Districts MUST be as close to equal population as possible; target variance &lt;1% from ideal (total state population / number of districts).
-2. **Contiguity preferred**: Districts SHOULD be contiguous where possible; discontiguity is acceptable for geographic barriers (e.g. islands, water).
+2. **Contiguity preferred**: Districts SHOULD be contiguous where possible; discontiguity is acceptable for geographic barriers (e.g. islands, water, mountains, deserts).
 3. **Objective and automated**: No human intervention; algorithm runs deterministically from census and geographic inputs only.
 4. **Direct tract division**: Work directly with census tracts using latitude/longitude dividing lines for geographic distribution.
 
-#### 2. Inputs and outputs
+### 2. Inputs and outputs
 
 - **Input**: State (abbreviation or FIPS), census tract data (GEOID, population, boundaries per GDIP-002 and GDIP-003), number of congressional districts for the state.
 - **Output**: Set of geodistricts (one per district number), each with assigned tract GEOIDs and population; optional population variance and contiguity score per district (GDIP-002).
 
-#### 3. High-level steps
+### 3. High-level steps
 
 1. **Initialize**: Fetch all census tracts for the state; compute total state population (sum of tract populations); compute target population per district = total state population / number of districts; set max allowed variance (e.g. 1% of target). Initialize one district group containing all tracts.
 2. **Lat/long division**: Repeat until each group has 1 district: (a) Select the group with the most districts (tie-break: largest population). (b) If the group has 1 district, skip. (c) Compute split: if even number of districts, split 50/50; if odd, split (n−1)/2 and (n+1)/2. (d) Sort tracts geographically by alternating latitude/longitude boundaries (e.g. iteration 1: south boundary for latitude, iteration 2: east boundary for longitude). (e) Accumulate tract populations until ≥ target for the first sub-group; split at tract boundary (do not split individual tracts). (f) Keep enclosed tracts with their enclosing tracts. (g) Create new district groups with updated start/end district numbers and populations.
 3. **Contiguity management**: For each division result: (a) Detect isolated tracts using adjacency data. (b) Move isolated tracts to adjacent connected groups while maintaining population balance. (c) Handle bridge tracts that connect isolated components.
 4. **Validation and output**: Compute per-district population variance and (optionally) contiguity score; output list of districts with tract GEOIDs and population; log variances and any discontiguous districts.
 
-#### 4. Geographic sorting
+### 4. Geographic sorting
 
 - **Direction**: Alternating by division iteration—e.g. iteration 1: sort by south boundary (latitude, north–south); iteration 2: sort by east boundary (longitude, west–east). Uses tract boundary coordinates for precise geographic ordering.
-- **Stability**: Sort MUST be deterministic (e.g. stable sort, then secondary key by GEOID).
+- **Tie-breaker**: When two or more tracts share the same boundary value (same south boundary for latitude sort, or same east boundary for longitude sort), order them by adjacency or nearness to the **previous tract** in the sorted order: prefer the tract that is adjacent (shares a boundary) to the previous tract; if none is adjacent, prefer the tract whose centroid is nearest to the previous tract’s centroid. Final tie-break: GEOID ascending, so the sort is fully deterministic.
+- **Stability**: Sort MUST be deterministic. Implementations MUST use the tie-breaker above (and GEOID as final fallback).
 
-#### 5. Odd/even split
+### 5. Odd/even split
 
 - For a group with **n** districts: first sub-group gets **floor(n/2)** districts, second gets **ceil(n/2)**. Population target for first = group total population × (floor(n/2) / n).
 
-#### 6. Variance and contiguity
+### 6. Variance and contiguity
 
 - **Population variance**: Per district, (population − target) / target; report as percentage. Target: &lt;1%.
 - **Contiguity**: Optional. Contiguity score = percentage of tracts in the district that have at least one adjacent tract (shared boundary) in the same district. Log if below a threshold (e.g. 80%).

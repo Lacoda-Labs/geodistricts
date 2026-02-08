@@ -78,6 +78,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private tractIdToLayer: Map<string, L.GeoJSON> = new Map(); // Store tract ID -> layer mapping for popup access
   /** Tract IDs currently highlighted by slider (for setStyle updates only; no full re-render) */
   private lastSliderHighlightedTractIds: Set<string> = new Set();
+  /** Cached sorted tract IDs for current step/DG so slider position → IDs needs no per-event sort. */
+  private cachedSortedTractIds: string[] = [];
+  private cachedSortedTractIdsKey = '';
+  /** Throttle slider updates to reduce work while dragging. */
+  private static readonly SLIDER_THROTTLE_MS = 100;
+  private lastSliderUpdateTime = 0;
+  private pendingSliderUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Line on map showing sort-position boundary (southernmost lat or easternmost lng of highlighted tracts). */
+  private sliderPositionLineLayer: L.Polyline | null = null;
   private subscriptions: Subscription[] = [];
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
@@ -207,6 +216,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     // Stop auto-playing if active
     this.pauseSteps();
+
+    if (this.pendingSliderUpdateTimer !== null) {
+      clearTimeout(this.pendingSliderUpdateTimer);
+      this.pendingSliderUpdateTimer = null;
+    }
 
     // Remove hash change listener
     if (typeof window !== 'undefined' && this.hashChangeHandler) {
@@ -872,6 +886,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.hasShownSorting = false; // Reset sorting visualization state
     this.isSortingVisualization = false; // Reset sorting visualization state
     this.sortSliderValue = 0;
+    this.cachedSortedTractIds = [];
+    this.cachedSortedTractIdsKey = '';
 
     // Directly call the step-by-step endpoint to get step 0, bypassing final step check
     // This ensures we always get step 0, not the final step
@@ -1033,6 +1049,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractsData = null;
         this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
         this.sortSliderValue = 0;
+    this.cachedSortedTractIds = [];
+    this.cachedSortedTractIdsKey = '';
         this.renderFinalDistricts(); // Re-render map for the new step
       } else {
         // Step not loaded yet, request it from backend
@@ -1186,6 +1204,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStep = step;
       this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
       this.sortSliderValue = 0;
+    this.cachedSortedTractIds = [];
+    this.cachedSortedTractIdsKey = '';
       this.renderFinalDistricts();
     } else {
       // Step not loaded yet, request it from backend
@@ -1445,6 +1465,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Re-render to show sorted tracts; slider will control highlight
     this.sortSliderValue = 0;
+    this.cachedSortedTractIds = [];
+    this.cachedSortedTractIdsKey = '';
     this.renderFinalDistricts();
   }
 
@@ -1520,39 +1542,72 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedDistrictGroupIndex !== null;
   }
 
-  /**
-   * Tract IDs that correspond to the slider's current position only (not a range from start).
-   * When slider positions > tracts: one tract per position; when positions < tracts: one graduation = range of tracts.
-   */
-  getTractIdsAtSliderPosition(): Set<string> {
-    const set = new Set<string>();
+  /** Cache key for sorted tract IDs (invalidates when step or DG changes). */
+  private getSortedTractIdsCacheKey(): string {
+    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
+    const len = this.currentStep?.districtGroups?.[dgIndex]?.censusTracts?.length ?? 0;
+    return `${this.currentStepIndex}-${dgIndex}-${len}`;
+  }
+
+  /** Build or return cached sorted tract ID array (sort done once per step/DG; no per-event sort). */
+  private getOrBuildSortedTractIds(): string[] {
+    const key = this.getSortedTractIdsCacheKey();
+    if (this.cachedSortedTractIds.length > 0 && this.cachedSortedTractIdsKey === key) {
+      return this.cachedSortedTractIds;
+    }
     const sorted = this.sortedTractsForSlider;
-    const N = sorted.length;
-    if (N === 0 || this.sortSliderValue <= 0) return set;
-    const v = this.sortSliderValue;
+    const ids: string[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const id = this.getTractId(sorted[i]);
+      if (id) ids.push(id);
+    }
+    this.cachedSortedTractIds = ids;
+    this.cachedSortedTractIdsKey = key;
+    return ids;
+  }
+
+  /**
+   * Map slider position to tract ID set using pre-sorted ID array only (no tract math).
+   * v=0 → none; v>0 → indices startIndex..endIndex from sortedIds.
+   */
+  private tractIdsAtPosition(sortedIds: string[], v: number): Set<string> {
+    const set = new Set<string>();
+    const N = sortedIds.length;
+    if (N === 0 || v <= 0) return set;
     const M = this.sliderMax;
     const startIndex = Math.max(0, Math.min(N - 1, Math.floor((v - 1) * N / M)));
     const endIndex = Math.min(N - 1, Math.floor(v * N / M) - 1);
     if (endIndex < startIndex) return set;
-    for (let i = startIndex; i <= endIndex; i++) {
-      const id = this.getTractId(sorted[i]);
-      if (id) set.add(id);
-    }
+    for (let i = startIndex; i <= endIndex; i++) set.add(sortedIds[i]);
     return set;
+  }
+
+  /** Tract IDs at current slider position (uses cache; no sort in hot path). */
+  getTractIdsAtSliderPosition(): Set<string> {
+    const ids = this.getOrBuildSortedTractIds();
+    return this.tractIdsAtPosition(ids, this.sortSliderValue);
+  }
+
+  /** Value to bind to the range input: for latitude (vertical) invert so 0 = north/top; for longitude 0 = west/left. */
+  getSliderDisplayValue(): number {
+    if (this.sortDirection === 'latitude') return this.sliderMax - this.sortSliderValue;
+    return this.sortSliderValue;
   }
 
   /** Count of tracts at current slider position (for display). */
   getSliderHighlightCount(): number {
-    return this.getTractIdsAtSliderPosition().size;
+    const ids = this.getOrBuildSortedTractIds();
+    return this.tractIdsAtPosition(ids, this.sortSliderValue).size;
   }
 
   /**
    * Update only the border style (class-like) on tract layers for the current slider position.
-   * Does not re-render the map; uses setStyle on existing layers for performance.
+   * Uses cached sorted tract IDs (position → IDs only; no tract calculation).
    */
   private updateSliderHighlightOnLayers(): void {
     if (!this.showTractBoundaries || this.tractIdToLayer.size === 0) return;
-    const newIds = this.getTractIdsAtSliderPosition();
+    const sortedIds = this.getOrBuildSortedTractIds();
+    const newIds = this.tractIdsAtPosition(sortedIds, this.sortSliderValue);
     const toUnhighlight = new Set(this.lastSliderHighlightedTractIds);
     newIds.forEach(id => toUnhighlight.delete(id));
     const toHighlight = new Set(newIds);
@@ -1586,13 +1641,82 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.lastSliderHighlightedTractIds = new Set(newIds);
+
+    this.updateSliderPositionLine(newIds);
+  }
+
+  /**
+   * Draw or remove the sort-position line: latitude sort = horizontal line at southernmost extent of highlighted tracts; longitude sort = vertical line at easternmost extent.
+   */
+  private updateSliderPositionLine(highlightedTractIds: Set<string>): void {
+    if (!this.map) return;
+    if (this.sliderPositionLineLayer) {
+      this.map.removeLayer(this.sliderPositionLineLayer);
+      this.sliderPositionLineLayer = null;
+    }
+    if (highlightedTractIds.size === 0) return;
+
+    const allBounds: L.LatLngBounds[] = [];
+    highlightedTractIds.forEach(tractId => {
+      const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
+      if (layer && (layer as any).getBounds) {
+        const b = (layer as any).getBounds() as L.LatLngBounds;
+        if (b && b.isValid()) allBounds.push(b);
+      }
+    });
+    if (allBounds.length === 0) return;
+    const bounds = L.latLngBounds(allBounds[0].getSouthWest(), allBounds[0].getNorthEast());
+    for (let i = 1; i < allBounds.length; i++) bounds.extend(allBounds[i]);
+
+    const mapBounds = this.map.getBounds();
+    const isLat = this.sortDirection === 'latitude';
+    let latLngs: L.LatLng[];
+    if (isLat) {
+      const south = bounds.getSouth();
+      latLngs = [
+        L.latLng(south, mapBounds.getWest()),
+        L.latLng(south, mapBounds.getEast())
+      ];
+    } else {
+      const east = bounds.getEast();
+      latLngs = [
+        L.latLng(mapBounds.getSouth(), east),
+        L.latLng(mapBounds.getNorth(), east)
+      ];
+    }
+    this.sliderPositionLineLayer = L.polyline(latLngs, {
+      color: '#1976d2',
+      weight: 2,
+      opacity: 0.9,
+      dashArray: '8,4'
+    });
+    this.sliderPositionLineLayer.addTo(this.map);
   }
 
   onSortSliderInput(value: number): void {
     const n = Number(value);
     if (isNaN(n)) return;
-    this.sortSliderValue = Math.max(0, Math.min(Math.round(n), this.sliderMax));
-    this.updateSliderHighlightOnLayers();
+    const raw = Math.max(0, Math.min(Math.round(n), this.sliderMax));
+    this.sortSliderValue = this.sortDirection === 'latitude' ? this.sliderMax - raw : raw;
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsed = now - this.lastSliderUpdateTime;
+
+    if (this.pendingSliderUpdateTimer !== null) {
+      clearTimeout(this.pendingSliderUpdateTimer);
+      this.pendingSliderUpdateTimer = null;
+    }
+
+    if (elapsed >= MapsPageComponent.SLIDER_THROTTLE_MS || this.lastSliderUpdateTime === 0) {
+      this.lastSliderUpdateTime = now;
+      this.updateSliderHighlightOnLayers();
+    } else {
+      this.pendingSliderUpdateTimer = setTimeout(() => {
+        this.pendingSliderUpdateTimer = null;
+        this.lastSliderUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        this.updateSliderHighlightOnLayers();
+      }, MapsPageComponent.SLIDER_THROTTLE_MS - elapsed);
+    }
   }
 
   private renderFinalDistricts(): void {
@@ -1994,6 +2118,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
     this.divisionLineMarkers = [];
+
+    if (this.sliderPositionLineLayer && this.map) {
+      this.map.removeLayer(this.sliderPositionLineLayer);
+      this.sliderPositionLineLayer = null;
+    }
 
     // Clear animated layers
     this.animatedLineLayers.forEach(layer => {
@@ -2496,6 +2625,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedDistrictGroupIndex = index;
     }
     this.sortSliderValue = 0; // Reset sort-order slider when DG changes
+    this.cachedSortedTractIds = [];
+    this.cachedSortedTractIdsKey = '';
     // Re-render the map with the new highlighting
     this.renderFinalDistricts();
   }

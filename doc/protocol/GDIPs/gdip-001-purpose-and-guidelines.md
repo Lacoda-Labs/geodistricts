@@ -52,6 +52,10 @@ Each Standards Track GDIP should include:
 
 Meta GDIPs (like this one) may use a structure that fits the process being described.
 
+### Initial protocol specification vs improvement proposals
+
+The same GDIP format is used for **initial** protocol specifications (the first GDIPs that define the protocol) and for **improvement** proposals (later GDIPs that amend or extend it). The **Specification** section holds the technical content in both cases. For an initial GDIP, Specification describes the protocol; for an improvement GDIP, Motivation explains what is being changed and why, and Specification describes the new or amended behavior. The **Motivation** section is used for both: "why this spec exists" (initial) or "why the existing protocol is inadequate and what change is proposed" (improvement).
+
 ## Submitting a GDIP
 
 1. **Copy the template**: Use [process/GDIP-TEMPLATE.md](../process/GDIP-TEMPLATE.md) as the starting point.

@@ -15,12 +15,7 @@ Why is this change needed? What problem does it solve or what capability does it
 
 ## Specification
 
-### Changes
-
-- Detailed specification of the change.
-- Data model impact (if any).
-- Algorithm impact (if any).
-- API or interface impact (if any).
+Technical specification of the protocol or the change. Use ###-level subsections as needed (e.g. data model, algorithm steps, inputs/outputs). For **improvement** GDIPs that amend the protocol, Motivation above explains what is being changed and why; Specification describes the new or amended behavior.
 
 ### Required vs Optional
 
