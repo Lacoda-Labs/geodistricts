@@ -1,0 +1,26 @@
+<div class="us-congressional-map">
+  <div class="map-container">
+    <svg
+      *ngIf="svgPathD.length"
+      class="boundaries-svg"
+      [attr.viewBox]="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg">
+      <g class="boundaries-layer">
+        <path
+          *ngFor="let d of svgPathD"
+          [attr.d]="d"
+          class="district-path"/>
+      </g>
+    </svg>
+  </div>
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-spinner-container">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading district boundaries...</p>
+    </div>
+  </div>
+  <div *ngIf="errorMessage" class="error-overlay">
+    <p class="error-text">{{ errorMessage }}</p>
+  </div>
+</div>

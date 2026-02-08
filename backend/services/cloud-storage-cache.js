@@ -89,6 +89,14 @@ class CloudStorageCache {
       const state = parts[0]?.toUpperCase() || 'unknown';
       const step = parts[1] || 'unknown';
       return `union-polygons/${state}/step-${step}/${cacheKey}.json`;
+    } else if (cacheKey.startsWith('congressional_boundaries_')) {
+      // congressional_boundaries_{congress}_{stateName} -> congressional-boundaries/{congress}/{stateName}.json
+      const rest = cacheKey.replace('congressional_boundaries_', '');
+      const firstUnderscore = rest.indexOf('_');
+      if (firstUnderscore === -1) return `congressional-boundaries/${rest}.json`;
+      const congress = rest.substring(0, firstUnderscore);
+      const stateName = rest.substring(firstUnderscore + 1);
+      return `congressional-boundaries/${congress}/${stateName}.json`;
     } else {
       // Default: store in root with key as filename
       return `${type}/${cacheKey}.json`;
@@ -293,6 +301,33 @@ class CloudStorageCache {
   shouldUseCloudStorage(data) {
     const size = JSON.stringify(data).length;
     return size > CLOUD_STORAGE_THRESHOLD;
+  }
+
+  /**
+   * List state names that have congressional boundary data for a given Congress.
+   * @param {number|string} congress - Congress number (e.g. 119)
+   * @returns {Promise<string[]>} - State names (as stored, e.g. "Alabama", "New_York")
+   */
+  async listCongressionalBoundaryStates(congress) {
+    await this.initialize();
+    const prefix = `congressional-boundaries/${congress}/`;
+    const [files] = await this.bucket.getFiles({ prefix });
+    const stateNames = files
+      .map(f => f.name.replace(prefix, '').replace(/\.json$/i, ''))
+      .filter(Boolean);
+    return stateNames;
+  }
+
+  /**
+   * Get congressional boundary GeoJSON by congress and state name (cache key format).
+   * @param {number|string} congress
+   * @param {string} stateName - As stored (e.g. "Alabama", "New_York")
+   * @returns {Promise<{data: any} | null>}
+   */
+  async getCongressionalBoundary(congress, stateName) {
+    const cacheKey = `congressional_boundaries_${congress}_${stateName}`;
+    const result = await this.get(cacheKey);
+    return result ? { data: result.data } : null;
   }
 }
 

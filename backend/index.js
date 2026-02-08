@@ -3386,6 +3386,65 @@ async function deleteCachedAlgorithmState(stateKey) {
 }
 
 /**
+ * Congressional district boundaries (Lewis repo data from cloud storage).
+ * State names as in Lewis repo filenames (e.g. Alabama, New_York).
+ */
+const STATE_CODE_TO_LEWIS_NAME = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
+  CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho',
+  IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana',
+  ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi',
+  MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New_Hampshire', NJ: 'New_Jersey',
+  NM: 'New_Mexico', NY: 'New_York', NC: 'North_Carolina', ND: 'North_Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode_Island', SC: 'South_Carolina', SD: 'South_Dakota',
+  TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
+  WV: 'West_Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District_of_Columbia'
+};
+
+function resolveStateToLewisName(stateParam) {
+  const s = String(stateParam).trim();
+  if (s.length === 2) {
+    const name = STATE_CODE_TO_LEWIS_NAME[s.toUpperCase()];
+    if (name) return name;
+  }
+  return s.replace(/\s+/g, '_');
+}
+
+/**
+ * GET /api/congressional-boundaries/:congress
+ * List state names that have boundary data for this Congress (from cloud storage).
+ */
+app.get('/api/congressional-boundaries/:congress', async (req, res) => {
+  try {
+    const congress = req.params.congress;
+    const stateNames = await cloudStorageCache.listCongressionalBoundaryStates(congress);
+    return res.json({ congress: Number(congress) || congress, stateNames });
+  } catch (error) {
+    console.error('GET /api/congressional-boundaries/:congress error:', error);
+    res.status(500).json({ error: 'Failed to list congressional boundaries', message: error.message });
+  }
+});
+
+/**
+ * GET /api/congressional-boundaries/:congress/:state
+ * Get GeoJSON for one state (state = 2-letter code or state name as stored).
+ */
+app.get('/api/congressional-boundaries/:congress/:state', async (req, res) => {
+  try {
+    const { congress, state: stateParam } = req.params;
+    const stateName = resolveStateToLewisName(stateParam);
+    const result = await cloudStorageCache.getCongressionalBoundary(congress, stateName);
+    if (!result) {
+      return res.status(404).json({ error: 'Not found', message: `No boundaries for Congress ${congress}, state ${stateName}` });
+    }
+    return res.json(result.data);
+  } catch (error) {
+    console.error('GET /api/congressional-boundaries/:congress/:state error:', error);
+    res.status(500).json({ error: 'Failed to get congressional boundaries', message: error.message });
+  }
+});
+
+/**
  * GET /api/algorithm/final-step-states
  * Returns list of state codes that have a completed final step (current algorithm version).
  */

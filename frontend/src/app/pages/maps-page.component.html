@@ -6,14 +6,7 @@
     <ng-container *ngIf="selectedState === 'ALL'">
       <section class="us-map-section">
         <div class="map-container">
-          <div id="usMap" class="map"></div>
-          <!-- Loading Overlay -->
-          <div *ngIf="isLoading" class="loading-overlay">
-            <div class="loading-spinner-container">
-              <div class="loading-spinner"></div>
-              <p class="loading-text">Loading district data...</p>
-            </div>
-          </div>
+          <app-us-congressional-map [congress]="119"></app-us-congressional-map>
         </div>
       </section>
 

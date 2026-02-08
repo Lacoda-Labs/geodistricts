@@ -1,0 +1,90 @@
+.us-congressional-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+
+  .map-container {
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+    background: var(--mat-sys-surface-container, #f5f5f5);
+  }
+
+  .boundaries-svg {
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+    display: block;
+  }
+
+  .district-path {
+    fill: rgba(245, 245, 245, 0.2);
+    stroke: #e65100;
+    stroke-width: 0.8;
+    stroke-linejoin: round;
+  }
+
+  .district-path:hover {
+    stroke-width: 1.2;
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+  }
+
+  .loading-spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--mat-sys-outline-variant, #c2c7ce);
+    border-top-color: var(--mat-sys-primary, #2b638b);
+    border-radius: 50%;
+    animation: usCongressSpin 1s linear infinite;
+  }
+
+  @keyframes usCongressSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .loading-text {
+    color: var(--mat-sys-on-surface, #181c20);
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+
+  .error-overlay {
+    position: absolute;
+    bottom: 2rem;
+    left: 1rem;
+    right: 1rem;
+    padding: 0.75rem 1rem;
+    background-color: rgba(186, 26, 26, 0.12);
+    color: var(--mat-sys-error, #ba1a1a);
+    border-radius: 4px;
+    z-index: 1000;
+  }
+
+  .error-text {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}

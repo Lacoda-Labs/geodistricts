@@ -15,6 +15,7 @@ import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
 import { StepBtnBarComponent } from '../components/step-btn-bar.component';
+import { UsCongressionalMapComponent } from '../components/us-congressional-map.component';
 import { environment } from '../../environments/environment';
 
 declare global {
@@ -37,6 +38,7 @@ declare global {
     PageHeaderComponent,
     StateRowComponent,
     StepBtnBarComponent,
+    UsCongressionalMapComponent,
   ],
   templateUrl: './maps-page.component.html',
   styleUrls: ['./maps-page.component.scss'],
@@ -225,18 +227,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     setTimeout(() => {
-      this.initializeMap();
-      // If a state was saved, automatically update map view and run algorithm if not "ALL"
-      if (this.selectedState) {
-        // Wait a bit longer to ensure map is fully initialized
+      if (this.selectedState !== 'ALL') {
+        this.initializeMap();
         setTimeout(() => {
           this.updateMapView();
-          if (this.selectedState !== 'ALL') {
-            this.runAlgorithm();
-          } else {
-            this.loadUSMapDistricts();
-          }
+          this.runAlgorithm();
         }, 300);
+      } else {
+        this.loadUSMapDistricts();
       }
     }, 100);
   }
@@ -494,29 +492,32 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractIdToLayer.clear();
       this.clearDivisionLines();
       
-      // Re-initialize map when switching views (DOM element may have been recreated)
-      setTimeout(() => {
-        this.initializeMap();
-      }, 100);
-      
-      // Only run algorithm if not "ALL"
       if (this.selectedState !== 'ALL') {
+        // State view: (re-)initialize Leaflet map and run algorithm
+        if (this.map) {
+          this.map.remove();
+          this.map = null;
+        }
+        setTimeout(() => {
+          this.initializeMap();
+          setTimeout(() => {
+            this.updateMapView();
+            this.runAlgorithm();
+          }, 300);
+        }, 100);
         this.usMapStepDataByState = [];
         this.usMapTotalDistricts = 0;
         this.completedStateCodes = new Set();
-        // Wait a bit longer to ensure map is fully initialized
-        setTimeout(() => {
-          this.runAlgorithm();
-        }, 300);
       } else {
-        // Clear algorithm result when showing "ALL"
+        // US/ALL view: use app-us-congressional-map component; no Leaflet #usMap
+        if (this.map) {
+          this.map.remove();
+          this.map = null;
+        }
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
-        // Load US map districts (completed states only)
-        setTimeout(() => {
-          this.loadUSMapDistricts();
-        }, 300);
+        setTimeout(() => this.loadUSMapDistricts(), 300);
       }
     } else {
       // Clear saved state if no state is selected

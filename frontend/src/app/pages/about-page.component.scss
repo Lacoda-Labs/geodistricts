@@ -116,6 +116,15 @@
   font-weight: 600;
 }
 
+.info-card a {
+  color: var(--mat-sys-primary, #2B638B);
+  text-decoration: none;
+}
+
+.info-card a:hover {
+  text-decoration: underline;
+}
+
 .action-buttons {
   display: flex;
   flex-wrap: wrap;

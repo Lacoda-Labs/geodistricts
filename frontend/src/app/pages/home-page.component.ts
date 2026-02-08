@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../components/page-header.component';
+import { UsCongressionalMapComponent } from '../components/us-congressional-map.component';
 
 declare global {
   interface Window {
@@ -31,6 +32,7 @@ declare global {
     MatSelectModule,
     FormsModule,
     PageHeaderComponent,
+    UsCongressionalMapComponent,
   ],
   templateUrl: './home-page.component.html',
   styleUrls: ['./home-page.component.scss'],
