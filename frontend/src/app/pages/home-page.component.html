@@ -4,40 +4,54 @@
   </app-page-header>
 
   <main class="main-content">
-    <!-- Hero Section -->
-    <section id="home">
-      <div class="pt-4 pb-4 px-6 text-center">
-        <div class="max-w-4xl mx-auto">
-          <h1 class="geodistricts-title mb-6 text-4xl md:text-5xl font-bold">
-            GeoDistricts
+    <!-- Hero Section: map as background, copy overlaid -->
+    <section id="home" class="hero-section">
+      <div class="hero-container">
+        <div class="hero-map-bg">
+          <app-us-congressional-map
+            [congress]="119"
+            [showInsetStates]="false"
+            variant="hero">
+          </app-us-congressional-map>
+        </div>
+        <div class="hero-copy">
+          <p class="hero-tagline">THE END OF GERRYMANDERING</p>
+          <h1 class="hero-headline">
+            435 Congressional Districts<br>
+            Drawn by
+            <span class="hero-headline-accent">Geography</span><br>
+            Not Humans
           </h1>
-
-          <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
-            The End of Gerrymandering
-          </h2>
-          <!-- <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
-            Protecting the Republic
-          </h2>
-          <h2 class="text-gray-900 mb-2 text-xl md:text-2xl font-bold">
-            Preserving Democracy
-          </h2> -->
-
+          <p class="hero-description">
+            GeoDistricts uses a simple, transparent algorithm — recursive latitude-longitude splits — to create fair congressional districts based purely on geography and population equality.
+          </p>
+          <div class="hero-buttons">
+            <!-- <button mat-flat-button class="hero-btn-primary" (click)="navigateToItem({ id: 'what', label: 'How it works', route: null })">
+              
+            </button> -->
+            <button matButton="filled" (click)="navigateToItem({id: 'home', label: 'Home', route: '/maps'})">
+              See How It Works
+            </button>
+            <button mat-stroked-button class="hero-btn-secondary" (click)="navigateToItem({ id: 'what', label: 'Learn more', route: null })">
+              Learn More
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="enter" class="pt-8 pb-10 px-6 text-center">
+    <!-- <section id="enter" class="pt-8 pb-10 px-6 text-center">
       <button matButton="filled" (click)="navigateToItem({id: 'home', label: 'Home', route: '/maps'})">
-        show me the maps
+        See How It Works
       </button>
-    </section>
+    </section> -->
 
     <!-- US Congressional Districts Map (119th Congress) -->
-    <section id="us-map" class="pt-4 px-6">
+    <!-- <section id="us-map" class="pt-4 px-6">
       <div class="max-w-4xl mx-auto rounded-lg overflow-hidden border border-gray-200" style="height: 360px;">
         <app-us-congressional-map [congress]="119"></app-us-congressional-map>
       </div>
-    </section>
+    </section> -->
 
     <!-- What Is It Section -->
     <section id="what" class="pt-8 px-6">

@@ -121,6 +121,8 @@ import { CongressionalDistrictsService, StateCongressionalDistrictsSummary, Cong
       margin: 0 auto;
       padding: 20px;
       font-family: Arial, sans-serif;
+      background: var(--mat-sys-background, #F7F9FF);
+      min-height: 100vh;
     }
 
     h2 {

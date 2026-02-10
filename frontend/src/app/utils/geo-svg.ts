@@ -15,9 +15,40 @@ export interface SvgBounds {
   y2: number;
 }
 
+export interface GeoBbox {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}
+
 export function project(lng: number, lat: number, b: SvgBounds): [number, number] {
   const x = b.x1 + ((lng - b.minLng) / (b.maxLng - b.minLng)) * (b.x2 - b.x1);
   const y = b.y2 - ((lat - b.minLat) / (b.maxLat - b.minLat)) * (b.y2 - b.y1);
+  return [x, y];
+}
+
+/** Project with uniform scale so aspect ratio is preserved; geometry is centered in the SVG box. */
+export function projectUniform(
+  lng: number,
+  lat: number,
+  geo: GeoBbox,
+  svgX1: number,
+  svgY1: number,
+  svgX2: number,
+  svgY2: number
+): [number, number] {
+  const geoW = geo.maxLng - geo.minLng || 1;
+  const geoH = geo.maxLat - geo.minLat || 1;
+  const svgW = svgX2 - svgX1;
+  const svgH = svgY2 - svgY1;
+  const scale = Math.min(svgW / geoW, svgH / geoH);
+  const scaledW = geoW * scale;
+  const scaledH = geoH * scale;
+  const offsetX = svgX1 + (svgW - scaledW) / 2;
+  const offsetY = svgY2 - (svgH - scaledH) / 2;
+  const x = offsetX + ((lng - geo.minLng) / geoW) * scaledW;
+  const y = offsetY - ((lat - geo.minLat) / geoH) * scaledH;
   return [x, y];
 }
 
@@ -27,6 +58,24 @@ function ringToPathD(ring: number[][], b: SvgBounds): string {
   let d = `M ${x0} ${y0}`;
   for (let i = 1; i < ring.length; i++) {
     const [x, y] = project(ring[i][0], ring[i][1], b);
+    d += ` L ${x} ${y}`;
+  }
+  return d + ' Z';
+}
+
+function ringToPathDUniform(
+  ring: number[][],
+  geo: GeoBbox,
+  svgX1: number,
+  svgY1: number,
+  svgX2: number,
+  svgY2: number
+): string {
+  if (ring.length < 2) return '';
+  const [x0, y0] = projectUniform(ring[0][0], ring[0][1], geo, svgX1, svgY1, svgX2, svgY2);
+  let d = `M ${x0} ${y0}`;
+  for (let i = 1; i < ring.length; i++) {
+    const [x, y] = projectUniform(ring[i][0], ring[i][1], geo, svgX1, svgY1, svgX2, svgY2);
     d += ` L ${x} ${y}`;
   }
   return d + ' Z';
@@ -59,6 +108,81 @@ export function featureCollectionToPathDs(
   const paths: string[] = [];
   collection.features.forEach(f => {
     paths.push(...geometryToPathDs(f.geometry, bounds));
+  });
+  return paths;
+}
+
+/** Get bounding box of a feature collection (all coordinates). */
+export function getCollectionBbox(collection: GeoJsonFeatureCollection): GeoBbox | null {
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+  let hasAny = false;
+
+  function addCoord(lng: number, lat: number): void {
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+    hasAny = true;
+  }
+
+  collection.features.forEach(f => {
+    const g = f.geometry;
+    if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
+      (g.coordinates as number[][][]).forEach(ring => ring.forEach(([lng, lat]) => addCoord(lng, lat)));
+    } else if (g.type === 'MultiPolygon' && Array.isArray(g.coordinates)) {
+      (g.coordinates as number[][][][]).forEach(poly =>
+        poly.forEach(ring => ring.forEach(([lng, lat]) => addCoord(lng, lat)))
+      );
+    }
+  });
+
+  if (!hasAny) return null;
+  return { minLng, minLat, maxLng, maxLat };
+}
+
+function geometryToPathDsUniform(
+  geom: GeoJsonGeometry,
+  geo: GeoBbox,
+  svgX1: number,
+  svgY1: number,
+  svgX2: number,
+  svgY2: number
+): string[] {
+  const out: string[] = [];
+  if (geom.type === 'Polygon' && Array.isArray(geom.coordinates)) {
+    const rings = geom.coordinates as number[][][];
+    rings.forEach(ring => {
+      const d = ringToPathDUniform(ring, geo, svgX1, svgY1, svgX2, svgY2);
+      if (d) out.push(d);
+    });
+  } else if (geom.type === 'MultiPolygon' && Array.isArray(geom.coordinates)) {
+    const polys = geom.coordinates as number[][][][];
+    polys.forEach(poly => {
+      poly.forEach(ring => {
+        const d = ringToPathDUniform(ring, geo, svgX1, svgY1, svgX2, svgY2);
+        if (d) out.push(d);
+      });
+    });
+  }
+  return out;
+}
+
+/** Build path d strings with uniform scale so aspect ratio is preserved; geometry is centered in the SVG box. */
+export function featureCollectionToPathDsWithUniformScale(
+  collection: GeoJsonFeatureCollection,
+  svgX1: number,
+  svgY1: number,
+  svgX2: number,
+  svgY2: number
+): string[] {
+  const geo = getCollectionBbox(collection);
+  if (!geo) return [];
+  const paths: string[] = [];
+  collection.features.forEach(f => {
+    paths.push(...geometryToPathDsUniform(f.geometry, geo, svgX1, svgY1, svgX2, svgY2));
   });
   return paths;
 }

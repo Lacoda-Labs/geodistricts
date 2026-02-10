@@ -2,14 +2,21 @@
   <app-page-header (homeClick)="goHome()">
   </app-page-header>
   <div class="body">
-    <!-- US View (when ALL is selected) -->
-    <ng-container *ngIf="selectedState === 'ALL'">
-      <section class="us-map-section">
-        <div class="map-container">
-          <app-us-congressional-map [congress]="119"></app-us-congressional-map>
+    <!-- Map: Leaflet for both ALL (continental US + geodistricts) and state view -->
+    <section class="map-section">
+      <div class="map-container">
+        <div id="usMap" class="map"></div>
+        <div *ngIf="isLoading" class="loading-overlay">
+          <div class="loading-spinner-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading district data...</p>
+          </div>
         </div>
-      </section>
+      </div>
+    </section>
 
+    <!-- US View: table and state rows when ALL is selected -->
+    <ng-container *ngIf="selectedState === 'ALL'">
       <section class="us-data-section">
         <!-- US Summary Row -->
         <app-state-row 
@@ -41,22 +48,8 @@
       </section>
     </ng-container>
 
-    <!-- State View (when a specific state is selected) -->
+    <!-- State View: step controls and info when a state is selected -->
     <ng-container *ngIf="selectedState !== 'ALL'">
-      <section class="map-section">
-        <div class="map-container">
-          <div id="usMap" class="map"></div>
-          <!-- Division line is the control when tract boundaries are shown; labels are on the map above/below the line -->
-          <!-- Loading Overlay -->
-          <div *ngIf="isLoading" class="loading-overlay">
-            <div class="loading-spinner-container">
-              <div class="loading-spinner"></div>
-              <p class="loading-text">Loading district data...</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="info-section">
         <div class="info-header">
           <div class="state-rows-header">

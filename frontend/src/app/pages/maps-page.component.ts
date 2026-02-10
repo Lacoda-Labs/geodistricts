@@ -11,11 +11,11 @@ import { concatMap, tap, last, map, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
+import { CongressionalBoundariesService } from '../services/congressional-boundaries.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
 import { StepBtnBarComponent } from '../components/step-btn-bar.component';
-import { UsCongressionalMapComponent } from '../components/us-congressional-map.component';
 import { environment } from '../../environments/environment';
 
 declare global {
@@ -38,7 +38,6 @@ declare global {
     PageHeaderComponent,
     StateRowComponent,
     StepBtnBarComponent,
-    UsCongressionalMapComponent,
   ],
   templateUrl: './maps-page.component.html',
   styleUrls: ['./maps-page.component.scss'],
@@ -73,6 +72,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
+  /** Congressional district boundaries (119th) for selected state; drawn below tract layer. */
+  private congressionalLayer: L.LayerGroup | null = null;
   private tractLayer: L.LayerGroup | null = null;
   /** Guard to prevent re-entrant render (stops render loop) */
   private isRenderingDistricts = false;
@@ -181,6 +182,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
+    private boundariesService: CongressionalBoundariesService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef
@@ -227,14 +229,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     setTimeout(() => {
-      if (this.selectedState !== 'ALL') {
-        this.initializeMap();
+      this.initializeMap();
+      if (this.selectedState === 'ALL') {
+        this.updateMapView();
+        this.loadUSMapDistricts();
+      } else {
         setTimeout(() => {
           this.updateMapView();
           this.runAlgorithm();
         }, 300);
-      } else {
-        this.loadUSMapDistricts();
       }
     }, 100);
   }
@@ -284,12 +287,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }, 100);
           this.updateMapView();
+          this.loadCongressionalBoundariesForState();
           return;
         } else {
           // Map container is different or was removed, need to reinitialize
           console.log('🗺️ Map container changed or removed, reinitializing...');
           this.map.remove();
           this.map = null;
+          this.congressionalLayer = null;
         }
       } catch (e) {
         // Map container was removed, need to reinitialize
@@ -302,6 +307,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         }
         this.map = null;
+        this.congressionalLayer = null;
       }
     }
 
@@ -330,7 +336,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map);
 
-    // Initialize tract layer
+    // Congressional boundaries for selected state (below geodistricts)
+    this.congressionalLayer = L.layerGroup().addTo(this.map);
+    // Geodistricts and tracts draw on top
     this.tractLayer = L.layerGroup().addTo(this.map);
 
     // Add custom toggle control
@@ -341,6 +349,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // Update map view based on selected state
     this.updateMapView();
+    // Load 119th Congress boundaries for selected state (base layer under geodistricts)
+    this.loadCongressionalBoundariesForState();
     
     // Force map to invalidate size after a short delay to ensure container is properly sized
     setTimeout(() => {
@@ -493,11 +503,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearDivisionLines();
       
       if (this.selectedState !== 'ALL') {
-        // State view: (re-)initialize Leaflet map and run algorithm
-        if (this.map) {
-          this.map.remove();
-          this.map = null;
-        }
+        // State view: reuse Leaflet map, run algorithm for selected state
+        this.usMapStepDataByState = [];
+        this.usMapTotalDistricts = 0;
+        this.completedStateCodes = new Set();
         setTimeout(() => {
           this.initializeMap();
           setTimeout(() => {
@@ -505,19 +514,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.runAlgorithm();
           }, 300);
         }, 100);
-        this.usMapStepDataByState = [];
-        this.usMapTotalDistricts = 0;
-        this.completedStateCodes = new Set();
       } else {
-        // US/ALL view: use app-us-congressional-map component; no Leaflet #usMap
-        if (this.map) {
-          this.map.remove();
-          this.map = null;
+        // US/ALL view: reuse Leaflet map, fit continental US, show geodistrict polygons
+        if (this.congressionalLayer) {
+          this.congressionalLayer.clearLayers();
         }
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
-        setTimeout(() => this.loadUSMapDistricts(), 300);
+        setTimeout(() => {
+          this.updateMapView();
+          this.loadUSMapDistricts();
+        }, 100);
       }
     } else {
       // Clear saved state if no state is selected
@@ -575,17 +583,43 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /** Continental US bounds (lower 48) for fitBounds when ALL is selected. */
+  private static readonly CONTINENTAL_US_BOUNDS = L.latLngBounds(
+    [24.5, -125] as [number, number],
+    [49.5, -66] as [number, number]
+  );
+
   private updateMapView(): void {
     if (!this.map || !this.selectedState) return;
 
-    // Handle "ALL" case - show United States view
     if (this.selectedState === 'ALL') {
-      this.map.setView([39.8283, -98.5795], 3); // Center of US, zoom level 3
+      this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
       return;
     }
 
     const stateCenter = this.getStateCenter(this.selectedState);
     this.map.setView(stateCenter, 7);
+  }
+
+  /**
+   * Load 119th Congress boundaries for the selected state and add to congressional layer (below geodistricts).
+   */
+  private loadCongressionalBoundariesForState(): void {
+    if (!this.congressionalLayer || !this.selectedState || this.selectedState === 'ALL') return;
+    this.congressionalLayer.clearLayers();
+    const sub = this.boundariesService.getBoundariesForState(119, this.selectedState).subscribe(geo => {
+      if (!geo || !this.congressionalLayer) return;
+      L.geoJSON(geo as any, {
+        style: {
+          color: '#e67e22',
+          weight: 1.5,
+          opacity: 0.9,
+          fillColor: '#f5f5f5',
+          fillOpacity: 0.15
+        }
+      }).addTo(this.congressionalLayer!);
+    });
+    this.subscriptions.push(sub);
   }
 
   /**

@@ -19,14 +19,28 @@
   }
 
   .district-path {
-    fill: rgba(245, 245, 245, 0.2);
-    stroke: #e65100;
+    fill: var(--mat-sys-surface, rgba(245, 245, 245, 0));
+    stroke:  #ca4806;
     stroke-width: 0.8;
     stroke-linejoin: round;
   }
 
   .district-path:hover {
     stroke-width: 1.2;
+  }
+
+  &.hero-variant {
+    .map-container {
+      background: transparent;
+    }
+    .district-path {
+      fill: transparent;
+      stroke: rgba(224, 224, 224, 0.45);
+      stroke-width: 0.6;
+    }
+    .district-path:hover {
+      stroke-width: 0.6;
+    }
   }
 
   .loading-overlay {

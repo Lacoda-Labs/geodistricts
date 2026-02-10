@@ -42,6 +42,106 @@
   color: var(--mat-sys-primary, #6366f1);
 }
 
+// Hero: map as background, 70% width / 1000px max, dark navy, centered copy
+.hero-section {
+  position: relative;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #17233b;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.hero-container {
+  position: relative;
+  width: 70%;
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-map-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+
+  app-us-congressional-map {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .us-congressional-map,
+  .map-container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .boundaries-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: #e0e0e0;
+}
+
+.hero-tagline {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e0e0e0;
+  margin: 0 0 1rem;
+}
+
+.hero-headline {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+  margin: 0 0 1.25rem;
+}
+
+.hero-headline-accent {
+  color: var(--mat-sys-primary-container, #6366f1);
+}
+
+.hero-description {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #d0d0d0;
+  max-width: 42rem;
+  margin: 0 auto 2rem;
+}
+
+.hero-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.hero-btn-primary {
+  background-color: #ffc107 !important;
+  color: #17233b !important;
+}
+
+.hero-btn-secondary {
+  border-color: #e0e0e0 !important;
+  color: #e0e0e0 !important;
+}
+
 #what div {
   max-width: 350px;
 }
