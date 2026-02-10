@@ -176,6 +176,249 @@
   width: 280px;
 }
 
+// ---- New sections: Problem, Solution, Principles, Support ----
+$section-accent: #c5943c;
+$section-dark: #2f3c47;
+$section-bg-light: #f7f7f7;
+$section-bg-dark: #17233b;
+
+.section-inner {
+  max-width: 56rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.section-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $section-accent;
+  margin: 0 0 0.5rem;
+}
+
+.section-headline {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: $section-dark;
+  margin: 0 0 1.25rem;
+}
+
+.section-label-light {
+  color: $section-accent;
+}
+
+.section-headline-light {
+  color: #fff;
+}
+
+.section-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+  margin: 0 0 2.5rem;
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// The Problem
+.section-problem {
+  background-color: $section-bg-light;
+}
+
+.section-problem-copy {
+  color: $section-dark;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  max-width: 42rem;
+  margin: 0 auto 2.5rem;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  text-align: center;
+  margin-top: 2rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.stat-box {
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 1.5rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.stat-number {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: $section-accent;
+  margin-bottom: 0.5rem;
+  line-height: 1.1;
+}
+
+.stat-desc {
+  color: $section-dark;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+// The Solution (dark block)
+.section-solution {
+  background-color: $section-bg-dark;
+}
+
+.steps-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  text-align: center;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2.5rem;
+  }
+}
+
+.step-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-icon-wrap {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 0.5rem;
+  background-color: $section-accent;
+  color: $section-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+
+  .step-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+.step-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.75rem;
+}
+
+.step-desc {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0;
+}
+
+// Principles
+.section-principles {
+  background-color: $section-bg-light;
+}
+
+.principles-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+  text-align: left;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+.principle-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.principle-icon-wrap {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.375rem;
+  background-color: $section-accent;
+  color: $section-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .principle-icon {
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.principle-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: $section-dark;
+  margin: 0;
+}
+
+.principle-desc {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: $section-dark;
+  margin: 0;
+  opacity: 0.9;
+}
+
+// Support
+.section-support {
+  background-color: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.section-support-copy {
+  color: $section-dark;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  max-width: 36rem;
+  margin: 0 auto 1.5rem;
+}
+
+.support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.support-btn-primary {
+  background-color: $section-accent !important;
+  color: $section-dark !important;
+}
+
+.support-btn-secondary {
+  border-color: $section-dark !important;
+  color: $section-dark !important;
+}
+
 // Layout utilities
 .min-h-screen {
   min-height: 100vh;

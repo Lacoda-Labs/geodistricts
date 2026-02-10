@@ -40,40 +40,111 @@
       </div>
     </section>
 
+    <!-- The Problem -->
+    <section id="problem" class="section-problem">
+      <div class="section-inner">
+        <p class="section-label">THE PROBLEM</p>
+        <h2 class="section-headline">Gerrymandering Undermines Democracy.</h2>
+        <p class="section-problem-copy">
+          Politicians draw district lines to choose their voters — instead of voters choosing their representatives. The result: uncompetitive elections, polarized politics, and millions of silenced voices.
+        </p>
+        <div class="stats-row">
+          <div class="stat-box">
+            <span class="stat-number">59%</span>
+            <p class="stat-desc">of Americans believe congressional districts are drawn unfairly</p>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number">90%+</span>
+            <p class="stat-desc">of House seats are considered 'safe' with predetermined outcomes</p>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number">0</span>
+            <p class="stat-desc">states use a purely objective, algorithm-based redistricting method</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- The Solution -->
+    <section id="solution" class="section-solution">
+      <div class="section-inner">
+        <p class="section-label section-label-light">THE SOLUTION</p>
+        <h2 class="section-headline section-headline-light">How GeoDistricts Works</h2>
+        <p class="section-subtitle">A simple, three-step process that any citizen can verify.</p>
+        <div class="steps-row">
+          <div class="step-card">
+            <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="place"></mat-icon></div>
+            <h3 class="step-title">Start With Geography</h3>
+            <p class="step-desc">Begin with the state's boundaries and census population data. No partisan data, no incumbent addresses — just people and places.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="account_tree"></mat-icon></div>
+            <h3 class="step-title">Recursive Lat-Long Splits</h3>
+            <p class="step-desc">Alternately divide the state using latitude and longitude lines, splitting population as equally as possible. Each split creates two regions, then subdivide recursively.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="people"></mat-icon></div>
+            <h3 class="step-title">Equal Population Districts</h3>
+            <p class="step-desc">The result: compact, contiguous districts with near-equal population (within ~1% deviation). Transparent, reproducible, and free from partisan manipulation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Principles -->
+    <section id="principles" class="section-principles">
+      <div class="section-inner">
+        <p class="section-label">OUR PRINCIPLES</p>
+        <h2 class="section-headline">Just a protocol. 100% fair and objective.</h2>
+        <div class="principles-grid">
+          <div class="principle-card">
+            <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="balance"></mat-icon></div>
+            <h3 class="principle-title">Population Equality</h3>
+            <p class="principle-desc">Every district contains near-equal population within ~1% deviation, ensuring equal representation.</p>
+          </div>
+          <div class="principle-card">
+            <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="visibility"></mat-icon></div>
+            <h3 class="principle-title">Full Transparency</h3>
+            <p class="principle-desc">The protocal and reference implementation is open-source and reproducible. Anyone can verify the results independently.</p>
+          </div>
+          <div class="principle-card">
+            <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="landscape"></mat-icon></div>
+            <h3 class="principle-title">Geography</h3>
+            <p class="principle-desc">Districts are geographically connected and compact — no sprawling tentacles or bizarre shapes.</p>
+          </div>
+          <div class="principle-card">
+            <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="shield"></mat-icon></div>
+            <h3 class="principle-title">Zero Partisan Input</h3>
+            <p class="principle-desc">No voter registration data, no election history, no incumbent addresses. Geography and population only.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Support -->
+    <section id="support" class="section-support">
+      <div class="section-inner">
+        <p class="section-label">SUPPORT</p>
+        <h2 class="section-headline">Get Involved</h2>
+        <p class="section-support-copy">
+          GeoDistricts is built in the open. Star the repo, run the algorithm on your state, or help spread the word for fair redistricting.
+        </p>
+        <div class="support-actions">
+          <button mat-flat-button class="support-btn-primary" (click)="navigateToItem({ id: 'home', label: 'Home', route: '/maps' })">
+            See the Maps
+          </button>
+          <a mat-stroked-button class="support-btn-secondary" href="https://github.com/Lacoda-Labs/geodistricts" target="_blank" rel="noopener">
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- <section id="enter" class="pt-8 pb-10 px-6 text-center">
       <button matButton="filled" (click)="navigateToItem({id: 'home', label: 'Home', route: '/maps'})">
         See How It Works
       </button>
     </section> -->
-
-    <!-- US Congressional Districts Map (119th Congress) -->
-    <!-- <section id="us-map" class="pt-4 px-6">
-      <div class="max-w-4xl mx-auto rounded-lg overflow-hidden border border-gray-200" style="height: 360px;">
-        <app-us-congressional-map [congress]="119"></app-us-congressional-map>
-      </div>
-    </section> -->
-
-    <!-- What Is It Section -->
-    <section id="what" class="pt-8 px-6">
-      <div class="max-w-4xl mx-auto bg-gray-100 rounded-lg p-4">
-        <!-- <h2 class="text-gray-900 mb-4 text-center text-3xl font-bold">What is GeoDistricts?</h2> -->
-        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
-          Geographically divided<br>congressional districts.
-        </p>
-        <div class="divider"></div>
-        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
-          No humans. No bias.
-        </p>
-        <div class="divider"></div>
-        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
-          Just a protocol.
-        </p>
-        <p class="text-gray-600 max-w-2xl text-center mx-auto text-lg">
-          100% fair and objective.
-        </p>
-
-      </div>
-    </section>
 
     <section id="alpha" class="pt-4 px-6">
       <div class="alpha-release max-w-4xl mx-auto rounded-lg p-4 text-center">
@@ -87,7 +158,7 @@
 
   <div class="page-footer">
     <div class="copyright">
-      ©2025-2026 Lacoda Labs Inc.
+      ©2025-2026 Lacoda Labs
     </div>
     <nav class="footer-nav">
       <a routerLink="/privacy" class="footer-link">privacy</a>
