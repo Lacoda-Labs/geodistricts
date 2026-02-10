@@ -14,12 +14,12 @@
           class="district-path"/>
       </g>
     </svg>
-    <!-- Hero: paths drawn over time, fill while drawing state then stroke only -->
+    <!-- Hero: YMin so map graphic aligns to top of SVG viewport (no gap above) -->
     <svg
       *ngIf="variant === 'hero' && (heroAnimatedPaths.length || isLoading)"
       class="boundaries-svg"
       [attr.viewBox]="viewBox"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="xMidYMin meet"
       xmlns="http://www.w3.org/2000/svg">
       <g class="boundaries-layer">
         <path

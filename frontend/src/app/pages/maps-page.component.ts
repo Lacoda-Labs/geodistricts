@@ -507,6 +507,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.usMapStepDataByState = [];
         this.usMapTotalDistricts = 0;
         this.completedStateCodes = new Set();
+        // Cancel any in-flight algorithm requests (e.g. CA next-step) so they don't overwrite this state's view
+        this.subscriptions.forEach(sub => sub.unsubscribe());
+        this.subscriptions = [];
+        this.isLoading = false;
+        this.isLoadingSteps = false;
         setTimeout(() => {
           this.initializeMap();
           setTimeout(() => {
@@ -1428,6 +1433,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const subscription = this.geodistrictService.executeNextStep(options).subscribe({
         next: (stepData) => {
           const { step: newStep, stepIndex, isComplete } = stepData;
+          
+          // Ignore response if user switched state during the long-running request (e.g. CA next-step
+          // took a long time and they selected AZ); prevents showing wrong state's districts.
+          if (this.selectedState !== options.state) {
+            console.warn(`⚠️ State changed during next-step load: was loading ${options.state}, now selected ${this.selectedState}. Ignoring response.`);
+            this.isLoading = false;
+            this.isLoadingSteps = false;
+            return;
+          }
           
           // Handle case where algorithm completes and newStep is null
           if (isComplete && !newStep) {

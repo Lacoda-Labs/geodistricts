@@ -35,6 +35,12 @@
   h1 {
     font-weight: 200;
   }
+
+  // Keep tagline and section labels bold (override :host p)
+  .hero-tagline,
+  .section-label {
+    font-weight: 600;
+  }
 }
 
 .geodistricts-title {
@@ -51,6 +57,7 @@
   justify-content: center;
   background-color: #17233b;
   padding: 2rem 1.5rem 3rem;
+
 }
 
 .hero-container {
@@ -62,11 +69,24 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+
+  @media (max-width: 768px) {
+    width: 90%;
+    max-width: 90%;
+    align-items: center;
+    justify-content: flex-start;
+  }
 }
 
 .hero-map-bg {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  // Top aligns with bottom of hero-tagline (tagline ~1.25rem line + 1rem margin ≈ 2.25rem)
+  top: 2rem;
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 800 / 500;
   pointer-events: none;
   opacity: 0.9;
 
@@ -77,15 +97,17 @@
   }
 
   .us-congressional-map,
-  .map-container {
-    width: 100%;
-    height: 100%;
-  }
-
+  .map-container,
   .boundaries-svg {
     width: 100%;
     height: 100%;
+    min-height: 0; // allow aspect-ratio box to control size; avoid 320px forcing misalignment
+  }
+
+  .boundaries-svg {
+    display: block;
     object-fit: contain;
+    vertical-align: top; // align SVG to top of line box so no gap above viewport
   }
 }
 
@@ -122,6 +144,12 @@
   line-height: 1.5;
   color: #d0d0d0;
   max-width: 42rem;
+  margin: 0 auto 1rem;
+}
+
+.hero-trust-line {
+  font-size: 0.875rem;
+  color: rgba(224, 224, 224, 0.85);
   margin: 0 auto 2rem;
 }
 
@@ -133,8 +161,8 @@
 }
 
 .hero-btn-primary {
-  background-color: #ffc107 !important;
-  color: #17233b !important;
+  background-color: var(--mat-sys-primary, #2B638B) !important;
+  color: var(--mat-sys-on-primary, #fff) !important;
 }
 
 .hero-btn-secondary {
@@ -171,13 +199,14 @@
 #what {
   padding-top: 1rem;
 }
+
 .alpha-release a {
   height: 60px;
   width: 280px;
 }
 
 // ---- New sections: Problem, Solution, Principles, Support ----
-$section-accent: #c5943c;
+$section-accent: var(--mat-sys-primary, #2B638B);
 $section-dark: #2f3c47;
 $section-bg-light: #f7f7f7;
 $section-bg-dark: #17233b;
@@ -234,7 +263,16 @@ $section-bg-dark: #17233b;
   font-size: 1.1rem;
   line-height: 1.6;
   max-width: 42rem;
+  margin: 0 auto 1rem;
+}
+
+.section-problem-why-now {
+  color: $section-dark;
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 42rem;
   margin: 0 auto 2.5rem;
+  font-weight: 500;
 }
 
 .stats-row {
@@ -300,7 +338,7 @@ $section-bg-dark: #17233b;
   height: 4rem;
   border-radius: 0.5rem;
   background-color: $section-accent;
-  color: $section-dark;
+  color: var(--mat-sys-on-primary, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,6 +363,22 @@ $section-bg-dark: #17233b;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.88);
   margin: 0;
+}
+
+.solution-cta {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.solution-cta-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  margin: 0 0 1rem;
+}
+
+.solution-cta-btn {
+  background-color: $section-accent !important;
+  color: var(--mat-sys-on-primary, #fff) !important;
 }
 
 // Principles
@@ -360,7 +414,7 @@ $section-bg-dark: #17233b;
   height: 3rem;
   border-radius: 0.375rem;
   background-color: $section-accent;
-  color: $section-dark;
+  color: var(--mat-sys-on-primary, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -411,7 +465,7 @@ $section-bg-dark: #17233b;
 
 .support-btn-primary {
   background-color: $section-accent !important;
-  color: $section-dark !important;
+  color: var(--mat-sys-on-primary, #fff) !important;
 }
 
 .support-btn-secondary {

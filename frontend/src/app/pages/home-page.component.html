@@ -25,14 +25,12 @@
           <p class="hero-description">
             GeoDistricts uses a simple, transparent algorithm — recursive latitude-longitude splits — to create fair congressional districts based purely on geography and population equality.
           </p>
+          <p class="hero-trust-line">Open-source · Public census data only · Prototype maps for all 50 states.</p>
           <div class="hero-buttons">
-            <!-- <button mat-flat-button class="hero-btn-primary" (click)="navigateToItem({ id: 'what', label: 'How it works', route: null })">
-              
-            </button> -->
-            <button matButton="filled" (click)="navigateToItem({id: 'home', label: 'Home', route: '/maps'})">
-              See How It Works
+            <button mat-flat-button class="hero-btn-primary" (click)="navigateToItem({id: 'home', label: 'Home', route: '/maps'})">
+              Explore the 50-State Maps
             </button>
-            <button mat-stroked-button class="hero-btn-secondary" (click)="navigateToItem({ id: 'what', label: 'Learn more', route: null })">
+            <button mat-stroked-button class="hero-btn-secondary" (click)="navigateToItem({ id: 'solution', label: 'Learn more', route: null })">
               Learn More
             </button>
           </div>
@@ -48,14 +46,15 @@
         <p class="section-problem-copy">
           Politicians draw district lines to choose their voters — instead of voters choosing their representatives. The result: uncompetitive elections, polarized politics, and millions of silenced voices.
         </p>
+        <p class="section-problem-why-now">Even as states engage in a rare wave of mid-decade redistricting in 2025–2026, politicians continue to draw the lines.</p>
         <div class="stats-row">
           <div class="stat-box">
-            <span class="stat-number">59%</span>
-            <p class="stat-desc">of Americans believe congressional districts are drawn unfairly</p>
+            <span class="stat-number">Most</span>
+            <p class="stat-desc">Americans believe congressional districts are drawn unfairly</p>
           </div>
           <div class="stat-box">
-            <span class="stat-number">90%+</span>
-            <p class="stat-desc">of House seats are considered 'safe' with predetermined outcomes</p>
+            <span class="stat-number">&lt;5%</span>
+            <p class="stat-desc">of House seats are truly competitive in recent cycles</p>
           </div>
           <div class="stat-box">
             <span class="stat-number">0</span>
@@ -70,23 +69,29 @@
       <div class="section-inner">
         <p class="section-label section-label-light">THE SOLUTION</p>
         <h2 class="section-headline section-headline-light">How GeoDistricts Works</h2>
-        <p class="section-subtitle">A simple, three-step process that any citizen can verify.</p>
+        <p class="section-subtitle">A simple, transparent, three-step algorithm that any citizen can verify and reproduce from public data.</p>
         <div class="steps-row">
           <div class="step-card">
             <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="place"></mat-icon></div>
-            <h3 class="step-title">Start With Geography</h3>
-            <p class="step-desc">Begin with the state's boundaries and census population data. No partisan data, no incumbent addresses — just people and places.</p>
+            <h3 class="step-title">1. Start With Neutral Geography</h3>
+            <p class="step-desc">Use only official state boundaries and U.S. Census population data (tract or block level). No voter history, no party data, no incumbent addresses — just people and places.</p>
           </div>
           <div class="step-card">
             <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="account_tree"></mat-icon></div>
-            <h3 class="step-title">Recursive Lat-Long Splits</h3>
-            <p class="step-desc">Alternately divide the state using latitude and longitude lines, splitting population as equally as possible. Each split creates two regions, then subdivide recursively.</p>
+            <h3 class="step-title">2. Recursive Latitude &amp; Longitude Splits</h3>
+            <p class="step-desc">Alternately divide the state with straight north-south (longitude) and east-west (latitude) lines, balancing population as evenly as possible. For odd numbers of districts, splits can be uneven (e.g., 7 vs. 6). Lines snap to census tract boundaries for clean, practical divisions.</p>
           </div>
           <div class="step-card">
             <div class="step-icon-wrap"><mat-icon class="step-icon" fontIcon="people"></mat-icon></div>
-            <h3 class="step-title">Equal Population Districts</h3>
-            <p class="step-desc">The result: compact, contiguous districts with near-equal population (within ~1% deviation). Transparent, reproducible, and free from partisan manipulation.</p>
+            <h3 class="step-title">3. Equal, Compact Districts</h3>
+            <p class="step-desc">The result: 435 contiguous, geographically compact districts with population deviation under ~1%. Deterministic, open-source, and reproducible by anyone.</p>
           </div>
+        </div>
+        <div class="solution-cta">
+          <p class="solution-cta-text">See the algorithm in action.</p>
+          <button mat-flat-button class="solution-cta-btn" (click)="navigateToItem({ id: 'home', label: 'Home', route: '/maps' })">
+            View All 50-State Maps
+          </button>
         </div>
       </div>
     </section>
@@ -104,8 +109,8 @@
           </div>
           <div class="principle-card">
             <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="visibility"></mat-icon></div>
-            <h3 class="principle-title">Full Transparency</h3>
-            <p class="principle-desc">The protocal and reference implementation is open-source and reproducible. Anyone can verify the results independently.</p>
+            <h3 class="principle-title">Citizen Verifiable</h3>
+            <p class="principle-desc">The protocol and full reference implementation are open-source on GitHub — anyone can run it independently and verify the results.</p>
           </div>
           <div class="principle-card">
             <div class="principle-icon-wrap"><mat-icon class="principle-icon" fontIcon="landscape"></mat-icon></div>
@@ -134,7 +139,10 @@
             See the Maps
           </button>
           <a mat-stroked-button class="support-btn-secondary" href="https://github.com/Lacoda-Labs/geodistricts" target="_blank" rel="noopener">
-            View on GitHub
+            Star on GitHub
+          </a>
+          <a mat-stroked-button class="support-btn-secondary" href="https://x.com/search?q=%23GeoDistricts" target="_blank" rel="noopener">
+            Share on X #GeoDistricts
           </a>
         </div>
       </div>

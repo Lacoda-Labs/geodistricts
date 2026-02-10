@@ -30,9 +30,14 @@
   }
 
   &.hero-variant {
+    min-height: 0;
     .map-container {
       background: transparent;
       box-shadow: none;
+      min-height: 0;
+    }
+    .boundaries-svg {
+      min-height: 0;
     }
     .district-path {
       fill: transparent;
