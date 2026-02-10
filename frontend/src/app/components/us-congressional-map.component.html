@@ -1,7 +1,8 @@
 <div class="us-congressional-map" [class.hero-variant]="variant === 'hero'">
   <div class="map-container">
+    <!-- Default: all paths at once -->
     <svg
-      *ngIf="svgPathD.length"
+      *ngIf="variant !== 'hero' && svgPathD.length"
       class="boundaries-svg"
       [attr.viewBox]="viewBox"
       preserveAspectRatio="xMidYMid meet"
@@ -13,8 +14,23 @@
           class="district-path"/>
       </g>
     </svg>
+    <!-- Hero: paths drawn over time, fill while drawing state then stroke only -->
+    <svg
+      *ngIf="variant === 'hero' && (heroAnimatedPaths.length || isLoading)"
+      class="boundaries-svg"
+      [attr.viewBox]="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg">
+      <g class="boundaries-layer">
+        <path
+          *ngFor="let p of heroAnimatedPaths"
+          [attr.d]="p.d"
+          class="district-path hero-path"
+          [class.hero-path-filled]="p.filled"/>
+      </g>
+    </svg>
   </div>
-  <div *ngIf="isLoading" class="loading-overlay">
+  <div *ngIf="isLoading && variant !== 'hero'" class="loading-overlay">
     <div class="loading-spinner-container">
       <div class="loading-spinner"></div>
       <p class="loading-text">Loading district boundaries...</p>

@@ -76,6 +76,8 @@
   background: var(--mat-sys-surface-container-lowest, #FFFFFF);
   padding: 2rem;
   border-radius: 12px;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   border-left: 4px solid var(--mat-sys-primary, #2B638B);
   border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
@@ -135,7 +137,7 @@
 .action-buttons .primary-button {
   background-color: var(--mat-sys-primary, #2B638B);
   color: var(--mat-sys-on-primary, #FFFFFF);
-  
+
   ::ng-deep .mat-icon {
     margin-right: 0.5rem;
   }
@@ -144,11 +146,11 @@
 .secondary-button {
   background-color: var(--mat-sys-surface-container-high, #E6E8EE);
   color: var(--mat-sys-on-surface, #181C20);
-  
+
   ::ng-deep .mat-icon {
     margin-right: 0.5rem;
   }
-  
+
   &:hover {
     background-color: var(--mat-sys-surface-container, #EBEEF3);
   }
@@ -251,4 +253,3 @@
     padding: 1.5rem 0;
   }
 }
-

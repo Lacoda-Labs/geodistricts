@@ -112,6 +112,14 @@ export function featureCollectionToPathDs(
   return paths;
 }
 
+/** One array of path d strings per feature (district). */
+export function featureCollectionToPathDsByFeature(
+  collection: GeoJsonFeatureCollection,
+  bounds: SvgBounds
+): string[][] {
+  return collection.features.map(f => geometryToPathDs(f.geometry, bounds)).filter(p => p.length > 0);
+}
+
 /** Get bounding box of a feature collection (all coordinates). */
 export function getCollectionBbox(collection: GeoJsonFeatureCollection): GeoBbox | null {
   let minLng = Infinity;
@@ -185,6 +193,21 @@ export function featureCollectionToPathDsWithUniformScale(
     paths.push(...geometryToPathDsUniform(f.geometry, geo, svgX1, svgY1, svgX2, svgY2));
   });
   return paths;
+}
+
+/** One array of path d strings per feature (district), uniform scale. */
+export function featureCollectionToPathDsByFeatureWithUniformScale(
+  collection: GeoJsonFeatureCollection,
+  svgX1: number,
+  svgY1: number,
+  svgX2: number,
+  svgY2: number
+): string[][] {
+  const geo = getCollectionBbox(collection);
+  if (!geo) return [];
+  return collection.features
+    .map(f => geometryToPathDsUniform(f.geometry, geo, svgX1, svgY1, svgX2, svgY2))
+    .filter(p => p.length > 0);
 }
 
 /** CONUS: continental US in main map area */

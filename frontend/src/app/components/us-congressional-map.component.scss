@@ -32,11 +32,15 @@
   &.hero-variant {
     .map-container {
       background: transparent;
+      box-shadow: none;
     }
     .district-path {
       fill: transparent;
       stroke: rgba(224, 224, 224, 0.45);
       stroke-width: 0.6;
+    }
+    .district-path.hero-path-filled {
+      fill: rgba(224, 224, 224, 0.25);
     }
     .district-path:hover {
       stroke-width: 0.6;

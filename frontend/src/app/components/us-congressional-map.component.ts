@@ -17,7 +17,9 @@ import { GeodistrictAlgorithmService, GeodistrictStep } from '../services/geodis
 import { transformGeoJson, ALASKA_TRANSFORM, HAWAII_TRANSFORM } from '../utils/geo-transform';
 import {
   featureCollectionToPathDs,
+  featureCollectionToPathDsByFeature,
   featureCollectionToPathDsWithUniformScale,
+  featureCollectionToPathDsByFeatureWithUniformScale,
   CONUS_BOUNDS,
   SVG_VIEWBOX
 } from '../utils/geo-svg';
@@ -52,10 +54,15 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   errorMessage: string | null = null;
   byState: BoundariesByState | null = null;
   svgPathD: string[] = [];
+  /** Hero only: paths revealed one-by-one with fill during state draw, then stroke-only. */
+  heroAnimatedPaths: { d: string; stateKey: string; filled: boolean }[] = [];
   viewBox = SVG_VIEWBOX;
   private subscription: Subscription | null = null;
+  private heroAnimationTimeouts: ReturnType<typeof setTimeout>[] = [];
   private lastStep0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
   private lastStep0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
+
+  private static readonly HERO_DRAW_DURATION_MS = 30 * 1000;
 
   constructor(
     private boundariesService: CongressionalBoundariesService,
@@ -86,6 +93,12 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.clearHeroAnimation();
+  }
+
+  private clearHeroAnimation(): void {
+    this.heroAnimationTimeouts.forEach(t => clearTimeout(t));
+    this.heroAnimationTimeouts = [];
   }
 
   private loadBoundaries(): void {
@@ -110,7 +123,13 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
         this.byState = byState;
         this.lastStep0Ak = step0Ak;
         this.lastStep0Hi = step0Hi;
-        this.svgPathD = this.buildSvgPaths(byState, step0Ak, step0Hi);
+        if (this.variant === 'hero') {
+          this.heroAnimatedPaths = [];
+          this.svgPathD = [];
+          this.startHeroDrawAnimation(byState, step0Ak, step0Hi);
+        } else {
+          this.svgPathD = this.buildSvgPaths(byState, step0Ak, step0Hi);
+        }
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -161,6 +180,93 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
       ));
     }
     return paths;
+  }
+
+  /** Build districts (one path array per feature) grouped by state for hero animation. */
+  private buildSvgPathsByState(
+    byState: BoundariesByState,
+    step0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null,
+    step0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null
+  ): { state: string; districts: string[][] }[] {
+    const out: { state: string; districts: string[][] }[] = [];
+    const stateNames = Object.keys(byState);
+    const conus = stateNames.filter(n => n !== 'Alaska' && n !== 'Hawaii');
+    conus.forEach(name => {
+      const geo = byState[name];
+      if (geo) {
+        const districts = featureCollectionToPathDsByFeature(geo, CONUS_BOUNDS);
+        if (districts.length) out.push({ state: name, districts });
+      }
+    });
+    if (this.showInsetStates) {
+      const alaskaCollection = this.step0ToFeatureCollection(step0Ak);
+      if (alaskaCollection) {
+        const transformed = transformGeoJson(alaskaCollection, ALASKA_TRANSFORM);
+        const districts = featureCollectionToPathDsByFeatureWithUniformScale(
+          transformed,
+          ALASKA_INSET_SVG.x1,
+          ALASKA_INSET_SVG.y1,
+          ALASKA_INSET_SVG.x2,
+          ALASKA_INSET_SVG.y2
+        );
+        if (districts.length) out.push({ state: 'Alaska', districts });
+      }
+      const hawaiiCollection = this.step0ToFeatureCollection(step0Hi);
+      if (hawaiiCollection) {
+        const transformed = transformGeoJson(hawaiiCollection, HAWAII_TRANSFORM);
+        const districts = featureCollectionToPathDsByFeatureWithUniformScale(
+          transformed,
+          HAWAII_INSET_SVG.x1,
+          HAWAII_INSET_SVG.y1,
+          HAWAII_INSET_SVG.x2,
+          HAWAII_INSET_SVG.y2
+        );
+        if (districts.length) out.push({ state: 'Hawaii', districts });
+      }
+    }
+    return out;
+  }
+
+  private startHeroDrawAnimation(
+    byState: BoundariesByState,
+    step0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null,
+    step0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null
+  ): void {
+    this.clearHeroAnimation();
+    const byStateList = this.buildSvgPathsByState(byState, step0Ak, step0Hi);
+    if (byStateList.length === 0) return;
+    // Shuffle state order; flatten to one entry per district (each district = array of path d)
+    const shuffled = [...byStateList].sort(() => Math.random() - 0.5);
+    const flat: { paths: string[]; stateKey: string; isLastInState: boolean }[] = [];
+    shuffled.forEach(({ state, districts }) => {
+      districts.forEach((pathDs, i) => {
+        flat.push({
+          paths: pathDs,
+          stateKey: state,
+          isLastInState: i === districts.length - 1
+        });
+      });
+    });
+    const totalDistricts = flat.length;
+    if (totalDistricts === 0) return;
+    const delayMs = UsCongressionalMapComponent.HERO_DRAW_DURATION_MS / totalDistricts;
+    flat.forEach((item, i) => {
+      const t = setTimeout(() => {
+        item.paths.forEach(d => {
+          this.heroAnimatedPaths.push({ d, stateKey: item.stateKey, filled: true });
+        });
+        if (item.isLastInState) {
+          setTimeout(() => {
+            this.heroAnimatedPaths.forEach(p => {
+              if (p.stateKey === item.stateKey) p.filled = false;
+            });
+            this.cdr.markForCheck();
+          }, 0);
+        }
+        this.cdr.markForCheck();
+      }, i * delayMs);
+      this.heroAnimationTimeouts.push(t);
+    });
   }
 
   /** Build a FeatureCollection from algorithm step 0 first group union polygon(s). */
