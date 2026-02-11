@@ -2827,7 +2827,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
         // Create step cache key
         const stepCacheKey = `step_${state}_${stepNumber}_${currentVersion}`;
         
-        // Store normalized step in Firestore
+        // Store normalized step in Firestore (unionPolygonsCached only when we successfully cached union polygons)
         const stepCacheEntry = {
           ...normalized.normalized,
           timestamp: Date.now(),
@@ -2837,9 +2837,10 @@ app.post('/api/algorithm/execute', async (req, res) => {
           source: 'step-cache',
           state: state,
           step: stepNumber,
-          isComplete: false // Will be updated when algorithm completes
+          isComplete: false, // Will be updated when algorithm completes
+          unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
         };
-        
+
         const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
         await stepDocRef.set(stepCacheEntry);
         
@@ -3445,6 +3446,216 @@ app.get('/api/congressional-boundaries/:congress/:state', async (req, res) => {
 });
 
 /**
+ * Get or create state boundary polygon in Cloud Storage (for map-polygons endpoint).
+ * Returns a single GeoJSON Feature for the state outline. Does not run algorithm or load tracts.
+ */
+async function getOrCreateStateBoundaryInCloudStorage(state) {
+  const stateBoundaryKey = `state_boundary_polygon_${state.toUpperCase()}`;
+
+  // 1. Try dedicated state boundary key in Cloud Storage
+  try {
+    const result = await cloudStorageCache.get(stateBoundaryKey);
+    if (result && result.data) {
+      const data = result.data;
+      const feature = Array.isArray(data) ? data[0] : data;
+      if (feature && (feature.type === 'Feature' || feature.geometry)) {
+        console.log(`✅ MAP-POLYGONS: Loaded state boundary from Cloud Storage (${stateBoundaryKey})`);
+        return feature;
+      }
+    }
+  } catch (e) {
+    console.warn(`⚠️ MAP-POLYGONS: Could not load state boundary from Cloud Storage: ${e.message}`);
+  }
+
+  // 2. Try step-0 union polygon key (same state outline)
+  const totalDistricts = getDistrictsForState(state);
+  if (totalDistricts) {
+    const step0Key = `union_polygon_${state}_0_1-${totalDistricts}`;
+    try {
+      const result = await cloudStorageCache.get(step0Key);
+      if (result && result.data) {
+        const data = result.data;
+        const feature = Array.isArray(data) ? data[0] : data;
+        if (feature && (feature.type === 'Feature' || feature.geometry)) {
+          console.log(`✅ MAP-POLYGONS: Loaded state boundary from step-0 cache (${step0Key})`);
+          return feature;
+        }
+      }
+    } catch (e) {
+      console.warn(`⚠️ MAP-POLYGONS: Could not load step-0 polygon: ${e.message}`);
+    }
+  }
+
+  // 3. Fetch from TIGER and save to Cloud Storage
+  const stateFipsMap = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+    'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+    'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+    'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+    'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+    'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+    'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+    'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+    'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+    'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+    'DC': '11'
+  };
+  const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+  const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_States_Generalized_Boundaries/FeatureServer/0/query';
+  const params = new URLSearchParams({
+    where: `STATE_FIPS='${stateFips}'`,
+    outFields: 'STATE_FIPS,STATE_NAME,STATE_ABBR',
+    f: 'geojson',
+    outSR: '4326'
+  });
+
+  const response = await axios.get(`${serviceUrl}?${params.toString()}`);
+  const features = response.data.features || [];
+  if (features.length === 0) {
+    throw new Error(`No state boundary features returned for state: ${state}`);
+  }
+  const mainFeature = features[0];
+
+  const unionData = Array.isArray(mainFeature) ? mainFeature : [mainFeature];
+  const cloudStoragePath = await cloudStorageCache.set(stateBoundaryKey, unionData, {
+    state: state,
+    source: 'tiger-state-boundary',
+    polygonCount: '1'
+  });
+  const metadataEntry = {
+    cloudStoragePath,
+    timestamp: Date.now(),
+    ttl: null,
+    version: CACHE_VERSION,
+    source: 'tiger-state-boundary',
+    tigerBased: true,
+    state: state,
+    polygonCount: 1
+  };
+  await firestore.collection('census_cache').doc(stateBoundaryKey).set(metadataEntry);
+  console.log(`💾 MAP-POLYGONS: Saved state boundary to Cloud Storage (${stateBoundaryKey})`);
+  return mainFeature;
+}
+
+/**
+ * GET /api/algorithm/map-polygons/:state
+ * Returns only polygon GeoJSON for fast map display: state outline and optional final district polygons.
+ * Does not run algorithm or load tract data. All polygons from Cloud Storage.
+ */
+app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
+  try {
+    const { state } = req.params;
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+    const currentVersion = ALGORITHM_VERSION;
+
+    const statePolygon = await getOrCreateStateBoundaryInCloudStorage(state);
+
+    let hasFinalStep = false;
+    const finalDistrictPolygons = [];
+
+    const stepCacheQuery = firestore.collection('census_cache')
+      .where('state', '==', state)
+      .where('isComplete', '==', true);
+    const stepCacheSnapshot = await stepCacheQuery.get();
+
+    let finalStepDoc = null;
+    let cachedEntry = null;
+    let highestStep = -1;
+
+    if (!stepCacheSnapshot.empty) {
+      for (const doc of stepCacheSnapshot.docs) {
+        const entry = doc.data();
+        if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+            entry.algorithmVersion === currentVersion &&
+            entry.step !== undefined &&
+            entry.step > highestStep &&
+            entry.unionPolygonsCached === true) {
+          finalStepDoc = doc;
+          cachedEntry = entry;
+          highestStep = entry.step;
+        }
+      }
+    }
+
+    if (!finalStepDoc || !cachedEntry) {
+      const algorithmStepsQuery = firestore.collection('census_cache')
+        .where('state', '==', state)
+        .where('source', '==', 'algorithm-step-cache');
+      const algorithmStepsSnapshot = await algorithmStepsQuery.get();
+      if (!algorithmStepsSnapshot.empty) {
+        for (const doc of algorithmStepsSnapshot.docs) {
+          const entry = doc.data();
+          if (entry.algorithmVersion === currentVersion && entry.step !== undefined && entry.step > highestStep && entry.unionPolygonsCached === true) {
+            finalStepDoc = doc;
+            cachedEntry = entry;
+            highestStep = entry.step;
+          }
+        }
+      }
+    }
+    if (!finalStepDoc || !cachedEntry) {
+      const stepCacheQuery2 = firestore.collection('census_cache')
+        .where('state', '==', state)
+        .where('source', '==', 'step-cache');
+      const stepCacheSnapshot2 = await stepCacheQuery2.get();
+      if (!stepCacheSnapshot2.empty) {
+        for (const doc of stepCacheSnapshot2.docs) {
+          const entry = doc.data();
+          if (entry.algorithmVersion === currentVersion && entry.step !== undefined && entry.step > highestStep && entry.unionPolygonsCached === true) {
+            finalStepDoc = doc;
+            cachedEntry = entry;
+            highestStep = entry.step;
+          }
+        }
+      }
+    }
+
+    // Only load union polygons from Cloud Storage when step has unionPolygonsCached (files known to exist)
+    if (finalStepDoc && cachedEntry && cachedEntry.unionPolygonsCached === true) {
+      const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
+      const sortedGroups = groups
+        .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
+        .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
+
+      for (const group of sortedGroups) {
+        let unionCacheKey = group.unionPolygonCacheKey;
+        if (!unionCacheKey && group.startDistrictNumber != null && group.endDistrictNumber != null) {
+          unionCacheKey = `union_polygon_${state}_${cachedEntry.step}_${group.startDistrictNumber}-${group.endDistrictNumber}`;
+        }
+        if (!unionCacheKey) continue;
+        try {
+          const cacheResult = await cloudStorageCache.get(unionCacheKey);
+          if (cacheResult && cacheResult.data) {
+            const unionData = cacheResult.data;
+            const features = Array.isArray(unionData) ? unionData : [unionData];
+            for (const f of features) {
+              if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ MAP-POLYGONS: Could not load union polygon ${unionCacheKey}: ${e.message}`);
+        }
+      }
+      hasFinalStep = finalDistrictPolygons.length > 0;
+    }
+
+    return res.json({
+      statePolygon,
+      finalDistrictPolygons: hasFinalStep ? finalDistrictPolygons : undefined,
+      hasFinalStep
+    });
+  } catch (error) {
+    console.error('❌ GET /api/algorithm/map-polygons error:', error);
+    res.status(500).json({
+      error: 'Map polygons failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/algorithm/final-step-states
  * Returns list of state codes that have a completed final step (current algorithm version).
  */
@@ -3514,62 +3725,61 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       const stepCacheSnapshot = await stepCacheQuery.get();
 
       if (!stepCacheSnapshot.empty) {
-        // Find the highest step that matches the current algorithm version
+        // Find the highest step that matches the current algorithm version and has union polygons cached
         for (const doc of stepCacheSnapshot.docs) {
           const entry = doc.data();
-          // Filter by source (either 'algorithm-step-cache' or 'step-cache'), algorithm version, and find the highest step
-          if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') && 
-              entry.algorithmVersion === currentVersion && 
-              entry.step !== undefined && 
-              entry.step > highestStep) {
+          // Filter by source, algorithm version, unionPolygonsCached, and find the highest step
+          if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+              entry.algorithmVersion === currentVersion &&
+              entry.step !== undefined &&
+              entry.step > highestStep &&
+              entry.unionPolygonsCached === true) {
             finalStepDoc = doc;
             cachedEntry = entry;
             highestStep = entry.step;
           }
         }
       }
-      
-      // Fallback: If no step with isComplete: true found, query for all steps for this state
-      // and find the highest step number (which should be the final step)
-      // Search both 'algorithm-step-cache' and 'step-cache' sources
+
+      // Fallback: If no step with isComplete: true and unionPolygonsCached found, query for all steps for this state
       if (!finalStepDoc || !cachedEntry) {
-        console.log(`ℹ️ No step with isComplete: true found, searching for highest step number...`);
-        
+        console.log(`ℹ️ No step with isComplete: true and unionPolygonsCached found, searching for highest step number...`);
+
         // Try 'algorithm-step-cache' source first
         const algorithmStepsQuery = firestore.collection('census_cache')
           .where('state', '==', state)
           .where('source', '==', 'algorithm-step-cache');
 
         const algorithmStepsSnapshot = await algorithmStepsQuery.get();
-        
+
         if (!algorithmStepsSnapshot.empty) {
           for (const doc of algorithmStepsSnapshot.docs) {
             const entry = doc.data();
-            // Filter by algorithm version and find the highest step
-            if (entry.algorithmVersion === currentVersion && 
-                entry.step !== undefined && 
-                entry.step > highestStep) {
+            if (entry.algorithmVersion === currentVersion &&
+                entry.step !== undefined &&
+                entry.step > highestStep &&
+                entry.unionPolygonsCached === true) {
               finalStepDoc = doc;
               cachedEntry = entry;
               highestStep = entry.step;
             }
           }
         }
-        
+
         // Also try 'step-cache' source (used by /api/algorithm/execute endpoint)
         const stepCacheQuery = firestore.collection('census_cache')
           .where('state', '==', state)
           .where('source', '==', 'step-cache');
 
         const stepCacheSnapshot = await stepCacheQuery.get();
-        
+
         if (!stepCacheSnapshot.empty) {
           for (const doc of stepCacheSnapshot.docs) {
             const entry = doc.data();
-            // Filter by algorithm version and find the highest step
-            if (entry.algorithmVersion === currentVersion && 
-                entry.step !== undefined && 
-                entry.step > highestStep) {
+            if (entry.algorithmVersion === currentVersion &&
+                entry.step !== undefined &&
+                entry.step > highestStep &&
+                entry.unionPolygonsCached === true) {
               finalStepDoc = doc;
               cachedEntry = entry;
               highestStep = entry.step;
@@ -3577,9 +3787,9 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           }
         }
       }
-      
+
       if (!finalStepDoc || !cachedEntry) {
-        return res.status(404).json({ error: 'No final step found for this state with current algorithm version' });
+        return res.status(404).json({ error: 'No final step found for this state with current algorithm version (no step with union polygons cached)' });
       }
       
       const finalStepNumber = cachedEntry.step;
@@ -4509,7 +4719,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
             normalized: true,
             tractCacheKey: tractCacheKey,
             state: state,
-            step: 0
+            step: 0,
+            unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
           };
 
           await firestore.collection('census_cache').doc(step0CacheKey).set(cacheData);
@@ -5105,12 +5316,16 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
  * @param {string} stateCode - State code
  * @param {number} stepNumber - Step number
  * @param {Array} districtGroups - District groups (normalized, with cache keys)
+ * @param {{ unionPolygonsCached?: boolean }} [options] - When unionPolygonsCached is false, skip Cloud Storage (step not known to have polygons cached)
  * @returns {Promise<Array>} District groups with union polygons loaded
  */
-async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups) {
+async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups, options = {}) {
+  if (options.unionPolygonsCached === false) {
+    return [...districtGroups];
+  }
   const groupsWithUnions = [];
   const isStep0 = stepNumber === 0 || stepNumber === '0';
-  
+
   for (let i = 0; i < districtGroups.length; i++) {
     const group = districtGroups[i];
     let unionCacheKey = group.unionPolygonCacheKey;
@@ -6557,7 +6772,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         normalized: true,
         tractCacheKey: tractCacheKey,
         state: state,
-        step: step
+        step: step,
+        unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
       };
 
       await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);

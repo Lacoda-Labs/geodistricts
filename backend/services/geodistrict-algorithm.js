@@ -4264,6 +4264,7 @@ class GeodistrictAlgorithmService {
 }
 
 module.exports = {
+  CONGRESSIONAL_DISTRICTS_BY_STATE,
   GeodistrictAlgorithmService,
   getDistrictsForState,
   getTractId,

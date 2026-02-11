@@ -6,12 +6,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
-import { Subscription, concat, lastValueFrom, of, forkJoin } from 'rxjs';
+import { Subscription, concat, lastValueFrom, of, forkJoin, from } from 'rxjs';
 import { concatMap, tap, last, map, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo } from '../services/geodistrict-algorithm.service';
-import { CongressionalBoundariesService } from '../services/congressional-boundaries.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
@@ -72,8 +71,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private hashChangeHandler?: () => void; // Store reference to hash change handler
   
   private map: L.Map | null = null;
-  /** Congressional district boundaries (119th) for selected state; drawn below tract layer. */
-  private congressionalLayer: L.LayerGroup | null = null;
+  /** State outline polygons for ALL view (below tractLayer). */
+  private stateOutlinesLayer: L.LayerGroup | null = null;
   private tractLayer: L.LayerGroup | null = null;
   /** Guard to prevent re-entrant render (stops render loop) */
   private isRenderingDistricts = false;
@@ -128,6 +127,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** State codes that have a completed final step (for table completion indicator) */
   completedStateCodes: Set<string> = new Set();
 
+  /** Map-only view: polygons from GET map-polygons (no algorithm run). Null when in step mode or ALL view. */
+  mapPolygons: MapPolygonsResponse | null = null;
+  /** State code that mapPolygons belong to (prevents rendering wrong state after switch). */
+  private mapPolygonsState: string | null = null;
+
   // US States with their congressional district counts
   states = [
     { code: 'CA', name: 'California', districts: 52 },
@@ -173,6 +177,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     { code: 'RI', name: 'Rhode Island', districts: 2 },
     { code: 'WV', name: 'West Virginia', districts: 2 },
     { code: 'AK', name: 'Alaska', districts: 1 },
+    { code: 'DC', name: 'District of Columbia', districts: 1 },
     { code: 'DE', name: 'Delaware', districts: 1 },
     { code: 'ND', name: 'North Dakota', districts: 1 },
     { code: 'SD', name: 'South Dakota', districts: 1 },
@@ -182,7 +187,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
-    private boundariesService: CongressionalBoundariesService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef
@@ -236,7 +240,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         setTimeout(() => {
           this.updateMapView();
-          this.runAlgorithm();
+          this.loadMapPolygons();
         }, 300);
       }
     }, 100);
@@ -287,14 +291,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }, 100);
           this.updateMapView();
-          this.loadCongressionalBoundariesForState();
           return;
         } else {
           // Map container is different or was removed, need to reinitialize
           console.log('🗺️ Map container changed or removed, reinitializing...');
           this.map.remove();
           this.map = null;
-          this.congressionalLayer = null;
         }
       } catch (e) {
         // Map container was removed, need to reinitialize
@@ -307,7 +309,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         }
         this.map = null;
-        this.congressionalLayer = null;
       }
     }
 
@@ -336,9 +337,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map);
 
-    // Congressional boundaries for selected state (below geodistricts)
-    this.congressionalLayer = L.layerGroup().addTo(this.map);
-    // Geodistricts and tracts draw on top
+    // State outlines (ALL view only, drawn first so below districts)
+    this.stateOutlinesLayer = L.layerGroup().addTo(this.map);
+    // Geodistricts and tracts
     this.tractLayer = L.layerGroup().addTo(this.map);
 
     // Add custom toggle control
@@ -349,9 +350,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // Update map view based on selected state
     this.updateMapView();
-    // Load 119th Congress boundaries for selected state (base layer under geodistricts)
-    this.loadCongressionalBoundariesForState();
-    
+
     // Force map to invalidate size after a short delay to ensure container is properly sized
     setTimeout(() => {
       if (this.map) {
@@ -491,9 +490,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStateChange(): void {
     if (this.selectedState) {
+      // Single-district states are not selectable; if we're on one (e.g. from URL/localStorage), show ALL view
+      if (this.selectedState !== 'ALL' && this.isSingleDistrictState(this.selectedState)) {
+        this.selectedState = 'ALL';
+      }
       // Persist selected state to localStorage
       localStorage.setItem('selectedState', this.selectedState);
-      
+
       // Clear existing layers when switching states
       if (this.tractLayer) {
         this.tractLayer.clearLayers();
@@ -501,13 +504,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractGeoJsonLayers.clear();
       this.tractIdToLayer.clear();
       this.clearDivisionLines();
-      
+
       if (this.selectedState !== 'ALL') {
-        // State view: reuse Leaflet map, run algorithm for selected state
+        // State view: reuse Leaflet map, load map polygons only (no algorithm until user clicks step button)
         this.usMapStepDataByState = [];
         this.usMapTotalDistricts = 0;
         this.completedStateCodes = new Set();
-        // Cancel any in-flight algorithm requests (e.g. CA next-step) so they don't overwrite this state's view
+        this.algorithmResult = null;
+        this.currentStep = null;
+        this.currentStepIndex = 0;
+        this.mapPolygons = null;
+        this.mapPolygonsState = null;
+        // Cancel any in-flight requests
         this.subscriptions.forEach(sub => sub.unsubscribe());
         this.subscriptions = [];
         this.isLoading = false;
@@ -516,14 +524,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.initializeMap();
           setTimeout(() => {
             this.updateMapView();
-            this.runAlgorithm();
+            this.loadMapPolygons();
           }, 300);
         }, 100);
       } else {
         // US/ALL view: reuse Leaflet map, fit continental US, show geodistrict polygons
-        if (this.congressionalLayer) {
-          this.congressionalLayer.clearLayers();
-        }
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
@@ -567,6 +572,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    if (this.mapPolygons && !this.algorithmResult) {
+      this.renderMapPolygons();
+      return;
+    }
+
     // When toggling between tracts and union polygons, we need to re-render
     // because we're switching between different geometries
     if (this.algorithmResult && this.currentStep) {
@@ -603,77 +613,167 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const stateCenter = this.getStateCenter(this.selectedState);
-    this.map.setView(stateCenter, 7);
+    this.map.setView(stateCenter, 5);
   }
 
   /**
-   * Load 119th Congress boundaries for the selected state and add to congressional layer (below geodistricts).
-   */
-  private loadCongressionalBoundariesForState(): void {
-    if (!this.congressionalLayer || !this.selectedState || this.selectedState === 'ALL') return;
-    this.congressionalLayer.clearLayers();
-    const sub = this.boundariesService.getBoundariesForState(119, this.selectedState).subscribe(geo => {
-      if (!geo || !this.congressionalLayer) return;
-      L.geoJSON(geo as any, {
-        style: {
-          color: '#e67e22',
-          weight: 1.5,
-          opacity: 0.9,
-          fillColor: '#f5f5f5',
-          fillOpacity: 0.15
-        }
-      }).addTo(this.congressionalLayer!);
-    });
-    this.subscriptions.push(sub);
-  }
-
-  /**
-   * Load district data for US map view: fetch completed states and their final steps, then render.
+   * Load district data for US map view.
+   * Fetches each state's map polygons (getMapPolygons) in descending district count order; draws step 0 (state outline) or final-step polygons. No loading overlay.
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
-    this.isLoading = true;
     this.errorMessage = '';
     this.usMapStepDataByState = [];
     this.usMapTotalDistricts = 0;
     this.completedStateCodes = new Set();
+    if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
+    this.tractLayer.clearLayers();
+    this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
     this.cdr.markForCheck();
 
-    const sub = this.geodistrictService.getFinalStepStates().pipe(
-      catchError(() => of({ stateCodes: [] as string[] })),
-      concatMap(({ stateCodes }) => {
-        this.completedStateCodes = new Set(stateCodes);
-        if (stateCodes.length === 0) {
-          this.isLoading = false;
-          this.cdr.markForCheck();
-          return of([]);
-        }
-        return forkJoin(
-          stateCodes.map(code =>
-            this.geodistrictService.getFinalStep(code).pipe(
-              map(res => ({ stateCode: code, stepData: res.data } as { stateCode: string; stepData: GeodistrictStep })),
-              catchError(() => of(null))
-            )
-          )
-        ).pipe(
-          map(results => results.filter((r): r is { stateCode: string; stepData: GeodistrictStep } => r !== null))
-        );
+    // Fit map to CONUS when All states is selected
+    this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
+
+    // Placeholder entries for single-district states (no API calls); keep them in list for table/total
+    const singleDistrictStates = this.states.filter((s) => s.districts === 1);
+    const placeholders: Array<{ stateCode: string; stepData: GeodistrictStep }> = singleDistrictStates.map(
+      (s) => ({
+        stateCode: s.code,
+        stepData: this.placeholderStepDataForSingleDistrictState()
       })
-    ).subscribe({
-      next: (data) => {
-        this.usMapStepDataByState = data;
-        this.usMapTotalDistricts = data.reduce((sum, { stepData }) => sum + (stepData.districtGroups?.length ?? 0), 0);
-        this.renderUSMapDistricts(data);
-        this.isLoading = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.errorMessage = err?.message || 'Failed to load US map districts';
-        this.cdr.markForCheck();
-      }
-    });
+    );
+    this.usMapStepDataByState = placeholders;
+    this.usMapTotalDistricts = placeholders.length;
+    this.completedStateCodes = new Set(placeholders.map((x) => x.stateCode));
+    this.renderUSMapDistricts(this.usMapStepDataByState);
+    this.cdr.markForCheck();
+
+    // Fetch map polygons only for multi-district states in descending district order (CA, TX, FL, ...)
+    const orderedStateCodes = this.states.filter((s) => s.districts > 1).map((s) => s.code);
+    const sub = from(orderedStateCodes)
+      .pipe(
+        concatMap((stateCode) =>
+          this.geodistrictService.getMapPolygons(stateCode).pipe(
+            map((response) => ({ stateCode, response })),
+            catchError(() => of({ stateCode, response: null as MapPolygonsResponse | null }))
+          )
+        )
+      )
+      .subscribe({
+        next: ({ stateCode, response }) => {
+          const stepData = this.mapPolygonsResponseToStepData(response);
+          this.usMapStepDataByState = [...this.usMapStepDataByState, { stateCode, stepData }];
+          this.usMapTotalDistricts = this.usMapStepDataByState.reduce(
+            (sum, { stepData: s }) => sum + (s.districtGroups?.length ?? 0),
+            0
+          );
+          this.completedStateCodes = new Set(this.usMapStepDataByState.map((x) => x.stateCode));
+          this.renderUSMapDistricts(this.usMapStepDataByState);
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.errorMessage = err?.message || 'Failed to load US map districts';
+          this.cdr.markForCheck();
+        },
+        complete: () => this.cdr.markForCheck()
+      });
     this.subscriptions.push(sub);
+  }
+
+  /**
+   * True if the state has only one congressional district. Such states are not selectable and never call algorithm endpoints.
+   */
+  isSingleDistrictState(stateCode: string): boolean {
+    return this.getStateDistrictCount(stateCode) <= 1;
+  }
+
+  /**
+   * Placeholder step data for a single-district state (no polygons, no API call).
+   */
+  private placeholderStepDataForSingleDistrictState(): GeodistrictStep {
+    return {
+      step: 0,
+      level: 0,
+      districtGroups: [
+        {
+          startDistrictNumber: 1,
+          endDistrictNumber: 1,
+          unionPolygon: undefined,
+          totalPopulation: 0,
+          censusTracts: [],
+          totalDistricts: 1,
+          bounds: { north: 0, south: 0, east: 0, west: 0 },
+          centroid: { lat: 0, lng: 0 }
+        }
+      ],
+      description: '',
+      totalGroups: 1,
+      totalDistricts: 1,
+      divisionDirection: 'latitude'
+    };
+  }
+
+  /**
+   * Convert map-polygons API response to stepData shape for renderUSMapDistricts.
+   * Uses final district polygons when available; otherwise uses state outline (step 0) so each state draws something.
+   */
+  private mapPolygonsResponseToStepData(response: MapPolygonsResponse | null): GeodistrictStep {
+    if (response?.finalDistrictPolygons?.length) {
+      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => ({
+      startDistrictNumber: i + 1,
+      endDistrictNumber: i + 1,
+      unionPolygon: polygon,
+      unionPolygons: [polygon],
+      totalPopulation: 0,
+      censusTracts: [] as GeoJsonFeature[],
+      totalDistricts: 1,
+      bounds: { north: 0, south: 0, east: 0, west: 0 },
+      centroid: { lat: 0, lng: 0 }
+    }));
+      return {
+        step: 0,
+        level: 0,
+        districtGroups,
+        description: '',
+        totalGroups: districtGroups.length,
+        totalDistricts: districtGroups.length,
+        divisionDirection: 'latitude'
+      };
+    }
+    // No final step: use state outline (step 0) so the state still draws
+    const statePolygon = response?.statePolygon;
+    if (statePolygon?.geometry) {
+      const oneGroup = {
+        startDistrictNumber: 1,
+        endDistrictNumber: 1,
+        unionPolygon: statePolygon,
+        unionPolygons: [statePolygon],
+        totalPopulation: 0,
+        censusTracts: [] as GeoJsonFeature[],
+        totalDistricts: 1,
+        bounds: { north: 0, south: 0, east: 0, west: 0 },
+        centroid: { lat: 0, lng: 0 }
+      };
+      return {
+        step: 0,
+        level: 0,
+        districtGroups: [oneGroup],
+        description: '',
+        totalGroups: 1,
+        totalDistricts: 1,
+        divisionDirection: 'latitude'
+      };
+    }
+    return {
+      step: 0,
+      level: 0,
+      districtGroups: [],
+      description: '',
+      totalGroups: 0,
+      totalDistricts: 0,
+      divisionDirection: 'latitude'
+    };
   }
 
   /**
@@ -893,6 +993,40 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.push(subscription);
   }
 
+  /**
+   * Load map polygons only (state outline + optional final districts). No algorithm run.
+   * Used for initial state load; algorithm runs only when user clicks a step button.
+   */
+  loadMapPolygons(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || !this.tractLayer) return;
+    if (this.isSingleDistrictState(this.selectedState)) return;
+
+    if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
+    this.mapPolygons = null;
+    this.mapPolygonsState = null;
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.cdr.markForCheck();
+
+    const stateRequested = this.selectedState;
+    const sub = this.geodistrictService.getMapPolygons(stateRequested).subscribe({
+      next: (response) => {
+        if (this.selectedState !== stateRequested) return;
+        this.mapPolygons = response;
+        this.mapPolygonsState = stateRequested;
+        this.isLoading = false;
+        this.cdr.markForCheck();
+        setTimeout(() => this.renderMapPolygons(), 100);
+      },
+      error: (err) => {
+        this.errorMessage = err.message || 'Failed to load map polygons';
+        this.isLoading = false;
+        this.cdr.markForCheck();
+      }
+    });
+    this.subscriptions.push(sub);
+  }
+
   runAlgorithm(): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
       if (this.selectedState === 'ALL') {
@@ -900,6 +1034,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         this.errorMessage = 'Please select a state first';
       }
+      return;
+    }
+    if (this.isSingleDistrictState(this.selectedState)) {
+      this.errorMessage = 'This state has only one district; the algorithm is not run for single-district states';
       return;
     }
 
@@ -911,7 +1049,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
-    // Reset state
+    // Reset state (leave map-only view, enter step mode)
+    this.mapPolygons = null;
+    this.mapPolygonsState = null;
     this.isLoading = true;
     this.isLoadingSteps = true;
     this.errorMessage = '';
@@ -1070,7 +1210,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
-    // Reset state
+    // Reset state (step mode)
+    this.mapPolygons = null;
+    this.mapPolygonsState = null;
     this.isLoading = true;
     this.isLoadingSteps = true;
     this.errorMessage = '';
@@ -1549,6 +1691,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   goToFirstStep(): void {
     if (this.currentStepIndex === 0) {
       return; // Already at first step
+    }
+    // If in map-only view (no algorithm run yet), run algorithm to load step 0
+    if (this.mapPolygons && !this.algorithmResult) {
+      this.runAlgorithm();
+      return;
     }
     // Go to step 0
     const step = this.loadedSteps[0];
@@ -2508,6 +2655,75 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Render polygons from map-polygons response only (no algorithm result).
+   * Used when in map-only view: state outline or final district polygons.
+   */
+  private renderMapPolygons(): void {
+    if (!this.map || !this.tractLayer || !this.mapPolygons) return;
+    if (this.mapPolygonsState !== this.selectedState) {
+      this.tractLayer.clearLayers();
+      this.tractGeoJsonLayers.clear();
+      this.tractIdToLayer.clear();
+      return;
+    }
+
+    this.tractLayer.clearLayers();
+    this.tractGeoJsonLayers.clear();
+    this.tractIdToLayer.clear();
+    this.clearDivisionLines();
+
+    const stateColor = this.getDistrictColor(0, 1);
+    const bounds = L.latLngBounds([] as L.LatLngExpression[]);
+
+    if (this.mapPolygons.hasFinalStep && this.mapPolygons.finalDistrictPolygons && this.mapPolygons.finalDistrictPolygons.length > 0) {
+      const polygons = this.mapPolygons.finalDistrictPolygons;
+      polygons.forEach((feature: GeoJsonFeature, index: number) => {
+        if (!feature?.geometry) return;
+        const color = this.getDistrictColor(index, polygons.length);
+        const geoJson = L.geoJSON(feature as any, {
+          style: {
+            color,
+            weight: 2,
+            opacity: 1.0,
+            fillOpacity: 0.7,
+            fillColor: color
+          }
+        }).bindPopup(`<strong>District ${index + 1}</strong>`);
+        this.tractLayer!.addLayer(geoJson);
+        this.tractGeoJsonLayers.set(geoJson, color);
+        const layerBounds = geoJson.getBounds?.();
+        if (layerBounds?.isValid()) bounds.extend(layerBounds);
+      });
+    } else {
+      const stateFeature = this.mapPolygons.statePolygon;
+      if (stateFeature?.geometry) {
+        const geoJson = L.geoJSON(stateFeature as any, {
+          style: {
+            color: stateColor,
+            weight: 2,
+            opacity: 1.0,
+            fillOpacity: 0.7,
+            fillColor: stateColor
+          }
+        }).bindPopup(`<strong>${this.selectedState}</strong> (entire state)`);
+        this.tractLayer.addLayer(geoJson);
+        this.tractGeoJsonLayers.set(geoJson, stateColor);
+        const layerBounds = geoJson.getBounds?.();
+        if (layerBounds?.isValid()) bounds.extend(layerBounds);
+      }
+    }
+
+    if (bounds.isValid()) {
+      const padding: [number, number] = [20, 20];
+      this.map.fitBounds(bounds, { padding });
+      this.stateBoundsForSlider = bounds;
+      this.map.setMinZoom(4);
+      this.updateSliderTrackLength();
+    }
+    this.cdr.markForCheck();
+  }
+
   private renderFinalDistricts(): void {
     if (this.isRenderingDistricts) {
       return; // Prevent re-entrant render (stops render loop)
@@ -2860,9 +3076,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.stateBoundsForSlider = bounds;
       const padding = L.point(20, 20);
       this.map.fitBounds(bounds, { padding: [20, 20] });
-      // Furthest zoom out = zoom level that fits bounds (use getBoundsZoom so we don't rely on getZoom() which can lag)
-      const fitZoom = this.map.getBoundsZoom(bounds, false, padding);
-      this.map.setMinZoom(fitZoom);
+      this.map.setMinZoom(4);
       this.updateSliderTrackLength();
       // Force invalidate size after fitting bounds to ensure map renders correctly
       setTimeout(() => {
@@ -4108,6 +4322,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Select a state from the US view table
    */
   selectStateFromTable(stateCode: string): void {
+    if (this.isSingleDistrictState(stateCode)) return;
     this.selectedState = stateCode;
     this.onStateChange();
   }

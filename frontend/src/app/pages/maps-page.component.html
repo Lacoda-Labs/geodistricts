@@ -6,7 +6,7 @@
     <section class="map-section">
       <div class="map-container">
         <div id="usMap" class="map"></div>
-        <div *ngIf="isLoading" class="loading-overlay">
+        <div *ngIf="isLoading && selectedState !== 'ALL'" class="loading-overlay">
           <div class="loading-spinner-container">
             <div class="loading-spinner"></div>
             <p class="loading-text">Loading district data...</p>
@@ -35,12 +35,12 @@
           <div class="table-header-cell">Swing</div>
         </div>
 
-        <!-- State Rows -->
+        <!-- State Rows (single-district states shown but not selectable) -->
         <app-state-row 
           *ngFor="let state of states"
           [data]="getStateRowData(state.code)"
           [showArrow]="true"
-          [clickable]="true"
+          [clickable]="!isSingleDistrictState(state.code)"
           background="off"
           section="us-data"
           (rowClick)="selectStateFromTable($event)">

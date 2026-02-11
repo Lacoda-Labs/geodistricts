@@ -86,6 +86,13 @@ export interface GeodistrictOptions {
   maxIterations?: number;
 }
 
+/** Response from GET /api/algorithm/map-polygons/:state - polygons only, no algorithm run */
+export interface MapPolygonsResponse {
+  statePolygon: GeoJsonFeature;
+  finalDistrictPolygons?: GeoJsonFeature[];
+  hasFinalStep: boolean;
+}
+
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
@@ -469,6 +476,23 @@ export class GeodistrictAlgorithmService {
     return this.http.get<{ stateCodes: string[] }>(`${backendUrl}/api/algorithm/final-step-states`, {
       headers: { 'Content-Type': 'application/json' }
     });
+  }
+
+  /**
+   * Get map polygons only for a state (state outline + optional final district polygons).
+   * Does not run algorithm. For fast initial map display.
+   */
+  getMapPolygons(state: string): Observable<MapPolygonsResponse> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/map-polygons/${state}`;
+    return this.http.get<MapPolygonsResponse>(url, {
+      headers: { 'Content-Type': 'application/json' }
+    }).pipe(
+      catchError(error => {
+        console.error('❌ getMapPolygons failed:', error);
+        return this.handleError(error);
+      })
+    );
   }
 
   /**
