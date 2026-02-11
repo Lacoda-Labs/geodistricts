@@ -127,6 +127,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** State codes that have a completed final step (for table completion indicator) */
   completedStateCodes: Set<string> = new Set();
 
+  /** In-memory cache for All-states map data so returning to ALL view does not refetch 51 states */
+  private cachedUSMapStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep }> | null = null;
+  private cachedUSMapTotalDistricts: number = 0;
+  private cachedUSMapCompletedStateCodes: Set<string> = new Set();
+
   /** Map-only view: polygons from GET map-polygons (no algorithm run). Null when in step mode or ALL view. */
   mapPolygons: MapPolygonsResponse | null = null;
   /** State code that mapPolygons belong to (prevents rendering wrong state after switch). */
@@ -506,6 +511,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearDivisionLines();
 
       if (this.selectedState !== 'ALL') {
+        // Save All-states data to cache before clearing so we can restore when switching back
+        if (this.usMapStepDataByState.length > 0) {
+          this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
+          this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
+          this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
+        }
         // State view: reuse Leaflet map, load map polygons only (no algorithm until user clicks step button)
         this.usMapStepDataByState = [];
         this.usMapTotalDistricts = 0;
@@ -534,7 +545,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStepIndex = 0;
         setTimeout(() => {
           this.updateMapView();
-          this.loadUSMapDistricts();
+          if (this.cachedUSMapStepDataByState && this.cachedUSMapStepDataByState.length > 0) {
+            // Restore from cache so we don't refetch 51 states
+            this.usMapStepDataByState = [...this.cachedUSMapStepDataByState];
+            this.usMapTotalDistricts = this.cachedUSMapTotalDistricts;
+            this.completedStateCodes = new Set(this.cachedUSMapCompletedStateCodes);
+            if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
+            if (this.tractLayer) this.tractLayer.clearLayers();
+            this.tractGeoJsonLayers.clear();
+            this.tractIdToLayer.clear();
+            this.map?.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
+            this.renderUSMapDistricts(this.usMapStepDataByState);
+            this.cdr.markForCheck();
+          } else {
+            this.loadUSMapDistricts();
+          }
         }, 100);
       }
     } else {
@@ -635,22 +660,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Fit map to CONUS when All states is selected
     this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
 
-    // Placeholder entries for single-district states (no API calls); keep them in list for table/total
-    const singleDistrictStates = this.states.filter((s) => s.districts === 1);
-    const placeholders: Array<{ stateCode: string; stepData: GeodistrictStep }> = singleDistrictStates.map(
-      (s) => ({
-        stateCode: s.code,
-        stepData: this.placeholderStepDataForSingleDistrictState()
-      })
-    );
-    this.usMapStepDataByState = placeholders;
-    this.usMapTotalDistricts = placeholders.length;
-    this.completedStateCodes = new Set(placeholders.map((x) => x.stateCode));
-    this.renderUSMapDistricts(this.usMapStepDataByState);
-    this.cdr.markForCheck();
-
-    // Fetch map polygons only for multi-district states in descending district order (CA, TX, FL, ...)
-    const orderedStateCodes = this.states.filter((s) => s.districts > 1).map((s) => s.code);
+    // Fetch map polygons for all 51 states in descending district order (CA, TX, FL, ...).
+    // Single-district states get state outline only (no districts); multi-district get state + final districts.
+    const orderedStateCodes = this.states.map((s) => s.code);
     const sub = from(orderedStateCodes)
       .pipe(
         concatMap((stateCode) =>
@@ -676,7 +688,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.errorMessage = err?.message || 'Failed to load US map districts';
           this.cdr.markForCheck();
         },
-        complete: () => this.cdr.markForCheck()
+        complete: () => {
+          this.cdr.markForCheck();
+          if (this.usMapStepDataByState.length === 51) {
+            this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
+            this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
+            this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
+          }
+        }
       });
     this.subscriptions.push(sub);
   }

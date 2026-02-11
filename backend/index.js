@@ -3550,66 +3550,41 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     }
     const currentVersion = ALGORITHM_VERSION;
 
-    const statePolygon = await getOrCreateStateBoundaryInCloudStorage(state);
-
     let hasFinalStep = false;
     const finalDistrictPolygons = [];
 
-    const stepCacheQuery = firestore.collection('census_cache')
-      .where('state', '==', state)
-      .where('isComplete', '==', true);
-    const stepCacheSnapshot = await stepCacheQuery.get();
+    // Fetch state boundary and all step-cache queries in parallel to reduce latency
+    const [statePolygon, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
+      getOrCreateStateBoundaryInCloudStorage(state),
+      firestore.collection('census_cache').where('state', '==', state).where('isComplete', '==', true).get(),
+      firestore.collection('census_cache').where('state', '==', state).where('source', '==', 'algorithm-step-cache').get(),
+      firestore.collection('census_cache').where('state', '==', state).where('source', '==', 'step-cache').get()
+    ]);
 
     let finalStepDoc = null;
     let cachedEntry = null;
     let highestStep = -1;
 
-    if (!stepCacheSnapshot.empty) {
-      for (const doc of stepCacheSnapshot.docs) {
-        const entry = doc.data();
-        if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-            entry.algorithmVersion === currentVersion &&
-            entry.step !== undefined &&
-            entry.step > highestStep &&
-            entry.unionPolygonsCached === true) {
-          finalStepDoc = doc;
-          cachedEntry = entry;
-          highestStep = entry.step;
-        }
+    function considerEntry(doc, entry) {
+      if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+          entry.algorithmVersion === currentVersion &&
+          entry.step !== undefined &&
+          entry.step > highestStep &&
+          entry.unionPolygonsCached === true) {
+        finalStepDoc = doc;
+        cachedEntry = entry;
+        highestStep = entry.step;
       }
     }
 
-    if (!finalStepDoc || !cachedEntry) {
-      const algorithmStepsQuery = firestore.collection('census_cache')
-        .where('state', '==', state)
-        .where('source', '==', 'algorithm-step-cache');
-      const algorithmStepsSnapshot = await algorithmStepsQuery.get();
-      if (!algorithmStepsSnapshot.empty) {
-        for (const doc of algorithmStepsSnapshot.docs) {
-          const entry = doc.data();
-          if (entry.algorithmVersion === currentVersion && entry.step !== undefined && entry.step > highestStep && entry.unionPolygonsCached === true) {
-            finalStepDoc = doc;
-            cachedEntry = entry;
-            highestStep = entry.step;
-          }
-        }
-      }
+    if (!stepCacheSnapshot.empty) {
+      for (const doc of stepCacheSnapshot.docs) considerEntry(doc, doc.data());
     }
-    if (!finalStepDoc || !cachedEntry) {
-      const stepCacheQuery2 = firestore.collection('census_cache')
-        .where('state', '==', state)
-        .where('source', '==', 'step-cache');
-      const stepCacheSnapshot2 = await stepCacheQuery2.get();
-      if (!stepCacheSnapshot2.empty) {
-        for (const doc of stepCacheSnapshot2.docs) {
-          const entry = doc.data();
-          if (entry.algorithmVersion === currentVersion && entry.step !== undefined && entry.step > highestStep && entry.unionPolygonsCached === true) {
-            finalStepDoc = doc;
-            cachedEntry = entry;
-            highestStep = entry.step;
-          }
-        }
-      }
+    if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
+      for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc, doc.data());
+    }
+    if (!finalStepDoc && !stepCacheSnapshot2.empty) {
+      for (const doc of stepCacheSnapshot2.docs) considerEntry(doc, doc.data());
     }
 
     // Only load union polygons from Cloud Storage when step has unionPolygonsCached (files known to exist)
@@ -3619,23 +3594,22 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
         .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
         .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
 
+      const unionCacheKeys = [];
       for (const group of sortedGroups) {
         let unionCacheKey = group.unionPolygonCacheKey;
         if (!unionCacheKey && group.startDistrictNumber != null && group.endDistrictNumber != null) {
           unionCacheKey = `union_polygon_${state}_${cachedEntry.step}_${group.startDistrictNumber}-${group.endDistrictNumber}`;
         }
-        if (!unionCacheKey) continue;
-        try {
-          const cacheResult = await cloudStorageCache.get(unionCacheKey);
-          if (cacheResult && cacheResult.data) {
-            const unionData = cacheResult.data;
-            const features = Array.isArray(unionData) ? unionData : [unionData];
-            for (const f of features) {
-              if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
-            }
+        if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
+      }
+      const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
+      for (const cacheResult of cacheResults) {
+        if (cacheResult && cacheResult.data) {
+          const unionData = cacheResult.data;
+          const features = Array.isArray(unionData) ? unionData : [unionData];
+          for (const f of features) {
+            if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
           }
-        } catch (e) {
-          console.warn(`⚠️ MAP-POLYGONS: Could not load union polygon ${unionCacheKey}: ${e.message}`);
         }
       }
       hasFinalStep = finalDistrictPolygons.length > 0;
