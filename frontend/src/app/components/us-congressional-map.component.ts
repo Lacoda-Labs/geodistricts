@@ -125,12 +125,8 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
     this.svgPathD = [];
     this.cdr.markForCheck();
 
-    const step0Ak$ = this.showInsetStates
-      ? this.geodistrictService.getStep('AK', 0, 100).pipe(catchError(() => of(null)))
-      : of(null);
-    const step0Hi$ = this.showInsetStates
-      ? this.geodistrictService.getStep('HI', 0, 100).pipe(catchError(() => of(null)))
-      : of(null);
+    const step0Ak$ = of(null);
+    const step0Hi$ = of(null);
 
     this.subscription?.unsubscribe();
     this.subscription = forkJoin({
