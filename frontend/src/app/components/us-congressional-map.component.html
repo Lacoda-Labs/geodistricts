@@ -1,5 +1,14 @@
 <div class="us-congressional-map" [class.hero-variant]="variant === 'hero'">
   <div class="map-container">
+    <!-- Hero: raster fallback for instant load (transparent, light gray lines) -->
+    <img
+      *ngIf="variant === 'hero'"
+      class="hero-raster"
+      src="assets/hero-conus-119.webp"
+      alt=""
+      width="800"
+      height="500"
+      fetchpriority="high" />
     <!-- Default: all paths at once -->
     <svg
       *ngIf="variant !== 'hero' && svgPathD.length"

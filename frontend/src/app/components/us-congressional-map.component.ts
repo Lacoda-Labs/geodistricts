@@ -10,6 +10,7 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CongressionalBoundariesService, BoundariesByState, GeoJsonFeatureCollection } from '../services/congressional-boundaries.service';
@@ -35,6 +36,12 @@ const HAWAII_INSET_SVG = { x1: 95, y1: 500 - INSET_SIZE, x2: 95 + INSET_SIZE, y2
 
 const DEFAULT_CONGRESS = 119;
 
+/** Precomputed hero asset payload (hero-conus-119.json). */
+export interface HeroConusPayload {
+  viewBox: string;
+  districts: { paths: string[]; stateKey: string }[];
+}
+
 @Component({
   selector: 'app-us-congressional-map',
   standalone: true,
@@ -57,7 +64,10 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   /** Hero only: paths revealed one-by-one with fill during state draw, then stroke-only. */
   heroAnimatedPaths: { d: string; stateKey: string; filled: boolean }[] = [];
   viewBox = SVG_VIEWBOX;
+  /** Hero only: true when using static asset (raster + precomputed JSON). */
+  useStaticHero = false;
   private subscription: Subscription | null = null;
+  private staticHeroSubscription: Subscription | null = null;
   private heroAnimationTimeouts: ReturnType<typeof setTimeout>[] = [];
   private lastStep0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
   private lastStep0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
@@ -67,6 +77,7 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   constructor(
     private boundariesService: CongressionalBoundariesService,
     private geodistrictService: GeodistrictAlgorithmService,
+    private http: HttpClient,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -93,6 +104,7 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.staticHeroSubscription?.unsubscribe();
     this.clearHeroAnimation();
   }
 
@@ -102,14 +114,23 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   }
 
   private loadBoundaries(): void {
+    if (this.variant === 'hero' && this.congress === 119 && !this.showInsetStates) {
+      this.loadStaticHero();
+      return;
+    }
+
     this.isLoading = true;
     this.errorMessage = null;
     this.byState = null;
     this.svgPathD = [];
     this.cdr.markForCheck();
 
-    const step0Ak$ = this.geodistrictService.getStep('AK', 0, 100).pipe(catchError(() => of(null)));
-    const step0Hi$ = this.geodistrictService.getStep('HI', 0, 100).pipe(catchError(() => of(null)));
+    const step0Ak$ = this.showInsetStates
+      ? this.geodistrictService.getStep('AK', 0, 100).pipe(catchError(() => of(null)))
+      : of(null);
+    const step0Hi$ = this.showInsetStates
+      ? this.geodistrictService.getStep('HI', 0, 100).pipe(catchError(() => of(null)))
+      : of(null);
 
     this.subscription?.unsubscribe();
     this.subscription = forkJoin({
@@ -138,6 +159,28 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
         this.cdr.markForCheck();
       }
     });
+  }
+
+  /** Load raster image immediately and precomputed path JSON for hero (119th CONUS only). */
+  private loadStaticHero(): void {
+    this.useStaticHero = true;
+    this.isLoading = false;
+    this.errorMessage = null;
+    this.byState = null;
+    this.svgPathD = [];
+    this.heroAnimatedPaths = [];
+    this.cdr.markForCheck();
+
+    this.staticHeroSubscription?.unsubscribe();
+    this.staticHeroSubscription = this.http
+      .get<HeroConusPayload>('assets/hero-conus-119.json')
+      .pipe(catchError(() => of(null)))
+      .subscribe(payload => {
+        if (payload?.districts?.length) {
+          this.startHeroDrawAnimationFromPrecomputed(payload.districts);
+        }
+        this.cdr.markForCheck();
+      });
   }
 
   private buildSvgPaths(
@@ -232,10 +275,29 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
     step0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null,
     step0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null
   ): void {
-    this.clearHeroAnimation();
     const byStateList = this.buildSvgPathsByState(byState, step0Ak, step0Hi);
+    this.runHeroDrawAnimation(byStateList);
+  }
+
+  /** Run hero draw animation from precomputed asset (flat districts grouped by stateKey). */
+  private startHeroDrawAnimationFromPrecomputed(
+    districts: { paths: string[]; stateKey: string }[]
+  ): void {
+    const byState = new Map<string, string[][]>();
+    districts.forEach(({ paths, stateKey }) => {
+      if (!byState.has(stateKey)) byState.set(stateKey, []);
+      byState.get(stateKey)!.push(paths);
+    });
+    const byStateList: { state: string; districts: string[][] }[] = [];
+    byState.forEach((districtPathArrays, state) => {
+      byStateList.push({ state, districts: districtPathArrays });
+    });
+    this.runHeroDrawAnimation(byStateList);
+  }
+
+  private runHeroDrawAnimation(byStateList: { state: string; districts: string[][] }[]): void {
+    this.clearHeroAnimation();
     if (byStateList.length === 0) return;
-    // Shuffle state order; flatten to one entry per district (each district = array of path d)
     const shuffled = [...byStateList].sort(() => Math.random() - 0.5);
     const flat: { paths: string[]; stateKey: string; isLastInState: boolean }[] = [];
     shuffled.forEach(({ state, districts }) => {

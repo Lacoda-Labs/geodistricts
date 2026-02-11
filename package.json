@@ -8,6 +8,7 @@
         "dev:backend": "cd backend && npm run dev",
         "dev:frontend": "cd frontend && ng serve",
         "build": "cd frontend && ng build",
+        "build:hero-asset": "node scripts/build-hero-asset.js",
         "test": "cd backend && npm test",
         "install:all": "npm run install:backend && npm run install:frontend",
         "install:backend": "cd backend && npm install",
@@ -16,6 +17,7 @@
     "devDependencies": {
         "axios": "^1.13.2",
         "concurrently": "^8.2.2",
+        "puppeteer": "^24.37.2",
         "sharp": "^0.34.5"
     },
     "keywords": [
