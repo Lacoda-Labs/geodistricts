@@ -145,6 +145,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     { code: 'NY', name: 'New York', districts: 26 },
     { code: 'IL', name: 'Illinois', districts: 17 },
     { code: 'PA', name: 'Pennsylvania', districts: 17 },
+    { code: 'OH', name: 'Ohio', districts: 15 },
     { code: 'NC', name: 'North Carolina', districts: 14 },
     { code: 'GA', name: 'Georgia', districts: 14 },
     { code: 'MI', name: 'Michigan', districts: 13 },
@@ -167,6 +168,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     { code: 'OR', name: 'Oregon', districts: 6 },
     { code: 'CT', name: 'Connecticut', districts: 5 },
     { code: 'OK', name: 'Oklahoma', districts: 5 },
+    { code: 'MS', name: 'Mississippi', districts: 4 },
     { code: 'AR', name: 'Arkansas', districts: 4 },
     { code: 'IA', name: 'Iowa', districts: 4 },
     { code: 'KS', name: 'Kansas', districts: 4 },
@@ -1382,6 +1384,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canGoToNextStep(): boolean {
+    // In map-only view, enable Next so user can run the algorithm (nextStep will call runAlgorithm)
+    if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
+      return !this.isLoading;
+    }
     // Can go to next step if:
     // 1. Next step is already loaded, OR
     // 2. Algorithm is not complete (we can request next step)
@@ -1558,6 +1564,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   nextStep(): void {
+    // Map-only view: run algorithm so user can step through (first "Next" starts algorithm)
+    if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
+      this.runAlgorithm();
+      return;
+    }
+
     // Special handling for step 0 -> check if we need to show sorting first
     if (this.currentStepIndex === 0 && this.isAdminMode && !this.hasShownSorting) {
       this.showSortingVisualization();
@@ -1800,7 +1812,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canGoToFirstStep(): boolean {
-    return this.currentStepIndex > 0;
+    // Enable when we can go to step 0: already past step 0, or in map-only view (clicking runs algorithm)
+    return this.currentStepIndex > 0 || (!!this.mapPolygons && !this.algorithmResult && !!this.selectedState && this.selectedState !== 'ALL');
   }
 
   canGoToPreviousStep(): boolean {

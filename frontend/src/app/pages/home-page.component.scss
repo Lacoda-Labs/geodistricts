@@ -207,7 +207,7 @@
 }
 
 // ---- New sections: Problem, Solution, Principles, Support ----
-$section-accent: var(--mat-sys-primary, #2B638B);
+$section-accent: var(#0d84ea, --mat-sys-primary, );
 $section-dark: #2f3c47;
 $section-bg-light: #f7f7f7;
 $section-bg-dark: #17233b;
@@ -221,7 +221,7 @@ $section-bg-dark: #17233b;
 }
 
 .section-label {
-  font-size: 0.875rem;
+  font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
