@@ -1,7 +1,14 @@
 .step-btn-bar {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 0.5rem;
+}
+
+.step-indicator {
+  font-size: 0.875rem;
+  color: rgba(66, 71, 78, 0.9);
+  margin-left: 0.25rem;
+  min-width: 4rem;
 }
 
 .step-btns {

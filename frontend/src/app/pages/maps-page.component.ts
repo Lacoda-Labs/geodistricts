@@ -1050,7 +1050,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.mapPolygonsState = stateRequested;
         this.isLoading = false;
         this.cdr.markForCheck();
-        setTimeout(() => this.renderMapPolygons(), 100);
+        setTimeout(() => {
+          this.renderMapPolygons();
+          // Auto-load step 0 so initial view is Step 0 without requiring a Next click
+          if (!this.algorithmResult && this.selectedState && this.selectedState !== 'ALL' && !this.isSingleDistrictState(this.selectedState)) {
+            this.runAlgorithm();
+          }
+        }, 100);
       },
       error: (err) => {
         this.errorMessage = err.message || 'Failed to load map polygons';
@@ -1150,15 +1156,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loadAllPreviousSteps(stepIndex);
         }
         
-        // Populate isolated tracts data from step cache if available
+        // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
         if (step.isolatedTractsData) {
           const stepIsolatedData = step.isolatedTractsData;
-          this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-          this.isolatedTractsData = {
-            isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-            isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-          };
-          console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+          if (this.isStaleIsolatedTractsData(step, stepIsolatedData)) {
+            this.isolatedTractIds.clear();
+            this.isolatedTractsData = null;
+            this.detectIsolatedTracts();
+          } else {
+            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+            this.isolatedTractsData = {
+              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+            };
+            console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+          }
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
@@ -1334,15 +1346,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoadingSteps = false;
         }
         
-        // Populate isolated tracts data from step cache if available
+        // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
         if (step.isolatedTractsData) {
           const stepIsolatedData = step.isolatedTractsData;
-          this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-          this.isolatedTractsData = {
-            isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-            isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-          };
-          console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+          if (this.isStaleIsolatedTractsData(step, stepIsolatedData)) {
+            this.isolatedTractIds.clear();
+            this.isolatedTractsData = null;
+            this.detectIsolatedTracts();
+          } else {
+            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+            this.isolatedTractsData = {
+              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+            };
+            console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
+          }
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
@@ -1472,15 +1490,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.currentStep = newStep as any;
             this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
             
-            // Populate isolated tracts data from step cache if available
+            // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
             if ((newStep as any).isolatedTractsData) {
               const stepIsolatedData = (newStep as any).isolatedTractsData;
-              this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-              this.isolatedTractsData = {
-                isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-              };
-              console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+              if (this.isStaleIsolatedTractsData(newStep as any, stepIsolatedData)) {
+                this.isolatedTractIds.clear();
+                this.isolatedTractsData = null;
+                this.detectIsolatedTracts();
+              } else {
+                this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+                this.isolatedTractsData = {
+                  isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+                  isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+                };
+                console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+              }
             } else {
               this.isolatedTractIds.clear();
               this.isolatedTractsData = null;
@@ -1681,15 +1705,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.currentStep = stepToUse as any;
           this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
           
-          // Populate isolated tracts data from step cache if available
+          // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
           if ((stepToUse as any).isolatedTractsData) {
             const stepIsolatedData = (stepToUse as any).isolatedTractsData;
-            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-            this.isolatedTractsData = {
-              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-            };
-            console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+            if (this.isStaleIsolatedTractsData(stepToUse as any, stepIsolatedData)) {
+              this.isolatedTractIds.clear();
+              this.isolatedTractsData = null;
+              this.detectIsolatedTracts();
+            } else {
+              this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
+              this.isolatedTractsData = {
+                isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
+                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+              };
+              console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
+            }
           } else {
             this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
             this.isolatedTractsData = null;
@@ -3726,6 +3756,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractEntriesByDg.clear();
     // Re-render the map with the new highlighting
     this.renderFinalDistricts();
+  }
+
+  /**
+   * Treat cached isolated-tracts data as stale when count is suspiciously high (e.g. pre-FIPS-fix cache).
+   * When stale, we clear and re-detect so the UI does not show wrong counts (e.g. 1763).
+   */
+  private isStaleIsolatedTractsData(step: GeodistrictStep | null, stepIsolatedData: { isolatedTractIds?: string[]; totalIsolated?: number } | null): boolean {
+    if (!step?.districtGroups || !stepIsolatedData) return false;
+    const totalTracts = step.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length ?? 0), 0);
+    const cachedCount = stepIsolatedData.totalIsolated ?? stepIsolatedData.isolatedTractIds?.length ?? 0;
+    return cachedCount > 500 || (totalTracts > 0 && cachedCount > totalTracts * 0.1);
   }
 
   /**

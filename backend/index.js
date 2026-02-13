@@ -2986,14 +2986,14 @@ app.post('/api/algorithm/execute', async (req, res) => {
       maxIterations,
       options.forceInvalidate || false,
       resolveIsolation, // Enable isolation resolution
-      resolveIsolation ? onStepComplete : null // Only cache steps if isolation resolution is enabled
+      onStepComplete // Always cache each step once calculated (record state per step)
     );
     const executionTime = Date.now() - startTime;
 
     logger.info(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
     
     // Mark final step as complete in cache
-    if (resolveIsolation && result.steps.length > 0) {
+    if (result.steps.length > 0) {
       try {
         const finalStepNumber = result.steps.length - 1;
         const finalStepCacheKey = `step_${state}_${finalStepNumber}_${currentVersion}`;
@@ -4955,6 +4955,21 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
       }
     }
 
+    // Fallback: use algorithm state blob (recorded state per step) when per-step doc missing
+    if (!cachedEntry) {
+      const stateKey = getAlgorithmStateKey(state, maxIterations);
+      const algorithmState = await getCachedAlgorithmState(stateKey);
+      if (algorithmState && algorithmState.steps && algorithmState.steps[stepNum]) {
+        const stepFromState = algorithmState.steps[stepNum];
+        cachedEntry = {
+          stepData: stepFromState,
+          normalized: true,
+          tractCacheKey: algorithmState.tractCacheKey || `state_tracts_${state}`,
+          isComplete: algorithmState.iteration === stepNum
+        };
+      }
+    }
+
     if (!cachedEntry) {
       return res.status(404).json({ error: `Step ${stepNum} not found in cache for ${state}` });
     }
@@ -5261,7 +5276,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     // Execute next step
     const { step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState);
 
-    // Cache the step result (async, don't wait)
+    // Cache the step result (await so step is durably recorded before response)
     const cacheStepResult = async () => {
       try {
         // Normalize step data (store tract IDs instead of full geometries)
@@ -5289,8 +5304,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
       }
     };
     
-    // Store in cache asynchronously (don't block response)
-    cacheStepResult();
+    await cacheStepResult();
 
     if (isComplete) {
       // Remove state from cache when complete
