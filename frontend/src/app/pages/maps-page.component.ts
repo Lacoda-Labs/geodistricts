@@ -827,6 +827,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const groups = stepData.districtGroups || [];
       const stateName = this.states.find(s => s.code === stateCode)?.name || stateCode;
       const color = this.getStatePartyColor(stateCode);
+      const fillOpacity = this.getStatePartyOpacity(stateCode);
 
       for (const district of groups) {
         const unionPolygons = (district as any).unionPolygons;
@@ -850,7 +851,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 color,
                 weight: 1.5,
                 opacity: 1,
-                fillOpacity: 0.7,
+                fillOpacity,
                 fillColor: color
               },
               onEachFeature: (feature, layer) => {
@@ -2718,6 +2719,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clearDivisionLines();
 
     const stateColor = this.getStatePartyColor(this.selectedState);
+    const stateFillOpacity = this.getStatePartyOpacity(this.selectedState);
     const bounds = L.latLngBounds([] as L.LatLngExpression[]);
 
     if (this.mapPolygons.hasFinalStep && this.mapPolygons.finalDistrictPolygons && this.mapPolygons.finalDistrictPolygons.length > 0) {
@@ -2747,7 +2749,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             color: stateColor,
             weight: 2,
             opacity: 1.0,
-            fillOpacity: 0.7,
+            fillOpacity: stateFillOpacity,
             fillColor: stateColor
           }
         }).bindPopup(`<strong>${this.selectedState}</strong> (entire state)`);
@@ -2839,9 +2841,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     let totalTracts = 0;
 
     // Render final districts (all steps calculated)
+    const isStep0StateOutline = this.currentStepIndex === 0 && districtsToRender.length === 1;
     districtsToRender.forEach((district, index) => {
       // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index color
-      const baseColor = (this.currentStepIndex === 0 && districtsToRender.length === 1)
+      const baseColor = isStep0StateOutline
         ? this.getStatePartyColor(this.selectedState)
         : this.getDistrictColor(index, districtsToRender.length);
       const isSelected = this.selectedDistrictGroupIndex === index;
@@ -2849,7 +2852,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
         ? this.colorToGrayscale(baseColor) 
         : baseColor;
-      
+      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : 0.7;
+
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
         return;
@@ -2939,7 +2943,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                   color: color, // Match fill color for seamless appearance
                   weight: 2, // Slightly thicker border for district outline
                   opacity: 1.0, // Full opacity for district boundaries
-                  fillOpacity: 0.7,
+                  fillOpacity,
                   fillColor: color
                 }
               }).bindPopup(`
@@ -2984,7 +2988,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                   color: color,
                   weight: 2,
                   opacity: 1.0,
-                  fillOpacity: 0.7,
+                  fillOpacity,
                   fillColor: color
                 }
               }).bindPopup(`
@@ -3653,7 +3657,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Color for step0 state boundary by 119th Congress party share (D/(D+R)).
-   * Red = 0% D, blue = 100% D. Neutral gray when no data or no seats.
+   * Red for R-majority, blue for D-majority (no green/yellow). Lightness reflects strength (pale near 50%).
    */
   private getStatePartyColor(stateCode: string): string {
     const s = this.stateComparison?.states?.[stateCode];
@@ -3663,8 +3667,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const total = congressD + congressR;
     if (total === 0) return 'hsl(0, 0%, 55%)';
     const demPct = congressD / total;
-    const hue = demPct * 240;
-    return `hsl(${hue}, 70%, 50%)`;
+    // Strength 0 = tie (50/50), 1 = 100% D or 100% R
+    const strength = demPct <= 0.5 ? (0.5 - demPct) * 2 : (demPct - 0.5) * 2;
+    const hue = demPct <= 0.5 ? 0 : 240; // red or blue only
+    const lightness = Math.round(72 - strength * 22); // 72% at tie (pale), 50% at full
+    return `hsl(${hue}, 70%, ${lightness}%)`;
+  }
+
+  /**
+   * Fill opacity for state party shading: stronger majority = more opaque (0.35 at tie, 1 at full).
+   */
+  private getStatePartyOpacity(stateCode: string): number {
+    const s = this.stateComparison?.states?.[stateCode];
+    if (!s) return 0.6;
+    const congressD = parseInt(String(s.congressD), 10) || 0;
+    const congressR = parseInt(String(s.congressR), 10) || 0;
+    const total = congressD + congressR;
+    if (total === 0) return 0.6;
+    const demPct = congressD / total;
+    const strength = demPct <= 0.5 ? (0.5 - demPct) * 2 : (demPct - 0.5) * 2;
+    return 0.35 + strength * 0.65;
   }
 
   /**
