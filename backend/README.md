@@ -26,6 +26,12 @@ A Cloud Run service that provides the main API for GeoDistricts, including Censu
 - `GET /api/census/cache-info` - Get information about cached entries
 - `DELETE /api/census/cache` - Clear cache entries (all or specific key)
 
+## Data files (deployment)
+
+The API serves 119th Congress party data from `GET /api/maps/state-comparison` (and 119th-only fallback). The Docker image reads from `backend/data/`:
+
+- **`backend/data/congress-119-party.json`** – Bundled so Cloud Run has 119th D/R counts per state. Keep in sync with repo root `data/congress-119-party.json` when that file is updated.
+
 ## Environment Variables
 
 - `NODE_ENV` - Environment (production/development)
