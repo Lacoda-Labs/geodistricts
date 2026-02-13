@@ -12,21 +12,21 @@
     <span class="state-districts">({{ data.districts }})</span>
   </div>
   <div class="data-column congress-column">
-    <div class="data-badge democratic" [class.dimmed]="false">
+    <div class="data-badge democratic" [class.dimmed]="false" [style.--party-pct]="congressDPct">
       <span>D: {{ data.congressD }}</span>
       <span class="change-indicator" *ngIf="showCongressDDelta">{{ formatDelta(data.congressDChange) }}</span>
     </div>
-    <div class="data-badge republican" [class.dimmed]="false">
+    <div class="data-badge republican" [class.dimmed]="false" [style.--party-pct]="congressRPct">
       <span>R: {{ data.congressR }}</span>
       <span class="change-indicator" *ngIf="showCongressRDelta">{{ formatDelta(data.congressRChange) }}</span>
     </div>
   </div>
   <div class="data-column geodistricts-column">
-    <div class="data-badge democratic dimmed">
+    <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
       <span>D: {{ data.geodistrictsD }}</span>
       <span class="change-indicator" *ngIf="showGeodistrictsDDelta">{{ formatDelta(data.geodistrictsDChange) }}</span>
     </div>
-    <div class="data-badge republican dimmed">
+    <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
       <span>R: {{ data.geodistrictsR }}</span>
       <span class="change-indicator" *ngIf="showGeodistrictsRDelta">{{ formatDelta(data.geodistrictsRChange) }}</span>
     </div>

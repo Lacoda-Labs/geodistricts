@@ -62,5 +62,29 @@ export class StateRowComponent {
   get showGeodistrictsRDelta(): boolean {
     return (this.data.geodistrictsR > this.data.geodistrictsD) && this.data.geodistrictsRChange !== undefined && this.data.geodistrictsRChange !== null;
   }
+
+  /** Share of Congress column that is D (0–1). Used for shade intensity. */
+  get congressDPct(): number {
+    const t = this.data.congressD + this.data.congressR;
+    return t ? this.data.congressD / t : 0;
+  }
+
+  /** Share of Congress column that is R (0–1). Used for shade intensity. */
+  get congressRPct(): number {
+    const t = this.data.congressD + this.data.congressR;
+    return t ? this.data.congressR / t : 0;
+  }
+
+  /** Share of GeoDistricts column that is D (0–1). Used for shade intensity. */
+  get geodistrictsDPct(): number {
+    const t = this.data.geodistrictsD + this.data.geodistrictsR;
+    return t ? this.data.geodistrictsD / t : 0;
+  }
+
+  /** Share of GeoDistricts column that is R (0–1). Used for shade intensity. */
+  get geodistrictsRPct(): number {
+    const t = this.data.geodistrictsD + this.data.geodistrictsR;
+    return t ? this.data.geodistrictsR / t : 0;
+  }
 }
 

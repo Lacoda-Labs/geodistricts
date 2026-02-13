@@ -250,6 +250,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       })
     ).subscribe(payload => {
       this.stateComparison = payload || null;
+      if (this.selectedState === 'ALL' && this.cachedUSMapStepDataByState?.length && this.map && this.tractLayer) {
+        this.renderUSMapDistricts(this.cachedUSMapStepDataByState);
+      }
       this.cdr.markForCheck();
     });
   }
@@ -820,12 +823,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tractGeoJsonLayers.clear();
     this.tractIdToLayer.clear();
 
-    let globalDistrictIndex = 0;
-    const totalDistricts = 435;
-
     for (const { stateCode, stepData } of completedStatesData) {
       const groups = stepData.districtGroups || [];
       const stateName = this.states.find(s => s.code === stateCode)?.name || stateCode;
+      const color = this.getStatePartyColor(stateCode);
 
       for (const district of groups) {
         const unionPolygons = (district as any).unionPolygons;
@@ -834,8 +835,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
 
         if (polygonsToRender.length === 0) continue;
-
-        const color = this.getDistrictColor(globalDistrictIndex, totalDistricts);
         const districtLabel = district.startDistrictNumber === district.endDistrictNumber
           ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
         const popupContent = `<strong>${stateName} ${districtLabel}</strong><br>
@@ -865,7 +864,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             console.warn('Error rendering US map district polygon:', e);
           }
         }
-        globalDistrictIndex++;
       }
     }
   }
@@ -2719,7 +2717,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
-    const stateColor = this.getDistrictColor(0, 1);
+    const stateColor = this.getStatePartyColor(this.selectedState);
     const bounds = L.latLngBounds([] as L.LatLngExpression[]);
 
     if (this.mapPolygons.hasFinalStep && this.mapPolygons.finalDistrictPolygons && this.mapPolygons.finalDistrictPolygons.length > 0) {
@@ -2842,8 +2840,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Render final districts (all steps calculated)
     districtsToRender.forEach((district, index) => {
-      // Determine color based on selection state
-      const baseColor = this.getDistrictColor(index, districtsToRender.length);
+      // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index color
+      const baseColor = (this.currentStepIndex === 0 && districtsToRender.length === 1)
+        ? this.getStatePartyColor(this.selectedState)
+        : this.getDistrictColor(index, districtsToRender.length);
       const isSelected = this.selectedDistrictGroupIndex === index;
       // Only apply grayscale if a district is selected AND this one is not selected
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
@@ -3648,6 +3648,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private getDistrictColor(districtIndex: number, totalDistricts: number): string {
     // Generate distinct colors for each district
     const hue = (districtIndex * 360) / totalDistricts;
+    return `hsl(${hue}, 70%, 50%)`;
+  }
+
+  /**
+   * Color for step0 state boundary by 119th Congress party share (D/(D+R)).
+   * Red = 0% D, blue = 100% D. Neutral gray when no data or no seats.
+   */
+  private getStatePartyColor(stateCode: string): string {
+    const s = this.stateComparison?.states?.[stateCode];
+    if (!s) return 'hsl(0, 0%, 55%)';
+    const congressD = parseInt(String(s.congressD), 10) || 0;
+    const congressR = parseInt(String(s.congressR), 10) || 0;
+    const total = congressD + congressR;
+    if (total === 0) return 'hsl(0, 0%, 55%)';
+    const demPct = congressD / total;
+    const hue = demPct * 240;
     return `hsl(${hue}, 70%, 50%)`;
   }
 
