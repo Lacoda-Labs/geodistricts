@@ -61,6 +61,10 @@ interface VoterData {
 - **Community Preservation**: Maintain existing political neighborhoods
 - **Outcome Validation**: Verify non-partisan district generation
 
+### Related
+
+For **estimated party impact from actual election results** (rather than registration), the project uses **PoliGeo Analyst** with Harvard VEST data to estimate Democratic/Republican vote share for geodistricts and compare to current US congressional representation. See [PoliGeo Analyst](POLIGEO_ANALYST.md).
+
 ## Data Sources by State
 
 ### Configured States

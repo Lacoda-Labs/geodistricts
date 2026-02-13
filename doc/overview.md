@@ -57,7 +57,7 @@ GeoDistricts is fundamentally an **algorithmic protocol** - a computational meth
 - **Open Source**: All implementations are transparent and verifiable
 - **DAO Governance**: Protocol governed by decentralized autonomous organization
 - **Government Efficiency**: Reduces costs of redistricting related activities such as: commissions and consulting, litigation, propositions, legislation, etc.
-- **Real-time Analytics**: Near real-time and predictive analytics provide accurate party representation based on voting results and registrations.
+- **Real-time Analytics**: Near real-time and predictive analytics provide accurate party representation based on voting results and registrations. **PoliGeo Analyst** uses VEST election data (and optionally voter registration) to estimate party impact for geodistricts and compare to current representation. See [PoliGeo Analyst](pages/POLIGEO_ANALYST.md).
 
 ## The Future of Fair Representation
 

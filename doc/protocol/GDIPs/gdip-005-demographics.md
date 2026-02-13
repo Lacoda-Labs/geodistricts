@@ -51,6 +51,7 @@ Stakeholders (e.g. researchers, legislators) often want to understand the demogr
 
 - [doc/pages/STATE_ELECTION_DATA.md](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/STATE_ELECTION_DATA.md)  
 - [doc/pages/CENSUS_POPULATION_DATA.md](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/CENSUS_POPULATION_DATA.md)  
+- [PoliGeo Analyst](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/POLIGEO_ANALYST.md) — party estimates from election results (VEST) per geodistrict.
 - [backend/services/representation-comparison.js](https://github.com/Lacoda-Labs/geodistricts/blob/main/backend/services/representation-comparison.js) (placeholder; future extension for demographics).
 
 ## References

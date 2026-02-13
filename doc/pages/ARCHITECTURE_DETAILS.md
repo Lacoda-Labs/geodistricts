@@ -108,6 +108,7 @@ Backend API Structure:
 └── Services
     ├── Census Service    # Census API integration
     ├── Algorithm Service # Core algorithm logic
+    ├── PoliGeo Analyst  # Estimated party impact from VEST, comparison to current representation
     ├── Cache Service     # Caching abstraction
     └── Storage Service   # Cloud storage abstraction
 ```
@@ -125,6 +126,9 @@ Backend API Structure:
 - Population balancing logic
 - Contiguity validation
 - Performance optimization
+
+#### PoliGeo Analyst
+- Estimated party impact from VEST election data and comparison to current US House representation. See [PoliGeo Analyst](POLIGEO_ANALYST.md).
 
 #### Cache Service
 - Redis-based caching for census data

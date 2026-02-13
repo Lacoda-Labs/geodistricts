@@ -51,6 +51,7 @@ Researchers, advocates, and legislators need to compare current districts with a
 ## Reference Implementation
 
 - [doc/history/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/history/CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md)  
+- [PoliGeo Analyst](https://github.com/Lacoda-Labs/geodistricts/blob/main/doc/pages/POLIGEO_ANALYST.md) — partisan balance and comparison to current US House representation.
 - [backend/services/representation-comparison.js](https://github.com/Lacoda-Labs/geodistricts/blob/main/backend/services/representation-comparison.js)
 
 ## References

@@ -4,6 +4,8 @@
 
 This document outlines a comprehensive plan to fetch, process, and compare existing US congressional district maps with geodistricts maps. The goal is to enable district-by-district comparisons at the state level, analyze voter registration party balance changes, compare racial demographic data between current congressional districts and algorithmically-generated geodistricts, and generate national-level summary comparisons aggregating all 50 states plus DC. The national comparison will include single-district states (AK, DE, MT, ND, SD, VT, WY, DC) to provide a complete United States overview.
 
+For **estimated party impact from election results** (VEST) and comparison to current representation, the reference implementation provides **PoliGeo Analyst**; see [PoliGeo Analyst](../pages/POLIGEO_ANALYST.md).
+
 ## Objectives
 
 1. **Fetch existing US congressional district map data** for all states (including single-district states for national comparison)
@@ -616,6 +618,8 @@ interface NationalSummary {
 ## 4. Comparison Metrics and Analysis
 
 ### 4.1 Party Balance Comparison
+
+**PoliGeo Analyst** implements tract-level party estimates from VEST election data and comparison to current state/US House representation; see [PoliGeo Analyst](../pages/POLIGEO_ANALYST.md).
 
 **Metrics to Calculate**:
 

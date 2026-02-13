@@ -90,6 +90,7 @@ For detailed implementation specifications and related documentation, see:
 - [Census Proxy Implementation](pages/CENSUS_PROXY_IMPLEMENTATION.md) - Proxy service details
 - [Census Proxy Integration](pages/CENSUS_PROXY_INTEGRATION.md) - Integration guide
 - [State Data Sources](pages/STATE_DATA_SOURCES.md) - State-specific data sources
+- [PoliGeo Analyst](pages/POLIGEO_ANALYST.md) - Estimated party impact from VEST election data and comparison to current representation
 
 ### Implementation & Verification
 - [Implementation Verification](pages/IMPLEMENTATION_VERIFICATION.md) - Verification procedures
