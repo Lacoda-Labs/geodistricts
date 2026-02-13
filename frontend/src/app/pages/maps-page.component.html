@@ -21,7 +21,6 @@
         <!-- US Summary Row -->
         <app-state-row 
           [data]="getUSRowData()"
-          [showArrow]="false"
           [clickable]="false"
           background="off"
           section="us-data">
@@ -29,7 +28,7 @@
 
         <!-- Table Header -->
         <div class="table-header-row">
-          <div class="table-header-cell">State</div>
+          <div class="table-header-cell">Map</div>
           <div class="table-header-cell">119th Congress</div>
           <div class="table-header-cell">GeoDistricts</div>
           <div class="table-header-cell">Swing</div>
@@ -39,7 +38,6 @@
         <app-state-row 
           *ngFor="let state of states"
           [data]="getStateRowData(state.code)"
-          [showArrow]="true"
           [clickable]="!isSingleDistrictState(state.code)"
           background="off"
           section="us-data"
@@ -55,7 +53,7 @@
           <div class="state-rows-header">
             <div class="header-row">
               <div class="header-cell state-column" (click)="selectedState = 'ALL'; onStateChange()"
-                style="cursor: pointer;">State</div>
+                style="cursor: pointer;">Map</div>
               <div class="header-cell congress-column">119th Congress</div>
               <div class="header-cell geodistricts-column">GeoDistricts</div>
               <div class="header-cell swing-column">Swing</div>
@@ -64,7 +62,6 @@
           <app-state-row 
             *ngIf="selectedState && selectedState !== 'ALL'"
             [data]="getStateRowData(selectedState)"
-            [showArrow]="false"
             [clickable]="false"
             background="off"
             section="info">

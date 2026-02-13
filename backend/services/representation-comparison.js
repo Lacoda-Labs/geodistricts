@@ -63,7 +63,7 @@ class RepresentationComparisonEngine {
 
   /**
    * Load current district representation data for a state
-   * This is a placeholder - in production, load from Ballotpedia/RDH/etc.
+   * Uses 119th Congress party data from data/congress-119-party.json when available.
    */
   async loadDistrictRepresentation(state) {
     // Check cache
@@ -71,25 +71,19 @@ class RepresentationComparisonEngine {
       return this.districtDataCache.get(state);
     }
 
-    // Placeholder data structure
-    // In production, this would fetch from:
-    // - Ballotpedia API
-    // - Dave's Redistricting App API
-    // - Redistricting Data Hub (RDH)
-    // - Census TIGER district boundaries + election results
-    
-    const placeholderData = {
-      stateHouse: [], // Array of { district: '1', party: 'D' or 'R', incumbent: 'Name' }
+    const congress119 = require('./congress-119-party');
+    const usHouse = congress119.getUsHouseByState(state);
+
+    const data = {
+      stateHouse: [],
       stateSenate: [],
-      usHouse: [],
+      usHouse: usHouse.length > 0 ? usHouse : [],
       lastUpdated: null,
-      source: 'placeholder',
+      source: usHouse.length > 0 ? 'congress-119-party' : 'placeholder',
     };
 
-    // TODO: Implement actual data loading
-    // For now, return placeholder
-    this.districtDataCache.set(state, placeholderData);
-    return placeholderData;
+    this.districtDataCache.set(state, data);
+    return data;
   }
 
   /**

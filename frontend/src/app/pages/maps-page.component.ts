@@ -17,6 +17,8 @@ import { StateRowComponent, StateRowData } from '../components/state-row.compone
 import { StepBtnBarComponent } from '../components/step-btn-bar.component';
 import { environment } from '../../environments/environment';
 
+const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
+
 declare global {
   interface Window {
     gtag: (command: string, action: string, parameters: any) => void;
@@ -132,6 +134,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private cachedUSMapTotalDistricts: number = 0;
   private cachedUSMapCompletedStateCodes: Set<string> = new Set();
 
+  /** State comparison (119th vs GeoDistricts) for state list; loaded from GET /api/maps/state-comparison */
+  stateComparison: { us: { congressD: number; congressR: number; geodistrictsD: number; geodistrictsR: number; swing: number }; states: Record<string, { congressD: number; congressR: number; geodistrictsD: number; geodistrictsR: number; swing: number }> } | null = null;
+
   /** Map-only view: polygons from GET map-polygons (no algorithm run). Null when in step mode or ALL view. */
   mapPolygons: MapPolygonsResponse | null = null;
   /** State code that mapPolygons belong to (prevents rendering wrong state after switch). */
@@ -236,6 +241,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.selectedState = 'ALL';
     }
+
+    // Load state comparison (119th vs GeoDistricts) for state list
+    this.http.get<{ us: any; states: Record<string, any> }>(STATE_COMPARISON_URL).pipe(
+      catchError(err => {
+        console.warn('Maps: state-comparison not available, using placeholders', err?.status || err);
+        return of(null);
+      })
+    ).subscribe(payload => {
+      this.stateComparison = payload || null;
+      this.cdr.markForCheck();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -4242,69 +4258,42 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private expandedStates: Set<string> = new Set();
 
   /**
-   * Get US data for display in the summary row
-   * TODO: Replace with actual data from API/backend
+   * Get US data for display in the summary row (from state-comparison API when loaded).
    */
   getUSData(source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
-    // Placeholder data - replace with actual data
-    if (source === 'swing') {
-      return '22';
-    }
-    if (source === '119th') {
-      return type === 'D' ? '43' : '22';
-    }
-    if (source === 'geodistricts') {
-      return type === 'D' ? '34' : '22';
+    const u = this.stateComparison?.us;
+    if (u) {
+      if (source === 'swing') return String(u.swing);
+      if (source === '119th') return type === 'D' ? String(u.congressD) : String(u.congressR);
+      if (source === 'geodistricts') return type === 'D' ? String(u.geodistrictsD) : String(u.geodistrictsR);
     }
     return '0';
   }
 
   /**
-   * Get US data change indicator
-   * TODO: Replace with actual data from API/backend
+   * Get US data change indicator (optional; not populated initially).
    */
-  getUSDataChange(source: '119th' | 'geodistricts', type: 'D' | 'R'): string | null {
-    // Placeholder data - replace with actual data
-    if (source === '119th' && type === 'D') {
-      return '+34';
-    }
-    if (source === 'geodistricts' && type === 'D') {
-      return '+16';
-    }
+  getUSDataChange(_source: '119th' | 'geodistricts', _type: 'D' | 'R'): string | null {
     return null;
   }
 
   /**
-   * Get state data for display in state rows
-   * TODO: Replace with actual data from API/backend
+   * Get state data for display in state rows (from state-comparison API when loaded).
    */
   getStateData(stateCode: string, source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
-    // Placeholder data - replace with actual data
-    // For now, return same values as US summary
-    if (source === 'swing') {
-      return '22';
-    }
-    if (source === '119th') {
-      return type === 'D' ? '43' : '22';
-    }
-    if (source === 'geodistricts') {
-      return type === 'D' ? '34' : '22';
+    const s = this.stateComparison?.states?.[stateCode];
+    if (s) {
+      if (source === 'swing') return String(s.swing);
+      if (source === '119th') return type === 'D' ? String(s.congressD) : String(s.congressR);
+      if (source === 'geodistricts') return type === 'D' ? String(s.geodistrictsD) : String(s.geodistrictsR);
     }
     return '0';
   }
 
   /**
-   * Get state data change indicator
-   * TODO: Replace with actual data from API/backend
+   * Get state data change indicator (optional; not populated initially).
    */
-  getStateDataChange(stateCode: string, source: '119th' | 'geodistricts', type: 'D' | 'R'): string | null {
-    // Placeholder data - replace with actual data
-    if (source === '119th' && type === 'D') {
-      return '+34';
-    }
-    if (source === 'geodistricts' && type === 'D') {
-      return '+16';
-    }
+  getStateDataChange(_stateCode: string, _source: '119th' | 'geodistricts', _type: 'D' | 'R'): string | null {
     return null;
   }
 
@@ -4363,19 +4352,27 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Get US row data for StateRowComponent
    */
   getUSRowData(): StateRowData {
-    const congressDChangeStr = this.getUSDataChange('119th', 'D');
-    const geodistrictsDChangeStr = this.getUSDataChange('geodistricts', 'D');
+    const congressD = parseInt(this.getUSData('119th', 'D'), 10) || 0;
+    const congressR = parseInt(this.getUSData('119th', 'R'), 10) || 0;
+    const geodistrictsD = parseInt(this.getUSData('geodistricts', 'D'), 10) || 0;
+    const geodistrictsR = parseInt(this.getUSData('geodistricts', 'R'), 10) || 0;
     const districtCount = this.selectedState === 'ALL' ? this.usMapTotalDistricts : 435;
+    const congressMarginD = congressD - congressR;
+    const congressMarginR = congressR - congressD;
+    const geodistrictsMarginD = geodistrictsD - geodistrictsR;
+    const geodistrictsMarginR = geodistrictsR - geodistrictsD;
     return {
       stateCode: 'US',
       stateName: 'United States',
       districts: districtCount,
-      congressD: parseInt(this.getUSData('119th', 'D'), 10) || 0,
-      congressR: parseInt(this.getUSData('119th', 'R'), 10) || 0,
-      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      geodistrictsD: parseInt(this.getUSData('geodistricts', 'D'), 10) || 0,
-      geodistrictsR: parseInt(this.getUSData('geodistricts', 'R'), 10) || 0,
-      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
+      congressD,
+      congressR,
+      congressDChange: congressMarginD > 0 ? congressMarginD : undefined,
+      congressRChange: congressMarginR > 0 ? congressMarginR : undefined,
+      geodistrictsD,
+      geodistrictsR,
+      geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
+      geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
       swing: parseInt(this.getUSData('swing', 'value'), 10) || 0
     };
   }
@@ -4385,18 +4382,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   getStateRowData(stateCode: string) {
     const state = this.states.find((s: { code: string }) => s.code === stateCode);
-    const congressDChangeStr = this.getStateDataChange(stateCode, '119th', 'D');
-    const geodistrictsDChangeStr = this.getStateDataChange(stateCode, 'geodistricts', 'D');
+    const congressD = parseInt(this.getStateData(stateCode, '119th', 'D'), 10) || 0;
+    const congressR = parseInt(this.getStateData(stateCode, '119th', 'R'), 10) || 0;
+    const geodistrictsD = parseInt(this.getStateData(stateCode, 'geodistricts', 'D'), 10) || 0;
+    const geodistrictsR = parseInt(this.getStateData(stateCode, 'geodistricts', 'R'), 10) || 0;
+    const congressMarginD = congressD - congressR;
+    const congressMarginR = congressR - congressD;
+    const geodistrictsMarginD = geodistrictsD - geodistrictsR;
+    const geodistrictsMarginR = geodistrictsR - geodistrictsD;
     return {
       stateCode: stateCode,
       stateName: state?.name,
       districts: state?.districts ?? 0,
-      congressD: parseInt(this.getStateData(stateCode, '119th', 'D'), 10) || 0,
-      congressR: parseInt(this.getStateData(stateCode, '119th', 'R'), 10) || 0,
-      congressDChange: congressDChangeStr ? parseInt(congressDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
-      geodistrictsD: parseInt(this.getStateData(stateCode, 'geodistricts', 'D'), 10) || 0,
-      geodistrictsR: parseInt(this.getStateData(stateCode, 'geodistricts', 'R'), 10) || 0,
-      geodistrictsDChange: geodistrictsDChangeStr ? parseInt(geodistrictsDChangeStr.replace(/[+-]/g, ''), 10) : undefined,
+      congressD,
+      congressR,
+      congressDChange: congressMarginD > 0 ? congressMarginD : undefined,
+      congressRChange: congressMarginR > 0 ? congressMarginR : undefined,
+      geodistrictsD,
+      geodistrictsR,
+      geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
+      geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
       swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0
     };
   }

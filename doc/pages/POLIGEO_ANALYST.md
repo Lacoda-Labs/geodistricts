@@ -45,6 +45,10 @@ The analysis returns a structure matching the frontend type `PoliGeoAnalysisResu
 - **poligeo-analyst.js** ([backend/services/poligeo-analyst.js](../../backend/services/poligeo-analyst.js)): `analyze()`, `analyzeFromGeoids()`, `analyzeFromPolygon()`; uses `vest-data-loader`, `spatial-analyzer`, and `representation-comparison`.
 - **API routes** in [backend/index.js](../../backend/index.js) under `/api/poligeo/*`: `GET /api/poligeo/state-summary`, `POST /api/poligeo/analyze`, `GET /api/poligeo/vest-data/status`, `POST /api/poligeo/vest-data/download`, `POST /api/poligeo/vest-data/process-local`.
 
+## Maps page state list
+
+The **maps page** state list (columns: 119th Congress, GeoDistricts, Swing) is powered by the **state-comparison** pipeline. The backend builds a payload from 119th Congress party data and, for each state with a completed final step, runs PoliGeo per geodistrict (tract list from the algorithm), assigns D/R by VEST vote share, and aggregates to state and US totals. The result is persisted to `data/maps-state-comparison.json` via `POST /api/admin/maps-comparison/refresh` and served at `GET /api/maps/state-comparison`.
+
 ## VEST data lifecycle
 
 - VEST data must be **downloaded** (from Dataverse) or **processed** from locally placed files before analysis returns data.

@@ -11,7 +11,7 @@ This is the technical and developer portal for the GeoDistricts project: documen
 
 Summarized AI pair-programming (Cursor) sessions — prompts, decisions, and outcomes — published for transparency and for use as context by humans and agents.
 
-- **[Archive index](archive/)** — session summaries by date (`YYYY-MM/YYMMDD[-topic].md`).
+- **[Archive index](archive/INDEX.md)** — session summaries by date (`YYYY-MM/YYMMDD[-topic].md`).
 - **[Archive README](archive/README.md)** — purpose, audiences, format, and canonical source.
 
 ## Links

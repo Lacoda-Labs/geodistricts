@@ -13,6 +13,8 @@ const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
 const vestDataLoader = require('./services/vest-data-loader');
 const poligeoAnalyst = require('./services/poligeo-analyst');
+const congress119Party = require('./services/congress-119-party');
+const mapsComparison = require('./services/maps-comparison');
 const logger = require('./utils/logger');
 require('dotenv').config();
 
@@ -851,6 +853,116 @@ app.get('/api/version', (req, res) => {
       algorithmCache: '/api/algorithm/cache'
     }
   });
+});
+
+/**
+ * GET /api/congress/119/party-summary
+ * Returns 119th Congress House party counts per state and US total.
+ */
+app.get('/api/congress/119/party-summary', (req, res) => {
+  try {
+    const summary = congress119Party.getPartySummary();
+    res.json(summary);
+  } catch (error) {
+    console.error('❌ GET /api/congress/119/party-summary error:', error);
+    res.status(500).json({
+      error: 'Party summary failed',
+      message: error.message,
+    });
+  }
+});
+
+// In-memory cache for maps state comparison (used by GET /api/maps/state-comparison)
+let cachedMapsStateComparison = null;
+
+/**
+ * GET /api/maps/state-comparison
+ * Returns 119th vs GeoDistricts party comparison for maps page state list.
+ * Served from cache or data/maps-state-comparison.json. If no file exists, returns 119th-only payload (GeoDistricts zeros).
+ */
+app.get('/api/maps/state-comparison', (req, res) => {
+  try {
+    if (cachedMapsStateComparison) {
+      return res.json(cachedMapsStateComparison);
+    }
+    const payload = mapsComparison.loadPersistedComparison();
+    if (payload) {
+      cachedMapsStateComparison = payload;
+      return res.json(payload);
+    }
+    // Fallback: 119th party only (geodistricts 0/0) so maps page can show real 119th data
+    const congressSummary = congress119Party.getPartySummary();
+    const states = {};
+    let usCongressD = 0;
+    let usCongressR = 0;
+    for (const [stateCode, counts] of Object.entries(congressSummary.states || {})) {
+      const D = counts.D || 0;
+      const R = counts.R || 0;
+      usCongressD += D;
+      usCongressR += R;
+      states[stateCode] = {
+        congressD: D,
+        congressR: R,
+        geodistrictsD: 0,
+        geodistrictsR: 0,
+        swing: -D,
+      };
+    }
+    const fallback = {
+      us: {
+        congressD: usCongressD,
+        congressR: usCongressR,
+        geodistrictsD: 0,
+        geodistrictsR: 0,
+        swing: -usCongressD,
+      },
+      states,
+      meta: { generatedAt: new Date().toISOString(), vestYear: null, congress: 119, source: '119th-only' },
+    };
+    return res.json(fallback);
+  } catch (error) {
+    console.error('❌ GET /api/maps/state-comparison error:', error);
+    res.status(500).json({
+      error: 'State comparison failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/admin/maps-comparison/refresh
+ * Recomputes 119th vs GeoDistricts comparison and persists to data/maps-state-comparison.json.
+ * Requires final-step states and VEST data. May take several minutes for all states.
+ */
+app.post('/api/admin/maps-comparison/refresh', async (req, res) => {
+  try {
+    const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+    console.log(`🔄 Maps comparison refresh started (base: ${baseUrl})`);
+    poligeoAnalyst.setApiBaseUrl(baseUrl);
+
+    const payload = await mapsComparison.buildStateComparisonPayload({
+      vestYear: parseInt(req.query.vestYear || req.body?.vestYear || '2020', 10),
+      getFinalStepStates: async () => {
+        const { data } = await axios.get(`${baseUrl}/api/algorithm/final-step-states`);
+        return data.stateCodes || [];
+      },
+      getFinalStep: async (state) => {
+        const { data } = await axios.get(`${baseUrl}/api/algorithm/final-step/${state}`);
+        return data;
+      },
+    });
+
+    mapsComparison.savePersistedComparison(payload);
+    cachedMapsStateComparison = payload;
+    console.log(`✅ Maps comparison refreshed: US ${payload.us.congressD}D/${payload.us.congressR}R → ${payload.us.geodistrictsD}D/${payload.us.geodistrictsR}R GeoDistricts`);
+    res.json(payload);
+  } catch (error) {
+    console.error('❌ POST /api/admin/maps-comparison/refresh error:', error);
+    res.status(500).json({
+      error: 'Refresh failed',
+      message: error.message,
+    });
+  }
 });
 
 /**
