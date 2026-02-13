@@ -6273,10 +6273,11 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
 
     // Ensure S4 adjacency data is loaded (required for isolation detection)
     if (allTracts.length > 0) {
-      const state = allTracts[0]?.properties?.['STATE'] || allTracts[0]?.properties?.state || '';
+      let state = allTracts[0]?.properties?.['STATE'] || allTracts[0]?.properties?.state || allTracts[0]?.properties?.['STATE_FIPS'] || '';
       if (state) {
         try {
           const s4DataLoader = require('./services/s4-data-loader');
+          state = s4DataLoader.normalizeStateForS4(state);
           await s4DataLoader.loadS4AdjacencyData(state);
           console.log(`✅ Loaded S4 adjacency data for ${state} before isolation detection`);
         } catch (error) {

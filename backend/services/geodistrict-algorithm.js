@@ -1874,11 +1874,10 @@ class GeodistrictAlgorithmService {
       return new Map();
     }
 
-    // Try to use S4 adjacency data if available (state must be abbreviation e.g. 'CO', not FIPS)
-    const state = tracts[0]?.properties?.['STATE'] || '';
+    // Try to use S4 adjacency data if available (STATE or STATE_FIPS; normalized to abbreviation inside S4 loader)
+    const state = tracts[0]?.properties?.['STATE'] || tracts[0]?.properties?.['STATE_FIPS'] || '';
     if (state) {
-      const cacheKey = state.toLowerCase();
-      const s4AdjacencyGraph = s4DataLoader.getS4AdjacencyData(cacheKey);
+      const s4AdjacencyGraph = s4DataLoader.getS4AdjacencyData(state);
       
       if (s4AdjacencyGraph) {
         const tractIds = new Set(tracts.map(t => getTractId(t)).filter(Boolean));

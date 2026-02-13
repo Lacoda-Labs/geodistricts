@@ -27,6 +27,31 @@ function getStateFipsCode(state) {
 }
 
 /**
+ * FIPS code to state abbreviation (reverse of STATE_FIPS_MAP)
+ * Used to normalize state for S4 cache lookups when tract properties use FIPS (e.g. '04' for AZ)
+ */
+const FIPS_TO_STATE_ABBR = {};
+for (const [abbr, fips] of Object.entries(STATE_FIPS_MAP)) {
+  FIPS_TO_STATE_ABBR[fips] = abbr;
+}
+
+/**
+ * Normalize state to abbreviation for S4 adjacency cache lookup.
+ * Accepts either state abbreviation (e.g. 'AZ') or FIPS code (e.g. '04').
+ * @param {string} state - State abbreviation or 2-digit FIPS code
+ * @returns {string} State abbreviation (e.g. 'AZ') or original string if not FIPS
+ */
+function normalizeStateForS4(state) {
+  if (!state || typeof state !== 'string') return state || '';
+  const trimmed = state.trim();
+  // 2-digit numeric (with optional leading zero) = FIPS
+  if (/^\d{2}$/.test(trimmed) && FIPS_TO_STATE_ABBR[trimmed]) {
+    return FIPS_TO_STATE_ABBR[trimmed];
+  }
+  return trimmed;
+}
+
+/**
  * S4 Data Loader Service
  * Loads and caches Brown University S4 adjacency data
  */
@@ -39,10 +64,11 @@ class S4DataLoader {
 
   /**
    * Load S4 adjacency data for a state
-   * @param {string} state - State abbreviation (e.g., 'AZ')
+   * @param {string} state - State abbreviation (e.g., 'AZ') or FIPS code (e.g., '04')
    * @returns {Promise<Map<string, string[]>>} - Adjacency graph (tractId -> [neighborIds])
    */
   async loadS4AdjacencyData(state) {
+    state = normalizeStateForS4(state);
     const cacheKey = state.toLowerCase();
     
     if (this.s4AdjacencyCache.has(cacheKey)) {
@@ -176,11 +202,13 @@ class S4DataLoader {
 
   /**
    * Get cached S4 adjacency data for a state (synchronous)
-   * @param {string} cacheKey - State abbreviation in lowercase (e.g., 'az')
+   * @param {string} cacheKey - State abbreviation (e.g. 'AZ') or FIPS (e.g. '04'); will be normalized
    * @returns {Map<string, string[]>|null} - Adjacency graph or null if not loaded
    */
   getS4AdjacencyData(cacheKey) {
-    return this.s4AdjacencyCache.get(cacheKey) || null;
+    const abbr = normalizeStateForS4(cacheKey);
+    const key = abbr ? abbr.toLowerCase() : '';
+    return key ? this.s4AdjacencyCache.get(key) || null : null;
   }
 
   /**
@@ -192,7 +220,9 @@ class S4DataLoader {
   }
 }
 
-// Export singleton instance
-module.exports = new S4DataLoader();
+// Export singleton instance and normalizeStateForS4 for callers that need to normalize state
+const loader = new S4DataLoader();
+module.exports = loader;
+module.exports.normalizeStateForS4 = normalizeStateForS4;
 
 
