@@ -102,6 +102,9 @@
             <!-- Isolated Tracts Table -->
             <div class="isolated-tracts-container"
               *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              <div class="isolated-tracts-error" *ngIf="errorMessage">
+                <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
+              </div>
               <div class="isolated-tracts-header">
                 <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
                 <div class="header-buttons">

@@ -6555,11 +6555,13 @@ export class GeodistrictAlgorithmService {
   /**
    * Move all isolated tracts for a step from step cache - processes all groups in one operation
    * This is the new backend-only approach that fixes the multiple-click issue
+   * @param isolatedTractsData Optional frontend-detected data; sent when step cache has none
    */
   moveAllIsolatedTractsFromStep(
     state: string,
     step: number,
-    maxIterations: number = 100
+    maxIterations: number = 100,
+    isolatedTractsData?: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds?: string[] }
   ): Observable<{
     districtGroups: any[];
     isolationResult: {
@@ -6574,6 +6576,15 @@ export class GeodistrictAlgorithmService {
     
     console.log(`🔄 Moving all isolated tracts for ${state} step ${step}`);
     
+    const body: { state: string; step: number; maxIterations: number; isolatedTractsData?: typeof isolatedTractsData } = {
+      state,
+      step,
+      maxIterations
+    };
+    if (isolatedTractsData && isolatedTractsData.isolatedTractsByGroup && Object.keys(isolatedTractsData.isolatedTractsByGroup).length > 0) {
+      body.isolatedTractsData = isolatedTractsData;
+    }
+
     return this.http.post<{
       districtGroups: any[];
       isolationResult: {
@@ -6582,11 +6593,7 @@ export class GeodistrictAlgorithmService {
         totalIsolated: number;
         groupsWithIsolation: number;
       };
-    }>(moveUrl, {
-      state,
-      step,
-      maxIterations
-    }, {
+    }>(moveUrl, body, {
       headers: {
         'Content-Type': 'application/json'
       }

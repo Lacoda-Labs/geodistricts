@@ -6582,7 +6582,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
  */
 app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
   try {
-    const { state, step, maxIterations = 100 } = req.body;
+    const { state, step, maxIterations = 100, isolatedTractsData: frontendIsolatedTractsData } = req.body;
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -6592,32 +6592,55 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'Valid step number is required' });
     }
 
-          logger.info(`🔄 Moving all isolated tracts for ${state} step ${step}`);
+    logger.info(`🔄 Moving all isolated tracts for ${state} step ${step}`);
 
     // Get algorithm state
     const stateKey = getAlgorithmStateKey(state, maxIterations);
     console.log(`🔍 Looking for algorithm state with key: ${stateKey}`);
     let algorithmState = await getCachedAlgorithmState(stateKey);
 
+    const currentVersion = ALGORITHM_VERSION;
+
     // If algorithm state not found, try to reconstruct it from cached step
     if (!algorithmState) {
       console.log(`⚠️ Algorithm state not found, attempting to reconstruct from cached step ${step}...`);
       
-      // Get cached step
-      const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
-      const stepDoc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      
-      if (!stepDoc.exists) {
+      // Try both step cache key formats (same as get-step): algorithm_step_ first, then step_
+      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
+      let cachedEntry = stepDoc.exists ? stepDoc.data() : null;
+
+      if (cachedEntry) {
+        if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+          cachedEntry = null;
+        } else if (cachedEntry.algorithmVersion !== currentVersion) {
+          cachedEntry = null;
+        }
+      }
+
+      if (!cachedEntry) {
+        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
+        if (stepDoc.exists) {
+          cachedEntry = stepDoc.data();
+          if (cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+            cachedEntry = null;
+          } else if (cachedEntry.algorithmVersion !== currentVersion) {
+            cachedEntry = null;
+          }
+        }
+      }
+
+      if (!cachedEntry) {
         console.error(`❌ Step ${step} cache not found for ${state}`);
         return res.status(404).json({ error: `Step ${step} not found in cache. Please initialize the algorithm first.` });
       }
-      
-      const cachedEntry = stepDoc.data();
-      if (!cachedEntry.stepData) {
-        console.error(`❌ Step ${step} cache exists but has no stepData`);
+
+      const hasStepDataField = cachedEntry.stepData !== undefined;
+      const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+      if (!dataToReconstruct || !dataToReconstruct.districtGroups) {
+        console.error(`❌ Step ${step} cache exists but has no step data or districtGroups`);
         return res.status(404).json({ error: `Step ${step} cache is incomplete. Please re-run the algorithm.` });
       }
-      
+
       // Get state tract cache
       const tractCacheKey = `state_tracts_${state}`;
       const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
@@ -6657,7 +6680,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
       
       // Reconstruct step data
-      const stepData = await reconstructStepFromCache(cachedEntry.stepData, tractMap, false, state);
+      const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
       if (!stepData || !stepData.districtGroups) {
         console.error(`❌ Failed to reconstruct step ${step} from cache`);
         return res.status(404).json({ error: `Failed to reconstruct step ${step}. Please re-run the algorithm.` });
@@ -6716,16 +6739,18 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
 
     const currentStep = algorithmState.steps[step];
-    
-    // Get isolated tracts data from step (should be stored in step cache)
-    // If not in step cache, detect it now (for backward compatibility with old cached steps)
+
+    // Get isolated tracts data: step cache, then optional frontend-supplied body, then detect
     let isolatedTractsByGroup = {};
-    if (currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup) {
+    if (currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
       isolatedTractsByGroup = currentStep.isolatedTractsData.isolatedTractsByGroup;
       console.log(`📥 Using isolated tracts data from step cache`);
+    } else if (frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup && Object.keys(frontendIsolatedTractsData.isolatedTractsByGroup).length > 0) {
+      isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
+      console.log(`📥 Using isolated tracts data from request body`);
     } else {
       // Detect isolated tracts now (for backward compatibility)
-      console.log(`⚠️ No isolated tracts data in step cache, detecting now...`);
+      console.log(`⚠️ No isolated tracts data in step cache or request, detecting now...`);
       // Reconstruct uniqueTracts if needed
     if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
       algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);

@@ -12,6 +12,7 @@ import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
+import { CongressionalDistrictsService } from '../services/congressional-districts.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
 import { StepBtnBarComponent } from '../components/step-btn-bar.component';
@@ -201,7 +202,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     private geodistrictService: GeodistrictAlgorithmService,
     private router: Router,
     private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private congressionalDistrictsService: CongressionalDistrictsService
   ) {}
 
   ngOnInit(): void {
@@ -1233,8 +1235,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return result.steps.length > 1 && this.currentStepIndex < result.steps.length - 1;
   }
 
+  /** Expected total steps for the selected state (N districts => N steps, indices 0..N-1). */
+  getExpectedTotalSteps(): number {
+    if (!this.selectedState || this.selectedState === 'ALL') return 0;
+    return this.congressionalDistrictsService.getDistrictsForState(this.selectedState) ?? 0;
+  }
+
   getTotalSteps(): number {
-    return this.totalSteps || this.loadedSteps.filter(s => s !== undefined && s !== null).length || 0;
+    const loaded = this.loadedSteps.filter(s => s !== undefined && s !== null).length;
+    const expected = this.getExpectedTotalSteps() || 0;
+    return Math.max(this.totalSteps, loaded, expected);
   }
 
   /**
@@ -3989,13 +3999,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`🔄 Moving all isolated tracts for step ${this.currentStep.step}${hasStepData ? ' (from step cache)' : ' (from manual detection)'}`);
 
     // Call new backend endpoint that processes all isolated tracts in one operation
-    // Backend will use step cache data if available, otherwise it will detect from current state
+    // Backend will use step cache data if available, then optional body data, then detect
+    const payloadIsolatedData = (this.currentStep?.isolatedTractsData?.isolatedTractsByGroup && Object.keys(this.currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0)
+      ? { isolatedTractsByGroup: this.currentStep.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.currentStep.isolatedTractsData.isolatedTractIds }
+      : (this.isolatedTractsData ? { isolatedTractsByGroup: this.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.isolatedTractsData.isolatedTractIds } : undefined);
     this.geodistrictService.moveAllIsolatedTractsFromStep(
       this.selectedState,
       this.currentStep.step,
-      100 // maxIterations
+      100, // maxIterations
+      payloadIsolatedData
     ).subscribe({
       next: (result) => {
+        this.errorMessage = ''; // Clear any previous error on success
         // Update current step with new district groups
         if (this.currentStep) {
           this.currentStep.districtGroups = result.districtGroups;
