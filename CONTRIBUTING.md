@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to GeoDistricts! This document provides guidelines and instructions for contributing to the project.
 
+## Developer portal and archive
+
+Archived AI pair-programming sessions (from `.cursor/archive/`) are published to the [GitHub Pages developer portal](https://lacoda-labs.github.io/geodistricts/archive/) for transparency. If you archive a chat, it may become public when the maintainer runs the sync script and commits `docs/archive/`. Do not include secrets or sensitive data in sessions you archive.
+
 ## How to Contribute
 
 There are many ways to contribute to GeoDistricts:

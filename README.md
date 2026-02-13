@@ -114,6 +114,7 @@ cd geodistricts
 
 → **[Contributing Guide](CONTRIBUTING.md)** • **[Issue Templates](.github/ISSUE_TEMPLATE/)** • **[Protocol Changes](doc/protocol/process/GDIP-PROCESS.md)** (algorithm/data-model changes require a GDIP in the protocol repo)
 
+[dev portal](docs/README.md)
 ---
 
 ## 📄 License & Legal

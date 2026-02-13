@@ -48,7 +48,7 @@ Tie generated features to specific GDIPs where applicable (e.g. "implements GDIP
 
 - **Context bundle**: Include the GDIP index and the full text of the GDIPs you need (e.g. 002, 003, 004 for boundary generation; add 005/006 for demographics/comparison). Optionally include this doc, [ARCHITECTURE_DETAILS](../pages/ARCHITECTURE_DETAILS.md), and relevant code paths (e.g. algorithm service, API shapes).
 - **Model / IDE**: Use any LLM-capable IDE or CLI (e.g. Cursor, VS Code with Copilot, or API-based tools). Specify "GeoDistricts Protocol" and the GDIP numbers so the model knows which spec to follow.
-- **Prompt archive/history**: This project's `.cursor/archive/` and doc history (e.g. `doc/history/`) can be included as additional context for maintenance and improvement prompts.
+- **Prompt archive/history**: This project's `.cursor/archive/` and doc history (e.g. `doc/history/`) can be included as additional context for maintenance and improvement prompts. The archive is also published at [https://lacoda-labs.github.io/geodistricts/archive/](https://lacoda-labs.github.io/geodistricts/archive/) for agents that consume context via URL.
 
 ### Context for GDIP Consumption
 

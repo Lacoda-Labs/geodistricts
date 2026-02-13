@@ -1,0 +1,61 @@
+# Archive index
+
+Session summaries by path. Canonical source: [.cursor/archive/](https://github.com/Lacoda-Labs/geodistricts/tree/main/.cursor/archive).
+
+- [`2025-10/251030-step-by-step.md`](2025-10/251030-step-by-step.md) — 251030 vibe session
+- [`2025-10/251031-vibe-session.md`](2025-10/251031-vibe-session.md) — 251031 vibe session (happy halloween)
+- [`2025-11/2025-11-06/cursor-session-20251106-215717.md`](2025-11/2025-11-06/cursor-session-20251106-215717.md) — Cursor Session - 2025-11-06
+- [`2025-11/2025-11-06/cursor-session-20251106-225505.md`](2025-11/2025-11-06/cursor-session-20251106-225505.md) — Cursor Session - 2025-11-06
+- [`2025-11/2025-11-06/cursor-session-20251106-232521.md`](2025-11/2025-11-06/cursor-session-20251106-232521.md) — Cursor Session - 2025-11-06
+- [`2025-11/2025-11-06/isolation-check-implementation.md`](2025-11/2025-11-06/isolation-check-implementation.md) — Isolation Check Implementation
+- [`2025-11/2025-11-07/cursor-session-20251107-132555.md`](2025-11/2025-11-07/cursor-session-20251107-132555.md) — Cursor Session - 2025-11-07
+- [`2025-11/2025-11-07/cursor-session-20251107-133102.md`](2025-11/2025-11-07/cursor-session-20251107-133102.md) — Cursor Session - 2025-11-07
+- [`2025-11/251101.md`](2025-11/251101.md) — 251101 vibe session to work on the /geodistrict page 
+- [`2025-11/251102.md`](2025-11/251102.md) — when sorting by long,
+- [`2025-11/251104.md`](2025-11/251104.md) — tonight we work on lat/long algorithm.
+- [`2025-11/251106.md`](2025-11/251106.md) — Nov 6, 2025
+- [`2025-11/251107.md`](2025-11/251107.md) — Nov 7, 2025
+- [`2025-11/251115.md`](2025-11/251115.md) — Friday/Saturday Nov 14/15, 2025
+- [`2025-11/251121.md`](2025-11/251121.md) — division-boxes component
+- [`2025-11/251122-1312.md`](2025-11/251122-1312.md) — Sat Nov 22, 2025 vibe engineering the geodistricts protocol/algorithm
+- [`2025-11/251122.md`](2025-11/251122.md) — prompt: explain the isolation logic as it is implemented
+- [`2025-11/251123-party-data.md`](2025-11/251123-party-data.md) — 
+- [`2025-11/251124.md`](2025-11/251124.md) — 
+- [`2025-11/251125-execute.md`](2025-11/251125-execute.md) — 251125-251126
+- [`2025-11/251125.md`](2025-11/251125.md) — continued from .cursor/commands/251124.md
+- [`2025-11/251126.md`](2025-11/251126.md) — 251126
+- [`2025-11/251128.md`](2025-11/251128.md) — 251128
+- [`2025-11/251130.md`](2025-11/251130.md) — 251130
+- [`2025-12/251203.md`](2025-12/251203.md) — 251203
+- [`2025-12/251204.md`](2025-12/251204.md) — 251204
+- [`2025-12/251205.md`](2025-12/251205.md) — 251205
+- [`2025-12/251210.md`](2025-12/251210.md) — 251210
+- [`2025-12/251219.md`](2025-12/251219.md) — 251219
+- [`2025-12/251220.md`](2025-12/251220.md) — 251220
+- [`2026-01/260123-260126.md`](2026-01/260123-260126.md) — 260123
+- [`2026-01/260128.md`](2026-01/260128.md) — 260128 HBJB
+- [`2026-01/260129-gdip-dao-plan.md`](2026-01/260129-gdip-dao-plan.md) — 
+- [`2026-01/260129.md`](2026-01/260129.md) — 260129
+- [`2026-01/260130.md`](2026-01/260130.md) — 260130
+- [`2026-01/260131.md`](2026-01/260131.md) — 260131
+- [`2026-02/260205-tractslider.md`](2026-02/260205-tractslider.md) — 260205
+- [`2026-02/260205.md`](2026-02/260205.md) — 260205
+- [`2026-02/260207-division-line-control-and-labels.md`](2026-02/260207-division-line-control-and-labels.md) — 260207 – Division line control, labels, show/hide, longitude orientation
+- [`2026-02/260207-slider-sort-and-perf.md`](2026-02/260207-slider-sort-and-perf.md) — 260207 – Slider sort (southernmost point), clear on slide, visualization perf
+- [`2026-02/260208-congressional-map-and-ui.md`](2026-02/260208-congressional-map-and-ui.md) — 260208 – US congressional map, attribution, SVG, push, viewer background
+- [`2026-02/260208-hero-redesign-map-background.md`](2026-02/260208-hero-redesign-map-background.md) — Archive: Hero redesign with map as background
+- [`2026-02/260208-maps-page-leaflet-all-view.md`](2026-02/260208-maps-page-leaflet-all-view.md) — Archive: Maps page – Leaflet for ALL view, geodistricts on map
+- [`2026-02/260208-tract-isolation-fix.md`](2026-02/260208-tract-isolation-fix.md) — 260208 – Tract isolation detection fix (CO “nearly all isolated”)
+- [`2026-02/260208-us-map-completed-states-districts.md`](2026-02/260208-us-map-completed-states-districts.md) — 260208 – US map completed states & click-to-state
+- [`2026-02/260209-grok-home-page.md`](2026-02/260209-grok-home-page.md) — prompt
+- [`2026-02/260209-hero-map-draw-animation.md`](2026-02/260209-hero-map-draw-animation.md) — 260209
+- [`2026-02/260209-hero-map-tagline-alignment.md`](2026-02/260209-hero-map-tagline-alignment.md) — 260209
+- [`2026-02/260209-home-page-sections.md`](2026-02/260209-home-page-sections.md) — 260209
+- [`2026-02/260210-all-states-oh-ms.md`](2026-02/260210-all-states-oh-ms.md) — 260210
+- [`2026-02/260210-client-side-all-states-cache.md`](2026-02/260210-client-side-all-states-cache.md) — 260210
+- [`2026-02/260210-firestore-union-polygons-cached.md`](2026-02/260210-firestore-union-polygons-cached.md) — 260210
+- [`2026-02/260210-hero-map-performance-webp.md`](2026-02/260210-hero-map-performance-webp.md) — 260210
+- [`2026-02/260210-maps-all-states-load-and-single-district.md`](2026-02/260210-maps-all-states-load-and-single-district.md) — Archive: Maps page All-states load + single-district handling (2026-02-10)
+- [`2026-02/260210-maps-page-polygons-load-and-fixes.md`](2026-02/260210-maps-page-polygons-load-and-fixes.md) — 260210 – Maps page polygons-only load and fixes
+- [`2026-02/260210-state-union-polygons-script.md`](2026-02/260210-state-union-polygons-script.md) — Archive: State union polygons script (2026-02-10)
+- [`2026-02/260212-poligeo-documentation.md`](2026-02/260212-poligeo-documentation.md) — r# 260212

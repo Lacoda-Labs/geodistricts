@@ -19,4 +19,4 @@ When the user asks to archive this chat (e.g. "/archive this chat" or "/archive 
 
 6. **Do not** include sensitive information; summarize instead of quoting secrets.
 
-After writing the entry, reply briefly that the chat was archived and give the path to the file (e.g. `.cursor/archive/2026-02/260209-home-page-sections.md`).
+After writing the entry, reply briefly that the chat was archived and give the path to the file (e.g. `.cursor/archive/2026-02/260209-home-page-sections.md`). Optionally add: to publish to GitHub Pages, run `./scripts/sync-archive-to-docs.sh` and commit `docs/archive/`.

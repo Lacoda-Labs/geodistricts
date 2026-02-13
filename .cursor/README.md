@@ -77,4 +77,5 @@ archive/
 - All files in `.cursor/` are tracked in git
 - Sensitive information should be redacted before archiving
 - Archive files help maintain project context and decision history
+- **Published archive**: Archived sessions are synced to the [GitHub Pages developer portal](https://lacoda-labs.github.io/geodistricts/archive/) (run `./scripts/sync-archive-to-docs.sh` and commit `docs/archive/` to publish). Contributors should assume archived chats may become public.
 
