@@ -145,6 +145,14 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * Log when making an external data source request (Census, TIGERweb, etc.)
+ */
+function logExternalFetch(datasource, reason, details = '') {
+  const detailStr = details ? ` | ${details}` : '';
+  console.log(`>>> EXTERNAL FETCH | ${datasource} | ${reason}${detailStr}`);
+}
+
 // Census Proxy Utility Functions
 /**
  * Get Census API key - prioritize environment variable for local development
@@ -998,6 +1006,7 @@ app.get('/api/census/counties', async (req, res) => {
       console.log(`Fetching counties from Census API: state="${state}" -> FIPS="${stateFips}", url: ${apiUrl}`);
     }
     
+    logExternalFetch('Census', 'county FIPS codes for state', `state=${state}`);
     const response = await axios.get(apiUrl);
     
     if (!response.data || !Array.isArray(response.data) || response.data.length < 2) {
@@ -1122,6 +1131,7 @@ app.get('/api/census/tract-data', async (req, res) => {
       console.log(`Fetching from Census API: ${apiUrl}`);
     }
     
+    logExternalFetch('Census', 'tract demographics for state/county', `state=${params.state} county=${params.county}`);
     const response = await axios.get(apiUrl);
     if (process.env.DEBUG_CENSUS_API === 'true') {
       console.log(`Census API response type:`, typeof response.data);
@@ -1275,6 +1285,7 @@ async function getTractCount(state, county) {
     returnCountOnly: 'true'
   });
   
+  logExternalFetch('TIGERweb', 'tract count for boundaries query', county ? `state=${state} county=${county}` : `state=${state}`);
   const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`);
   return countResponse.data.properties?.count || 0;
 }
@@ -1332,6 +1343,7 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
       });
       
       console.log(`Streaming batch ${i + 1}/${totalBatches} (offset: ${offset})`);
+      logExternalFetch('TIGERweb', 'tract boundaries batch (streaming)', `state=${state} batch=${i + 1}/${totalBatches}`);
       const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
       const batchFeatures = batchResponse.data.features || [];
       
@@ -1441,6 +1453,7 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     });
     
     console.log(`Fetching tract boundaries for state ${state} (small dataset)`);
+    logExternalFetch('TIGERweb', 'tract boundaries for state/county', county ? `state=${state} county=${county}` : `state=${state}`);
     const response = await axios.get(`${serviceUrl}?${params.toString()}`);
     const geojsonResponse = {
       type: 'FeatureCollection',
@@ -1526,6 +1539,7 @@ app.get('/api/census/state-boundaries', async (req, res) => {
     
     console.log(`🔍 TIGERweb state boundaries query: state="${state}" -> FIPS="${stateFips}"`);
     
+    logExternalFetch('TIGERweb', 'state boundary polygon', `state=${state}`);
     const response = await axios.get(`${serviceUrl}?${params.toString()}`);
     const geojsonResponse = {
       type: 'FeatureCollection',
@@ -3509,6 +3523,7 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
     outSR: '4326'
   });
 
+  logExternalFetch('TIGERweb', 'state boundary for cache', `state=${state}`);
   const response = await axios.get(`${serviceUrl}?${params.toString()}`);
   const features = response.data.features || [];
   if (features.length === 0) {

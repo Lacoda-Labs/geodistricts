@@ -87,6 +87,7 @@ class VESTDataLoader {
     try {
       const url = `https://dataverse.harvard.edu/api/datasets/:persistentId/versions/${version}/files?persistentId=${persistentId}`;
       console.log(`📋 Listing files in dataset: ${persistentId}`);
+      console.log(`>>> EXTERNAL FETCH | Harvard Dataverse | list files in VEST dataset | persistentId=${persistentId}`);
       
       const response = await axios.get(url, {
         timeout: 30000,
@@ -199,6 +200,7 @@ class VESTDataLoader {
     try {
       const url = `https://dataverse.harvard.edu/api/access/datafile/${fileId}`;
       console.log(`📥 Downloading file ID: ${fileId}`);
+      console.log(`>>> EXTERNAL FETCH | Harvard Dataverse | download VEST data file by ID | fileId=${fileId}`);
       
       const response = await axios.get(url, {
         timeout: 300000, // 5 minute timeout for large files
@@ -226,6 +228,7 @@ class VESTDataLoader {
     try {
       const url = `https://dataverse.harvard.edu/api/access/datafile/:persistentId?persistentId=${persistentId}`;
       console.log(`📥 Downloading file with persistent ID: ${persistentId}`);
+      console.log(`>>> EXTERNAL FETCH | Harvard Dataverse | download VEST data file by persistent ID | persistentId=${persistentId}`);
       
       const response = await axios.get(url, {
         timeout: 300000, // 5 minute timeout for large files
@@ -932,6 +935,7 @@ class VESTDataLoader {
     });
 
     try {
+      console.log(`>>> EXTERNAL FETCH | ArcGIS | county boundaries for state (VEST) | state=${state}`);
       const response = await axios.get(`${serviceUrl}?${params.toString()}`, {
         timeout: 60000,
       });
