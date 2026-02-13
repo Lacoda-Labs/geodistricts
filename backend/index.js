@@ -8,7 +8,7 @@ const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const compression = require('compression');
 const localCache = require('./local-cache');
 const cloudStorageCache = require('./services/cloud-storage-cache');
-const { GeodistrictAlgorithmService, getDistrictsForState, ALGORITHM_VERSION } = require('./services/geodistrict-algorithm');
+const { GeodistrictAlgorithmService, getDistrictsForState, CONGRESSIONAL_DISTRICTS_BY_STATE, ALGORITHM_VERSION } = require('./services/geodistrict-algorithm');
 const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
 const vestDataLoader = require('./services/vest-data-loader');
@@ -3751,6 +3751,45 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     console.error('❌ GET /api/algorithm/map-polygons error:', error);
     res.status(500).json({
       error: 'Map polygons failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Default state code order for map-polygons-all (descending district count, matches frontend states array).
+ */
+const DEFAULT_STATE_CODES_ORDER = Object.entries(CONGRESSIONAL_DISTRICTS_BY_STATE)
+  .sort((a, b) => (b[1] - a[1]))
+  .map(([code]) => code);
+
+/**
+ * GET /api/algorithm/map-polygons-all
+ * Returns step0 (state boundary) polygons for all 51 states in one response.
+ * Query: states=CA,TX,FL,... (optional; if omitted uses default order by district count descending).
+ */
+app.get('/api/algorithm/map-polygons-all', async (req, res) => {
+  try {
+    const stateCodes = req.query.states
+      ? req.query.states.split(',').map(s => s.trim()).filter(Boolean)
+      : DEFAULT_STATE_CODES_ORDER;
+
+    if (stateCodes.length === 0) {
+      return res.status(400).json({ error: 'At least one state is required' });
+    }
+
+    const results = await Promise.all(
+      stateCodes.map(async (stateCode) => {
+        const statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
+        return { stateCode, statePolygon };
+      })
+    );
+
+    return res.json({ statePolygons: results });
+  } catch (error) {
+    console.error('❌ GET /api/algorithm/map-polygons-all error:', error);
+    res.status(500).json({
+      error: 'Map polygons all failed',
       message: error.message
     });
   }

@@ -93,6 +93,11 @@ export interface MapPolygonsResponse {
   hasFinalStep: boolean;
 }
 
+/** Response from GET /api/algorithm/map-polygons-all - step0 (state boundary) polygons for all states in order */
+export interface MapPolygonsAllResponse {
+  statePolygons: Array<{ stateCode: string; statePolygon: GeoJsonFeature }>;
+}
+
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
 // Format: YYYYMMDD-HHMM (date-time when algorithm was last changed)
 // Must match backend/services/geodistrict-algorithm.js ALGORITHM_VERSION
@@ -490,6 +495,24 @@ export class GeodistrictAlgorithmService {
     }).pipe(
       catchError(error => {
         console.error('❌ getMapPolygons failed:', error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
+   * Get step0 (state boundary) polygons for all states in one call.
+   * Pass stateCodes in desired display order; response preserves that order.
+   */
+  getMapPolygonsAll(stateCodes: string[]): Observable<MapPolygonsAllResponse> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const statesParam = stateCodes.join(',');
+    const url = `${backendUrl}/api/algorithm/map-polygons-all?states=${encodeURIComponent(statesParam)}`;
+    return this.http.get<MapPolygonsAllResponse>(url, {
+      headers: { 'Content-Type': 'application/json' }
+    }).pipe(
+      catchError(error => {
+        console.error('❌ getMapPolygonsAll failed:', error);
         return this.handleError(error);
       })
     );

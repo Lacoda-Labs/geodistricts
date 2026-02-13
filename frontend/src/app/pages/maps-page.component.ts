@@ -6,11 +6,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
-import { Subscription, concat, lastValueFrom, of, forkJoin, from } from 'rxjs';
-import { concatMap, tap, last, map, catchError } from 'rxjs/operators';
+import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
+import { concatMap, tap, last, map, catchError, take } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
@@ -659,9 +659,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.setView(stateCenter, 5);
   }
 
+  /** Duration in ms over which to reveal all 51 state polygons on the US map. */
+  private static readonly US_MAP_REVEAL_MS = 5000;
+
   /**
    * Load district data for US map view.
-   * Fetches each state's map polygons (getMapPolygons) in descending district count order; draws step 0 (state outline) or final-step polygons. No loading overlay.
+   * Fetches all 51 step0 (state boundary) polygons in one call, then reveals them in order over 5 seconds.
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
@@ -678,43 +681,38 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Fit map to CONUS when All states is selected
     this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
 
-    // Fetch map polygons for all 51 states in descending district order (CA, TX, FL, ...).
-    // Single-district states get state outline only (no districts); multi-district get state + final districts.
     const orderedStateCodes = this.states.map((s) => s.code);
-    const sub = from(orderedStateCodes)
-      .pipe(
-        concatMap((stateCode) =>
-          this.geodistrictService.getMapPolygons(stateCode).pipe(
-            map((response) => ({ stateCode, response })),
-            catchError(() => of({ stateCode, response: null as MapPolygonsResponse | null }))
-          )
-        )
-      )
-      .subscribe({
-        next: ({ stateCode, response }) => {
-          const stepData = this.mapPolygonsResponseToStepData(response);
-          this.usMapStepDataByState = [...this.usMapStepDataByState, { stateCode, stepData }];
-          this.usMapTotalDistricts = this.usMapStepDataByState.reduce(
-            (sum, { stepData: s }) => sum + (s.districtGroups?.length ?? 0),
-            0
-          );
-          this.completedStateCodes = new Set(this.usMapStepDataByState.map((x) => x.stateCode));
-          this.renderUSMapDistricts(this.usMapStepDataByState);
+    const sub = this.geodistrictService.getMapPolygonsAll(orderedStateCodes).subscribe({
+      next: (response: MapPolygonsAllResponse) => {
+        const allStatesData = response.statePolygons.map(({ stateCode, statePolygon }) => ({
+          stateCode,
+          stepData: this.mapPolygonsResponseToStepData({ statePolygon, hasFinalStep: false })
+        }));
+        this.usMapStepDataByState = allStatesData;
+        this.usMapTotalDistricts = allStatesData.reduce(
+          (sum, { stepData: s }) => sum + (s.districtGroups?.length ?? 0),
+          0
+        );
+        this.completedStateCodes = new Set(orderedStateCodes);
+
+        const revealIntervalMs = MapsPageComponent.US_MAP_REVEAL_MS / 51;
+        const revealSub = timer(0, revealIntervalMs).pipe(take(51)).subscribe((index) => {
+          const visible = allStatesData.slice(0, index + 1);
+          this.renderUSMapDistricts(visible);
           this.cdr.markForCheck();
-        },
-        error: (err) => {
-          this.errorMessage = err?.message || 'Failed to load US map districts';
-          this.cdr.markForCheck();
-        },
-        complete: () => {
-          this.cdr.markForCheck();
-          if (this.usMapStepDataByState.length === 51) {
+          if (index === 50) {
             this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
             this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
             this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
           }
-        }
-      });
+        });
+        this.subscriptions.push(revealSub);
+      },
+      error: (err) => {
+        this.errorMessage = err?.message || 'Failed to load US map districts';
+        this.cdr.markForCheck();
+      }
+    });
     this.subscriptions.push(sub);
   }
 
