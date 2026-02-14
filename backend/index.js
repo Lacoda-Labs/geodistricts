@@ -6577,12 +6577,12 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
 
 /**
  * POST /api/algorithm/move-all-isolated-tracts
- * Move all isolated tracts for a step from step cache - processes all groups in one operation
- * This is the new backend-only approach that fixes the multiple-click issue
+ * Move all isolated tracts for a step - just swap tracts between DGs (fast path when frontend sends full data).
+ * Fallback: load from step cache when districtGroups not provided.
  */
 app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
   try {
-    const { state, step, maxIterations = 100, isolatedTractsData: frontendIsolatedTractsData } = req.body;
+    const { state, step, maxIterations = 100, isolatedTractsData: frontendIsolatedTractsData, districtGroups: bodyDistrictGroups, divisionLines: bodyDivisionLines } = req.body;
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -6592,7 +6592,64 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'Valid step number is required' });
     }
 
-    logger.info(`🔄 Moving all isolated tracts for ${state} step ${step}`);
+    // Fast path: frontend sent full district groups + isolated data. No cache I/O - just swap tracts in memory.
+    const canUseFastPath = bodyDistrictGroups && Array.isArray(bodyDistrictGroups) && bodyDistrictGroups.length > 0 &&
+      bodyDistrictGroups.every(g => Array.isArray(g.censusTracts)) &&
+      frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup &&
+      Object.keys(frontendIsolatedTractsData.isolatedTractsByGroup).length > 0;
+
+    if (canUseFastPath) {
+      const { getTractId } = require('./services/geodistrict-algorithm');
+      const allTracts = [];
+      for (const group of bodyDistrictGroups) {
+        for (const t of group.censusTracts || []) {
+          if (t && getTractId(t)) allTracts.push(t);
+        }
+      }
+      let isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
+      let updatedGroups = bodyDistrictGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+      const divisionLines = bodyDivisionLines || [];
+      let groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+      let iterationCount = 0;
+      const maxIter = 10;
+
+      while (groupIndices.length > 0 && iterationCount < maxIter) {
+        iterationCount++;
+        for (const groupIndex of groupIndices) {
+          const isolatedTractIds = isolatedTractsByGroup[groupIndex.toString()] || [];
+          if (isolatedTractIds.length === 0) continue;
+          try {
+            const result = algorithmService.moveIsolatedTractsToOppositeGroup(
+              updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null
+            );
+            updatedGroups = result.districtGroups;
+          } catch (moveErr) {
+            return res.status(500).json({ error: 'Failed to move isolated tracts', message: moveErr.message });
+          }
+        }
+        const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+        if (isolationResult.isolatedTractIds.size === 0) break;
+        isolatedTractsByGroup = {};
+        isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { isolatedTractsByGroup[idx] = Array.from(tractIds); });
+        groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+      }
+
+      const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+      const finalIsolatedTractsByGroup = {};
+      finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
+
+      return res.json({
+        districtGroups: updatedGroups,
+        isolationResult: {
+          isolatedTractsByGroup: finalIsolatedTractsByGroup,
+          isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
+          totalIsolated: finalIsolationResult.isolatedTractIds.size,
+          groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
+        }
+      });
+    }
+
+    logger.info(`🔄 Moving all isolated tracts for ${state} step ${step} (cache path)`);
 
     // Get algorithm state
     const stateKey = getAlgorithmStateKey(state, maxIterations);
@@ -6641,15 +6698,27 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         return res.status(404).json({ error: `Step ${step} cache is incomplete. Please re-run the algorithm.` });
       }
 
-      // Get state tract cache
-      const tractCacheKey = `state_tracts_${state}`;
-      const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-      
-      if (!stateTractDoc.exists) {
-        console.error(`❌ State tract cache not found for ${state}`);
+      // Get state tract cache (try state as-is, then lowercase, then uppercase for key flexibility)
+      const tractCacheKeysToTry = [
+        `state_tracts_${state}`,
+        `state_tracts_${state.toLowerCase()}`,
+        `state_tracts_${state.toUpperCase()}`
+      ].filter((key, idx, arr) => arr.indexOf(key) === idx);
+      let stateTractDoc = null;
+      let tractCacheKey = null;
+      for (const key of tractCacheKeysToTry) {
+        const doc = await firestore.collection('census_cache').doc(key).get();
+        if (doc.exists) {
+          stateTractDoc = doc;
+          tractCacheKey = key;
+          break;
+        }
+      }
+      if (!stateTractDoc || !stateTractDoc.exists) {
+        console.error(`❌ State tract cache not found for ${state} (tried: ${tractCacheKeysToTry.join(', ')})`);
         return res.status(404).json({ error: `State tract cache not found. Please initialize the algorithm first.` });
       }
-      
+
       const stateTractData = stateTractDoc.data();
       let tractMap = null;
       
@@ -6738,7 +6807,77 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       return res.status(404).json({ error: `Step ${step} not found in algorithm state` });
     }
 
-    const currentStep = algorithmState.steps[step];
+    let currentStep = algorithmState.steps[step];
+
+    // If step was loaded from cached algorithm state, groups may be normalized (censusTractIds only, no censusTracts).
+    // Reconstruct from step cache so we have full censusTracts for the move.
+    const needsReconstruct = currentStep.districtGroups && currentStep.districtGroups.some(g =>
+      !Array.isArray(g.censusTracts) || (g.censusTractIds && g.censusTractIds.length > 0 && (!g.censusTracts || g.censusTracts.length === 0))
+    );
+    if (needsReconstruct) {
+      console.log(`⚠️ Step ${step} has normalized groups (no censusTracts), reconstructing from step cache...`);
+      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
+      let cachedEntry = stepDoc.exists ? stepDoc.data() : null;
+      if (cachedEntry && cachedEntry.timestamp && !isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl) && cachedEntry.algorithmVersion === currentVersion) {
+        // use as-is
+      } else {
+        cachedEntry = null;
+        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
+        if (stepDoc.exists) {
+          cachedEntry = stepDoc.data();
+          if (cachedEntry && ((cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) || cachedEntry.algorithmVersion !== currentVersion)) {
+            cachedEntry = null;
+          }
+        }
+      }
+      if (cachedEntry) {
+        const hasStepDataField = cachedEntry.stepData !== undefined;
+        const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+        const tractCacheKeysToTry = [`state_tracts_${state}`, `state_tracts_${state.toLowerCase()}`, `state_tracts_${state.toUpperCase()}`];
+        let tractMap = null;
+        for (const key of tractCacheKeysToTry) {
+          const stateTractDoc = await firestore.collection('census_cache').doc(key).get();
+          if (!stateTractDoc.exists) continue;
+          const stateTractData = stateTractDoc.data();
+          if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+            const cloudStorageResult = await cloudStorageCache.get(key);
+            if (cloudStorageResult && cloudStorageResult.data) tractMap = cloudStorageResult.data;
+          } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+            const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => firestore.collection('census_cache').doc(k).get()));
+            tractMap = [];
+            for (const chunkDoc of chunkDocs) {
+              if (chunkDoc.exists && chunkDoc.data().data) tractMap.push(...chunkDoc.data().data);
+            }
+          } else if (stateTractData.data) {
+            tractMap = stateTractData.data;
+          }
+          if (tractMap) break;
+        }
+        if (tractMap) {
+          const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+          if (stepData && stepData.districtGroups) {
+            currentStep = stepData;
+            algorithmState.steps[step] = stepData;
+            if (!algorithmState.uniqueTracts) {
+              const uniqueTracts = [];
+              if (Array.isArray(tractMap)) {
+                if (tractMap.length > 0 && Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+                  uniqueTracts.push(...tractMap.map(([id, t]) => t));
+                } else {
+                  uniqueTracts.push(...tractMap);
+                }
+              } else if (tractMap instanceof Map) {
+                uniqueTracts.push(...Array.from(tractMap.values()));
+              } else if (typeof tractMap === 'object') {
+                uniqueTracts.push(...Object.values(tractMap));
+              }
+              algorithmState.uniqueTracts = uniqueTracts;
+            }
+            console.log(`✅ Reconstructed step ${step} with full censusTracts for move`);
+          }
+        }
+      }
+    }
 
     // Get isolated tracts data: step cache, then optional frontend-supplied body, then detect
     let isolatedTractsByGroup = {};
@@ -6799,10 +6938,11 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     console.log(`🔄 Processing ${groupIndices.length} group(s) with isolated tracts: ${groupIndices.join(', ')}`);
 
     // Process all groups with isolated tracts recursively until no more isolated tracts remain
-    let updatedGroups = currentStep.districtGroups.map(group => ({
-      ...group,
-      censusTracts: [...group.censusTracts]
-    }));
+    // Guard: ensure every group has iterable censusTracts (reconstructed steps should have arrays)
+    let updatedGroups = currentStep.districtGroups.map(group => {
+      const tracts = Array.isArray(group.censusTracts) ? group.censusTracts : [];
+      return { ...group, censusTracts: [...tracts] };
+    });
 
     let iterationCount = 0;
     const maxProcessingIterations = 10; // Safety limit to prevent infinite loops
@@ -6822,16 +6962,22 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
         console.log(`   Moving ${isolatedTractIds.length} isolated tract(s) from group ${groupIndex}`);
 
-        // Move isolated tracts for this group
-        const result = algorithmService.moveIsolatedTractsToOppositeGroup(
-          updatedGroups,
-          allTracts,
-          groupIndex,
-          isolatedTractIds,
-          currentStep.divisionLines || null
-        );
-
-        updatedGroups = result.districtGroups;
+        try {
+          const result = algorithmService.moveIsolatedTractsToOppositeGroup(
+            updatedGroups,
+            allTracts,
+            groupIndex,
+            isolatedTractIds,
+            currentStep.divisionLines || null
+          );
+          updatedGroups = result.districtGroups;
+        } catch (moveErr) {
+          console.error(`❌ moveIsolatedTractsToOppositeGroup failed for group ${groupIndex}:`, moveErr.message);
+          return res.status(500).json({
+            error: 'Failed to move isolated tracts',
+            message: moveErr.message || 'Cannot find sibling group. Ensure the step was cached with division lines.'
+          });
+        }
       }
 
       // Re-detect isolation after all moves in this iteration

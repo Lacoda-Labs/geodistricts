@@ -4007,7 +4007,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedState,
       this.currentStep.step,
       100, // maxIterations
-      payloadIsolatedData
+      payloadIsolatedData,
+      this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
+      this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined
     ).subscribe({
       next: (result) => {
         this.errorMessage = ''; // Clear any previous error on success
@@ -4040,8 +4042,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
 
+        // Keep loadedSteps in sync (currentStep is same ref as loadedSteps[currentStepIndex])
+        if (this.currentStep && this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+          this.loadedSteps[this.currentStepIndex] = this.currentStep;
+        }
         // Re-render map with updated groups
         this.renderFinalDistricts();
+        this.cdr.detectChanges();
 
         this.isMovingIsolatedTracts = false;
       },
@@ -4049,6 +4056,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.error('Error moving isolated tracts:', error);
         this.errorMessage = error.error?.message || error.message || 'Failed to move isolated tracts';
         this.isMovingIsolatedTracts = false;
+        this.cdr.detectChanges();
       }
     });
   }

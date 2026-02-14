@@ -6553,15 +6553,18 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Move all isolated tracts for a step from step cache - processes all groups in one operation
-   * This is the new backend-only approach that fixes the multiple-click issue
-   * @param isolatedTractsData Optional frontend-detected data; sent when step cache has none
+   * Move all isolated tracts for a step - in-memory swap when districtGroups/divisionLines sent (fast path).
+   * @param isolatedTractsData Isolated tracts by group (required for fast path)
+   * @param districtGroups Full step district groups (optional; when sent, backend uses fast path, no cache I/O)
+   * @param divisionLines Step division lines for sibling lookup (optional; use with districtGroups)
    */
   moveAllIsolatedTractsFromStep(
     state: string,
     step: number,
     maxIterations: number = 100,
-    isolatedTractsData?: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds?: string[] }
+    isolatedTractsData?: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds?: string[] },
+    districtGroups?: any[],
+    divisionLines?: any[]
   ): Observable<{
     districtGroups: any[];
     isolationResult: {
@@ -6574,15 +6577,22 @@ export class GeodistrictAlgorithmService {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const moveUrl = `${backendUrl}/api/algorithm/move-all-isolated-tracts`;
     
-    console.log(`🔄 Moving all isolated tracts for ${state} step ${step}`);
-    
-    const body: { state: string; step: number; maxIterations: number; isolatedTractsData?: typeof isolatedTractsData } = {
-      state,
-      step,
-      maxIterations
-    };
+    const body: {
+      state: string;
+      step: number;
+      maxIterations: number;
+      isolatedTractsData?: typeof isolatedTractsData;
+      districtGroups?: any[];
+      divisionLines?: any[];
+    } = { state, step, maxIterations };
     if (isolatedTractsData && isolatedTractsData.isolatedTractsByGroup && Object.keys(isolatedTractsData.isolatedTractsByGroup).length > 0) {
       body.isolatedTractsData = isolatedTractsData;
+    }
+    if (districtGroups && districtGroups.length > 0) {
+      body.districtGroups = districtGroups;
+      if (divisionLines && divisionLines.length > 0) {
+        body.divisionLines = divisionLines;
+      }
     }
 
     return this.http.post<{
