@@ -6409,12 +6409,20 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Detect isolated tracts in the current district groups without fixing them
+   * Detect isolated tracts in the current district groups without fixing them.
+   * Pass stepNumber and step0IslandTractIds when step > 0 so geographic islands are excluded from isolation.
    * @param districtGroups Current district groups
    * @param allTracts All tracts in the dataset
+   * @param stepNumber Optional current step (used with step0IslandTractIds to exclude step-0 islands)
+   * @param step0IslandTractIds Optional array of step-0 geographic island tract IDs to exclude from isolation
    * @returns Observable with detection results
    */
-  detectIsolatedTracts(districtGroups: DistrictGroup[], allTracts: GeoJsonFeature[]): Observable<{
+  detectIsolatedTracts(
+    districtGroups: DistrictGroup[],
+    allTracts: GeoJsonFeature[],
+    stepNumber?: number,
+    step0IslandTractIds?: string[]
+  ): Observable<{
     isolatedTractsByGroup: { [groupIndex: string]: string[] };
     isolatedTractIds: string[];
     totalIsolated: number;
@@ -6424,7 +6432,14 @@ export class GeodistrictAlgorithmService {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const detectUrl = `${backendUrl}/api/algorithm/detect-isolated-tracts`;
 
-    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups`);
+    const body: { districtGroups: DistrictGroup[]; allTracts: GeoJsonFeature[]; stepNumber?: number; step0IslandTractIds?: string[] } = {
+      districtGroups,
+      allTracts
+    };
+    if (stepNumber !== undefined) body.stepNumber = stepNumber;
+    if (step0IslandTractIds !== undefined && step0IslandTractIds.length > 0) body.step0IslandTractIds = step0IslandTractIds;
+
+    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups` + (body.step0IslandTractIds ? ` (excluding ${body.step0IslandTractIds.length} step-0 island tracts)` : ''));
 
     return this.http.post<{
       isolatedTractsByGroup: { [groupIndex: string]: string[] };
@@ -6432,10 +6447,7 @@ export class GeodistrictAlgorithmService {
       totalIsolated: number;
       groupsWithIsolation: number;
       groupStats: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
-    }>(detectUrl, {
-      districtGroups,
-      allTracts
-    }, {
+    }>(detectUrl, body, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -6557,6 +6569,7 @@ export class GeodistrictAlgorithmService {
    * @param isolatedTractsData Isolated tracts by group (required for fast path)
    * @param districtGroups Full step district groups (optional; when sent, backend uses fast path, no cache I/O)
    * @param divisionLines Step division lines for sibling lookup (optional; use with districtGroups)
+   * @param step0IslandTractIds Optional step-0 geographic island tract IDs (excluded from re-detection)
    */
   moveAllIsolatedTractsFromStep(
     state: string,
@@ -6564,7 +6577,8 @@ export class GeodistrictAlgorithmService {
     maxIterations: number = 100,
     isolatedTractsData?: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds?: string[] },
     districtGroups?: any[],
-    divisionLines?: any[]
+    divisionLines?: any[],
+    step0IslandTractIds?: string[]
   ): Observable<{
     districtGroups: any[];
     isolationResult: {
@@ -6584,6 +6598,7 @@ export class GeodistrictAlgorithmService {
       isolatedTractsData?: typeof isolatedTractsData;
       districtGroups?: any[];
       divisionLines?: any[];
+      step0IslandTractIds?: string[];
     } = { state, step, maxIterations };
     if (isolatedTractsData && isolatedTractsData.isolatedTractsByGroup && Object.keys(isolatedTractsData.isolatedTractsByGroup).length > 0) {
       body.isolatedTractsData = isolatedTractsData;
@@ -6593,6 +6608,9 @@ export class GeodistrictAlgorithmService {
       if (divisionLines && divisionLines.length > 0) {
         body.divisionLines = divisionLines;
       }
+    }
+    if (step0IslandTractIds !== undefined && step0IslandTractIds.length > 0) {
+      body.step0IslandTractIds = step0IslandTractIds;
     }
 
     return this.http.post<{

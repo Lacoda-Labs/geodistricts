@@ -94,8 +94,9 @@ For detailed implementation specifications and related documentation, see:
 
 ### Implementation & Verification
 - [Implementation Verification](pages/IMPLEMENTATION_VERIFICATION.md) - Verification procedures
-- [Island Tract Detection](pages/251204-island-tract-detection.md) - Handling isolated tracts
-- [Move Isolated Tracts Function](pages/MOVE_ISOLATED_TRACTS_FUNCTION.md) - Tract relocation logic
+- [Tract Isolation Spec and Implementation](pages/TRACT_ISOLATION_SPEC_AND_IMPLEMENTATION.md) - Tract isolation detection, bridge tracts, move isolated
+- [Island Tract Detection](history/251204-island-tract-detection.md) - Step 0 island tract handling
+- [Move Isolated Tracts Function](history/MOVE_ISOLATED_TRACTS_FUNCTION.md) - Tract relocation logic (DG swap, cache)
 - [How to Create Union Polygons](pages/251204-how-to-create-union-polygons.md) - Polygon operations
 
 ### Infrastructure & Setup

@@ -3780,6 +3780,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Get step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
+   * Returns undefined if not available (e.g. step 0 not loaded or no islands).
+   */
+  private getStep0IslandTractIds(): string[] | undefined {
+    const step0 = this.algorithmResult?.steps?.[0];
+    const islandData = (step0 as any)?.islandTractsData?.islandTractsByGroup;
+    if (!islandData || typeof islandData !== 'object') return undefined;
+    const ids: string[] = [];
+    for (const islandGroups of Object.values(islandData)) {
+      if (Array.isArray(islandGroups)) {
+        for (const group of islandGroups) {
+          if (Array.isArray(group)) ids.push(...group);
+          else if (typeof group === 'string') ids.push(group);
+        }
+      }
+    }
+    return ids.length > 0 ? ids : undefined;
+  }
+
+  /**
    * Detect isolated tracts in the current step's district groups
    */
   detectIsolatedTracts(): void {
@@ -3802,9 +3822,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isDetectingIsolation = true;
     this.isolatedTractIds.clear();
 
+    const stepNum = this.currentStep.step;
+    const step0IslandIds = stepNum !== 0 ? this.getStep0IslandTractIds() : undefined;
+
     const subscription = this.geodistrictService.detectIsolatedTracts(
       this.currentStep.districtGroups,
-      allTracts
+      allTracts,
+      stepNum,
+      step0IslandIds
     ).subscribe({
       next: (result) => {
         console.log(`🔍 Detection complete: ${result.totalIsolated} isolated tracts found in ${result.groupsWithIsolation} groups`);
@@ -4003,13 +4028,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const payloadIsolatedData = (this.currentStep?.isolatedTractsData?.isolatedTractsByGroup && Object.keys(this.currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0)
       ? { isolatedTractsByGroup: this.currentStep.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.currentStep.isolatedTractsData.isolatedTractIds }
       : (this.isolatedTractsData ? { isolatedTractsByGroup: this.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.isolatedTractsData.isolatedTractIds } : undefined);
+    const step0IslandIds = this.currentStep.step !== 0 ? this.getStep0IslandTractIds() : undefined;
     this.geodistrictService.moveAllIsolatedTractsFromStep(
       this.selectedState,
       this.currentStep.step,
       100, // maxIterations
       payloadIsolatedData,
       this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
-      this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined
+      this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
+      step0IslandIds
     ).subscribe({
       next: (result) => {
         this.errorMessage = ''; // Clear any previous error on success
@@ -4102,7 +4129,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log(`✅ All bridge tracts moved for ${processedCount} isolated group(s)`);
         
         // Re-detect isolation to get updated results
-        this.geodistrictService.detectIsolatedTracts(currentDistrictGroups, allTracts).subscribe({
+        const stepNum = this.currentStep?.step;
+        const step0IslandIds = stepNum !== 0 ? this.getStep0IslandTractIds() : undefined;
+        this.geodistrictService.detectIsolatedTracts(currentDistrictGroups, allTracts, stepNum, step0IslandIds).subscribe({
           next: (isolationResult) => {
             this.isolatedTractIds = new Set(isolationResult.isolatedTractIds);
             this.isolatedTractsData = {

@@ -226,6 +226,30 @@ function isCacheExpired(timestamp, ttl) {
 }
 
 /**
+ * Build set of step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
+ * @param {Object} algorithmState - Algorithm state (may have steps[0].islandTractsData)
+ * @param {number} step - Current step number
+ * @param {string[]|undefined} bodyStep0IslandTractIds - Optional array from request body
+ * @returns {Set<string>|null}
+ */
+function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds) {
+  let set = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
+  if (!set && step > 0 && algorithmState?.steps?.[0]?.islandTractsData?.islandTractsByGroup) {
+    const byGroup = algorithmState.steps[0].islandTractsData.islandTractsByGroup;
+    set = new Set();
+    for (const islandGroups of Object.values(byGroup)) {
+      if (Array.isArray(islandGroups)) {
+        for (const group of islandGroups) {
+          if (Array.isArray(group)) group.forEach(id => set.add(id));
+          else if (typeof group === 'string') set.add(group);
+        }
+      }
+    }
+  }
+  return set;
+}
+
+/**
  * Get data from cache (local files, Cloud Storage, or Firestore)
  * Uses Cloud Storage for large files (> 1MB), Firestore for small metadata
  */
@@ -6273,7 +6297,7 @@ app.get('/api/voter-registration/states', async (req, res) => {
  */
 app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
   try {
-    const { districtGroups, allTracts } = req.body;
+    const { districtGroups, allTracts, stepNumber, step0IslandTractIds } = req.body;
 
     if (!districtGroups || !Array.isArray(districtGroups)) {
       return res.status(400).json({ error: 'districtGroups array is required' });
@@ -6283,7 +6307,8 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'allTracts array is required' });
     }
 
-    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts`);
+    const step0IslandSet = Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : (step0IslandTractIds || null);
+    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts` + (step0IslandSet?.size ? ` (excluding ${step0IslandSet.size} step-0 island tracts)` : ''));
 
     // Ensure S4 adjacency data is loaded (required for isolation detection)
     if (allTracts.length > 0) {
@@ -6301,8 +6326,8 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
       }
     }
 
-    // Call the detection method
-    const detectionResult = algorithmService.detectIsolatedTracts(districtGroups, allTracts);
+    // Call the detection method (stepNumber and step0IslandTractIds exclude geographic islands from isolation at steps 1+)
+    const detectionResult = algorithmService.detectIsolatedTracts(districtGroups, allTracts, stepNumber ?? null, step0IslandSet);
 
     // Convert Sets to Arrays for JSON serialization
     const isolatedTractsByGroup = {};
@@ -6582,7 +6607,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
  */
 app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
   try {
-    const { state, step, maxIterations = 100, isolatedTractsData: frontendIsolatedTractsData, districtGroups: bodyDistrictGroups, divisionLines: bodyDivisionLines } = req.body;
+    const { state, step, maxIterations = 100, isolatedTractsData: frontendIsolatedTractsData, districtGroups: bodyDistrictGroups, divisionLines: bodyDivisionLines, step0IslandTractIds: bodyStep0IslandTractIds } = req.body;
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -6606,6 +6631,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           if (t && getTractId(t)) allTracts.push(t);
         }
       }
+      const step0IslandSet = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
       let isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
       let updatedGroups = bodyDistrictGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
       const divisionLines = bodyDivisionLines || [];
@@ -6627,14 +6653,14 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
             return res.status(500).json({ error: 'Failed to move isolated tracts', message: moveErr.message });
           }
         }
-        const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+        const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
         if (isolationResult.isolatedTractIds.size === 0) break;
         isolatedTractsByGroup = {};
         isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { isolatedTractsByGroup[idx] = Array.from(tractIds); });
         groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
       }
 
-      const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+      const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
       const finalIsolatedTractsByGroup = {};
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
 
@@ -6894,8 +6920,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
       algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
     }
-    const allTracts = algorithmState.uniqueTracts || [];
-      const detectionResult = algorithmService.detectIsolatedTracts(currentStep.districtGroups, allTracts);
+    const allTractsForDetect = algorithmState.uniqueTracts || [];
+      const step0IslandForDetect = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds);
+      const detectionResult = algorithmService.detectIsolatedTracts(currentStep.districtGroups, allTractsForDetect, step, step0IslandForDetect);
       // Convert Map to object
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
         isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
@@ -6916,6 +6943,11 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
     }
     const allTracts = algorithmState.uniqueTracts || [];
+
+    const step0IslandSet = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds);
+    if (step0IslandSet && step0IslandSet.size > 0) {
+      console.log(`🏝️ Excluding ${step0IslandSet.size} step-0 island tract(s) from isolation detection`);
+    }
 
     // Get all groups with isolated tracts
     const groupIndices = Object.keys(isolatedTractsByGroup)
@@ -6981,7 +7013,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
 
       // Re-detect isolation after all moves in this iteration
-      const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+      const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
       
       // Convert Map to object
       const newIsolatedTractsByGroup = {};
@@ -7012,7 +7044,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
 
     // Final isolation detection
-    const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts);
+    const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
     
     // Convert isolation result Map to object for JSON serialization
     const finalIsolatedTractsByGroup = {};
