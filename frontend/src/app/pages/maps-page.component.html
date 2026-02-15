@@ -137,7 +137,7 @@
                         <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
                       </td>
                       <td>{{ item.groupLabel }}</td>
-                      <td>{{ item.balancingTractIds?.length ? item.balancingTractIds.join(', ') : '—' }}</td>
+                      <td>{{ item.balancingTractIds.length ? item.balancingTractIds.join(', ') : '—' }}</td>
                       <td *ngIf="bridgeTractsData">
                         <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
                           (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">

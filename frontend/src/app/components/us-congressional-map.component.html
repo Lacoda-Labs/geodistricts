@@ -1,9 +1,10 @@
 <div class="us-congressional-map" [class.hero-variant]="variant === 'hero'">
   <div class="map-container">
-    <!-- Hero: raster fallback for instant load (transparent, light gray lines) -->
+    <!-- Hero: raster fallback for instant load (transparent, light gray lines); dimmed after 3 loops -->
     <img
       *ngIf="variant === 'hero'"
       class="hero-raster"
+      [class.hero-raster-dimmed]="variant === 'hero' && heroAnimationDone"
       src="assets/hero-conus-119.webp"
       alt=""
       width="800"
@@ -23,9 +24,9 @@
           class="district-path"/>
       </g>
     </svg>
-    <!-- Hero: YMin so map graphic aligns to top of SVG viewport (no gap above) -->
+    <!-- Hero: YMin so map graphic aligns to top of SVG viewport (no gap above); hide when animation done (dimmed raster only) -->
     <svg
-      *ngIf="variant === 'hero' && (heroAnimatedPaths.length || isLoading)"
+      *ngIf="variant === 'hero' && !heroAnimationDone && (heroAnimatedPaths.length || isLoading)"
       class="boundaries-svg"
       [attr.viewBox]="viewBox"
       preserveAspectRatio="xMidYMin meet"

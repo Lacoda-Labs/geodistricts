@@ -162,7 +162,7 @@ async function main() {
 </svg>`;
   }
 
-  const strokeLightGray = 'rgba(80, 80, 80, 0.6)';
+  const strokeLightGray = 'rgba(119, 119, 119, 0.5)';
   const svgForWebp = buildSvg(strokeLightGray);
   const svgPath = path.join(ASSETS_DIR, 'hero-conus-119.svg');
   fs.writeFileSync(svgPath, svgForWebp, 'utf8');

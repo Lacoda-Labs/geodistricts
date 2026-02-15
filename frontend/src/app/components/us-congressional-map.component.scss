@@ -20,6 +20,10 @@
     object-fit: contain;
     object-position: center top;
     display: block;
+    transition: opacity 0.6s ease-out;
+  }
+  .hero-raster-dimmed {
+    opacity: 0.45;
   }
 
   .boundaries-svg {
@@ -57,11 +61,11 @@
     }
     .district-path {
       fill: transparent;
-      stroke: rgba(224, 224, 224, 0.45);
+      stroke: rgba(224, 224, 224, 0.3);
       stroke-width: 0.6;
     }
     .district-path.hero-path-filled {
-      fill: rgba(224, 224, 224, 0.25);
+      fill: rgba(29, 194, 120, 0.420);
     }
     .district-path:hover {
       stroke-width: 0.6;

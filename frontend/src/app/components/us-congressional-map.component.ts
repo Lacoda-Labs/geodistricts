@@ -66,13 +66,17 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   viewBox = SVG_VIEWBOX;
   /** Hero only: true when using static asset (raster + precomputed JSON). */
   useStaticHero = false;
+  /** Hero only: true after 3 loops complete; show dimmed static image only. */
+  heroAnimationDone = false;
   private subscription: Subscription | null = null;
   private staticHeroSubscription: Subscription | null = null;
   private heroAnimationTimeouts: ReturnType<typeof setTimeout>[] = [];
   private lastStep0Ak: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
   private lastStep0Hi: { step: GeodistrictStep; stepIndex: number; isComplete: boolean } | null = null;
-
+  private heroLoopCount = 0;
+  private static readonly HERO_LOOP_MAX = 3;
   private static readonly HERO_DRAW_DURATION_MS = 30 * 1000;
+  private static readonly HERO_LOOP_PAUSE_MS = 800;
 
   constructor(
     private boundariesService: CongressionalBoundariesService,
@@ -143,6 +147,8 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
         if (this.variant === 'hero') {
           this.heroAnimatedPaths = [];
           this.svgPathD = [];
+          this.heroLoopCount = 0;
+          this.heroAnimationDone = false;
           this.startHeroDrawAnimation(byState, step0Ak, step0Hi);
         } else {
           this.svgPathD = this.buildSvgPaths(byState, step0Ak, step0Hi);
@@ -173,6 +179,8 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
       .pipe(catchError(() => of(null)))
       .subscribe(payload => {
         if (payload?.districts?.length) {
+          this.heroLoopCount = 0;
+          this.heroAnimationDone = false;
           this.startHeroDrawAnimationFromPrecomputed(payload.districts);
         }
         this.cdr.markForCheck();
@@ -325,6 +333,19 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
       }, i * delayMs);
       this.heroAnimationTimeouts.push(t);
     });
+    const tEnd = setTimeout(() => {
+      this.heroLoopCount++;
+      if (this.heroLoopCount >= UsCongressionalMapComponent.HERO_LOOP_MAX) {
+        this.heroAnimationDone = true;
+        this.heroAnimatedPaths = [];
+        this.clearHeroAnimation();
+      } else {
+        this.heroAnimatedPaths = [];
+        this.runHeroDrawAnimation(byStateList);
+      }
+      this.cdr.markForCheck();
+    }, totalDistricts * delayMs + UsCongressionalMapComponent.HERO_LOOP_PAUSE_MS);
+    this.heroAnimationTimeouts.push(tEnd);
   }
 
   /** Build a FeatureCollection from algorithm step 0 first group union polygon(s). */
