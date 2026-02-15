@@ -1595,9 +1595,9 @@ class GeodistrictAlgorithmService {
       tract.properties.sibling_DG = null; // No sibling for initial state
     }
 
-    // Create step 0 WITHOUT union polygons - Step 0 should use TIGER state boundaries instead
-    // Pass null for algorithmService and allTracts to skip union polygon creation
-    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude', undefined, [], null, null);
+    // Create step 0 WITHOUT union polygons - Step 0 should use TIGER state boundaries instead.
+    // Pass this and uniqueTracts so island detection runs and islandTractsData is set (excluded from isolation at steps 1+).
+    const initialStep = createStep(0, 0, [initialGroup], 'Initial state: All tracts in single group', 'latitude', undefined, [], this, uniqueTracts);
 
     // Return step 0 and algorithm state
     return {
@@ -2722,9 +2722,10 @@ class GeodistrictAlgorithmService {
    * @param {number} isolatedGroupIndex - Index of the group with isolated tracts
    * @param {Array} isolatedTractIds - Array of isolated tract IDs to move
    * @param {Array} divisionLines - Optional array of division line metadata with sibling relationships
+   * @param {boolean} skipBalancing - If true, do not run compensating balance after this move (used by move-all-isolated flow)
    * @returns {Object} - Updated district groups and new isolation detection results
    */
-  moveIsolatedTractsToOppositeGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines = null) {
+  moveIsolatedTractsToOppositeGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines = null, skipBalancing = false) {
     console.log(`🔄 MOVE ISOLATED TRACTS: Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
     
     if (isolatedGroupIndex < 0 || isolatedGroupIndex >= districtGroups.length) {
@@ -2892,7 +2893,7 @@ class GeodistrictAlgorithmService {
     // Log which tracts are being moved for debugging
     console.log(`   Moving ${isolatedTractIds.length} isolated tract(s): ${isolatedTractIds.slice(0, 5).join(', ')}${isolatedTractIds.length > 5 ? '...' : ''}`);
     
-    return this._moveTractsToGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, siblingGroupIndex);
+    return this._moveTractsToGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, siblingGroupIndex, skipBalancing);
   }
 
   /**
@@ -3157,6 +3158,163 @@ class GeodistrictAlgorithmService {
     return {
       districtGroups: updatedGroups
     };
+  }
+
+  /**
+   * Get sort value for a tract by division direction (same key as latlong-division: minLat for latitude, maxLng for longitude).
+   * @private
+   */
+  _getTractSortValue(tract, direction) {
+    if (tract.properties &&
+        typeof tract.properties.MIN_LAT === 'number' &&
+        typeof tract.properties.MAX_LNG === 'number') {
+      return direction === 'latitude' ? tract.properties.MIN_LAT : tract.properties.MAX_LNG;
+    }
+    if (!tract.geometry) return 0;
+    let minLat = 90, maxLng = -180;
+    const visit = (coord) => {
+      const lng = coord[0], lat = coord[1];
+      minLat = Math.min(minLat, lat);
+      maxLng = Math.max(maxLng, lng);
+    };
+    if (tract.geometry.type === 'Polygon') {
+      for (const ring of tract.geometry.coordinates) {
+        for (const coord of ring) visit(coord);
+      }
+    } else if (tract.geometry.type === 'MultiPolygon') {
+      for (const polygon of tract.geometry.coordinates) {
+        for (const ring of polygon) {
+          for (const coord of ring) visit(coord);
+        }
+      }
+    }
+    return direction === 'latitude' ? minLat : maxLng;
+  }
+
+  /**
+   * After all isolated tracts have been moved, balance each sibling pair by swapping boundary tracts
+   * from the overpopulated DG to the other, starting from tracts closest to the dividing line.
+   * @param {Array} updatedGroups - District groups after Phase 1 (all isolated moves, no per-move balance)
+   * @param {Array} allTracts - All tracts
+   * @param {Array} divisionLines - Array of { line, direction, siblingGroups }
+   * @returns {Array} Updated district groups
+   */
+  balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines) {
+    if (!divisionLines || divisionLines.length === 0) return updatedGroups;
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    let groups = updatedGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+
+    for (const divLine of divisionLines) {
+      if (!divLine.siblingGroups || divLine.siblingGroups.length !== 2) continue;
+      const s0 = divLine.siblingGroups[0];
+      const s1 = divLine.siblingGroups[1];
+      const lineVal = typeof divLine.line === 'number' ? divLine.line : 0;
+      const direction = divLine.direction === 'longitude' ? 'longitude' : 'latitude';
+
+      let idxA = -1, idxB = -1;
+      for (let i = 0; i < groups.length; i++) {
+        const g = groups[i];
+        if (g.startDistrictNumber === s0.startDistrictNumber && g.endDistrictNumber === s0.endDistrictNumber) idxA = i;
+        if (g.startDistrictNumber === s1.startDistrictNumber && g.endDistrictNumber === s1.endDistrictNumber) idxB = i;
+      }
+      if (idxA < 0 || idxB < 0) continue;
+
+      const ideal = (groups[idxA].censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0) +
+        groups[idxB].censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0)) / 2;
+      const total = ideal * 2;
+      if (total <= 0) continue;
+
+      const groupATractIds = new Set(groups[idxA].censusTracts.map(t => getTractId(t)));
+      const groupBTractIds = new Set(groups[idxB].censusTracts.map(t => getTractId(t)));
+      const boundaryA = groups[idxA].censusTracts.filter(t => {
+        const tid = getTractId(t);
+        const neighbors = adjacencyGraph.get(tid) || [];
+        return neighbors.some(n => groupBTractIds.has(n));
+      });
+      const boundaryB = groups[idxB].censusTracts.filter(t => {
+        const tid = getTractId(t);
+        const neighbors = adjacencyGraph.get(tid) || [];
+        return neighbors.some(n => groupATractIds.has(n));
+      });
+
+      const maxSwaps = Math.max(boundaryA.length + boundaryB.length, 50);
+      let swaps = 0;
+      while (swaps < maxSwaps) {
+        const popA = groups[idxA].censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+        const popB = groups[idxB].censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+        const varianceA = Math.abs(popA - ideal) / ideal;
+        const varianceB = Math.abs(popB - ideal) / ideal;
+        if (varianceA <= GeodistrictAlgorithmService.BALANCE_TARGET_VARIANCE && varianceB <= GeodistrictAlgorithmService.BALANCE_TARGET_VARIANCE) break;
+
+        const overPopIdx = popA >= popB ? idxA : idxB;
+        const underPopIdx = popA >= popB ? idxB : idxA;
+        const boundaryCandidates = overPopIdx === idxA ? boundaryA : boundaryB;
+        const overGroup = groups[overPopIdx];
+        const underGroup = groups[underPopIdx];
+
+        boundaryCandidates.sort((a, b) => {
+          const va = this._getTractSortValue(a, direction);
+          const vb = this._getTractSortValue(b, direction);
+          const distA = Math.abs(va - lineVal);
+          const distB = Math.abs(vb - lineVal);
+          return distA - distB;
+        });
+
+        let moved = false;
+        for (const tract of boundaryCandidates) {
+          const tractId = getTractId(tract);
+          const remaining = overGroup.censusTracts.filter(t => getTractId(t) !== tractId);
+          if (remaining.length === 0) continue;
+          const maxReachable = this.calculateMaxReachableCount(remaining, adjacencyGraph);
+          if (maxReachable < remaining.length * 0.95) continue;
+
+          const fromIdx = overPopIdx;
+          const toIdx = underPopIdx;
+          const fromGroup = groups[fromIdx];
+          const toGroup = groups[toIdx];
+          const tractIndex = fromGroup.censusTracts.findIndex(t => getTractId(t) === tractId);
+          if (tractIndex === -1) continue;
+          const [movedTract] = fromGroup.censusTracts.splice(tractIndex, 1);
+          toGroup.censusTracts.push(movedTract);
+
+          const targetDG = `DG${toGroup.startDistrictNumber}-${toGroup.endDistrictNumber}`;
+          const sourceDG = `DG${fromGroup.startDistrictNumber}-${fromGroup.endDistrictNumber}`;
+          if (movedTract.properties) {
+            movedTract.properties.tract_DG = targetDG;
+            movedTract.properties.sibling_DG = sourceDG;
+          }
+
+          fromGroup.totalPopulation = fromGroup.censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+          fromGroup.bounds = calculateBounds(fromGroup.censusTracts);
+          fromGroup.centroid = calculateCentroid(fromGroup.censusTracts);
+          toGroup.totalPopulation = toGroup.censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+          toGroup.bounds = calculateBounds(toGroup.censusTracts);
+          toGroup.centroid = calculateCentroid(toGroup.censusTracts);
+
+          groupATractIds.clear();
+          groups[idxA].censusTracts.forEach(t => groupATractIds.add(getTractId(t)));
+          groupBTractIds.clear();
+          groups[idxB].censusTracts.forEach(t => groupBTractIds.add(getTractId(t)));
+          boundaryA.length = 0;
+          boundaryB.length = 0;
+          groups[idxA].censusTracts.forEach(t => {
+            const tid = getTractId(t);
+            const neighbors = adjacencyGraph.get(tid) || [];
+            if (neighbors.some(n => groupBTractIds.has(n))) boundaryA.push(t);
+          });
+          groups[idxB].censusTracts.forEach(t => {
+            const tid = getTractId(t);
+            const neighbors = adjacencyGraph.get(tid) || [];
+            if (neighbors.some(n => groupATractIds.has(n))) boundaryB.push(t);
+          });
+          moved = true;
+          swaps++;
+          break;
+        }
+        if (!moved) break;
+      }
+    }
+    return groups;
   }
 
   /**

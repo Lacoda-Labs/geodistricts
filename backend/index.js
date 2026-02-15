@@ -5732,6 +5732,8 @@ function normalizeStepData(step, tractCacheKey) {
     })) : step.divisionLines,
     // Preserve isolated tracts data if present
     isolatedTractsData: step.isolatedTractsData || undefined,
+    // Preserve step-0 island tracts so steps 1+ can exclude them from isolation
+    islandTractsData: step.islandTractsData || undefined,
     districtGroups: step.districtGroups.map((group, index) => {
       const normalizedGroup = {
         startDistrictNumber: group.startDistrictNumber,
@@ -6741,7 +6743,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           if (isolatedTractIds.length === 0) continue;
           try {
             const result = algorithmService.moveIsolatedTractsToOppositeGroup(
-              updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null
+              updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null, true
             );
             updatedGroups = result.districtGroups;
           } catch (moveErr) {
@@ -6753,6 +6755,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         isolatedTractsByGroup = {};
         isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { isolatedTractsByGroup[idx] = Array.from(tractIds); });
         groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+      }
+
+      if (divisionLines && divisionLines.length > 0) {
+        updatedGroups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
       }
 
       const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
@@ -7097,7 +7103,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
             allTracts,
             groupIndex,
             isolatedTractIds,
-            currentStep.divisionLines || null
+            currentStep.divisionLines || null,
+            true
           );
           updatedGroups = result.districtGroups;
         } catch (moveErr) {
@@ -7138,6 +7145,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     if (iterationCount >= maxProcessingIterations) {
       console.warn(`⚠️ Reached max iterations (${maxProcessingIterations}) while processing isolated tracts`);
+    }
+
+    if (currentStep.divisionLines && currentStep.divisionLines.length > 0) {
+      updatedGroups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, currentStep.divisionLines);
     }
 
     // Final isolation detection
