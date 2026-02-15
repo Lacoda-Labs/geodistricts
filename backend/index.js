@@ -3394,6 +3394,26 @@ async function reconstructUniqueTracts(algorithmState) {
         }
       }
     }
+
+    // Validate geometry coverage: if too many tracts lack geometry, treat cache as invalid
+    const GEOMETRY_COVERAGE_THRESHOLD = 0.95;
+    if (lookupMap.size > 0) {
+      const entries = Array.from(lookupMap.entries());
+      const sampleSize = Math.min(200, entries.length);
+      const step = Math.max(1, Math.floor(entries.length / sampleSize));
+      let withGeometry = 0;
+      let sampled = 0;
+      for (let i = 0; i < entries.length && sampled < sampleSize; i += step) {
+        const tract = entries[i][1];
+        if (tract && (tract.geometry || (tract.type === 'Feature' && tract.geometry))) withGeometry++;
+        sampled++;
+      }
+      const coverage = sampled > 0 ? withGeometry / sampled : 0;
+      if (coverage < GEOMETRY_COVERAGE_THRESHOLD) {
+        console.error(`❌ TRACT CACHE INVALID: geometry coverage ${(coverage * 100).toFixed(1)}% (${withGeometry}/${sampled}) below ${(GEOMETRY_COVERAGE_THRESHOLD * 100)}%. Refusing to use cache.`);
+        return [];
+      }
+    }
     
     // Reconstruct uniqueTracts from IDs
     const uniqueTracts = [];
@@ -4618,6 +4638,27 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                     console.warn(`⚠️ Failed to reconstruct step 0 from cache: ${reconstructError.message}`);
                   }
                 }
+
+                // If reconstruction returned null (e.g. tract cache invalid/bad geometry), build step 0 from fresh tracts
+                const firstGroupTracts = stepData?.districtGroups?.[0]?.censusTracts;
+                if (!stepData || !stepData.districtGroups?.length || !(firstGroupTracts && firstGroupTracts.length > 0)) {
+                  console.log(`🔄 STEP 0: Reconstruction failed or empty tracts; building step 0 from ${tracts.length} fresh tracts`);
+                  const totalStatePopulationFromTracts = tracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0);
+                  const { calculateBounds, calculateCentroid } = require('./services/geodistrict-algorithm');
+                  stepData = {
+                    step: 0,
+                    districtGroups: [{
+                      startDistrictNumber: 1,
+                      endDistrictNumber: totalDistricts,
+                      totalDistricts,
+                      totalPopulation: totalStatePopulationFromTracts,
+                      censusTracts: tracts,
+                      bounds: calculateBounds(tracts),
+                      centroid: calculateCentroid(tracts)
+                    }],
+                    description: 'Initial state: All tracts in single group'
+                  };
+                }
                 
                 // For step 0, use the tracts we just loaded instead of trying to reconstruct from cache
                 // Step 0 is the initial state with all tracts, so we can use the fresh tracts
@@ -4721,19 +4762,57 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
           const tractCacheKey = `state_tracts_${state}`;
           const normalizedStep = normalizeStepData(step, tractCacheKey);
           
-          // Store state tract cache if it doesn't exist or if algorithm version changed
-          // Check if state tract cache already exists and matches current algorithm version
+          // Store state tract cache if it doesn't exist, version changed, or geometry coverage is bad.
+          // This step 0 path is the single writer for state tract cache in step-by-step flow; do not add other writers that strip geometry.
           const existingTractCache = await firestore.collection('census_cache').doc(tractCacheKey).get();
           
           const existingVersion = existingTractCache.exists ? existingTractCache.data()?.algorithmVersion : null;
-          const shouldRegenerateCache = !existingTractCache.exists || 
-            existingVersion !== ALGORITHM_VERSION;
-          
+          let shouldRegenerateCache = !existingTractCache.exists || existingVersion !== ALGORITHM_VERSION;
+
+          // When cache exists and version matches, validate geometry coverage or that the file actually exists
+          const GEOMETRY_COVERAGE_THRESHOLD = 0.95; // Require at least 95% of tracts to have geometry
+          if (!shouldRegenerateCache && existingTractCache.exists) {
+            let existingTractMap = null;
+            const existingData = existingTractCache.data();
+            if (existingData?.cloudStorage && existingData?.cloudStoragePath) {
+              try {
+                const cloudResult = await cloudStorageCache.get(tractCacheKey);
+                if (cloudResult?.data) existingTractMap = cloudResult.data;
+                else {
+                  console.log(`🔍 State tract cache metadata exists but Cloud Storage file not found, regenerating...`);
+                  shouldRegenerateCache = true;
+                }
+              } catch (e) {
+                console.warn(`⚠️ Could not fetch existing tract cache: ${e.message}, regenerating...`);
+                shouldRegenerateCache = true;
+              }
+            } else if (existingData?.data && Array.isArray(existingData.data)) {
+              existingTractMap = existingData.data;
+            }
+            if (!shouldRegenerateCache && existingTractMap && existingTractMap.length > 0) {
+              const sampleSize = Math.min(500, existingTractMap.length);
+              const step = Math.max(1, Math.floor(existingTractMap.length / sampleSize));
+              let withGeometry = 0;
+              let sampled = 0;
+              for (let i = 0; i < existingTractMap.length && sampled < sampleSize; i += step) {
+                const entry = existingTractMap[i];
+                const tract = Array.isArray(entry) && entry.length === 2 ? entry[1] : entry;
+                if (tract && (tract.geometry || (tract.type === 'Feature' && tract.geometry))) withGeometry++;
+                sampled++;
+              }
+              const coverage = sampled > 0 ? withGeometry / sampled : 0;
+              if (coverage < GEOMETRY_COVERAGE_THRESHOLD) {
+                console.log(`🔍 State tract cache geometry coverage ${(coverage * 100).toFixed(1)}% (${withGeometry}/${sampled}) below threshold ${(GEOMETRY_COVERAGE_THRESHOLD * 100)}%, regenerating...`);
+                shouldRegenerateCache = true;
+              }
+            }
+          }
+
           console.log(`🔍 State tract cache check: exists=${existingTractCache.exists}, version=${existingVersion || 'none'}, current=${ALGORITHM_VERSION}, shouldRegenerate=${shouldRegenerateCache}`);
           
           if (shouldRegenerateCache) {
             if (existingTractCache.exists) {
-              console.log(`🔄 State tract cache version mismatch (${existingVersion || 'unknown'} != ${ALGORITHM_VERSION}), regenerating...`);
+              console.log(`🔄 State tract cache regenerating (version mismatch or bad geometry coverage)...`);
               // Delete old Cloud Storage file if it exists
               if (existingTractCache.data()?.cloudStorage && existingTractCache.data()?.cloudStoragePath) {
                 try {
@@ -5100,6 +5179,13 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     // Reconstruct uniqueTracts if needed (from uniqueTractIds)
     if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
       algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+    }
+
+    if (!algorithmState.uniqueTracts || algorithmState.uniqueTracts.length === 0) {
+      console.error(`❌ NEXT-STEP: No tracts available for ${stateKey} (tract cache missing or invalid). Use force refresh to regenerate.`);
+      return res.status(400).json({
+        error: 'State tract cache is missing or invalid (e.g. Cloud Storage file not found or bad geometry). In admin mode, click the trash icon to clear cache, then load step 0 again to regenerate.'
+      });
     }
 
     // Reconstruct currentGroups with actual censusTracts from uniqueTracts if needed

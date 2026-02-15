@@ -81,7 +81,8 @@
             (nextStep)="nextStep()"
             (lastStep)="goToLastStep()"
             (toggleTracts)="toggleTractBoundaries()"
-            (restart)="resetToStart()">
+            (restart)="resetToStart()"
+            (clearCache)="forceRefreshAndReset()">
           </app-step-btn-bar>
         </div>
 
@@ -171,6 +172,9 @@
             <div class="dg-header">
               <div class="dg-header-left">
                 <h4>{{getStateDistrictCount(selectedState)}} {{stateName(selectedState)}} GeoDistricts</h4>
+                <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
+                  Step {{ currentStepIndex }}<span *ngIf="getTotalSteps() > 0"> of {{ getTotalSteps() }}</span>
+                </span>
               </div>
               <div class="dg-header-right">
                 <div class="dg-header-label">State Population:</div>

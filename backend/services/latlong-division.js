@@ -271,6 +271,16 @@ class LatLongDivisionService {
       return { tract, bounds, sortValue, population, groupId, isEnclosed, enclosingTractId: isEnclosed };
     });
 
+    // Sanity check: no single tract should have population > reasonable max (defends against corrupted cache)
+    const MAX_TRACT_POPULATION = 500000;
+    for (const item of tractsWithBounds) {
+      if (item.population > MAX_TRACT_POPULATION) {
+        const tractId = getTractId(item.tract);
+        console.error(`❌ DIVISION GUARD: Tract ${tractId} has population ${item.population.toLocaleString()} (max ${MAX_TRACT_POPULATION}). Capping to avoid bad division.`);
+        item.population = Math.min(item.population, MAX_TRACT_POPULATION);
+      }
+    }
+
     // Sort tracts by the relevant boundary
     if (direction === 'latitude') {
       // Sort by south boundary (minLat) - descending (most north first)

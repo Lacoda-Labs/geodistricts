@@ -757,12 +757,23 @@
   .dg-header-left {
     flex: 1;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
 
     h4 {
       margin: 0;
       font-size: 1rem;
       font-weight: 600;
       color: var(--mat-sys-on-surface, #181C20);
+    }
+
+    .step-indicator {
+      font-size: 0.875rem;
+      color: var(--mat-sys-on-surface-variant, #42474E);
+      white-space: nowrap;
     }
   }
 

@@ -61,11 +61,6 @@
     </button>
   </div>
 
-  <!-- Step number display -->
-  <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
-    Step {{ (currentStepIndex) }}<span *ngIf="totalSteps > 0"> of {{ totalSteps }}</span>
-  </span>
-
   <!-- Admin variant: Restart algorithm button -->
   <button 
     *ngIf="variant === 'admin'"
@@ -74,5 +69,15 @@
     mat-icon-button
     [attr.aria-label]="'Restart algorithm'">
     <mat-icon fontIcon="restart_alt"></mat-icon>
+  </button>
+
+  <!-- Admin variant: Clear all cache and force refresh (trash) -->
+  <button 
+    *ngIf="variant === 'admin'"
+    class="icon-btn clear-cache-btn"
+    (click)="onClearCache()"
+    mat-icon-button
+    [attr.aria-label]="'Clear cache and force refresh'">
+    <mat-icon fontIcon="delete"></mat-icon>
   </button>
 </div>

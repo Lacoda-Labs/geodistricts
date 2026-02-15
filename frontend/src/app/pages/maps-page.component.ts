@@ -11,6 +11,7 @@ import { concatMap, tap, last, map, catchError, take } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
+import { GeodistrictCacheService } from '../services/geodistrict-cache.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
 import { PageHeaderComponent } from '../components/page-header.component';
@@ -204,6 +205,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
+    private geodistrictCacheService: GeodistrictCacheService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
@@ -1261,15 +1263,45 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Reset to step 0 by clearing cache and reloading the map
+   * Clear all cache for the selected state and reload step 0 with forceInvalidate (admin trash button).
+   */
+  forceRefreshAndReset(): void {
+    if (!this.selectedState || this.selectedState === 'ALL') {
+      this.errorMessage = 'Please select a state first';
+      return;
+    }
+    const state = this.selectedState;
+    const maxIterations = 100;
+    console.log(`🗑️ Force refresh: clearing all cache for ${state}, then reloading step 0...`);
+    this.geodistrictCacheService.invalidate(state, maxIterations).pipe(
+      concatMap(() => this.geodistrictCacheService.invalidateState(state))
+    ).subscribe({
+      next: () => {
+        console.log(`✅ Cache cleared for ${state}, reloading step 0 with forceInvalidate...`);
+        this.resetToStartWithOptions(true);
+      },
+      error: (err) => {
+        console.warn('Cache invalidation failed, continuing with force refresh:', err);
+        this.resetToStartWithOptions(true);
+      }
+    });
+  }
+
+  /**
+   * Reset to step 0 by clearing local state and reloading (optionally with forceInvalidate).
    */
   resetToStart(): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
       this.errorMessage = 'Please select a state first';
       return;
     }
+    this.resetToStartWithOptions(false);
+  }
 
-    console.log(`🔄 Resetting to step 0 for ${this.selectedState}...`);
+  private resetToStartWithOptions(forceInvalidate: boolean): void {
+    if (!this.selectedState || this.selectedState === 'ALL') return;
+
+    console.log(`🔄 Resetting to step 0 for ${this.selectedState}${forceInvalidate ? ' (force invalidate)' : ''}...`);
 
     // Clear map layers
     if (this.tractLayer) {
@@ -1310,9 +1342,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const executeUrl = `${backendUrl}/api/algorithm/execute/step-by-step`;
 
-    console.log(`🚀 Reloading step 0 for ${this.selectedState} (using cache when available)`);
+    console.log(`🚀 Reloading step 0 for ${this.selectedState}${forceInvalidate ? ' (force invalidate)' : ' (using cache when available)'}`);
 
-    // Call step-by-step endpoint to get step 0 (no cache invalidation)
+    // Call step-by-step endpoint to get step 0
     const subscription = this.http.post<{
       step: number;
       data: GeodistrictStep;
@@ -1321,7 +1353,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       state: this.selectedState,
       maxIterations: 100,
       options: {
-        forceInvalidate: false
+        forceInvalidate
       }
     }, {
       headers: {
