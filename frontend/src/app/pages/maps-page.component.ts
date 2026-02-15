@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
 import { concatMap, tap, last, map, catchError, take } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
@@ -38,6 +39,7 @@ declare global {
     MatIconModule,
     MatCheckboxModule,
     MatChipsModule,
+    MatExpansionModule,
     PageHeaderComponent,
     StateRowComponent,
     StepBtnBarComponent,
@@ -71,6 +73,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
+  /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
+  step0IsolatedSectionExpanded: boolean = false;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
   isSortingVisualization: boolean = false; // Track if we're currently showing sorting visualization
   /** Raw slider position 0..sliderMax. Mapped to tract range: when positions < tracts each step = range of tracts; when positions > tracts multiple steps = same tract. */
@@ -3892,6 +3896,50 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     return ids.length > 0 ? ids : undefined;
+  }
+
+  /**
+   * Step 0 only: list of geographic island tracts for the collapsible panel.
+   * Each item has tractId and a group label (e.g. "Island group 1").
+   */
+  getStep0IslandTractsList(): Array<{ tractId: string; groupLabel: string }> {
+    const step = this.currentStep;
+    if (!step || step.step !== 0) return [];
+    const islandData = (step as any).islandTractsData?.islandTractsByGroup;
+    if (!islandData || typeof islandData !== 'object') return [];
+    const list: Array<{ tractId: string; groupLabel: string }> = [];
+    let groupNum = 0;
+    for (const islandGroups of Object.values(islandData)) {
+      if (!Array.isArray(islandGroups)) continue;
+      for (const group of islandGroups) {
+        groupNum++;
+        const label = `Island group ${groupNum}`;
+        const ids = Array.isArray(group) ? group : [group];
+        for (const id of ids) {
+          const tractId = typeof id === 'string' ? id : String(id);
+          list.push({ tractId, groupLabel: label });
+        }
+      }
+    }
+    return list;
+  }
+
+  /**
+   * Step 0 only: list of enclosed tracts (merged with their enclosing tract via TRACT_GROUP_ID).
+   */
+  getStep0EnclosedTractsList(): Array<{ tractId: string; enclosedBy: string }> {
+    const step = this.currentStep;
+    if (!step?.districtGroups?.length) return [];
+    const list: Array<{ tractId: string; enclosedBy: string }> = [];
+    for (const group of step.districtGroups) {
+      for (const tract of group.censusTracts || []) {
+        const enclosedBy = tract.properties?.['ENCLOSED_BY'];
+        if (enclosedBy) {
+          list.push({ tractId: this.getTractId(tract), enclosedBy: String(enclosedBy) });
+        }
+      }
+    }
+    return list;
   }
 
   /**

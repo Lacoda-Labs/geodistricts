@@ -1387,3 +1387,70 @@
     }
   }
 }
+
+.step-0-isolated-panel {
+  margin-bottom: 16px;
+
+  .mat-mdc-expansion-panel {
+    background-color: var(--mat-sys-surface-container, #f5f5f5);
+    border: 1px solid var(--mat-sys-outline-variant, #c4c7c5);
+    border-radius: 8px;
+  }
+
+  .step-0-isolated-counts {
+    font-weight: normal;
+    color: var(--mat-sys-on-surface-variant, #49454e);
+    font-size: 0.9em;
+    margin-left: 4px;
+  }
+
+  .step-0-isolated-content {
+    padding-top: 4px;
+  }
+
+  .step-0-isolated-subsection {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    h5 {
+      margin: 0 0 4px 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--mat-sys-primary, #1976d2);
+    }
+  }
+
+  .step-0-isolated-desc {
+    margin: 0 0 6px 0;
+    font-size: 0.8rem;
+    color: var(--mat-sys-on-surface-variant, #49454e);
+  }
+
+  .step-0-tract-list {
+    margin: 0;
+    padding-left: 18px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+
+    li {
+      margin-bottom: 2px;
+      cursor: pointer;
+
+      .tract-id {
+        font-family: 'Courier New', monospace;
+      }
+
+      .tract-meta {
+        color: var(--mat-sys-on-surface-variant, #49454e);
+      }
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}

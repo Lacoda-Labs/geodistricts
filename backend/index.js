@@ -4128,6 +4128,7 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                 if (tractMap) {
                   // Use stepData field if available, otherwise use cachedEntry directly
                   const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+                  deserializeStepDataFromFirestore(dataToReconstruct);
                   let stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state);
                   
                   // For Step 0, ensure TIGER state boundaries are used
@@ -4242,6 +4243,7 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       // Check if cached entry has valid step data with actual tract geometries
       // Handle both cache formats: stepData field (algorithm-step-cache) or direct data (step-cache)
       let stepData = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+      deserializeStepDataFromFirestore(stepData);
       
       // Validate that step data has actual tract geometries, not just IDs
       const hasValidData = stepData && stepData.districtGroups && Array.isArray(stepData.districtGroups) && stepData.districtGroups.length > 0;
@@ -4433,6 +4435,7 @@ app.post('/api/algorithm/restart', async (req, res) => {
     if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) {
       return res.json({ ok: true, message: `Restarted for ${state}; step 0 data invalid, call step-by-step` });
     }
+    deserializeStepDataFromFirestore(stepData);
 
     const group0 = stepData.districtGroups[0];
     const censusTractIds = group0.censusTractIds || (group0.censusTracts && group0.censusTracts.map(t => {
@@ -4635,6 +4638,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 
                 // Reconstruct step data with tract geometries
                 let stepData = cachedEntry.stepData;
+                deserializeStepDataFromFirestore(stepData);
                 
                 // For Step 0, ALWAYS use TIGER state boundaries (never use cached tract-based union polygons)
                 // Step 0 should NEVER use union polygons created from tracts - only TIGER boundaries
@@ -4811,34 +4815,6 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   
                   // For Step 0, ensure TIGER state boundaries are used
                   stepData = await ensureStep0UsesTigerBoundaries(stepData, state, 0, req);
-                }
-                
-                // Ensure step 0 has island tracts data so steps 1+ can exclude geographic islands from isolation
-                if (stepData && stepData.districtGroups && stepData.districtGroups[0]?.censusTracts?.length > 0 &&
-                    (!stepData.islandTractsData?.islandTractsByGroup || Object.keys(stepData.islandTractsData.islandTractsByGroup).length === 0)) {
-                  try {
-                    const s4DataLoader = require('./services/s4-data-loader');
-                    await s4DataLoader.loadS4AdjacencyData(state);
-                    const allTractsForDetect = stepData.districtGroups[0].censusTracts;
-                    const detectionResult = algorithmService.detectIsolatedTracts(stepData.districtGroups, allTractsForDetect, 0, null);
-                    if (detectionResult.islandTractsByGroup && detectionResult.islandTractsByGroup.size > 0) {
-                      const islandTractsByGroup = {};
-                      detectionResult.islandTractsByGroup.forEach((islandGroups, groupIndex) => {
-                        islandTractsByGroup[groupIndex] = islandGroups;
-                      });
-                      const totalIslandTracts = Object.values(islandTractsByGroup).reduce((sum, groups) =>
-                        sum + groups.reduce((s, g) => s + g.length, 0), 0);
-                      stepData.islandTractsData = {
-                        islandTractsByGroup,
-                        totalIslandTracts,
-                        totalIslandGroups: Object.values(islandTractsByGroup).reduce((sum, groups) => sum + groups.length, 0),
-                        groupsWithIslands: Object.keys(islandTractsByGroup).length
-                      };
-                      console.log(`🏝️ STEP 0 (cache path): Detected ${totalIslandTracts} island tract(s) for exclusion at steps 1+`);
-                    }
-                  } catch (e) {
-                    console.warn(`⚠️ STEP 0 (cache path): Island detection failed: ${e.message}`);
-                  }
                 }
                 
                 // Reconstruct algorithm state from cached step
@@ -5250,6 +5226,7 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
     // Determine if step data is in 'stepData' field (step-by-step) or directly in cachedEntry (Run All Steps)
     const hasStepDataField = cachedEntry.stepData !== undefined;
     const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+    deserializeStepDataFromFirestore(dataToReconstruct);
     const isNormalized = cachedEntry.normalized;
     const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`;
 
@@ -5319,6 +5296,78 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
 });
 
 /**
+ * Rehydrate algorithm state from step 0 cache when state doc is missing (e.g. cache write failed after step-by-step).
+ * So "Next from step 0" works even if algorithm_state_* was never or no longer present.
+ * @param {string} state - State code
+ * @param {number} maxIterations - Max iterations
+ * @returns {Promise<Object|null>} Algorithm state or null
+ */
+async function rehydrateAlgorithmStateFromStep0(state, maxIterations) {
+  const step0CacheKey = `algorithm_step_${state}_${maxIterations}_0`;
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  try {
+    const doc = await firestore.collection('census_cache').doc(step0CacheKey).get();
+    if (!doc.exists) return null;
+    const cachedEntry = doc.data();
+    if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) return null;
+    if (cachedEntry.algorithmVersion !== ALGORITHM_VERSION) return null;
+
+    let stepData = cachedEntry.stepData;
+    if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) return null;
+    deserializeStepDataFromFirestore(stepData);
+
+    const fromCache = await loadTractsFromStateTractCache(state);
+    if (!fromCache || !fromCache.tracts || fromCache.tracts.length === 0) return null;
+    const tracts = fromCache.tracts;
+    const tractCacheKey = cachedEntry.tractCacheKey || fromCache.tractCacheKey || `state_tracts_${state}`;
+
+    const totalDistricts = getDistrictsForState(state);
+    if (!totalDistricts) return null;
+    const totalStatePopulation = tracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+    const targetDistrictPopulation = totalStatePopulation / totalDistricts;
+
+    const uniqueTractIds = tracts.map(t => getTractId(t)).filter(Boolean);
+    const firstGroup = stepData.districtGroups[0];
+    const currentGroups = stepData.districtGroups.map(group => {
+      const censusTractIds = group.censusTractIds && group.censusTractIds.length > 0
+        ? group.censusTractIds
+        : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+      return {
+        startDistrictNumber: group.startDistrictNumber,
+        endDistrictNumber: group.endDistrictNumber,
+        totalDistricts: group.totalDistricts,
+        totalPopulation: group.totalPopulation,
+        bounds: group.bounds,
+        centroid: group.centroid,
+        censusTractIds,
+        unionPolygonCacheKey: group.unionPolygonCacheKey
+      };
+    });
+
+    const algorithmState = {
+      uniqueTractIds,
+      tractCacheKey,
+      currentGroups,
+      iteration: 0,
+      steps: [stepData],
+      algorithmHistory: [],
+      totalStatePopulation,
+      targetDistrictPopulation,
+      maxIterations,
+      state
+    };
+
+    const stateKey = getAlgorithmStateKey(state, maxIterations);
+    await cacheAlgorithmState(stateKey, algorithmState);
+    console.log(`✅ NEXT-STEP: Rehydrated algorithm state for ${stateKey} from step 0 cache`);
+    return algorithmState;
+  } catch (err) {
+    console.warn(`⚠️ NEXT-STEP: Rehydrate from step 0 failed: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * POST /api/algorithm/execute/next-step
  * Execute the next step of the algorithm
  * Caches step results for fast retrieval on subsequent requests
@@ -5339,6 +5388,10 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     console.log(`🔍 NEXT-STEP: Looking for algorithm state with key: ${stateKey}`);
     let algorithmState = await getCachedAlgorithmState(stateKey);
 
+    if (!algorithmState) {
+      console.log(`🔄 NEXT-STEP: Algorithm state not found, attempting rehydration from step 0 cache...`);
+      algorithmState = await rehydrateAlgorithmStateFromStep0(state, maxIterations);
+    }
     if (!algorithmState) {
       console.error(`❌ NEXT-STEP: Algorithm state not found for ${stateKey}. This may be a timing issue if state was just cached.`);
       return res.status(404).json({ error: 'Algorithm not initialized. Call /execute/step-by-step first.' });
@@ -5422,6 +5475,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
               
               // Reconstruct step data with tract geometries from state cache if needed
               let stepData = cachedEntry.stepData;
+              deserializeStepDataFromFirestore(stepData);
               
               // If normalized, reconstruct from state tract cache
               if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
@@ -5860,6 +5914,61 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
 }
 
 /**
+ * Firestore does not allow arrays containing arrays. islandTractsData.islandTractsByGroup
+ * is { [groupIndex]: string[][] }. Convert to { [groupIndex]: Array<{ tractIds: string[] }> } for storage.
+ */
+function serializeIslandTractsDataForFirestore(islandTractsData) {
+  if (!islandTractsData || !islandTractsData.islandTractsByGroup) return undefined;
+  const byGroup = islandTractsData.islandTractsByGroup;
+  const serialized = {};
+  for (const [key, islandGroups] of Object.entries(byGroup)) {
+    if (!Array.isArray(islandGroups)) continue;
+    serialized[key] = islandGroups.map((group) =>
+      Array.isArray(group) ? { tractIds: group } : { tractIds: [group] }
+    );
+  }
+  return {
+    islandTractsByGroup: serialized,
+    totalIslandTracts: islandTractsData.totalIslandTracts,
+    totalIslandGroups: islandTractsData.totalIslandGroups,
+    groupsWithIslands: islandTractsData.groupsWithIslands
+  };
+}
+
+/**
+ * Restore islandTractsData from Firestore-safe shape to runtime shape (array-of-arrays per group).
+ */
+function deserializeIslandTractsDataFromFirestore(islandTractsData) {
+  if (!islandTractsData || !islandTractsData.islandTractsByGroup) return islandTractsData;
+  const byGroup = islandTractsData.islandTractsByGroup;
+  const restored = {};
+  for (const [key, arr] of Object.entries(byGroup)) {
+    if (!Array.isArray(arr)) continue;
+    restored[key] = arr.map((item) => {
+      if (item && Array.isArray(item.tractIds)) return item.tractIds;
+      if (Array.isArray(item)) return item; // legacy or already runtime shape
+      return item ? [item] : [];
+    });
+  }
+  return {
+    ...islandTractsData,
+    islandTractsByGroup: restored
+  };
+}
+
+/**
+ * When stepData was read from Firestore, restore any Firestore-safe fields to runtime shapes.
+ * Call after cachedEntry.stepData before using in algorithm or API responses.
+ */
+function deserializeStepDataFromFirestore(stepData) {
+  if (!stepData) return stepData;
+  if (stepData.islandTractsData) {
+    stepData.islandTractsData = deserializeIslandTractsDataFromFirestore(stepData.islandTractsData);
+  }
+  return stepData;
+}
+
+/**
  * Normalize step data for caching (extract tract IDs, reference existing state tract cache)
  * Removes all nested GeoJSON geometries and complex objects that Firestore can't store
  */
@@ -5900,10 +6009,10 @@ function normalizeStepData(step, tractCacheKey) {
       })) : undefined,
       step: line.step // Preserve step number for finding most recent division
     })) : step.divisionLines,
-    // Preserve isolated tracts data if present
+    // Preserve isolated tracts data if present (shape is already Firestore-safe: object of string[])
     isolatedTractsData: step.isolatedTractsData || undefined,
-    // Preserve step-0 island tracts so steps 1+ can exclude them from isolation
-    islandTractsData: step.islandTractsData || undefined,
+    // Step-0 island tracts: use Firestore-safe shape (no array-of-arrays)
+    islandTractsData: serializeIslandTractsDataForFirestore(step.islandTractsData),
     districtGroups: step.districtGroups.map((group, index) => {
       const normalizedGroup = {
         startDistrictNumber: group.startDistrictNumber,
@@ -7104,6 +7213,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
       const hasStepDataField = cachedEntry.stepData !== undefined;
       const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+      deserializeStepDataFromFirestore(dataToReconstruct);
       if (!dataToReconstruct || !dataToReconstruct.districtGroups) {
         console.error(`❌ Step ${step} cache exists but has no step data or districtGroups`);
         return res.status(404).json({ error: `Step ${step} cache is incomplete. Please re-run the algorithm.` });
@@ -7244,6 +7354,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       if (cachedEntry) {
         const hasStepDataField = cachedEntry.stepData !== undefined;
         const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+        deserializeStepDataFromFirestore(dataToReconstruct);
         const tractCacheKeysToTry = [`state_tracts_${state}`, `state_tracts_${state.toLowerCase()}`, `state_tracts_${state.toUpperCase()}`];
         let tractMap = null;
         for (const key of tractCacheKeysToTry) {

@@ -96,6 +96,43 @@
               </div>
             </div>
 
+            <!-- Step 0: Island & enclosed tracts (collapsible) -->
+            <div class="step-0-isolated-panel" *ngIf="currentStepIndex === 0 && (getStep0IslandTractsList().length > 0 || getStep0EnclosedTractsList().length > 0)">
+              <mat-expansion-panel [(expanded)]="step0IsolatedSectionExpanded">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Isolated tracts at Step 0
+                    <span class="step-0-isolated-counts">
+                      ({{ getStep0IslandTractsList().length }} island{{ getStep0IslandTractsList().length !== 1 ? 's' : '' }},
+                      {{ getStep0EnclosedTractsList().length }} enclosed)
+                    </span>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="step-0-isolated-content">
+                  <div class="step-0-isolated-subsection" *ngIf="getStep0IslandTractsList().length > 0">
+                    <h5>Island tracts</h5>
+                    <p class="step-0-isolated-desc">Geographic islands: tracts not connected to the main landmass.</p>
+                    <ul class="step-0-tract-list">
+                      <li *ngFor="let item of getStep0IslandTractsList()" (click)="showTractPopup(item.tractId)" class="tract-row-clickable">
+                        <span class="tract-id">{{ item.tractId }}</span>
+                        <span class="tract-meta"> — {{ item.groupLabel }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="step-0-isolated-subsection" *ngIf="getStep0EnclosedTractsList().length > 0">
+                    <h5>Enclosed tracts (merged)</h5>
+                    <p class="step-0-isolated-desc">Enclaves that share TRACT_GROUP_ID with their enclosing tract and move with it.</p>
+                    <ul class="step-0-tract-list">
+                      <li *ngFor="let item of getStep0EnclosedTractsList()" (click)="showTractPopup(item.tractId)" class="tract-row-clickable">
+                        <span class="tract-id">{{ item.tractId }}</span>
+                        <span class="tract-meta"> — enclosed by {{ item.enclosedBy }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </mat-expansion-panel>
+            </div>
+
             <!-- Isolated Tracts Table -->
             <div class="isolated-tracts-container"
               *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
