@@ -23,12 +23,14 @@ Use 24-hour time with no colon (e.g. `1430`, `0032`).
 
 ### Prompt
 
-[Exact or summarized user message. Do not include API keys, tokens, passwords, or internal URLs.]
+[User message as written (verbatim). Do not summarize. Redact only API keys, tokens, passwords, or internal URLs.]
 
 ### Response / actions
 
 [What the agent did: summary, bullets, or key code/docs touched. Use ✅ **RESOLVED** or ✅ **IMPLEMENTED** when appropriate.]
 ```
+
+When a workspace plan exists for the session (e.g. `.cursor/plans/*.plan.md`), add a link at the start of **Response / actions** or as a **Plan** line: `Plan: [.cursor/plans/name.plan.md](.cursor/plans/name.plan.md)`.
 
 ---
 
@@ -39,7 +41,7 @@ If you prefer the existing style without `### Prompt` / `### Response`:
 ```markdown
 ## HHMM
 
-[User request or topic.]
+[User message as written (verbatim).]
 
 ✅ **RESOLVED** / **IMPLEMENTED** / **FIXED**: [What was done.]
 ```
@@ -69,6 +71,8 @@ Add a pre-commit hook that blocks commit if staged files under .cursor/archive c
 
 ### Response / actions
 
+Plan: [.cursor/plans/archive_rule_prompt_verbatim_3da92c2b.plan.md](.cursor/plans/archive_rule_prompt_verbatim_3da92c2b.plan.md)
+
 ✅ **IMPLEMENTED**: Added scripts/check-archive-secrets.sh and spec at .cursor/ARCHIVE_PRE_COMMIT_SPEC.md. Installed as .git/hooks/pre-commit.
 ```
 
@@ -77,5 +81,5 @@ Add a pre-commit hook that blocks commit if staged files under .cursor/archive c
 ## Sensitive information
 
 - Do **not** paste API keys, tokens, passwords, or internal URLs into chat (or redact before archiving).
-- When archiving, summarize intent instead of quoting sensitive content.
+- When archiving, redact sensitive content in the prompt (e.g. replace with [REDACTED]); do not summarize the prompt itself.
 - Pre-commit hook (see `ARCHIVE_PRE_COMMIT_SPEC.md`) should scan staged archive (and optionally other) files and block commit on matches.

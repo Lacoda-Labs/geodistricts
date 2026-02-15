@@ -112,6 +112,7 @@
                     class="move-isolated-btn">
                     {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
                   </button>
+                  <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
                   <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
                     class="detect-bridge-btn" *ngIf="!bridgeTractsData">
                     {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
@@ -191,6 +192,7 @@
                       <th>District</th>
                       <th>Population</th>
                       <th>Variance</th>
+                      <th>Next division</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -208,6 +210,7 @@
                         [class.variance-negative]="getGroupVariance(group) < 0">
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
+                      <td class="next-division-cell">{{ getNextDivisionLabel(group) }}</td>
                     </tr>
                   </tbody>
                 </table>

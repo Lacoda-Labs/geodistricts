@@ -6664,14 +6664,16 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       const finalIsolatedTractsByGroup = {};
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
 
+      const totalRemaining = finalIsolationResult.isolatedTractIds.size;
       return res.json({
         districtGroups: updatedGroups,
         isolationResult: {
           isolatedTractsByGroup: finalIsolatedTractsByGroup,
           isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
-          totalIsolated: finalIsolationResult.isolatedTractIds.size,
+          totalIsolated: totalRemaining,
           groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
-        }
+        },
+        ...(totalRemaining > 0 && { hint: 'Some tracts could not be moved (no adjacent tract in target group). Try Detect Bridge Tracts, then Move Bridge Tracts.' })
       });
     }
 

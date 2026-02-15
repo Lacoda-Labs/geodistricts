@@ -58,7 +58,7 @@ A critical distinction:
 
 **Purpose**: Connect isolated tracts to the group’s main component by moving a tract from the **sibling** DG that sits between isolated tracts and the main component (a “bridge”).
 
-**Scope**: Only tracts in the **sibling group** (the other half of the same parent division). Sibling is determined from `tract.properties.sibling_DG` or division metadata.
+**Scope**: Bridge tract detection **only considers tracts from the original parent DG**. The sibling is the other half of the same parent division (e.g. parent DG6-7 splits into DG6-6 and DG7-7; bridge candidates for isolated tracts in DG6-6 come only from DG7-7). Sibling is determined from `tract.properties.sibling_DG` or division metadata. Do not consider tracts outside the parent DG—that would create problems.
 
 **Candidate selection**: Tracts in the sibling group that are adjacent (S4 graph) to at least one isolated tract in the isolated group.
 
@@ -68,9 +68,12 @@ A critical distinction:
 - **willHelpConnect** = (neighborsInIsolatedMainComponent > 0) and (adjacentIsolatedCount ≥ 1).
 - **Included**:
   - Large isolation (≥10 isolated): include if `adjacentIsolatedCount ≥ 3` OR willHelpConnect.
-  - Small isolation: include only if willHelpConnect.
+  - Small isolation (3–9 isolated): include only if willHelpConnect.
+  - **Very small isolation (≤2 isolated)**: include if `adjacentIsolatedCount ≥ 1` (relaxed so boundary-only candidates that only touch the isolated tracts can qualify).
 
 **Ordering**: Sort by `adjacentIsolatedCount` descending (best bridges first).
+
+**Strategy**: For small isolation groups (e.g. ≤2 tracts), prefer resolving via bridge move when bridge tracts are found, to preserve population balance; otherwise fall back to moving isolated tracts to the sibling (with compensating move when implemented).
 
 **Note**: Detection does not perform any move; it only returns the list of bridge tracts per isolated group.
 
@@ -79,13 +82,14 @@ A critical distinction:
 - **Target**: The **sibling group** (from `sibling_DG` on the tract or from `divisionLines` metadata).
 - **Validation**: Before moving, check that the tract has at least one neighbor in the target group. If it has no neighbors in the target, skip the move to prevent infinite loops (tract would remain isolated).
 - **Action**: Remove tract from source group(s), add to target group, then **swap** `tract_DG` and `sibling_DG` on the tract.
-- **Population**: No explicit rebalancing step; group stats (population, bounds, centroid) are updated after the move. GDIP-004 mentions “maintaining population balance” — see Known gaps (§9).
+- **Population balance (compensating move)**: After moving isolated tract(s) to the sibling, perform a compensating move to preserve population balance. Build a **sorted list of tracts in the target group that have an adjacent tract bordering the source group** (boundary tracts). Sort by how closely each tract's population matches the total population of the moved tract(s). Select one tract, or a minimal set of adjacent tracts, whose combined population closely matches that total and whose removal from the target would not create new isolated tracts. Move the selected tract(s) from target to source and swap their `tract_DG` / `sibling_DG`. If no suitable tract exists, skip the compensating move.
 - **Cache/state**: Backend updates `algorithmState.currentGroups` and invalidates the current step cache and all subsequent step caches. Frontend processes all groups with isolated tracts recursively, using the latest isolation result after each move.
 
 ## 7. Moving bridge tracts
 
 - **Direction**: Bridge tracts are moved **from** the sibling group **to** the isolated group (so they connect isolated tracts to the main component).
 - **DG swap**: Same as for isolated tracts: swap `tract_DG` and `sibling_DG` on each moved tract.
+- **Population balance (optional)**: When moving bridge tract(s) into the isolated group, optionally balance by selecting from the isolated group a tract (or set of adjacent tracts) that borders the sibling_DG and whose population closely matches the moved bridge tract(s), then moving that selection to the sibling. Use the same rule: sorted list of boundary tracts, select by population match.
 - **After move**: Re-run isolation detection on the updated district groups.
 
 ## 8. Implementation notes
@@ -112,7 +116,7 @@ A critical distinction:
 ## 9. Known gaps and discrepancies
 
 - **Step 0 island exclusion**: The API and frontend support it. `POST /api/algorithm/detect-isolated-tracts` accepts optional `stepNumber` and `step0IslandTractIds`; `POST /api/algorithm/move-all-isolated-tracts` accepts optional `step0IslandTractIds` and, on the cache path, builds the set from algorithm state step 0 when not provided. The frontend passes step and step-0 island IDs when available (from `algorithmResult.steps[0].islandTractsData`).
-- **GDIP-004 population balance**: GDIP-004 §3(b) says move isolated tracts “while maintaining population balance.” The current implementation does not perform an explicit rebalancing step after moves (e.g. moving adjacent tracts from target back to source to restore ratio). Either add a rebalance step or document that balance is not restored and adjust the protocol text if allowed.
+- **GDIP-004 population balance**: GDIP-004 §3(b) says move isolated tracts “while maintaining population balance.” The spec (§6, §7) requires a compensating move using boundary tracts and population match; implementation may optionally balance when moving bridge tracts (§7).
 - **Doc paths**: Island and move-isolated docs live under `doc/history/`. See [Island Tract Detection](../history/251204-island-tract-detection.md) and [Move Isolated Tracts Function](../history/MOVE_ISOLATED_TRACTS_FUNCTION.md).
 
 ## 10. High-level flow

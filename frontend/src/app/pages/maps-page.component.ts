@@ -61,6 +61,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
   isMovingBridgeTracts: boolean = false;
   isMovingIsolatedTracts: boolean = false;
+  /** Shown when Move Isolated Tracts leaves tracts unmoved (no neighbor in target group). */
+  moveIsolatedHint: string = '';
   isRunningAllSteps: boolean = false;
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
@@ -207,6 +209,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Popup "Swap to sibling" calls this via window (content is HTML string, not Angular template)
+    if (typeof window !== 'undefined') {
+      (window as any).gdSwapTract = (tractId: string) => this.swapTractToSibling(tractId);
+    }
     // Check if admin mode is enabled via URL hash
     if (typeof window !== 'undefined') {
       this.isAdminMode = window.location.hash === '#admin';
@@ -1256,7 +1262,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    console.log(`🔄 Resetting to step 0 for ${this.selectedState} (clearing cache)...`);
+    console.log(`🔄 Resetting to step 0 for ${this.selectedState}...`);
 
     // Clear map layers
     if (this.tractLayer) {
@@ -1296,9 +1302,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const executeUrl = `${backendUrl}/api/algorithm/execute/step-by-step`;
 
-    console.log(`🚀 Reloading algorithm from step 0 with cache cleared for ${this.selectedState}`);
+    console.log(`🚀 Reloading step 0 for ${this.selectedState} (using cache when available)`);
 
-    // Call step-by-step endpoint directly with forceInvalidate to get step 0
+    // Call step-by-step endpoint to get step 0 (no cache invalidation)
     const subscription = this.http.post<{
       step: number;
       data: GeodistrictStep;
@@ -1307,7 +1313,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       state: this.selectedState,
       maxIterations: 100,
       options: {
-        forceInvalidate: true // Clear cache
+        forceInvalidate: false
       }
     }, {
       headers: {
@@ -1457,6 +1463,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStep = step;
         this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
         this.isolatedTractsData = null;
+        this.moveIsolatedHint = '';
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
         this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
@@ -1990,6 +1997,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentStep.divisionDirection) return this.currentStep.divisionDirection;
     // Fallback: step 0 and 1 = latitude (algorithm first division is lat), step 2 = longitude, then alternate
     return this.currentStepIndex <= 1 ? 'latitude' : (this.currentStepIndex % 2 === 0 ? 'longitude' : 'latitude');
+  }
+
+  /**
+   * Label for the next division that would apply to this group (direction and ratio as percentages), e.g. "lat 44/56", "long 50/50", "lat 40/60".
+   * Returns "–" when the group has only one district (won't be divided).
+   */
+  getNextDivisionLabel(group: DistrictGroup): string {
+    const n = group.totalDistricts ?? (group.endDistrictNumber != null && group.startDistrictNumber != null
+      ? group.endDistrictNumber - group.startDistrictNumber + 1 : 0);
+    if (n <= 1) return '–';
+    const first = Math.floor(n / 2);
+    const second = n - first;
+    const pctFirst = Math.round((first / n) * 100);
+    const pctSecond = 100 - pctFirst; // avoid rounding drift
+    const nextDir = (this.currentStepIndex + 1) % 2 === 1 ? 'lat' : 'long';
+    return `${nextDir} ${pctFirst}/${pctSecond}`;
   }
 
   /** Bounds of a district group from its tracts (min/max lat/lng). */
@@ -3124,7 +3147,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
               <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
               <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
-              <strong>Tracts in District:</strong> ${district.censusTracts.length}
+              <strong>Tracts in District:</strong> ${district.censusTracts.length}<br>
+              <strong>Sibling:</strong> ${this.getSiblingDGLabel(tract)}
+              ${tract.properties?.['sibling_DG'] ? `<br><button type="button" class="leaflet-popup-swap-btn" onclick="window.gdSwapTract('${tractId}')">Swap to sibling</button>` : ''}
             `);
             
             // Store tract ID to layer mapping for popup access
@@ -4020,6 +4045,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.isMovingIsolatedTracts = true;
+    this.moveIsolatedHint = '';
 
     console.log(`🔄 Moving all isolated tracts for step ${this.currentStep.step}${hasStepData ? ' (from step cache)' : ' (from manual detection)'}`);
 
@@ -4061,8 +4087,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
         if (result.isolationResult.totalIsolated === 0) {
           console.log(`✅ All isolated tracts moved. Final isolation: 0 isolated tracts in 0 groups`);
+          this.moveIsolatedHint = '';
         } else {
           console.log(`⚠️ Completed processing. Remaining isolation: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
+          this.moveIsolatedHint = (result as any).hint || 'Some tracts could not be moved. Try "Detect Bridge Tracts" then "Move Bridge Tracts".';
         }
 
         // Clear bridge tracts (will need to re-detect)
@@ -4290,28 +4318,155 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Show popup for a tract when clicking on table row
+   * Find a tract feature by ID in the current step's district groups (for popup fallback when tract layers not rendered).
+   */
+  private findTractFeatureById(tractId: string): GeoJsonFeature | null {
+    if (!this.currentStep?.districtGroups) return null;
+    for (const group of this.currentStep.districtGroups) {
+      if (!group.censusTracts) continue;
+      const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
+      if (tract) return tract;
+    }
+    return null;
+  }
+
+  /**
+   * Show popup for a tract when clicking on table row.
+   * When tract boundaries are not shown (union-polygon view), finds the tract in step data and pans to it with a popup.
    */
   showTractPopup(tractId: string): void {
     const layer = this.tractIdToLayer.get(tractId);
     if (layer && this.map) {
-      // Get the bounds of the tract and open popup
       const bounds = layer.getBounds();
       if (bounds && bounds.isValid()) {
-        // Open popup at the center of the tract
         const center = bounds.getCenter();
         layer.openPopup(center);
-        // Pan map to show the tract if it's not visible
         if (!this.map.getBounds().contains(center)) {
           this.map.setView(center, Math.max(this.map.getZoom(), 10));
         }
       } else {
-        // Fallback: try to open popup at map center
         layer.openPopup();
+      }
+      return;
+    }
+
+    // Fallback: tract not in tractIdToLayer (e.g. union-polygon-only view at step 2). Find feature and pan + popup.
+    const tractFeature = this.findTractFeatureById(tractId);
+    if (tractFeature && this.map) {
+      const tempLayer = L.geoJSON(tractFeature);
+      const bounds = tempLayer.getBounds?.();
+      if (bounds && bounds.isValid()) {
+        const center = bounds.getCenter();
+        this.map.fitBounds(bounds, { maxZoom: 14, padding: [30, 30] });
+        const props = tractFeature.properties || {};
+        const groupLabel = this.getTractGroupLabel(tractFeature);
+        const isIsolated = this.isolatedTractIds.has(tractId);
+        const isBridge = this.bridgeTractIds.has(tractId);
+        const siblingLabel = this.getSiblingDGLabel(tractFeature);
+        const hasSibling = !!(tractFeature.properties?.['sibling_DG']);
+        const popupContent = `
+          <strong>${groupLabel}</strong><br>
+          <strong>Tract ID:</strong> ${props.TRACT_FIPS ?? props['GEOID'] ?? tractId}<br>
+          ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
+          ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
+          <strong>Population:</strong> ${(props.POPULATION ?? 0).toLocaleString()}<br>
+          <strong>Sibling:</strong> ${siblingLabel}
+          ${hasSibling ? `<br><button type="button" class="leaflet-popup-swap-btn" onclick="window.gdSwapTract('${tractId}')">Swap to sibling</button>` : ''}
+        `;
+        L.popup({ className: 'tract-locate-popup' }).setLatLng(center).setContent(popupContent).openOn(this.map);
+      } else {
+        console.warn(`Tract ${tractId}: could not get bounds from feature`);
       }
     } else {
       console.warn(`Tract layer not found for ID: ${tractId}`);
     }
+  }
+
+  /**
+   * Get district group label for a tract (e.g. "Districts 6-7") from its tract_DG or by finding its group.
+   */
+  private getTractGroupLabel(tract: GeoJsonFeature): string {
+    const dg = tract.properties?.['tract_DG'] ?? tract.properties?.['TRACT_DG'];
+    if (dg && typeof dg === 'string') {
+      const m = dg.match(/DG(\d+)-(\d+)/);
+      if (m) return `Districts ${m[1]}-${m[2]}`;
+    }
+    if (!this.currentStep?.districtGroups) return 'District';
+    const tractId = this.getTractId(tract);
+    for (const group of this.currentStep.districtGroups) {
+      if (group.censusTracts?.some(t => this.getTractId(t) === tractId))
+        return `Districts ${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    }
+    return 'District';
+  }
+
+  /**
+   * Get sibling DG label for a tract (e.g. "Districts 8-9") from its sibling_DG property.
+   */
+  private getSiblingDGLabel(tract: GeoJsonFeature): string {
+    const dg = tract.properties?.['sibling_DG'];
+    if (dg && typeof dg === 'string') {
+      const m = dg.match(/DG(\d+)-(\d+)/);
+      if (m) return `Districts ${m[1]}-${m[2]}`;
+    }
+    return '–';
+  }
+
+  /**
+   * Move a single tract to its sibling DG (used from popup "Swap to sibling" button).
+   */
+  swapTractToSibling(tractId: string): void {
+    if (!this.currentStep || !this.selectedState) return;
+    const groupIndex = this.currentStep.districtGroups.findIndex(g =>
+      g.censusTracts?.some(t => this.getTractId(t) === tractId)
+    );
+    if (groupIndex < 0) {
+      this.errorMessage = `Tract ${tractId} not found in current step`;
+      return;
+    }
+    this.moveIsolatedHint = '';
+    this.isMovingIsolatedTracts = true;
+    const isolatedTractsByGroup: { [k: string]: string[] } = { [groupIndex]: [tractId] };
+    this.geodistrictService.moveAllIsolatedTractsFromStep(
+      this.selectedState,
+      this.currentStep.step,
+      100,
+      { isolatedTractsByGroup, isolatedTractIds: [tractId] },
+      this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
+      this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
+      this.currentStep.step !== 0 ? this.getStep0IslandTractIds() : undefined
+    ).subscribe({
+      next: (result) => {
+        this.errorMessage = '';
+        if (this.currentStep) {
+          this.currentStep.districtGroups = result.districtGroups;
+          this.currentStep.isolatedTractsData = {
+            isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+            isolatedTractIds: result.isolationResult.isolatedTractIds,
+            totalIsolated: result.isolationResult.totalIsolated,
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation
+          };
+        }
+        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
+        this.isolatedTractsData = {
+          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
+          isolatedTractIds: result.isolationResult.isolatedTractIds
+        };
+        if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+          this.loadedSteps[this.currentStepIndex] = this.currentStep!;
+        }
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
+        this.moveIsolatedHint = (result as any).hint || '';
+        this.renderFinalDistricts();
+        this.cdr.detectChanges();
+        this.isMovingIsolatedTracts = false;
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || err.message || 'Failed to swap tract';
+        this.isMovingIsolatedTracts = false;
+      }
+    });
   }
 
   /**

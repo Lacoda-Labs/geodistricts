@@ -63,7 +63,7 @@
 
   <!-- Step number display -->
   <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
-    Step {{ (currentStepIndex ?? 0) }}<span *ngIf="totalSteps > 0"> of {{ totalSteps }}</span>
+    Step {{ (currentStepIndex) }}<span *ngIf="totalSteps > 0"> of {{ totalSteps }}</span>
   </span>
 
   <!-- Admin variant: Restart algorithm button -->

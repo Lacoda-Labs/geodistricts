@@ -10,13 +10,14 @@ When the user asks to archive this chat (e.g. "/archive this chat" or "/archive 
    - Section: `## HHMM` using current 24-hour time with no colon (e.g. `2130`).
    - Optionally add a short summary in the heading: `## 2130 home page sections`.
    - Include either the full variant (`### Prompt` and `### Response / actions`) or the minimal variant (see template).
-   - In **Prompt**: user’s request or topic (no API keys, tokens, passwords, or internal URLs).
+   - In **Prompt**: the user’s prompt as written (verbatim). Do not summarize. Redact only API keys, tokens, passwords, or internal URLs.
    - In **Response / actions**: what was done (summary, bullets, ✅ **IMPLEMENTED** / **RESOLVED** / **FIXED** as appropriate).
+   - If a plan file in the workspace (`.cursor/plans/*.plan.md`) is associated with this chat, add a link to it in the archive entry (e.g. at the start of **Response / actions** or as a **Plan** line).
 
 4. **Create folder** `.cursor/archive/YYYY-MM/` if it does not exist.
 
 5. **If the file is new:** start with line `# YYMMDD` then the session entry. **If appending:** add only the new `## HHMM` section. (First line of the file is always `# YYMMDD`; the topic appears only in the filename.)
 
-6. **Do not** include sensitive information; summarize instead of quoting secrets.
+6. **Do not** include sensitive information; redact API keys, tokens, passwords, or internal URLs in the prompt (e.g. replace with `[REDACTED]`); do not summarize the prompt itself.
 
 After writing the entry, reply briefly that the chat was archived and give the path to the file (e.g. `.cursor/archive/2026-02/260209-home-page-sections.md`). Optionally add: to publish to GitHub Pages, run `./scripts/sync-archive-to-docs.sh` and commit `docs/archive/`.
