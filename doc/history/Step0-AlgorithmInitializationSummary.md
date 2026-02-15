@@ -5,42 +5,25 @@ Initializes the algorithm and creates the starting state with all census tracts 
 
 ### Process Flow
 
-1. **Data Loading** (`backend/index.js` lines 3266-3340):
-   - Fetches tract boundaries from TIGER/Line shapefiles
-   - Fetches demographic data (population) from Census API via bulk endpoint
-   - Loads S4 adjacency data for the state
-   - Creates canonical tract model combining Census API data (primary) with TIGER polygons and S4 data
+1. **Data loading** (step-by-step handler in `backend/index.js`; see POST `/api/algorithm/execute/step-by-step`):
+   - **Optional short-circuit:** If not `forceInvalidate`, checks for valid **state tract cache** (`state_tracts_{state}`). If valid (version and geometry coverage), loads tracts from that cache and skips external fetch (no TIGER boundaries or Census bulk call). This keeps EXTERNAL FETCH rare after the first run.
+   - **Otherwise:** Fetches tract boundaries from TIGER/Line (streaming for large states like CA), fetches demographic data (population) from Census API via bulk endpoint, loads S4 adjacency data, and creates canonical tract model (Census primary, TIGER polygons, S4 attached).
 
-2. **Tract Processing** (`backend/index.js` lines 3342-3399):
-   - Detects enclosed/enclosing tract relationships
-   - Assigns `TRACT_GROUP_ID` to link enclosed and enclosing tracts
-   - Stores metadata: `ENCLOSED_BY`, `ENCLOSES` properties
+2. **Tract processing**:
+   - Detects enclosed/enclosing tract relationships; assigns `TRACT_GROUP_ID`; stores `ENCLOSED_BY`, `ENCLOSES` properties.
 
-3. **Cache Check** (`backend/index.js` lines 3403-3611):
-   - Checks for cached Step 0
-   - Validates cache version matches current algorithm version
-   - If valid cache exists, returns cached step (with union polygon reconstruction)
-   - If invalid or missing, proceeds to fresh initialization
+3. **Step 0 cache check**:
+   - Checks for cached Step 0 (`algorithm_step_{state}_{maxIterations}_0`).
+   - Validates cache version and TTL. If valid, returns cached step (with TIGER state boundary and optional reconstruction from state tract cache).
+   - **When returning cached Step 0, the backend always writes algorithm state at iteration 0** (uniqueTractIds, currentGroups from step 0, steps: [step0]) so that the next “Next” runs step 1. This fixes the restart bug where Next would otherwise skip to the last completed step.
 
-4. **Algorithm Initialization** (`backend/services/geodistrict-algorithm.js` lines 1516-1588):
-   - **Preloads S4 adjacency data** for the state
-   - **Deduplicates tracts**: Merges duplicate tracts (e.g., MultiPolygon parts) using `deduplicateAndMergeTracts()`
-   - **Calculates totals**:
-     - `totalStatePopulation` = sum of all tract populations
-     - `targetDistrictPopulation` = totalStatePopulation / totalDistricts
-   - **Creates initial district group**:
-     - Contains all unique tracts
-     - `startDistrictNumber: 1`, `endDistrictNumber: totalDistricts`
-     - Calculates bounds and centroid
-   - **Assigns DG properties** to all tracts:
-     - `tract_DG`: `DG1-{totalDistricts}` (e.g., "DG1-52" for California)
-     - `parent_DG`: null (no parent for initial state)
-     - `sibling_DG`: null (no sibling for initial state)
-   - **Creates Step 0** with union polygons for visualization
+4. **Algorithm initialization** (`backend/services/geodistrict-algorithm.js`):
+   - Deduplicates tracts; computes total population and target per district.
+   - Creates one initial district group (all tracts); assigns `tract_DG`, `parent_DG`, `sibling_DG`.
+   - Creates Step 0 (no union from tracts; step 0 uses TIGER state boundary).
 
-5. **State Storage**:
-   - Stores algorithm state in memory (`algorithmStateStore`)
-   - Returns Step 0 with complete district group data
+5. **State storage**:
+   - Caches algorithm state (iteration 0, steps, currentGroups, etc.) and Step 0 (union = TIGER state boundary in Cloud Storage). Optionally writes/updates state tract cache if missing or regenerating.
 
 ### Output Structure
 ```javascript
@@ -75,10 +58,11 @@ Initializes the algorithm and creates the starting state with all census tracts 
 ```
 
 ### Notes
-- Step 0 represents the pre-division state: all tracts in one group
-- Union polygons are created for visualization
-- Caching is used to avoid recomputing Step 0
-- Enclosed tract relationships are detected and stored for later use
-- The canonical tract model ensures data consistency across sources
+- Step 0 represents the pre-division state: all tracts in one group.
+- Step 0 uses the **TIGER state boundary** for the union polygon (not tract-based union); this is cached and reused.
+- Caching is used to avoid recomputing Step 0. When the backend serves cached Step 0, it **must** set algorithm state to iteration 0 so that the next “Next” runs step 1 (restart semantics).
+- Enclosed tract relationships are detected and stored for later use.
+- The canonical tract model (or state tract cache) ensures data consistency across sources.
+- External data (tract boundaries, census tract data, state tract cache) is never invalidated by trash or restart; only algorithm step cache and algorithm state are cleared.
 
 This initialization sets up the state for iterative division in subsequent steps.

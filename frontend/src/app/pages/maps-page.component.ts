@@ -1263,7 +1263,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Clear all cache for the selected state and reload step 0 with forceInvalidate (admin trash button).
+   * Clear all algorithm cache for the selected state (trash) and reload step 0 from cache.
+   * Calls backend to delete algorithm step cache and algorithm state from storage; does not touch external data.
+   * Then loads step 0 via step-by-step without forceInvalidate (uses existing external caches).
    */
   forceRefreshAndReset(): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
@@ -1272,30 +1274,45 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const state = this.selectedState;
     const maxIterations = 100;
-    console.log(`🗑️ Force refresh: clearing all cache for ${state}, then reloading step 0...`);
-    this.geodistrictCacheService.invalidate(state, maxIterations).pipe(
-      concatMap(() => this.geodistrictCacheService.invalidateState(state))
-    ).subscribe({
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const clearCacheUrl = `${backendUrl}/api/algorithm/clear-cache`;
+    console.log(`🗑️ Clear cache (trash): deleting algorithm cache for ${state}, then reloading step 0...`);
+    this.http.post<{ ok: boolean; message?: string }>(clearCacheUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } }).subscribe({
       next: () => {
-        console.log(`✅ Cache cleared for ${state}, reloading step 0 with forceInvalidate...`);
-        this.resetToStartWithOptions(true);
+        console.log(`✅ Algorithm cache cleared for ${state}, reloading step 0 (no external refetch)...`);
+        this.resetToStartWithOptions(false);
       },
       error: (err) => {
-        console.warn('Cache invalidation failed, continuing with force refresh:', err);
-        this.resetToStartWithOptions(true);
+        this.errorMessage = err?.message || 'Failed to clear algorithm cache';
+        console.error('Clear cache failed:', err);
       }
     });
   }
 
   /**
-   * Reset to step 0 by clearing local state and reloading (optionally with forceInvalidate).
+   * Restart algorithm: delete step 1+ and algorithm state from backend, keep step 0, set state to iteration 0.
+   * Then reload step 0 in the UI (from cache; no external refetch).
    */
   resetToStart(): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
       this.errorMessage = 'Please select a state first';
       return;
     }
-    this.resetToStartWithOptions(false);
+    const state = this.selectedState;
+    const maxIterations = 100;
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const restartUrl = `${backendUrl}/api/algorithm/restart`;
+    console.log(`🔄 Restart: clearing step 1+ and algorithm state for ${state}, then loading step 0...`);
+    this.http.post<{ ok: boolean; message?: string }>(restartUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } }).subscribe({
+      next: () => {
+        console.log(`✅ Restart complete for ${state}, loading step 0...`);
+        this.resetToStartWithOptions(false);
+      },
+      error: (err) => {
+        this.errorMessage = err?.message || 'Failed to restart';
+        console.error('Restart failed:', err);
+      }
+    });
   }
 
   private resetToStartWithOptions(forceInvalidate: boolean): void {

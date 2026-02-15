@@ -3184,6 +3184,70 @@ async function ensureStep0UsesTigerBoundaries(stepData, state, stepNumber, req) 
 }
 
 /**
+ * Load tracts from state tract cache when valid (version, TTL, geometry coverage).
+ * Used by step-by-step to skip external boundaries + bulk fetch and keep EXTERNAL FETCH rare.
+ * @param {string} state - State code (e.g. 'CA')
+ * @returns {Promise<{ tracts: Array, tractCacheKey: string } | null>} Tracts array and key, or null if not usable
+ */
+async function loadTractsFromStateTractCache(state) {
+  const tractCacheKey = `state_tracts_${state}`;
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  const GEOMETRY_COVERAGE_THRESHOLD = 0.95;
+
+  try {
+    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+    if (!stateTractDoc.exists) return null;
+
+    const stateTractData = stateTractDoc.data();
+    if (stateTractData.algorithmVersion !== ALGORITHM_VERSION) return null;
+    if (isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) return null;
+
+    let tractMap = null;
+    if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+      const cloudResult = await cloudStorageCache.get(tractCacheKey);
+      if (cloudResult && cloudResult.data) tractMap = cloudResult.data;
+    } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+      const chunkDocs = await Promise.all(
+        stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+      );
+      tractMap = [];
+      for (const chunkDoc of chunkDocs) {
+        if (chunkDoc.exists && chunkDoc.data().data && Array.isArray(chunkDoc.data().data)) {
+          tractMap.push(...chunkDoc.data().data);
+        }
+      }
+    } else if (stateTractData.data && Array.isArray(stateTractData.data)) {
+      tractMap = stateTractData.data;
+    }
+    if (!tractMap || (Array.isArray(tractMap) && tractMap.length === 0)) return null;
+
+    let tracts = [];
+    if (Array.isArray(tractMap) && tractMap.length > 0 && Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+      tracts = tractMap.map(([, t]) => t).filter(Boolean);
+    } else if (Array.isArray(tractMap)) {
+      tracts = tractMap.filter(t => t && (t.geometry || (t.type === 'Feature' && t.geometry)));
+    }
+    if (tracts.length === 0) return null;
+
+    const sampleSize = Math.min(200, tracts.length);
+    const step = Math.max(1, Math.floor(tracts.length / sampleSize));
+    let withGeometry = 0;
+    for (let i = 0; i < tracts.length && withGeometry < sampleSize; i += step) {
+      const t = tracts[i];
+      if (t && (t.geometry || (t.type === 'Feature' && t.geometry))) withGeometry++;
+    }
+    const coverage = sampleSize > 0 ? withGeometry / sampleSize : 0;
+    if (coverage < GEOMETRY_COVERAGE_THRESHOLD) return null;
+
+    console.log(`✅ STATE TRACT CACHE: Loaded ${tracts.length} tracts for ${state} (skip external fetch)`);
+    return { tracts, tractCacheKey };
+  } catch (err) {
+    console.warn(`⚠️ loadTractsFromStateTractCache(${state}): ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * Normalize algorithm state for caching (remove full geometries, store only tract IDs)
  * @param {Object} algorithmState - Algorithm state with potentially full geometries
  * @param {string} tractCacheKey - Tract cache key for reference
@@ -4309,6 +4373,110 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 });
 
 /**
+ * POST /api/algorithm/clear-cache
+ * Delete all algorithm cache for a state (trash). Removes step 0..N, algorithm state, union polygons.
+ * Does NOT touch external data (tract boundaries, census tract data, state tract cache).
+ */
+app.post('/api/algorithm/clear-cache', async (req, res) => {
+  try {
+    const { state, maxIterations = 100 } = req.body || {};
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+    const result = await deleteAlgorithmCacheForState(state, maxIterations);
+    res.json({
+      ok: true,
+      message: `Algorithm cache cleared for ${state}`,
+      ...result
+    });
+  } catch (err) {
+    console.error('Clear algorithm cache error:', err);
+    res.status(500).json({
+      error: 'Failed to clear algorithm cache',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/restart
+ * Delete algorithm cache from step 1 onward and algorithm state; keep step 0.
+ * Then loads step 0 from cache and sets algorithm state to iteration 0 so next "Next" runs step 1.
+ */
+app.post('/api/algorithm/restart', async (req, res) => {
+  try {
+    const { state, maxIterations = 100 } = req.body || {};
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+    await deleteAlgorithmCacheFromStep1ForState(state, maxIterations);
+
+    const stateKey = getAlgorithmStateKey(state, maxIterations);
+    const step0CacheKey = `algorithm_step_${state}_${maxIterations}_0`;
+    const tractCacheKey = `state_tracts_${state}`;
+    const totalDistricts = getDistrictsForState(state);
+    if (!totalDistricts) {
+      return res.json({ ok: true, message: `Restarted (step 1+ deleted) for ${state}; step 0 not found, call step-by-step to re-init` });
+    }
+
+    const step0Doc = await firestore.collection('census_cache').doc(step0CacheKey).get();
+    if (!step0Doc.exists) {
+      return res.json({ ok: true, message: `Restarted for ${state}; no cached step 0, call step-by-step to load step 0` });
+    }
+
+    const cachedEntry = step0Doc.data();
+    if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl) || cachedEntry.algorithmVersion !== ALGORITHM_VERSION) {
+      return res.json({ ok: true, message: `Restarted for ${state}; step 0 cache expired/version mismatch, call step-by-step` });
+    }
+
+    let stepData = cachedEntry.stepData;
+    if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) {
+      return res.json({ ok: true, message: `Restarted for ${state}; step 0 data invalid, call step-by-step` });
+    }
+
+    const group0 = stepData.districtGroups[0];
+    const censusTractIds = group0.censusTractIds || (group0.censusTracts && group0.censusTracts.map(t => {
+      const { getTractId } = require('./services/geodistrict-algorithm');
+      return getTractId(t);
+    }).filter(Boolean));
+    if (!censusTractIds || censusTractIds.length === 0) {
+      return res.json({ ok: true, message: `Restarted for ${state}; step 0 has no tract IDs, call step-by-step` });
+    }
+
+    const algorithmStateForCache = {
+      uniqueTractIds: censusTractIds,
+      tractCacheKey,
+      state,
+      iteration: 0,
+      steps: [stepData],
+      currentGroups: stepData.districtGroups,
+      totalStatePopulation: group0.totalPopulation,
+      targetDistrictPopulation: group0.totalPopulation / totalDistricts,
+      maxIterations,
+      algorithmHistory: []
+    };
+
+    try {
+      await cacheAlgorithmState(stateKey, algorithmStateForCache);
+      console.log(`✅ RESTART: Set algorithm state to iteration 0 for ${state}`);
+    } catch (cacheErr) {
+      console.warn(`⚠️ RESTART: Failed to cache algorithm state: ${cacheErr.message}`);
+    }
+
+    res.json({
+      ok: true,
+      message: `Restarted for ${state}; algorithm state set to step 0. Call step-by-step to load step 0 or GET step/0.`
+    });
+  } catch (err) {
+    console.error('Restart error:', err);
+    res.status(500).json({
+      error: 'Failed to restart',
+      message: err.message
+    });
+  }
+});
+
+/**
  * POST /api/algorithm/execute/step-by-step
  * Initialize algorithm and return step 0 only
  */
@@ -4337,82 +4505,56 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       await invalidateAllStepCaches(state, maxIterations);
     }
 
-    // Get tract data from census proxy
-    try {
-      let boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
-      if (forceInvalidate) {
-        boundariesUrl += '&forceInvalidate=true';
+    let tracts = [];
+    let canonicalResult = null;
+
+    // Prefer state tract cache when valid to skip external fetch (keep EXTERNAL FETCH rare)
+    if (!forceInvalidate) {
+      const fromCache = await loadTractsFromStateTractCache(state);
+      if (fromCache && fromCache.tracts.length > 0) {
+        tracts = fromCache.tracts;
       }
+    }
+
+    // Get tract data from census proxy when not loaded from state tract cache
+    if (tracts.length === 0) {
+      const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}` + (forceInvalidate ? '&forceInvalidate=true' : '');
       const boundariesResponse = await axios.get(boundariesUrl);
-      
-      if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
-        // If cache was empty and we didn't force invalidate, try forcing it
+      if (!boundariesResponse.data?.features?.length) {
         if (!forceInvalidate) {
-          console.warn(`⚠️ Cached boundaries are empty, forcing fresh fetch...`);
-          boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`;
-          const freshBoundariesResponse = await axios.get(boundariesUrl);
-          if (freshBoundariesResponse.data && freshBoundariesResponse.data.features && freshBoundariesResponse.data.features.length > 0) {
-            boundariesResponse.data = freshBoundariesResponse.data;
-          }
+          const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
+          if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
         }
-        
-        if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
+        if (!boundariesResponse.data?.features?.length) {
           return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
         }
       }
-
-      // Get demographic data - need to fetch for all counties in the state
-      // First, get all counties for the state
       const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
-      console.log(`📡 Fetching counties from: ${countiesUrl}`);
       const countiesResponse = await axios.get(countiesUrl);
-      
       const counties = countiesResponse.data || [];
-      console.log(`📊 Found ${counties.length} counties for state ${state}`);
-      
-      // Use bulk fetch for better performance with many counties
-      const countyFipsCodes = counties.map(county => county.COUNTY || county.county || county.fips);
-      console.log(`📦 Using bulk fetch for ${countyFipsCodes.length} counties in ${state}`);
-
-      const bulkTractDataUrl = `${req.protocol}://${req.get('host')}/api/census/tract-data/bulk`;
-      const bulkResponse = await axios.post(bulkTractDataUrl, {
-        state: state,
+      const countyFipsCodes = counties.map(c => c.COUNTY || c.county || c.fips);
+      const bulkResponse = await axios.post(`${req.protocol}://${req.get('host')}/api/census/tract-data/bulk`, {
+        state,
         counties: countyFipsCodes,
-        forceInvalidate: forceInvalidate
+        forceInvalidate
       });
-
       const demographicData = bulkResponse.data.data || [];
-      console.log(`✅ Bulk fetch complete: ${demographicData.length} tracts across ${counties.length} counties`);
-      
-      console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
       const boundaries = boundariesResponse.data;
-
-      // Load S4 adjacency data BEFORE creating canonical tract model (needed for attachment)
       const s4DataLoader = require('./services/s4-data-loader');
-      try {
-        await s4DataLoader.loadS4AdjacencyData(state);
-        console.log(`✅ Loaded S4 adjacency data for ${state} before creating canonical tract model`);
-      } catch (error) {
-        console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${error.message}`);
-      }
-
-      // Use canonical tract model: Census API is PRIMARY source, TIGER polygons and S4 data are attached
-      // This uses a Map keyed by tract ID to prevent duplicates
+      try { await s4DataLoader.loadS4AdjacencyData(state); } catch (e) { console.warn(`⚠️ S4 load: ${e.message}`); }
       const { createCanonicalTractMap } = require('./services/canonical-tract-loader');
-      const canonicalResult = createCanonicalTractMap(demographicData, boundaries, state);
-      
-      // Use the GeoJSON features array for compatibility with existing code
-      const tracts = canonicalResult.geoJsonFeatures;
-      
-      console.log(`📊 Canonical tract model: ${canonicalResult.stats.totalCanonicalTracts} tracts, ${canonicalResult.stats.tractsWithGeometry} with geometry`);
-      if (canonicalResult.stats.tractsWithoutGeometry > 0) {
-        console.warn(`⚠️ ${canonicalResult.stats.tractsWithoutGeometry} tracts have no geometry (missing TIGER polygons)`);
+      canonicalResult = createCanonicalTractMap(demographicData, boundaries, state);
+      tracts = canonicalResult.geoJsonFeatures;
+      if (canonicalResult.stats?.tractsWithGeometry !== undefined) {
+        console.log(`📊 Canonical tract model: ${canonicalResult.stats.totalCanonicalTracts} tracts, ${canonicalResult.stats.tractsWithGeometry} with geometry`);
       }
+    }
 
-      if (tracts.length === 0) {
-        return res.status(404).json({ error: `No tracts found for state: ${state}` });
-      }
-      
+    if (tracts.length === 0) {
+      return res.status(404).json({ error: `No tracts found for state: ${state}` });
+    }
+
+    try {
       // Detect and store enclosed tract relationships
       const { detectEnclosedTracts, getTractId } = require('./services/geodistrict-algorithm');
       const enclosedMap = detectEnclosedTracts(tracts);
@@ -4669,6 +4811,34 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   
                   // For Step 0, ensure TIGER state boundaries are used
                   stepData = await ensureStep0UsesTigerBoundaries(stepData, state, 0, req);
+                }
+                
+                // Ensure step 0 has island tracts data so steps 1+ can exclude geographic islands from isolation
+                if (stepData && stepData.districtGroups && stepData.districtGroups[0]?.censusTracts?.length > 0 &&
+                    (!stepData.islandTractsData?.islandTractsByGroup || Object.keys(stepData.islandTractsData.islandTractsByGroup).length === 0)) {
+                  try {
+                    const s4DataLoader = require('./services/s4-data-loader');
+                    await s4DataLoader.loadS4AdjacencyData(state);
+                    const allTractsForDetect = stepData.districtGroups[0].censusTracts;
+                    const detectionResult = algorithmService.detectIsolatedTracts(stepData.districtGroups, allTractsForDetect, 0, null);
+                    if (detectionResult.islandTractsByGroup && detectionResult.islandTractsByGroup.size > 0) {
+                      const islandTractsByGroup = {};
+                      detectionResult.islandTractsByGroup.forEach((islandGroups, groupIndex) => {
+                        islandTractsByGroup[groupIndex] = islandGroups;
+                      });
+                      const totalIslandTracts = Object.values(islandTractsByGroup).reduce((sum, groups) =>
+                        sum + groups.reduce((s, g) => s + g.length, 0), 0);
+                      stepData.islandTractsData = {
+                        islandTractsByGroup,
+                        totalIslandTracts,
+                        totalIslandGroups: Object.values(islandTractsByGroup).reduce((sum, groups) => sum + groups.length, 0),
+                        groupsWithIslands: Object.keys(islandTractsByGroup).length
+                      };
+                      console.log(`🏝️ STEP 0 (cache path): Detected ${totalIslandTracts} island tract(s) for exclusion at steps 1+`);
+                    }
+                  } catch (e) {
+                    console.warn(`⚠️ STEP 0 (cache path): Island detection failed: ${e.message}`);
+                  }
                 }
                 
                 // Reconstruct algorithm state from cached step
@@ -5907,6 +6077,107 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
 }
 
 /**
+ * Delete all algorithm cache for a state (trash/clear-cache).
+ * Removes step 0..N, algorithm state, and union polygons from Firestore and Cloud Storage.
+ * Does NOT touch external data (tract boundaries, census tract data, state tract cache).
+ */
+async function deleteAlgorithmCacheForState(state, maxIterations) {
+  const stateKey = getAlgorithmStateKey(state, maxIterations);
+  const currentVersion = ALGORITHM_VERSION;
+  let firestoreDeleted = 0;
+
+  // 1. Delete all step docs: algorithm_step_{state}_{maxIterations}_*
+  for (let stepNum = 0; stepNum <= 100; stepNum++) {
+    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    try {
+      const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      if (doc.exists) {
+        await doc.ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+    const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
+    try {
+      const doc = await firestore.collection('census_cache').doc(runAllKey).get();
+      if (doc.exists) {
+        await doc.ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+  }
+
+  // 2. Delete algorithm state (Firestore + Cloud Storage)
+  await deleteCachedAlgorithmState(stateKey);
+  firestoreDeleted++; // count as one logical delete
+
+  // 3. List union polygon keys from Cloud Storage, delete Firestore docs for each, then delete Cloud files
+  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 0);
+  for (const key of unionKeys) {
+    try {
+      const ref = firestore.collection('census_cache').doc(key);
+      const d = await ref.get();
+      if (d.exists) {
+        await ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+  }
+  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 0);
+  console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${state}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
+  return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
+}
+
+/**
+ * Delete algorithm cache from step 1 onward and algorithm state (restart).
+ * Keeps step 0 and its union polygon. Caller should then set algorithm state to iteration 0.
+ */
+async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
+  const stateKey = getAlgorithmStateKey(state, maxIterations);
+  const currentVersion = ALGORITHM_VERSION;
+  let firestoreDeleted = 0;
+
+  // 1. Delete step docs for step >= 1 only
+  for (let stepNum = 1; stepNum <= 100; stepNum++) {
+    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    try {
+      const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      if (doc.exists) {
+        await doc.ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+    const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
+    try {
+      const doc = await firestore.collection('census_cache').doc(runAllKey).get();
+      if (doc.exists) {
+        await doc.ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+  }
+
+  // 2. Delete algorithm state (Firestore + Cloud Storage)
+  await deleteCachedAlgorithmState(stateKey);
+  firestoreDeleted++;
+
+  // 3. List union polygon keys from Cloud Storage (step >= 1), delete Firestore docs, then delete Cloud files
+  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 1);
+  for (const key of unionKeys) {
+    try {
+      const ref = firestore.collection('census_cache').doc(key);
+      const d = await ref.get();
+      if (d.exists) {
+        await ref.delete();
+        firestoreDeleted++;
+      }
+    } catch (e) { /* continue */ }
+  }
+  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 1);
+  console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${state}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
+  return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
+}
+
+/**
  * Reconstruct step data with tract geometries from state cache
  * @param {Object} normalizedStep - Normalized step data from cache
  * @param {Array} tractMap - Map of tract IDs to tract geometries
@@ -6735,6 +7006,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       let groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
       let iterationCount = 0;
       const maxIter = 10;
+      // Tracts we skipped (no neighbor in target) per group - do not retry to avoid infinite loop
+      const skippedByGroup = {};
 
       while (groupIndices.length > 0 && iterationCount < maxIter) {
         iterationCount++;
@@ -6746,6 +7019,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
               updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null, true
             );
             updatedGroups = result.districtGroups;
+            if (result.skippedTractIds && result.skippedTractIds.length > 0) {
+              if (!skippedByGroup[groupIndex]) skippedByGroup[groupIndex] = new Set();
+              result.skippedTractIds.forEach(id => skippedByGroup[groupIndex].add(id));
+            }
           } catch (moveErr) {
             return res.status(500).json({ error: 'Failed to move isolated tracts', message: moveErr.message });
           }
@@ -6753,7 +7030,12 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
         if (isolationResult.isolatedTractIds.size === 0) break;
         isolatedTractsByGroup = {};
-        isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { isolatedTractsByGroup[idx] = Array.from(tractIds); });
+        isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => {
+          const skipped = skippedByGroup[idx];
+          const list = Array.from(tractIds);
+          const filtered = skipped ? list.filter(id => !skipped.has(id)) : list;
+          if (filtered.length > 0) isolatedTractsByGroup[idx] = filtered;
+        });
         groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
       }
 
@@ -7081,6 +7363,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     let iterationCount = 0;
     const maxProcessingIterations = 10; // Safety limit to prevent infinite loops
+    // Tracts we skipped (no neighbor in target) per group - do not retry to avoid infinite loop
+    const skippedByGroup = {};
 
     // Recursively process until no more isolated tracts remain
     while (groupIndices.length > 0 && iterationCount < maxProcessingIterations) {
@@ -7107,6 +7391,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
             true
           );
           updatedGroups = result.districtGroups;
+          if (result.skippedTractIds && result.skippedTractIds.length > 0) {
+            if (!skippedByGroup[groupIndex]) skippedByGroup[groupIndex] = new Set();
+            result.skippedTractIds.forEach(id => skippedByGroup[groupIndex].add(id));
+          }
         } catch (moveErr) {
           console.error(`❌ moveIsolatedTractsToOppositeGroup failed for group ${groupIndex}:`, moveErr.message);
           return res.status(500).json({
@@ -7119,15 +7407,19 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       // Re-detect isolation after all moves in this iteration
       const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
       
-      // Convert Map to object
+      // Convert Map to object; exclude skipped tracts so we don't retry them (avoids infinite loop)
       const newIsolatedTractsByGroup = {};
-      isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
-        newIsolatedTractsByGroup[groupIndex] = Array.from(tractIds);
+      isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => {
+        const skipped = skippedByGroup[idx];
+        const list = Array.from(tractIds);
+        const filtered = skipped ? list.filter(id => !skipped.has(id)) : list;
+        if (filtered.length > 0) newIsolatedTractsByGroup[idx] = filtered;
       });
 
-      // Check if we're done
-      if (isolationResult.isolatedTractIds.size === 0) {
-        console.log(`✅ All isolated tracts moved after ${iterationCount} iteration(s)`);
+      // Check if we're done (no remaining movable isolated tracts)
+      const remainingCount = Object.values(newIsolatedTractsByGroup).reduce((sum, arr) => sum + arr.length, 0);
+      if (remainingCount === 0) {
+        console.log(`✅ All movable isolated tracts moved after ${iterationCount} iteration(s)`);
         break;
       }
 
@@ -7137,7 +7429,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         .map(idx => parseInt(idx))
         .sort((a, b) => a - b);
       
-      console.log(`🔄 Still have ${isolationResult.isolatedTractIds.size} isolated tracts in ${Object.keys(newIsolatedTractsByGroup).length} groups. Continuing...`);
+      console.log(`🔄 Still have ${remainingCount} isolated tracts in ${Object.keys(newIsolatedTractsByGroup).length} groups. Continuing...`);
       
       groupIndices.length = 0;
       groupIndices.push(...newGroupIndices);

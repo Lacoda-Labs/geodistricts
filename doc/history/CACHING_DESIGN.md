@@ -545,6 +545,26 @@ DELETE /api/algorithm/{algorithm}/cache
 Body: { cacheKey: "AZ_latlong_100" }
 ```
 
+### External vs algorithm cache (trash / restart)
+
+**Rule:** Trash and restart only delete **algorithm** cache. They must **never** delete or invalidate **external** cache. Do not pass `forceInvalidate` to tract-boundaries or tract-data when handling trash or restart.
+
+**External (never cleared by trash/restart):**
+- `tract_boundaries_*` (Firestore), tract boundary files in Cloud Storage
+- `census_tract_data_*` (Firestore / Cloud)
+- `state_tracts_{state}` (Firestore metadata + Cloud Storage)
+- State boundary polygon, S4 adjacency, and other external data keys
+
+**Algorithm (cleared by trash; step 1+ cleared by restart):**
+- `algorithm_step_{state}_{maxIterations}_{step}` (Firestore)
+- `step_{state}_{step}_{version}` (Run All format, Firestore)
+- `algorithm_state_{state}_{maxIterations}` (Firestore + Cloud when large)
+- Union polygon docs and files: `union_polygon_{state}_{step}_{group}` (Firestore + Cloud)
+
+**Endpoints:**
+- **POST /api/algorithm/clear-cache** (trash): Deletes all algorithm step cache (0..N), algorithm state, and union polygons for the state. Does not touch external data.
+- **POST /api/algorithm/restart**: Deletes step 1..N and algorithm state; keeps step 0. Sets algorithm state to iteration 0 so the next “Next” runs step 1.
+
 ---
 
 ## Size Limits and Constraints

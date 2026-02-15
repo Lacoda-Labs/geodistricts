@@ -304,6 +304,67 @@ class CloudStorageCache {
   }
 
   /**
+   * List union polygon cache keys for a state (from Cloud Storage paths).
+   * @param {string} state - State code (e.g. 'CA')
+   * @param {number} fromStep - Only include keys for step >= fromStep (default 0).
+   * @returns {Promise<string[]>} Cache keys (e.g. ['union_polygon_CA_0_1-52', ...])
+   */
+  async listUnionPolygonKeysForState(state, fromStep = 0) {
+    await this.initialize();
+    const stateUpper = (state || '').toUpperCase();
+    if (!stateUpper || stateUpper.length < 2) return [];
+    const prefix = `union-polygons/${stateUpper}/`;
+    const [files] = await this.bucket.getFiles({ prefix });
+    const keys = [];
+    for (const file of files) {
+      const name = file.name;
+      const stepMatch = name.match(/step-(\d+)\//);
+      const stepNum = stepMatch ? parseInt(stepMatch[1], 10) : -1;
+      if (stepNum < fromStep) continue;
+      const cacheKeyMatch = name.match(/\/([^/]+)\.json$/);
+      if (cacheKeyMatch) keys.push(cacheKeyMatch[1]);
+    }
+    return keys;
+  }
+
+  /**
+   * List and delete union polygon files for a state.
+   * @param {string} state - State code (e.g. 'CA')
+   * @param {number} fromStep - Only delete files for step >= fromStep (default 0). Use 1 for restart (keep step 0).
+   * @returns {Promise<{ deleted: number, keys: string[] }>} Count and keys deleted
+   */
+  async deleteUnionPolygonsForState(state, fromStep = 0) {
+    await this.initialize();
+    const stateUpper = (state || '').toUpperCase();
+    if (!stateUpper || stateUpper.length < 2) {
+      return { deleted: 0, keys: [] };
+    }
+    const prefix = `union-polygons/${stateUpper}/`;
+    const [files] = await this.bucket.getFiles({ prefix });
+    const keys = [];
+    for (const file of files) {
+      const name = file.name;
+      const stepMatch = name.match(/step-(\d+)\//);
+      const stepNum = stepMatch ? parseInt(stepMatch[1], 10) : -1;
+      if (stepNum < fromStep) continue;
+      const cacheKeyMatch = name.match(/\/([^/]+)\.json$/);
+      const cacheKey = cacheKeyMatch ? cacheKeyMatch[1] : null;
+      if (cacheKey) {
+        try {
+          await file.delete();
+          keys.push(cacheKey);
+        } catch (err) {
+          if (err.code !== 404) console.warn(`⚠️ Failed to delete ${name}: ${err.message}`);
+        }
+      }
+    }
+    if (keys.length > 0) {
+      console.log(`🗑️ Cloud Storage: Deleted ${keys.length} union polygon file(s) for ${stateUpper} (step >= ${fromStep})`);
+    }
+    return { deleted: keys.length, keys };
+  }
+
+  /**
    * List state names that have congressional boundary data for a given Congress.
    * @param {number|string} congress - Congress number (e.g. 119)
    * @returns {Promise<string[]>} - State names (as stored, e.g. "Alabama", "New_York")

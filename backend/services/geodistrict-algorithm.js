@@ -3016,10 +3016,11 @@ class GeodistrictAlgorithmService {
     const sourceGroup = updatedGroups[sourceGroupIndex];
     const targetGroup = updatedGroups[targetGroupIndex];
     let movedCount = 0;
-    
+    const skippedTractIds = []; // Tracts skipped (no neighbor in target) so caller can stop retrying
+
     // Build adjacency graph for checking if tracts will still be isolated after move
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
-    
+
     // Move all isolated tracts to the target group
     for (const tractId of tractIds) {
       // CRITICAL: Remove tract from ALL groups first to prevent duplicates
@@ -3061,6 +3062,7 @@ class GeodistrictAlgorithmService {
       
       if (!hasNeighborInTarget && targetGroup.censusTracts.length > 0) {
         console.warn(`⚠️ SKIPPING MOVE: Tract ${tractId} has no neighbors in target group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}, would remain isolated. Not moving to prevent infinite loop.`);
+        skippedTractIds.push(tractId);
         // Put tract back in source group since we're not moving it
         if (!sourceGroup.censusTracts.some(t => getTractId(t) === tractId)) {
           sourceGroup.censusTracts.push(tract);
@@ -3152,11 +3154,14 @@ class GeodistrictAlgorithmService {
     targetGroupFinal.centroid = calculateCentroid(targetGroupFinal.censusTracts);
     
     console.log(`✅ Moved ${movedCount} isolated tract(s) to opposite group`);
-    
+    if (skippedTractIds.length > 0) {
+      console.log(`   Skipped ${skippedTractIds.length} tract(s) (no neighbor in target): ${skippedTractIds.join(', ')}`);
+    }
+
     // Don't re-run isolation detection here - it's expensive and will be done once at the end
-    // Just return the updated groups
     return {
-      districtGroups: updatedGroups
+      districtGroups: updatedGroups,
+      skippedTractIds
     };
   }
 

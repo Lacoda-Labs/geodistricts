@@ -41,7 +41,9 @@ class LatLongDivisionService {
       };
     }
 
-    // Fallback: calculate from geometry if bounds not pre-calculated
+    // Fallback: no geometry (e.g. water-only tracts with no TIGER polygon). Return zeros so sort puts them
+    // at maxLng=0 (eastern end in longitude division) → second group. Tracts with geometry always have
+    // negative longitudes in the US, so no-geometry tracts are not placed in the western group.
     if (!tract.geometry) {
       return { minLat: 0, maxLat: 0, minLng: 0, maxLng: 0 };
     }
@@ -263,9 +265,13 @@ class LatLongDivisionService {
         }
       }
       
-      // Debug logging for specific tracts
-      if (tractId && (tractId.includes('001700') || tractId.includes('002302'))) {
-        console.log(`📊 SORTING: Tract ${tractId} - isEnclosed=${!!isEnclosed}, enclosingTract=${isEnclosed || 'none'}, sortValue=${sortValue.toFixed(6)}`);
+      // Debug logging for specific tracts (enclosed) and water/special tracts (990000, 999900)
+      const tractNum = tractId ? tractId.slice(-6) : '';
+      const isWaterOrSpecial = tractNum === '990000' || tractNum === '999900';
+      if (tractId && (tractId.includes('001700') || tractId.includes('002302') || isWaterOrSpecial)) {
+        const hasGeom = !!(tract.geometry && (tract.geometry.coordinates?.length || tract.geometry.coordinates?.[0]?.length));
+        const fromProps = !!(tract.properties?.MIN_LAT != null && tract.properties?.MAX_LNG != null);
+        console.log(`📊 SORTING: Tract ${tractId} - isEnclosed=${!!isEnclosed}, sortValue=${typeof sortValue === 'number' ? sortValue.toFixed(6) : sortValue}, bounds=[${bounds.minLng?.toFixed(4)},${bounds.maxLng?.toFixed(4)}] hasGeometry=${hasGeom} boundsFromProps=${fromProps}`);
       }
       
       return { tract, bounds, sortValue, population, groupId, isEnclosed, enclosingTractId: isEnclosed };
