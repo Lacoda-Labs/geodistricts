@@ -50,8 +50,11 @@ export interface DivisionLineInfo {
 export interface IsolatedTractsData {
   isolatedTractsByGroup: { [groupIndex: string]: string[] };
   isolatedTractIds: string[];
-  totalIsolated: number;
-  groupsWithIsolation: number;
+  totalIsolated?: number;
+  groupsWithIsolation?: number;
+  /** Balancing tract IDs per group (from detect-isolated; not in older step cache) */
+  balancingTractIdsByGroup?: { [groupIndex: string]: string[] };
+  groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
 }
 
 // Interface for algorithm step visualization
@@ -6428,6 +6431,7 @@ export class GeodistrictAlgorithmService {
     totalIsolated: number;
     groupsWithIsolation: number;
     groupStats: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
+    balancingTractIdsByGroup?: { [groupIndex: string]: string[] };
   }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const detectUrl = `${backendUrl}/api/algorithm/detect-isolated-tracts`;
@@ -6447,6 +6451,7 @@ export class GeodistrictAlgorithmService {
       totalIsolated: number;
       groupsWithIsolation: number;
       groupStats: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>;
+      balancingTractIdsByGroup?: { [groupIndex: string]: string[] };
     }>(detectUrl, body, {
       headers: {
         'Content-Type': 'application/json'

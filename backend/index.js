@@ -6337,12 +6337,21 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
 
     const isolatedTractIds = Array.from(detectionResult.isolatedTractIds);
 
+    // For each group with isolated tracts, get balancing tract IDs (preview for UI)
+    const balancingTractIdsByGroup = {};
+    for (const groupIndexStr of Object.keys(isolatedTractsByGroup)) {
+      const groupIndex = parseInt(groupIndexStr, 10);
+      const ids = algorithmService.getBalancingTractIdsForGroup(districtGroups, allTracts, groupIndex);
+      balancingTractIdsByGroup[groupIndexStr] = ids && ids.length > 0 ? ids : [];
+    }
+
     res.json({
       isolatedTractsByGroup,
       isolatedTractIds,
       totalIsolated: isolatedTractIds.length,
       groupsWithIsolation: Object.keys(isolatedTractsByGroup).length,
-      groupStats: detectionResult.groupStats || []
+      groupStats: detectionResult.groupStats || [],
+      balancingTractIdsByGroup
     });
   } catch (error) {
     console.error('Error detecting isolated tracts:', error);

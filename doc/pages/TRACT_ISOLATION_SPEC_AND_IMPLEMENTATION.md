@@ -68,12 +68,9 @@ A critical distinction:
 - **willHelpConnect** = (neighborsInIsolatedMainComponent > 0) and (adjacentIsolatedCount ≥ 1).
 - **Included**:
   - Large isolation (≥10 isolated): include if `adjacentIsolatedCount ≥ 3` OR willHelpConnect.
-  - Small isolation (3–9 isolated): include only if willHelpConnect.
-  - **Very small isolation (≤2 isolated)**: include if `adjacentIsolatedCount ≥ 1` (relaxed so boundary-only candidates that only touch the isolated tracts can qualify).
+  - Small isolation: include only if willHelpConnect.
 
 **Ordering**: Sort by `adjacentIsolatedCount` descending (best bridges first).
-
-**Strategy**: For small isolation groups (e.g. ≤2 tracts), prefer resolving via bridge move when bridge tracts are found, to preserve population balance; otherwise fall back to moving isolated tracts to the sibling (with compensating move when implemented).
 
 **Note**: Detection does not perform any move; it only returns the list of bridge tracts per isolated group.
 
@@ -82,7 +79,7 @@ A critical distinction:
 - **Target**: The **sibling group** (from `sibling_DG` on the tract or from `divisionLines` metadata).
 - **Validation**: Before moving, check that the tract has at least one neighbor in the target group. If it has no neighbors in the target, skip the move to prevent infinite loops (tract would remain isolated).
 - **Action**: Remove tract from source group(s), add to target group, then **swap** `tract_DG` and `sibling_DG` on the tract.
-- **Population balance (compensating move)**: After moving isolated tract(s) to the sibling, perform a compensating move to preserve population balance. Build a **sorted list of tracts in the target group that have an adjacent tract bordering the source group** (boundary tracts). Sort by how closely each tract's population matches the total population of the moved tract(s). Select one tract, or a minimal set of adjacent tracts, whose combined population closely matches that total and whose removal from the target would not create new isolated tracts. Move the selected tract(s) from target to source and swap their `tract_DG` / `sibling_DG`. If no suitable tract exists, skip the compensating move.
+- **Population balance (compensating move)**: After moving isolated tract(s) to the sibling, perform a compensating move so the two sibling DGs end up within target variance and as close to balanced as possible. Use the **current sibling DG populations** (not the moved-tract population). Build a sorted list of tracts in the target group that have an adjacent tract bordering the source group (boundary tracts). Score each candidate by the resulting population variance between the two sibling groups after the move (distance from ideal split); prefer the tract that minimizes this variance and whose removal from the target would not create new isolated tracts. Target variance (e.g. 1%) is used to prefer outcomes within spec. Move the selected tract(s) from target to source and swap their `tract_DG` / `sibling_DG`. If no suitable tract exists, skip the compensating move.
 - **Cache/state**: Backend updates `algorithmState.currentGroups` and invalidates the current step cache and all subsequent step caches. Frontend processes all groups with isolated tracts recursively, using the latest isolation result after each move.
 
 ## 7. Moving bridge tracts

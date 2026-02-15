@@ -20,3 +20,30 @@ Plan: [.cursor/plans/bridge_tracts_and_move_isolated_rules.plan.md](.cursor/plan
 - **Backend** ([backend/services/geodistrict-algorithm.js](backend/services/geodistrict-algorithm.js)): `_findBalancingTract()` (boundary tracts in target, sort by |pop − targetPop|, pick tract whose removal doesn’t create isolation); `_moveTractsToGroup(..., skipBalancing)` with compensating move after moving isolated tracts; parent-DG comment in `detectBridgeTracts`; option 4: `isVerySmallIsolation = isolatedCount <= 2`, `willInclude = adjacentIsolatedCount >= 1` for very small.
 
 ✅ **IMPLEMENTED**: Tract isolation spec updates, compensating move (balance by boundary-tract population match), bridge scope (parent DG only), and option 4 (very small isolation bridge filter relaxed).
+
+## 1230 undo option 4
+
+### Prompt
+
+undo option 4 changes
+
+### Response / actions
+
+- **Spec**: Removed "Very small isolation (≤2 isolated)" bullet and "Strategy" paragraph; restored "Small isolation" (include only if willHelpConnect).
+- **Backend**: Removed `isVerySmallIsolation` and the `if (isVerySmallIsolation)` branch in `detectBridgeTracts`; bridge filter again requires willHelpConnect for all non-large isolations.
+- **Plan**: §4 marked reverted.
+
+✅ **RESOLVED**: Option 4 reverted; compensating move and parent-DG scope unchanged.
+
+## 1245 balance by sibling DG variance
+
+### Prompt
+
+tract moving balances based on moved tract population. however, the DG populations may already be unbalanced. therefore, change findBalancingTracts to use the sibling_DGs population variance to determine balancing tracts that closely match result in sibling_DG populations within target variance, closest to balanced as possible.
+
+### Response / actions
+
+- **Backend** ([backend/services/geodistrict-algorithm.js](backend/services/geodistrict-algorithm.js)): `_findBalancingTract` now uses current sibling DG populations only (no `targetPopulation`). Computes S, T, ideal = (S+T)/2, scores each boundary tract by resulting variance `max(|S+P−ideal|,|T−P−ideal|)/ideal` and sorts to minimize it; picks first tract that doesn’t create new isolation. Added `BALANCE_TARGET_VARIANCE` (0.01). Call site no longer passes or uses `totalMovedPopulation`.
+- **Spec** ([doc/pages/TRACT_ISOLATION_SPEC_AND_IMPLEMENTATION.md](doc/pages/TRACT_ISOLATION_SPEC_AND_IMPLEMENTATION.md)): §6 compensating move updated to describe balance by current sibling populations and resulting variance (target variance e.g. 1%).
+
+✅ **IMPLEMENTED**: Balancing now uses sibling DG population variance; tract chosen to bring sibling DGs within target variance and closest to balanced.

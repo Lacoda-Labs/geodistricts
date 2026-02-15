@@ -57,12 +57,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   showSteps: boolean = false;
   isDetectingIsolation: boolean = false;
   isolatedTractIds: Set<string> = new Set(); // Track isolated tract IDs
-  isolatedTractsData: { isolatedTractsByGroup: { [groupIndex: string]: string[] }, isolatedTractIds: string[], groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }> } | null = null;
+  isolatedTractsData: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds: string[]; groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>; balancingTractIdsByGroup?: { [groupIndex: string]: string[] } } | null = null;
   bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
   isMovingBridgeTracts: boolean = false;
   isMovingIsolatedTracts: boolean = false;
   /** Shown when Move Isolated Tracts leaves tracts unmoved (no neighbor in target group). */
   moveIsolatedHint: string = '';
+  /** Message shown in the map loading overlay (e.g. "Processing Step 2 - dividing by longitude..."). */
+  loadingMessage: string = 'Loading district data...';
   isRunningAllSteps: boolean = false;
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
@@ -955,6 +957,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Reset state
     this.isRunningAllSteps = true;
     this.isLoading = true;
+    this.loadingMessage = 'Loading district data...';
     this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
@@ -1004,7 +1007,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
+              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
             };
           } else {
             this.isolatedTractIds.clear();
@@ -1047,6 +1051,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
+    this.loadingMessage = 'Loading district data...';
     this.errorMessage = '';
     this.cdr.markForCheck();
 
@@ -1101,6 +1106,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
+    this.loadingMessage = 'Loading district data...';
     this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
@@ -1175,7 +1181,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
+              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
             };
             console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
           }
@@ -1276,6 +1283,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
+    this.loadingMessage = 'Loading district data...';
     this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
@@ -1373,7 +1381,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
+              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
             };
             console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
           }
@@ -1479,6 +1488,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Step not loaded yet, request it from backend
         console.log(`🚀 Requesting step ${prevIndex} from backend...`);
         this.isLoading = true;
+        this.loadingMessage = 'Loading district data...';
         
         const options: GeodistrictOptions = {
           state: this.selectedState,
@@ -1518,7 +1528,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
                 this.isolatedTractsData = {
                   isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                  isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+                  isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
+                  balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
                 };
                 console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
               }
@@ -1649,6 +1660,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Step not loaded yet, request it from backend
       console.log(`🚀 Requesting step ${nextIndex} from backend...`);
       this.isLoading = true;
+      this.loadingMessage = nextIndex === 0
+        ? 'Loading initial state...'
+        : `Processing Step ${nextIndex} - dividing by ${nextIndex % 2 === 1 ? 'latitude' : 'longitude'}...`;
       
       const options: GeodistrictOptions = {
         state: this.selectedState,
@@ -1666,6 +1680,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           if (this.selectedState !== options.state) {
             console.warn(`⚠️ State changed during next-step load: was loading ${options.state}, now selected ${this.selectedState}. Ignoring response.`);
             this.isLoading = false;
+            this.loadingMessage = 'Loading district data...';
             this.isLoadingSteps = false;
             return;
           }
@@ -1677,12 +1692,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             if (this.currentStep) {
               console.log(`📥 Using current step as final step`);
               this.isLoading = false; // Stop loading spinner
+              this.loadingMessage = 'Loading district data...';
               this.isLoadingSteps = false;
               this.totalSteps = this.loadedSteps.filter(s => s !== undefined).length;
               return; // Keep current step displayed
             } else {
               console.warn(`⚠️ Algorithm completed but no step data available`);
               this.isLoading = false; // Stop loading spinner
+              this.loadingMessage = 'Loading district data...';
               this.isLoadingSteps = false;
               return;
             }
@@ -1710,6 +1727,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             console.warn(`⚠️ Received null step data at step ${stepIndex}`);
             this.isLoading = false; // Stop loading spinner even if step data is null
+            this.loadingMessage = 'Loading district data...';
             this.isLoadingSteps = false;
             return;
           }
@@ -1733,7 +1751,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
               this.isolatedTractsData = {
                 isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
+                isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
+                balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
               };
               console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
             }
@@ -1745,6 +1764,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
           this.isLoading = false;
+          this.loadingMessage = 'Loading district data...';
 
           // Update algorithmResult
           if (this.algorithmResult) {
@@ -1767,6 +1787,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         error: (error) => {
           this.errorMessage = error.message || 'An error occurred while executing the next step';
           this.isLoading = false;
+          this.loadingMessage = 'Loading district data...';
           console.error('Next step execution error:', error);
         }
       });
@@ -3865,7 +3886,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolatedTractsByGroup,
           isolatedTractIds: result.isolatedTractIds,
-          groupStats: result.groupStats || []
+          groupStats: result.groupStats || [],
+          balancingTractIdsByGroup: result.balancingTractIdsByGroup || {}
         };
         // Clear bridge tracts when new isolation is detected
         this.bridgeTractIds.clear();
@@ -4074,7 +4096,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
             isolatedTractIds: result.isolationResult.isolatedTractIds,
             totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation,
+            balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
           };
         }
 
@@ -4082,7 +4105,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds
+          isolatedTractIds: result.isolationResult.isolatedTractIds,
+          balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
         };
 
         if (result.isolationResult.totalIsolated === 0) {
@@ -4164,7 +4188,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(isolationResult.isolatedTractIds);
             this.isolatedTractsData = {
               isolatedTractsByGroup: isolationResult.isolatedTractsByGroup,
-              isolatedTractIds: isolationResult.isolatedTractIds
+              isolatedTractIds: isolationResult.isolatedTractIds,
+              balancingTractIdsByGroup: (isolationResult as any).balancingTractIdsByGroup || {}
             };
             
             // Clear bridge tracts (will need to re-detect)
@@ -4228,12 +4253,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Get isolated tracts list for display
    */
-  getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> {
+  getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean, balancingTractIds: string[]}> {
     if (!this.isolatedTractsData || !this.currentStep) {
       return [];
     }
 
-    const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> = [];
+    const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean, balancingTractIds: string[]}> = [];
+    const balancingByGroup = this.isolatedTractsData.balancingTractIdsByGroup || {};
     
     // If isolatedTractsByGroup is empty but isolatedTractIds has items, try to find which groups they belong to
     if (Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length === 0 && 
@@ -4242,12 +4268,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       for (let groupIndex = 0; groupIndex < this.currentStep.districtGroups.length; groupIndex++) {
         const group = this.currentStep.districtGroups[groupIndex];
         const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-        
+        const balancingTractIds = balancingByGroup[groupIndex] || [];
         for (const tractId of this.isolatedTractsData.isolatedTractIds) {
           const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
           if (tract) {
             const isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
-            list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+            list.push({ tractId, groupIndex, groupLabel, isEnclosed, balancingTractIds });
           }
         }
       }
@@ -4257,7 +4283,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const groupIndex = parseInt(groupIndexStr);
         const group = this.currentStep.districtGroups[groupIndex];
         const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-        
+        const balancingTractIds = balancingByGroup[groupIndexStr] || [];
         for (const tractId of tractIds) {
           // Check if tract is enclosed by looking for it in the district groups
           let isEnclosed = false;
@@ -4269,7 +4295,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
             }
           }
-          list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+          list.push({ tractId, groupIndex, groupLabel, isEnclosed, balancingTractIds });
         }
       }
     }
@@ -4444,13 +4470,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
             isolatedTractIds: result.isolationResult.isolatedTractIds,
             totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation,
+            balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
           };
         }
         this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds
+          isolatedTractIds: result.isolationResult.isolatedTractIds,
+          balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
         };
         if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
           this.loadedSteps[this.currentStepIndex] = this.currentStep!;

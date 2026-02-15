@@ -66,10 +66,10 @@ isProject: false
 
 - No change to scope: `detectBridgeTracts` already restricts to sibling group. Add an assertion or comment that sibling must be from the same parent division; reject or ignore any request to consider tracts outside the parent DG. Document in code and spec that “parent DG” means the two groups that result from one division (e.g. DG6-7 split into DG6-6 and DG7-7); bridge candidates only from the sibling of the isolated group.
 
-### 4. Optional (from earlier plan)
+### 4. Optional (reverted)
 
-- Prefer bridge move for small isolations when it preserves balance.
-- Relax bridge filter for very small isolations (e.g. ≤2) if needed so that boundary-only candidates (e.g. AZ 002106, 001900) can qualify when they only touch the isolated tracts.
+- ~~Prefer bridge move for small isolations when it preserves balance.~~
+- ~~Relax bridge filter for very small isolations (e.g. ≤2)~~ — reverted per user request; bridge filter again requires willHelpConnect for all non-large isolations.
 
 ---
 

@@ -9,7 +9,7 @@
         <div *ngIf="isLoading && selectedState !== 'ALL'" class="loading-overlay">
           <div class="loading-spinner-container">
             <div class="loading-spinner"></div>
-            <p class="loading-text">Loading district data...</p>
+            <p class="loading-text">{{ loadingMessage }}</p>
           </div>
         </div>
       </div>
@@ -90,12 +90,8 @@
             <!-- Step 0 Information -->
             <div class="step-0-info" *ngIf="currentStepIndex === 0 && isAdminMode">
               <div class="step-0-header">
-                <h4>{{ isSortingVisualization ? 'Step 0.2: Sorted Tracts' : 'Step 0.1: Initial State' }}</h4>
-                <p>{{ isSortingVisualization ? 'Census tracts have been sorted by latitude and longitude for geographic division.' : 'The entire state is shown as one district group containing all census tracts.' }}</p>
-              </div>
-              <div class="next-step-info">
-                <h5>{{ isSortingVisualization ? 'Next Step: Geographic Division' : 'Next Step: Sort Census Tracts' }}</h5>
-                <p>{{ isSortingVisualization ? 'The algorithm will now begin dividing the state using lat/long lines.' : 'The algorithm will sort census tracts by latitude and longitude to prepare for geographic division.' }}</p>
+                <h4>Step 0: Initial State</h4>
+                <p>The entire state is shown as one district group containing all census tracts. Next: sort tracts and divide by latitude/longitude.</p>
               </div>
             </div>
 
@@ -129,6 +125,7 @@
                     <tr>
                       <th>Tract ID</th>
                       <th>Group</th>
+                      <th>Balancing Tracts</th>
                       <th *ngIf="bridgeTractsData">Bridge Tracts</th>
                     </tr>
                   </thead>
@@ -140,6 +137,7 @@
                         <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
                       </td>
                       <td>{{ item.groupLabel }}</td>
+                      <td>{{ item.balancingTractIds?.length ? item.balancingTractIds.join(', ') : '—' }}</td>
                       <td *ngIf="bridgeTractsData">
                         <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
                           (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
@@ -200,7 +198,7 @@
                       [class.selected]="selectedDistrictGroupIndex === i" (click)="selectDistrictGroup(i)"
                       style="cursor: pointer;">
                       <td>
-                        Districts {{ group.startDistrictNumber }}
+                        {{ group.endDistrictNumber === group.startDistrictNumber ? 'District' : 'Districts' }} {{ group.startDistrictNumber }}
                         <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
                           - {{ group.endDistrictNumber }}
                         </span>

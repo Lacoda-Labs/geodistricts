@@ -2351,7 +2351,6 @@ class GeodistrictAlgorithmService {
       // For groups with many isolated tracts, be less restrictive
       const isolatedCount = isolatedTractIds.size;
       const isLargeIsolation = isolatedCount >= 10; // Many isolated tracts need more bridge options
-      const isVerySmallIsolation = isolatedCount <= 2; // Option 4: relax filter so boundary-only candidates qualify
       
       for (const bridgeTract of candidateBridgeTracts.values()) {
         // Check if this tract is in the main component of the sibling group
@@ -2419,18 +2418,14 @@ class GeodistrictAlgorithmService {
         
         // For large isolations, be slightly less restrictive but still require it to help connect
         let willInclude = false;
-        if (isVerySmallIsolation) {
-          // Option 4: Very small isolation (<=2 tracts). Include if adjacent to >=1 isolated tract.
-          // Allows boundary-only candidates (e.g. AZ 002106, 001900) that only touch the isolated tracts.
-          willInclude = bridgeTract.adjacentIsolatedCount >= 1;
-        } else if (isLargeIsolation) {
+        if (isLargeIsolation) {
           // For large isolations, include if:
           // 1. Adjacent to at least 3 isolated tracts (high value, likely to help)
           // 2. OR has neighbors in main component AND adjacent to isolated tracts (will bridge the gap)
           willInclude = bridgeTract.adjacentIsolatedCount >= 3 || 
                        (neighborsInIsolatedMainComponent > 0 && bridgeTract.adjacentIsolatedCount >= 1);
         } else {
-          // For small isolations (3-9), only include if it will actually help connect
+          // For small isolations, only include if it will actually help connect
           // Must have neighbors in main component AND be adjacent to isolated tracts
           willInclude = neighborsInIsolatedMainComponent > 0 && bridgeTract.adjacentIsolatedCount >= 1;
         }
@@ -2901,24 +2896,35 @@ class GeodistrictAlgorithmService {
   }
 
   /**
-   * Find a tract (or minimal set) in the target group that borders the source group and whose
-   * population closely matches targetPopulation, so it can be moved to the source as a compensating
-   * move without creating new isolation in the target.
+   * Target population variance for sibling DG balance (e.g. 0.01 = 1%). Used when choosing
+   * compensating tract so that sibling groups end up within this variance of ideal split.
+   */
+  static get BALANCE_TARGET_VARIANCE() { return 0.01; }
+
+  /**
+   * Find a tract in the target group that borders the source group such that moving it to the
+   * source brings the two sibling DGs' populations within target variance and as close to
+   * balanced as possible (uses current sibling populations, not moved-tract population).
    * @private
    * @param {Array} districtGroups - Current district groups (after isolated tracts were moved to target)
    * @param {number} sourceGroupIndex - Index of source group (e.g. isolated group)
    * @param {number} targetGroupIndex - Index of target group (e.g. sibling that received isolated tracts)
-   * @param {number} targetPopulation - Total population of tract(s) moved (to match for balance)
    * @param {Map} adjacencyGraph - Tract adjacency graph
    * @returns {string[]|null} - Array of tract IDs to move from target to source, or null if none suitable
    */
-  _findBalancingTract(districtGroups, sourceGroupIndex, targetGroupIndex, targetPopulation, adjacencyGraph) {
+  _findBalancingTract(districtGroups, sourceGroupIndex, targetGroupIndex, adjacencyGraph) {
     const sourceGroup = districtGroups[sourceGroupIndex];
     const targetGroup = districtGroups[targetGroupIndex];
     if (!sourceGroup || !targetGroup || targetGroup.censusTracts.length === 0) return null;
 
+    const S = sourceGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+    const T = targetGroup.censusTracts.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+    const total = S + T;
+    if (total <= 0) return null;
+    const ideal = total / 2;
+    const targetMovePop = (T - S) / 2;
+
     const sourceGroupTractIds = new Set(sourceGroup.censusTracts.map(t => getTractId(t)));
-    // Tracts in target that have at least one neighbor in source (boundary tracts)
     const boundaryTracts = targetGroup.censusTracts.filter(t => {
       const tid = getTractId(t);
       const neighbors = adjacencyGraph.get(tid) || [];
@@ -2926,11 +2932,21 @@ class GeodistrictAlgorithmService {
     });
     if (boundaryTracts.length === 0) return null;
 
-    // Sort by how closely population matches target (best match first)
+    // Score each candidate: after moving tract with pop P, newSource = S+P, newTarget = T-P.
+    // Variance from ideal = max(|newSource - ideal|, |newTarget - ideal|) / ideal. Prefer smallest.
+    const variance = (P) => {
+      const newSource = S + P;
+      const newTarget = T - P;
+      return Math.max(Math.abs(newSource - ideal), Math.abs(newTarget - ideal)) / ideal;
+    };
+
     boundaryTracts.sort((a, b) => {
-      const popA = Math.abs((a.properties?.POPULATION || 0) - targetPopulation);
-      const popB = Math.abs((b.properties?.POPULATION || 0) - targetPopulation);
-      return popA - popB;
+      const popA = a.properties?.POPULATION || 0;
+      const popB = b.properties?.POPULATION || 0;
+      const varA = variance(popA);
+      const varB = variance(popB);
+      if (varA !== varB) return varA - varB;
+      return Math.abs(popA - targetMovePop) - Math.abs(popB - targetMovePop);
     });
 
     for (const tract of boundaryTracts) {
@@ -2938,12 +2954,50 @@ class GeodistrictAlgorithmService {
       const remainingTracts = targetGroup.censusTracts.filter(t => getTractId(t) !== tractId);
       if (remainingTracts.length === 0) continue;
       const maxReachable = this.calculateMaxReachableCount(remainingTracts, adjacencyGraph);
-      // Removing this tract should not create new isolation (rest of group still one component)
       if (maxReachable >= remainingTracts.length * 0.95) {
         return [tractId];
       }
     }
     return null;
+  }
+
+  /**
+   * Get balancing tract IDs for an isolated group (tracts that would be moved from sibling to source to balance population).
+   * Used by detect-isolated-tracts to show a preview in the UI.
+   * @param {Array} districtGroups - Current district groups
+   * @param {Array} allTracts - All tracts (for building adjacency graph)
+   * @param {number} isolatedGroupIndex - Index of the group that has isolated tracts (source)
+   * @returns {string[]|null} - Array of tract IDs that would be used for balancing, or null
+   */
+  getBalancingTractIdsForGroup(districtGroups, allTracts, isolatedGroupIndex) {
+    const isolatedGroup = districtGroups[isolatedGroupIndex];
+    if (!isolatedGroup || !isolatedGroup.censusTracts.length) return null;
+
+    let siblingDG = null;
+    for (const tract of isolatedGroup.censusTracts) {
+      if (tract.properties?.sibling_DG) {
+        siblingDG = tract.properties.sibling_DG;
+        break;
+      }
+    }
+    if (!siblingDG) return null;
+
+    const match = siblingDG.match(/DG(\d+)-(\d+)/);
+    if (!match) return null;
+    const siblingStart = parseInt(match[1], 10);
+    const siblingEnd = parseInt(match[2], 10);
+    let siblingGroupIndex = null;
+    for (let i = 0; i < districtGroups.length; i++) {
+      if (districtGroups[i].startDistrictNumber === siblingStart &&
+          districtGroups[i].endDistrictNumber === siblingEnd) {
+        siblingGroupIndex = i;
+        break;
+      }
+    }
+    if (siblingGroupIndex === null) return null;
+
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    return this._findBalancingTract(districtGroups, isolatedGroupIndex, siblingGroupIndex, adjacencyGraph);
   }
 
   /**
@@ -2961,7 +3015,6 @@ class GeodistrictAlgorithmService {
     const sourceGroup = updatedGroups[sourceGroupIndex];
     const targetGroup = updatedGroups[targetGroupIndex];
     let movedCount = 0;
-    let totalMovedPopulation = 0;
     
     // Build adjacency graph for checking if tracts will still be isolated after move
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
@@ -3018,7 +3071,6 @@ class GeodistrictAlgorithmService {
       if (!targetGroup.censusTracts.some(t => getTractId(t) === tractId)) {
         targetGroup.censusTracts.push(tract);
         movedCount++;
-        totalMovedPopulation += (tract.properties?.POPULATION || 0);
         
         // SWAP tract_DG with sibling_DG (as per user requirement)
         // When moving isolated tract, swap: tract_DG <-> sibling_DG
@@ -3067,13 +3119,16 @@ class GeodistrictAlgorithmService {
       }
     }
     
-    // Compensating move: move a boundary tract from target back to source to preserve population balance
-    if (!skipBalancing && movedCount > 0 && totalMovedPopulation > 0) {
+    // Compensating move: move a boundary tract from target back to source so sibling DGs are within target variance
+    if (!skipBalancing && movedCount > 0) {
       const balancingTractIds = this._findBalancingTract(
-        updatedGroups, sourceGroupIndex, targetGroupIndex, totalMovedPopulation, adjacencyGraph
+        updatedGroups, sourceGroupIndex, targetGroupIndex, adjacencyGraph
       );
       if (balancingTractIds && balancingTractIds.length > 0) {
-        console.log(`   Balancing: moving ${balancingTractIds.join(', ')} from target back to source (pop match ~${totalMovedPopulation})`);
+        const movePop = updatedGroups[targetGroupIndex].censusTracts
+          .filter(t => balancingTractIds.includes(getTractId(t)))
+          .reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+        console.log(`   Balancing: moving ${balancingTractIds.join(', ')} from target back to source (sibling balance, pop ~${movePop})`);
         const balanceResult = this._moveTractsToGroup(
           updatedGroups, allTracts, targetGroupIndex, balancingTractIds, sourceGroupIndex, true
         );
