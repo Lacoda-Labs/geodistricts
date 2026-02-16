@@ -6698,8 +6698,15 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
     if (g.censusTractIds) delete g.censusTractIds;
   });
 
-  // Preserve step metadata so cache-loaded steps expose isolation/island data when present
-  if (normalizedStep.isolatedTractsData != null) reconstructed.isolatedTractsData = normalizedStep.isolatedTractsData;
+  // Preserve step metadata so cache-loaded steps expose isolation/island data when present.
+  // Do not expose isolatedTractsData that looks wrong (e.g. half-state from wrong step); client will run detection.
+  const maxIsolatedPerGroup = 200;
+  const byGroup = normalizedStep.isolatedTractsData?.isolatedTractsByGroup;
+  const isolatedReasonable = byGroup && typeof byGroup === 'object' &&
+    !Object.values(byGroup).some(list => Array.isArray(list) && list.length > maxIsolatedPerGroup);
+  if (normalizedStep.isolatedTractsData != null && isolatedReasonable) {
+    reconstructed.isolatedTractsData = normalizedStep.isolatedTractsData;
+  }
   if (normalizedStep.islandTractsData != null) reconstructed.islandTractsData = normalizedStep.islandTractsData;
   if (normalizedStep.divisionLines != null) reconstructed.divisionLines = normalizedStep.divisionLines;
   if (normalizedStep.dgAdjacentGroupsByGroup != null) reconstructed.dgAdjacentGroupsByGroup = normalizedStep.dgAdjacentGroupsByGroup;

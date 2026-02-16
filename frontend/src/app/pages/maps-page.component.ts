@@ -3724,24 +3724,28 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Get step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
+   * Get step-0 island and excluded tract IDs for exclusion from isolation at steps 1+.
+   * Includes both geographic island tracts (islandTractsByGroup) and water/special tracts (excludedTractIds).
    * Uses the step with step number 0 (not array index 0). Supports Firestore-serialized shape (group.tractIds).
-   * Returns undefined if not available (e.g. step 0 not loaded or no islands).
+   * Returns undefined if not available (e.g. step 0 not loaded or no islands/excluded).
    */
   private getStep0IslandTractIds(): string[] | undefined {
     const step0 = this.algorithmResult?.steps?.find(s => s && (s as any).step === 0);
-    const islandData = (step0 as any)?.islandTractsData?.islandTractsByGroup;
-    if (!islandData || typeof islandData !== 'object') return undefined;
-    const ids: string[] = [];
-    for (const islandGroups of Object.values(islandData)) {
-      if (Array.isArray(islandGroups)) {
-        for (const group of islandGroups) {
-          if (Array.isArray(group)) {
-            ids.push(...group);
-          } else if (typeof group === 'string') {
-            ids.push(group);
-          } else if (group && Array.isArray((group as any).tractIds)) {
-            ids.push(...(group as any).tractIds);
+    const islandTractsData = (step0 as any)?.islandTractsData;
+    const islandData = islandTractsData?.islandTractsByGroup;
+    const excludedIds = Array.isArray(islandTractsData?.excludedTractIds) ? islandTractsData.excludedTractIds : [];
+    const ids: string[] = [...excludedIds];
+    if (islandData && typeof islandData === 'object') {
+      for (const islandGroups of Object.values(islandData)) {
+        if (Array.isArray(islandGroups)) {
+          for (const group of islandGroups) {
+            if (Array.isArray(group)) {
+              ids.push(...group);
+            } else if (typeof group === 'string') {
+              ids.push(group);
+            } else if (group && Array.isArray((group as any).tractIds)) {
+              ids.push(...(group as any).tractIds);
+            }
           }
         }
       }
