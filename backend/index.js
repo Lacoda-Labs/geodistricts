@@ -225,16 +225,21 @@ function isCacheExpired(timestamp, ttl) {
   return Date.now() - timestamp > ttl;
 }
 
+/** Known CA Pacific island tract IDs (step-0 geographic islands). Always excluded from isolation at steps 1+. */
+const KNOWN_CA_ISLAND_TRACT_IDS = ['06037599000', '06037599100', '06075980401', '06083980100', '06111980000'];
+
 /**
  * Build set of step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
  * Includes water/special tracts (no geometry or tract code 990000/7990000 etc.) so they never appear as isolated.
  * When step 0 was cached before excludedTractIds existed, we add water/special from uniqueTracts here.
+ * For California at step > 0, always merges known Pacific island tract IDs so they are never reported as isolated.
  * @param {Object} algorithmState - Algorithm state (may have steps[0].islandTractsData, uniqueTracts)
  * @param {number} step - Current step number
  * @param {string[]|undefined} bodyStep0IslandTractIds - Optional array from request body
+ * @param {string} [stateCode] - State FIPS (e.g. '06') or abbreviation (e.g. 'CA') for CA fallback
  * @returns {Set<string>|null}
  */
-function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds) {
+function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, stateCode) {
   const { getTractId, isWaterOrSpecialTract } = require('./services/geodistrict-algorithm');
   let set = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
   const hasStep0Data = algorithmState?.steps?.[0]?.islandTractsData;
@@ -249,6 +254,7 @@ function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds) {
           for (const group of islandGroups) {
             if (Array.isArray(group)) group.forEach(id => set.add(id));
             else if (typeof group === 'string') set.add(group);
+            else if (group && Array.isArray(group.tractIds)) group.tractIds.forEach(id => set.add(id));
           }
         }
       }
@@ -271,6 +277,21 @@ function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds) {
       if (added > 0) {
         console.log(`🏝️ Step 0 exclusion: added ${added} water/special tract(s) from uniqueTracts (cache had no excludedTractIds)`);
       }
+    }
+  }
+  // California at step > 0: always exclude known Pacific island tracts so they never appear as isolated
+  const isCA = stateCode === '06' || stateCode === 'CA';
+  if (step > 0 && isCA) {
+    if (!set) set = new Set();
+    let added = 0;
+    for (const id of KNOWN_CA_ISLAND_TRACT_IDS) {
+      if (!set.has(id)) {
+        set.add(id);
+        added++;
+      }
+    }
+    if (added > 0) {
+      console.log(`🏝️ Step 0 exclusion: added ${added} known CA Pacific island tract(s) (fallback)`);
     }
   }
   return set;
@@ -5372,7 +5393,7 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
           steps: step0Data ? [step0Data] : [],
           uniqueTracts: uniqueTractsForExclusion
         };
-        const exclusionSet = buildStep0IslandSet(algorithmStateForSet, stepNum, undefined);
+        const exclusionSet = buildStep0IslandSet(algorithmStateForSet, stepNum, undefined, state);
         if (exclusionSet && exclusionSet.size > 0) {
           filterIsolatedTractsDataByExclusion(stepData, exclusionSet);
         }
@@ -6911,12 +6932,13 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'allTracts array is required' });
     }
 
-    const step0IslandSet = Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : (step0IslandTractIds || null);
-    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts` + (step0IslandSet?.size ? ` (excluding ${step0IslandSet.size} step-0 island tracts)` : ''));
+    let step0IslandSet = Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : (step0IslandTractIds || null);
 
     // Ensure S4 adjacency data is loaded (required for isolation detection)
+    let stateForExclusion = '';
     if (allTracts.length > 0) {
       let state = allTracts[0]?.properties?.['STATE'] || allTracts[0]?.properties?.state || allTracts[0]?.properties?.['STATE_FIPS'] || '';
+      stateForExclusion = state;
       if (state) {
         try {
           const s4DataLoader = require('./services/s4-data-loader');
@@ -6929,6 +6951,13 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
         }
       }
     }
+    // California at step > 0: ensure known Pacific island tracts are excluded even when frontend sends no step-0 island list
+    const stepNum = stepNumber != null ? Number(stepNumber) : 0;
+    if (stepNum > 0 && (stateForExclusion === '06' || stateForExclusion === 'CA')) {
+      if (!step0IslandSet) step0IslandSet = new Set();
+      KNOWN_CA_ISLAND_TRACT_IDS.forEach(id => step0IslandSet.add(id));
+    }
+    console.log(`🔍 Detecting isolated tracts for ${districtGroups.length} groups with ${allTracts.length} total tracts` + (step0IslandSet?.size ? ` (excluding ${step0IslandSet.size} step-0 island tracts)` : ''));
 
     // Call the detection method (stepNumber and step0IslandTractIds exclude geographic islands from isolation at steps 1+)
     const detectionResult = algorithmService.detectIsolatedTracts(districtGroups, allTracts, stepNumber ?? null, step0IslandSet);
@@ -7298,10 +7327,6 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
       }
 
-      if (divisionLines && divisionLines.length > 0) {
-        updatedGroups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
-      }
-
       const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
       const finalIsolatedTractsByGroup = {};
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
@@ -7567,7 +7592,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
     }
     const allTractsForDetect = algorithmState.uniqueTracts || [];
-      const step0IslandForDetect = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds);
+      const step0IslandForDetect = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
       const detectionResult = algorithmService.detectIsolatedTracts(currentStep.districtGroups, allTractsForDetect, step, step0IslandForDetect);
       // Convert Map to object
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
@@ -7590,7 +7615,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
     const allTracts = algorithmState.uniqueTracts || [];
 
-    const step0IslandSet = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds);
+    const step0IslandSet = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
     if (step0IslandSet && step0IslandSet.size > 0) {
       console.log(`🏝️ Excluding ${step0IslandSet.size} step-0 island tract(s) from isolation detection`);
     }
@@ -7698,10 +7723,6 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     if (iterationCount >= maxProcessingIterations) {
       console.warn(`⚠️ Reached max iterations (${maxProcessingIterations}) while processing isolated tracts`);
-    }
-
-    if (currentStep.divisionLines && currentStep.divisionLines.length > 0) {
-      updatedGroups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, currentStep.divisionLines);
     }
 
     // Final isolation detection
@@ -7816,6 +7837,55 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     console.error('Error moving all isolated tracts:', error);
     res.status(500).json({
       error: 'Failed to move all isolated tracts',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/balance-after-isolated
+ * Run balanceSiblingPairsAfterIsolatedMoves on current step data (client sends districtGroups + divisionLines).
+ */
+app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
+  try {
+    const { state, step, districtGroups, divisionLines } = req.body;
+
+    if (!state) {
+      return res.status(400).json({ error: 'State is required' });
+    }
+    if (typeof step !== 'number' || step < 0) {
+      return res.status(400).json({ error: 'Valid step number is required' });
+    }
+    if (!Array.isArray(districtGroups) || districtGroups.length === 0) {
+      return res.status(400).json({ error: 'districtGroups is required and must be a non-empty array' });
+    }
+    if (!Array.isArray(divisionLines) || divisionLines.length === 0) {
+      return res.status(400).json({ error: 'divisionLines is required and must be a non-empty array' });
+    }
+
+    try {
+      const s4DataLoader = require('./services/s4-data-loader');
+      const stateForS4 = s4DataLoader.normalizeStateForS4(state);
+      await s4DataLoader.loadS4AdjacencyData(stateForS4);
+    } catch (s4Err) {
+      console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${s4Err.message}`);
+    }
+
+    const { getTractId } = require('./services/geodistrict-algorithm');
+    const allTracts = [];
+    for (const group of districtGroups) {
+      for (const t of group.censusTracts || []) {
+        if (t && getTractId(t)) allTracts.push(t);
+      }
+    }
+    const updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+    const balanced = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
+
+    return res.json({ districtGroups: balanced });
+  } catch (error) {
+    console.error('Error balancing after isolated:', error);
+    res.status(500).json({
+      error: 'Failed to balance districts',
       message: error.message
     });
   }

@@ -6641,5 +6641,30 @@ export class GeodistrictAlgorithmService {
       })
     );
   }
+
+  /**
+   * Run balanceSiblingPairsAfterIsolatedMoves on the backend (manual trigger after move isolated).
+   */
+  balanceAfterIsolated(
+    state: string,
+    step: number,
+    districtGroups: any[],
+    divisionLines: any[]
+  ): Observable<{ districtGroups: any[] }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/balance-after-isolated`;
+    return this.http.post<{ districtGroups: any[] }>(url, { state, step, districtGroups, divisionLines }, {
+      headers: { 'Content-Type': 'application/json' }
+    }).pipe(
+      timeout(120000),
+      catchError(error => {
+        console.error('Error balancing districts:', error);
+        const message = error?.name === 'TimeoutError'
+          ? 'Request timed out. Balance can take several minutes for large states.'
+          : (error?.error?.message || error?.message || 'Failed to balance districts');
+        return throwError(() => new Error(message));
+      })
+    );
+  }
 }
 

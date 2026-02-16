@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
 import { concatMap, tap, last, map, catchError, take, finalize } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
@@ -40,6 +41,7 @@ declare global {
     MatCheckboxModule,
     MatChipsModule,
     MatExpansionModule,
+    MatTooltipModule,
     PageHeaderComponent,
     StateRowComponent,
     StepBtnBarComponent,
@@ -64,6 +66,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
   isMovingBridgeTracts: boolean = false;
   isMovingIsolatedTracts: boolean = false;
+  isBalancingDistricts: boolean = false;
   /** Shown when Move Isolated Tracts leaves tracts unmoved (no neighbor in target group). */
   moveIsolatedHint: string = '';
   /** Message shown in the map loading overlay (e.g. "Processing Step 2 - dividing by longitude..."). */
@@ -3707,18 +3710,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Get step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
+   * Uses the step with step number 0 (not array index 0). Supports Firestore-serialized shape (group.tractIds).
    * Returns undefined if not available (e.g. step 0 not loaded or no islands).
    */
   private getStep0IslandTractIds(): string[] | undefined {
-    const step0 = this.algorithmResult?.steps?.[0];
+    const step0 = this.algorithmResult?.steps?.find(s => s && (s as any).step === 0);
     const islandData = (step0 as any)?.islandTractsData?.islandTractsByGroup;
     if (!islandData || typeof islandData !== 'object') return undefined;
     const ids: string[] = [];
     for (const islandGroups of Object.values(islandData)) {
       if (Array.isArray(islandGroups)) {
         for (const group of islandGroups) {
-          if (Array.isArray(group)) ids.push(...group);
-          else if (typeof group === 'string') ids.push(group);
+          if (Array.isArray(group)) {
+            ids.push(...group);
+          } else if (typeof group === 'string') {
+            ids.push(group);
+          } else if (group && Array.isArray((group as any).tractIds)) {
+            ids.push(...(group as any).tractIds);
+          }
         }
       }
     }
@@ -4058,6 +4067,43 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       error: (error) => {
         console.error('Error moving isolated tracts:', error);
         this.errorMessage = error?.message || error.error?.message || error.message || 'Failed to move isolated tracts';
+      }
+    });
+  }
+
+  /**
+   * Run balanceSiblingPairsAfterIsolatedMoves on the backend and update the map.
+   */
+  balanceDistrictsAfterIsolated(): void {
+    if (!this.currentStep?.districtGroups?.length || !this.currentStep?.divisionLines?.length) {
+      return;
+    }
+    this.isBalancingDistricts = true;
+    this.errorMessage = '';
+    this.geodistrictService.balanceAfterIsolated(
+      this.selectedState,
+      this.currentStep.step,
+      this.currentStep.districtGroups,
+      this.currentStep.divisionLines
+    ).pipe(
+      finalize(() => {
+        this.isBalancingDistricts = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: (result) => {
+        if (this.currentStep) {
+          this.currentStep.districtGroups = result.districtGroups;
+        }
+        if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+          this.loadedSteps[this.currentStepIndex] = this.currentStep!;
+        }
+        this.renderFinalDistricts();
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error balancing districts:', error);
+        this.errorMessage = error?.message || error?.message || 'Failed to balance districts';
       }
     });
   }
