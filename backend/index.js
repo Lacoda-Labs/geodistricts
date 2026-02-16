@@ -232,6 +232,44 @@ const KNOWN_CA_ISLAND_TRACT_IDS = ['06037599000', '06037599100', '06075980401', 
  * Build set of step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
  * Includes water/special tracts (no geometry or tract code 990000/7990000 etc.) so they never appear as isolated.
  * When step 0 was cached before excludedTractIds existed, we add water/special from uniqueTracts here.
+/**
+ * Derive isolatedTractsByGroup (and isolatedComponentsByGroup) from persisted dgAdjacentGroupsByGroup.
+ * Main component = largest by size; rest = isolated. Applies step0IslandSet exclusion when step > 0.
+ * @param {Object} dgAdjacentGroupsByGroup - { [groupIndex]: Array<Array<string>> }
+ * @param {Set<string>|null} step0IslandSet - Tract IDs to exclude from isolated (step-0 islands + non-movable)
+ * @returns {{ isolatedTractsByGroup: Object, isolatedComponentsByGroup: Object }}
+ */
+function deriveIsolatedFromDgAdjacentGroups(dgAdjacentGroupsByGroup, step0IslandSet) {
+  const isolatedTractsByGroup = {};
+  const isolatedComponentsByGroup = {};
+  for (const [key, components] of Object.entries(dgAdjacentGroupsByGroup)) {
+    if (!Array.isArray(components) || components.length === 0) continue;
+    let main = components[0];
+    for (const comp of components) {
+      if (comp.length > main.length) main = comp;
+    }
+    const isolatedComponents = components.filter(c => c !== main);
+    if (isolatedComponents.length === 0) continue;
+    let isolatedIds = [];
+    const filteredComponents = [];
+    for (const comp of isolatedComponents) {
+      const filtered = step0IslandSet && step0IslandSet.size > 0
+        ? comp.filter(id => !step0IslandSet.has(id))
+        : comp;
+      if (filtered.length > 0) {
+        filteredComponents.push(filtered);
+        isolatedIds = isolatedIds.concat(filtered);
+      }
+    }
+    if (isolatedIds.length > 0) {
+      isolatedTractsByGroup[key] = isolatedIds;
+      isolatedComponentsByGroup[key] = filteredComponents;
+    }
+  }
+  return { isolatedTractsByGroup, isolatedComponentsByGroup };
+}
+
+/**
  * For California at step > 0, always merges known Pacific island tract IDs so they are never reported as isolated.
  * @param {Object} algorithmState - Algorithm state (may have steps[0].islandTractsData, uniqueTracts)
  * @param {number} step - Current step number
@@ -3364,10 +3402,17 @@ function normalizeAlgorithmState(algorithmState, tractCacheKey) {
   // Normalize steps array to store only tract IDs
   const normalizedSteps = algorithmState.steps ? algorithmState.steps.map(step => {
     if (!step) return step;
-    // If already normalized (has districtGroups with censusTractIds), return as-is
+    // If already normalized (has districtGroups with censusTractIds), still serialize Firestore-unsafe fields
     if (step.districtGroups && step.districtGroups.length > 0 && 
         step.districtGroups[0].censusTractIds && !step.districtGroups[0].censusTracts) {
-      return step;
+      const stepCopy = { ...step };
+      if (stepCopy.dgAdjacentGroupsByGroup) {
+        stepCopy.dgAdjacentGroupsByGroup = serializeDgAdjacentGroupsByGroupForFirestore(stepCopy.dgAdjacentGroupsByGroup);
+      }
+      if (stepCopy.islandTractsData) {
+        stepCopy.islandTractsData = serializeIslandTractsDataForFirestore(stepCopy.islandTractsData);
+      }
+      return stepCopy;
     }
     if (!step.districtGroups) return step;
     const normalized = normalizeStepData(step, tractCacheKey);
@@ -6099,6 +6144,38 @@ function deserializeIslandTractsDataFromFirestore(islandTractsData) {
 }
 
 /**
+ * Firestore-safe serialize dgAdjacentGroupsByGroup: each component becomes { tractIds: string[] }.
+ */
+function serializeDgAdjacentGroupsByGroupForFirestore(dgAdjacentGroupsByGroup) {
+  if (!dgAdjacentGroupsByGroup || typeof dgAdjacentGroupsByGroup !== 'object') return undefined;
+  const serialized = {};
+  for (const [key, components] of Object.entries(dgAdjacentGroupsByGroup)) {
+    if (!Array.isArray(components)) continue;
+    serialized[key] = components.map(comp =>
+      Array.isArray(comp) ? { tractIds: comp } : (comp && comp.tractIds ? comp : { tractIds: [comp] })
+    );
+  }
+  return Object.keys(serialized).length > 0 ? serialized : undefined;
+}
+
+/**
+ * Restore dgAdjacentGroupsByGroup from Firestore shape to array-of-arrays per group.
+ */
+function deserializeDgAdjacentGroupsByGroupFromFirestore(dgAdjacentGroupsByGroup) {
+  if (!dgAdjacentGroupsByGroup || typeof dgAdjacentGroupsByGroup !== 'object') return undefined;
+  const restored = {};
+  for (const [key, arr] of Object.entries(dgAdjacentGroupsByGroup)) {
+    if (!Array.isArray(arr)) continue;
+    restored[key] = arr.map((item) => {
+      if (item && Array.isArray(item.tractIds)) return item.tractIds;
+      if (Array.isArray(item)) return item;
+      return item ? [item] : [];
+    });
+  }
+  return Object.keys(restored).length > 0 ? restored : undefined;
+}
+
+/**
  * When stepData was read from Firestore, restore any Firestore-safe fields to runtime shapes.
  * Call after cachedEntry.stepData before using in algorithm or API responses.
  */
@@ -6106,6 +6183,9 @@ function deserializeStepDataFromFirestore(stepData) {
   if (!stepData) return stepData;
   if (stepData.islandTractsData) {
     stepData.islandTractsData = deserializeIslandTractsDataFromFirestore(stepData.islandTractsData);
+  }
+  if (stepData.dgAdjacentGroupsByGroup) {
+    stepData.dgAdjacentGroupsByGroup = deserializeDgAdjacentGroupsByGroupFromFirestore(stepData.dgAdjacentGroupsByGroup);
   }
   return stepData;
 }
@@ -6155,6 +6235,8 @@ function normalizeStepData(step, tractCacheKey) {
     isolatedTractsData: step.isolatedTractsData || undefined,
     // Step-0 island tracts: use Firestore-safe shape (no array-of-arrays)
     islandTractsData: serializeIslandTractsDataForFirestore(step.islandTractsData),
+    // Connected components per group: Firestore-safe shape (array of { tractIds } per group)
+    dgAdjacentGroupsByGroup: serializeDgAdjacentGroupsByGroupForFirestore(step.dgAdjacentGroupsByGroup),
     districtGroups: step.districtGroups.map((group, index) => {
       const normalizedGroup = {
         startDistrictNumber: group.startDistrictNumber,
@@ -6937,7 +7019,14 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
     // Ensure S4 adjacency data is loaded (required for isolation detection)
     let stateForExclusion = '';
     if (allTracts.length > 0) {
-      let state = allTracts[0]?.properties?.['STATE'] || allTracts[0]?.properties?.state || allTracts[0]?.properties?.['STATE_FIPS'] || '';
+      const first = allTracts[0];
+      let state = first?.properties?.['STATE'] ?? first?.properties?.state ?? first?.properties?.['STATE_FIPS'] ?? '';
+      if (state === '' && first?.properties?.GEOID) {
+        const geoid = String(first.properties.GEOID);
+        if (geoid.length >= 2) state = geoid.substring(0, 2);
+      }
+      if (typeof state === 'number') state = String(state).padStart(2, '0');
+      else if (typeof state === 'string' && state.length === 1) state = state.padStart(2, '0');
       stateForExclusion = state;
       if (state) {
         try {
@@ -6953,7 +7042,8 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
     }
     // California at step > 0: ensure known Pacific island tracts are excluded even when frontend sends no step-0 island list
     const stepNum = stepNumber != null ? Number(stepNumber) : 0;
-    if (stepNum > 0 && (stateForExclusion === '06' || stateForExclusion === 'CA')) {
+    const isCA = stateForExclusion === '06' || stateForExclusion === 'CA';
+    if (stepNum > 0 && isCA) {
       if (!step0IslandSet) step0IslandSet = new Set();
       KNOWN_CA_ISLAND_TRACT_IDS.forEach(id => step0IslandSet.add(id));
     }
@@ -7174,13 +7264,14 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
 
     console.log(`🔄 Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
 
-    // Call the move method with divisionLines (sibling relationships) if provided
+    // Call the move method with divisionLines (sibling relationships) if provided. No balancing during isolation move.
     const result = algorithmService.moveIsolatedTractsToOppositeGroup(
       districtGroups,
       allTracts,
       isolatedGroupIndex,
       isolatedTractIds,
-      divisionLines || null
+      divisionLines || null,
+      true
     );
 
     // Update algorithm state and invalidate cached step if state and step are provided
@@ -7576,9 +7667,15 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
     }
 
-    // Get isolated tracts data: step cache, then optional frontend-supplied body, then detect
+    const step0IslandSetForMove = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
+
+    // Get isolated tracts data: prefer deriving from persisted dgAdjacentGroupsByGroup, then step cache, then body, then detect
     let isolatedTractsByGroup = {};
-    if (currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
+    if (currentStep.dgAdjacentGroupsByGroup && typeof currentStep.dgAdjacentGroupsByGroup === 'object' && Object.keys(currentStep.dgAdjacentGroupsByGroup).length > 0) {
+      const derived = deriveIsolatedFromDgAdjacentGroups(currentStep.dgAdjacentGroupsByGroup, step0IslandSetForMove);
+      isolatedTractsByGroup = derived.isolatedTractsByGroup;
+      console.log(`📥 Using isolated tracts derived from step dgAdjacentGroupsByGroup`);
+    } else if (currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
       isolatedTractsByGroup = currentStep.isolatedTractsData.isolatedTractsByGroup;
       console.log(`📥 Using isolated tracts data from step cache`);
     } else if (frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup && Object.keys(frontendIsolatedTractsData.isolatedTractsByGroup).length > 0) {
@@ -7615,9 +7712,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
     const allTracts = algorithmState.uniqueTracts || [];
 
-    const step0IslandSet = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
-    if (step0IslandSet && step0IslandSet.size > 0) {
-      console.log(`🏝️ Excluding ${step0IslandSet.size} step-0 island tract(s) from isolation detection`);
+    if (step0IslandSetForMove && step0IslandSetForMove.size > 0) {
+      console.log(`🏝️ Excluding ${step0IslandSetForMove.size} step-0 island tract(s) from isolation detection`);
     }
 
     // Get all groups with isolated tracts
@@ -7691,7 +7787,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
 
       // Re-detect isolation after all moves in this iteration
-      const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
+      const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSetForMove);
       
       // Convert Map to object; exclude skipped tracts so we don't retry them (avoids infinite loop)
       const newIsolatedTractsByGroup = {};
@@ -7726,7 +7822,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
 
     // Final isolation detection
-    const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
+    const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSetForMove);
     
     // Convert isolation result Map to object for JSON serialization
     const finalIsolatedTractsByGroup = {};

@@ -1523,6 +1523,7 @@ function createStep(step, level, districtGroups, description, divisionDirection,
   // At Step 0, also detect and group island tracts (geographic islands)
   let isolatedTractsData = null;
   let islandTractsData = null;
+  let stepDgAdjacentGroupsByGroup = undefined;
   if (algorithmService && allTracts && allTracts.length > 0) {
     try {
       const detectionResult = algorithmService.detectIsolatedTracts(groupsWithUnions, allTracts, step, step0IslandTractIds);
@@ -1537,6 +1538,11 @@ function createStep(step, level, districtGroups, description, divisionDirection,
         totalIsolated: detectionResult.isolatedTractIds.size,
         groupsWithIsolation: Object.keys(isolatedTractsByGroup).length
       };
+      if (detectionResult.dgAdjacentGroupsByGroup && detectionResult.dgAdjacentGroupsByGroup.size > 0) {
+        stepDgAdjacentGroupsByGroup = Object.fromEntries(
+          [...detectionResult.dgAdjacentGroupsByGroup.entries()].map(([k, v]) => [String(k), v])
+        );
+      }
       
       // At Step 0, also store island tract groups
       if (isStep0 && detectionResult.islandTractsByGroup && detectionResult.islandTractsByGroup.size > 0) {
@@ -1580,6 +1586,17 @@ function createStep(step, level, districtGroups, description, divisionDirection,
             };
           }
           islandTractsData.excludedTractIds = excludedTractIds;
+          // Treat non-movable (water/special) same as island tracts: add to island list for group 0
+          const group0Key = 0;
+          if (!islandTractsData.islandTractsByGroup[group0Key]) {
+            islandTractsData.islandTractsByGroup[group0Key] = [];
+          }
+          const excludedAsIslandGroups = excludedTractIds.map(id => [id]);
+          islandTractsData.islandTractsByGroup[group0Key] = islandTractsData.islandTractsByGroup[group0Key].concat(excludedAsIslandGroups);
+          islandTractsData.totalIslandTracts = Object.values(islandTractsData.islandTractsByGroup).reduce((sum, groups) =>
+            sum + groups.reduce((s, g) => s + g.length, 0), 0);
+          islandTractsData.totalIslandGroups = Object.values(islandTractsData.islandTractsByGroup).reduce((sum, groups) => sum + groups.length, 0);
+          islandTractsData.groupsWithIslands = Object.keys(islandTractsData.islandTractsByGroup).length;
           console.log(`🏝️ Step 0: Excluding ${excludedTractIds.length} water/special tract(s) from isolation in later steps: ${excludedTractIds.slice(0, 5).join(', ')}${excludedTractIds.length > 5 ? '...' : ''}`);
         }
       }
@@ -1599,7 +1616,8 @@ function createStep(step, level, districtGroups, description, divisionDirection,
     divisionLine,
     divisionLines: divisionLines || [],
     isolatedTractsData: isolatedTractsData || undefined, // Only include if detected
-    islandTractsData: islandTractsData || undefined // Only include at Step 0 if detected
+    islandTractsData: islandTractsData || undefined, // Only include at Step 0 if detected
+    dgAdjacentGroupsByGroup: stepDgAdjacentGroupsByGroup
   };
 }
 
@@ -2132,6 +2150,7 @@ class GeodistrictAlgorithmService {
     const isolatedTractIds = new Set();
     const islandTractsByGroup = new Map();
     const isolatedComponentsByGroup = new Map();
+    const dgAdjacentGroupsByGroup = new Map();
     const groupStats = [];
     
     for (let groupIndex = 0; groupIndex < districtGroups.length; groupIndex++) {
@@ -2139,6 +2158,7 @@ class GeodistrictAlgorithmService {
       const totalTractsInGroup = group.censusTracts.length;
       
       if (totalTractsInGroup === 0) {
+        dgAdjacentGroupsByGroup.set(groupIndex, []);
         groupStats.push({
           groupIndex,
           maxReachable: 0,
@@ -2150,6 +2170,7 @@ class GeodistrictAlgorithmService {
       
       const groupTractIds = new Set(group.censusTracts.map(t => getTractId(t)).filter(Boolean));
       const dgAdjacentGroups = this._buildDgAdjacentGroups(group.censusTracts, groupTractIds, adjacencyGraph);
+      dgAdjacentGroupsByGroup.set(groupIndex, dgAdjacentGroups.map(s => Array.from(s)));
       
       if (dgAdjacentGroups.length === 0) {
         groupStats.push({
@@ -2237,7 +2258,8 @@ class GeodistrictAlgorithmService {
       isolatedTractIds,
       groupStats,
       islandTractsByGroup: isStep0 ? islandTractsByGroup : new Map(),
-      isolatedComponentsByGroup: isStep0 ? new Map() : isolatedComponentsByGroup
+      isolatedComponentsByGroup: isStep0 ? new Map() : isolatedComponentsByGroup,
+      dgAdjacentGroupsByGroup
     };
   }
 
@@ -2770,7 +2792,7 @@ class GeodistrictAlgorithmService {
    * @param {boolean} skipBalancing - If true, do not run compensating balance after this move (used by move-all-isolated flow)
    * @returns {Object} - Updated district groups and new isolation detection results
    */
-  moveIsolatedTractsToOppositeGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines = null, skipBalancing = false) {
+  moveIsolatedTractsToOppositeGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines = null, skipBalancing = true) {
     console.log(`🔄 MOVE ISOLATED TRACTS: Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
     
     if (isolatedGroupIndex < 0 || isolatedGroupIndex >= districtGroups.length) {
@@ -3051,7 +3073,7 @@ class GeodistrictAlgorithmService {
    * @private
    * @param {boolean} skipBalancing - If true, do not perform compensating move (used when this call is the balancing move)
    */
-  _moveTractsToGroup(districtGroups, allTracts, sourceGroupIndex, tractIds, targetGroupIndex, skipBalancing = false) {
+  _moveTractsToGroup(districtGroups, allTracts, sourceGroupIndex, tractIds, targetGroupIndex, skipBalancing = true) {
     // Create a copy of district groups to modify
     const updatedGroups = districtGroups.map(group => ({
       ...group,
@@ -3210,7 +3232,9 @@ class GeodistrictAlgorithmService {
     
     console.log(`✅ Moved ${movedCount} isolated tract(s) to opposite group`);
     if (skippedTractIds.length > 0) {
-      console.log(`   Skipped ${skippedTractIds.length} tract(s) (no neighbor in target): ${skippedTractIds.join(', ')}`);
+      const sample = skippedTractIds.slice(0, 5).join(', ');
+      const suffix = skippedTractIds.length > 5 ? ` (sample: ${sample}... and ${skippedTractIds.length - 5} more)` : `: ${sample}`;
+      console.log(`   Skipped ${skippedTractIds.length} tract(s) (no neighbor in target)${suffix}`);
     }
 
     // Don't re-run isolation detection here - it's expensive and will be done once at the end
