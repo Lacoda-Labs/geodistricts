@@ -648,13 +648,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Re-render to show either individual tracts or union polygons
       this.renderFinalDistricts();
     } else if (this.tractGeoJsonLayers.size > 0) {
-      // Fallback: update existing layer styles if no algorithm result
+      // Fallback: update existing layer styles if no algorithm result. When boundaries hidden, border same color/opacity as fill.
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
+        const fillOpacityVal = 0.7;
         layer.setStyle({
-          color: this.showTractBoundaries ? '#000000' : districtColor, // Black borders when checked, match fill when unchecked
-          weight: this.showTractBoundaries ? 0.5 : 0.3, // Thin borders
-          opacity: this.showTractBoundaries ? 0.8 : 0.2, // Full opacity when checked, subtle when unchecked
-          fillOpacity: 0.7,
+          color: this.showTractBoundaries ? '#000000' : districtColor,
+          weight: this.showTractBoundaries ? 0.5 : 0.3,
+          opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
+          fillOpacity: fillOpacityVal,
           fillColor: districtColor
         });
       });
@@ -1196,6 +1197,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
+          if (stepIndex > 0 && step.districtGroups?.length) {
+            this.detectIsolatedTracts();
+          }
         }
         
         // Validate step has districtGroups
@@ -1442,6 +1446,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
+          if (stepIndex > 0 && step.districtGroups?.length) {
+            this.detectIsolatedTracts();
+          }
         }
         
         // Validate step has districtGroups
@@ -1810,6 +1817,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
             this.isolatedTractsData = null;
+            if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
+              this.detectIsolatedTracts();
+            }
           }
           
           this.bridgeTractIds.clear();
@@ -2396,6 +2406,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private clearSliderHighlight(): void {
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
     const normalColor = this.showTractBoundaries ? '#000000' : undefined;
+    const fillOpacityVal = 0.7;
     this.lastSliderHighlightedTractIds.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
@@ -2403,8 +2414,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : 0.2,
-        fillOpacity: 0.7,
+        opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
+        fillOpacity: fillOpacityVal,
         fillColor: tractColor
       });
     });
@@ -2427,6 +2438,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
     const normalColor = this.showTractBoundaries ? '#000000' : undefined;
+    const fillOpacityVal = 0.7;
     toUnhighlight.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
@@ -2434,8 +2446,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : 0.2,
-        fillOpacity: 0.7,
+        opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
+        fillOpacity: fillOpacityVal,
         fillColor: tractColor
       });
     });
@@ -3029,20 +3041,23 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
 
             // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
+            // When boundaries hidden, border uses same color and opacity as fill so it blends (not removed).
+            const fillOpacityVal = isIsolated ? 0.9 : 0.7;
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
             let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
             }
+            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : fillOpacityVal);
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
               style: {
                 color: borderColor,
                 weight: borderWeight,
-                opacity: this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : 0.2),
-                fillOpacity: isIsolated ? 0.9 : 0.7,
+                opacity: borderOpacityVal,
+                fillOpacity: fillOpacityVal,
                 fillColor: tractColor
               }
             }).bindPopup(`
@@ -4003,8 +4018,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     console.log(`🔄 Moving all isolated tracts for step ${this.currentStep.step}${hasStepData ? ' (from step cache)' : ' (from manual detection)'}`);
 
-    // Call new backend endpoint that processes all isolated tracts in one operation
-    // Backend will use step cache data if available, then optional body data, then detect
+    // Call new backend endpoint that processes all isolated tracts in one operation.
+    // Send districtGroups only when every group has full censusTracts so the backend can use the fast path.
+    const hasFullTractData = this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) &&
+      this.currentStep.districtGroups.length > 0 &&
+      this.currentStep.districtGroups.every(g => Array.isArray(g?.censusTracts) && (g.censusTracts?.length ?? 0) > 0);
+    const districtGroupsToSend = hasFullTractData ? this.currentStep.districtGroups : undefined;
+
     const payloadIsolatedData = (this.currentStep?.isolatedTractsData?.isolatedTractsByGroup && Object.keys(this.currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0)
       ? { isolatedTractsByGroup: this.currentStep.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.currentStep.isolatedTractsData.isolatedTractIds }
       : (this.isolatedTractsData ? { isolatedTractsByGroup: this.isolatedTractsData.isolatedTractsByGroup, isolatedTractIds: this.isolatedTractsData.isolatedTractIds } : undefined);
@@ -4014,7 +4034,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStep.step,
       100, // maxIterations
       payloadIsolatedData,
-      this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
+      districtGroupsToSend,
       this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
       step0IslandIds
     ).pipe(

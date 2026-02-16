@@ -24,6 +24,7 @@ GeoDistricts is the **reference implementation** of the GeoDistricts Protocol. T
 - **Algorithm or data-model changes** that affect the protocol MUST be proposed in the **protocol repo** as a GeoDistricts Improvement Proposal (GDIP). Do not change the core algorithm or canonical data structures in this repo without a corresponding accepted GDIP.
 - **This repo** tracks which protocol version (or GDIP set) it implements; see [Reference Implementation](doc/protocol/REFERENCE_IMPLEMENTATION.md).
 - To contribute to the protocol (new or revised GDIPs), follow the [GDIP process](doc/protocol/process/GDIP-PROCESS.md) in the protocol repo once it exists; until then, GDIPs are maintained under `doc/protocol/GDIPs/` in this repo.
+- After editing GDIPs or process docs in this repo, run **`./scripts/sync-gdip.sh`** to copy them into the nested `gdip/` repo, then commit and push from `gdip/` to publish to [Lacoda-Labs/gdip](https://github.com/Lacoda-Labs/gdip). See [Reference Implementation — Syncing to the GDIP repo](doc/protocol/REFERENCE_IMPLEMENTATION.md#syncing-to-the-gdip-repo).
 
 ## Voter Registration Data Contribution
 

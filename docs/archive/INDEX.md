@@ -58,4 +58,28 @@ Session summaries by path. Canonical source: [.cursor/archive/](https://github.c
 - [`2026-02/260210-maps-all-states-load-and-single-district.md`](2026-02/260210-maps-all-states-load-and-single-district.md) — Archive: Maps page All-states load + single-district handling (2026-02-10)
 - [`2026-02/260210-maps-page-polygons-load-and-fixes.md`](2026-02/260210-maps-page-polygons-load-and-fixes.md) — 260210 – Maps page polygons-only load and fixes
 - [`2026-02/260210-state-union-polygons-script.md`](2026-02/260210-state-union-polygons-script.md) — Archive: State union polygons script (2026-02-10)
+- [`2026-02/260212-batch-step0-polygons-5s-reveal.md`](2026-02/260212-batch-step0-polygons-5s-reveal.md) — 260212
+- [`2026-02/260212-gcp-maps-party-data.md`](2026-02/260212-gcp-maps-party-data.md) — 260212
+- [`2026-02/260212-maps-119th-geodistricts-comparison.md`](2026-02/260212-maps-119th-geodistricts-comparison.md) — 260212
+- [`2026-02/260212-maps-step0-party-shading.md`](2026-02/260212-maps-step0-party-shading.md) — 260212
 - [`2026-02/260212-poligeo-documentation.md`](2026-02/260212-poligeo-documentation.md) — r# 260212
+- [`2026-02/260212-state-row-figma-delta.md`](2026-02/260212-state-row-figma-delta.md) — 260212
+- [`2026-02/260213-archive-rule-prompt-verbatim.md`](2026-02/260213-archive-rule-prompt-verbatim.md) — 260213
+- [`2026-02/260213-balance-after-isolated-and-step0-islands.md`](2026-02/260213-balance-after-isolated-and-step0-islands.md) — 260213
+- [`2026-02/260213-isolated-tract-click-locate.md`](2026-02/260213-isolated-tract-click-locate.md) — 260213
+- [`2026-02/260213-isolated-tracts-az-fix.md`](2026-02/260213-isolated-tracts-az-fix.md) — 260213
+- [`2026-02/260213-maps-step-label-load-step0-isolation.md`](2026-02/260213-maps-step-label-load-step0-isolation.md) — 260213
+- [`2026-02/260213-move-isolated-fast-path.md`](2026-02/260213-move-isolated-fast-path.md) — 260213
+- [`2026-02/260213-step-label-and-move-isolated.md`](2026-02/260213-step-label-and-move-isolated.md) — 260213
+- [`2026-02/260213-tract-isolation-spec-implementation.md`](2026-02/260213-tract-isolation-spec-implementation.md) — 260213
+- [`2026-02/260214-bridge-tracts-move-isolated-rules.md`](2026-02/260214-bridge-tracts-move-isolated-rules.md) — 260214
+- [`2026-02/260214-ca-step1-state-tract-cache.md`](2026-02/260214-ca-step1-state-tract-cache.md) — 260214
+- [`2026-02/260214-maps-page-balancing-overlay-step0-district.md`](2026-02/260214-maps-page-balancing-overlay-step0-district.md) — 260214
+- [`2026-02/260215-ca-init-cache-restart-step0.md`](2026-02/260215-ca-init-cache-restart-step0.md) — 260215
+- [`2026-02/260215-dg-union-next-loading.md`](2026-02/260215-dg-union-next-loading.md) — 260215
+- [`2026-02/260215-move-isolated-hang-balancing-union.md`](2026-02/260215-move-isolated-hang-balancing-union.md) — 260215
+- [`2026-02/260215-move-isolated-no-balance-balance-button.md`](2026-02/260215-move-isolated-no-balance-balance-button.md) — 260215
+- [`2026-02/260215-restart-cache-dgadjacent-serialization.md`](2026-02/260215-restart-cache-dgadjacent-serialization.md) — 260215
+- [`2026-02/260215-step0-isolation-firestore-fix.md`](2026-02/260215-step0-isolation-firestore-fix.md) — 260215
+- [`2026-02/260215-tract-border-toggle-union-defer.md`](2026-02/260215-tract-border-toggle-union-defer.md) — 260215
+- [`2026-02/260215-tract-isolation-fast-bridge-run-step.md`](2026-02/260215-tract-isolation-fast-bridge-run-step.md) — 260215

@@ -6698,6 +6698,12 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
     if (g.censusTractIds) delete g.censusTractIds;
   });
 
+  // Preserve step metadata so cache-loaded steps expose isolation/island data when present
+  if (normalizedStep.isolatedTractsData != null) reconstructed.isolatedTractsData = normalizedStep.isolatedTractsData;
+  if (normalizedStep.islandTractsData != null) reconstructed.islandTractsData = normalizedStep.islandTractsData;
+  if (normalizedStep.divisionLines != null) reconstructed.divisionLines = normalizedStep.divisionLines;
+  if (normalizedStep.dgAdjacentGroupsByGroup != null) reconstructed.dgAdjacentGroupsByGroup = normalizedStep.dgAdjacentGroupsByGroup;
+
   // Update tract properties (tract_DG, parent_DG, sibling_DG) based on divisionLines
   // This ensures reconstructed steps have correct DG properties even if cached with old properties
   if (normalizedStep.divisionLines && Array.isArray(normalizedStep.divisionLines)) {
@@ -7365,10 +7371,19 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     }
 
     // Fast path: frontend sent full district groups + isolated data. No cache I/O - just swap tracts in memory.
-    const canUseFastPath = bodyDistrictGroups && Array.isArray(bodyDistrictGroups) && bodyDistrictGroups.length > 0 &&
-      bodyDistrictGroups.every(g => Array.isArray(g.censusTracts)) &&
-      frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup &&
+    const hasBodyGroups = bodyDistrictGroups && Array.isArray(bodyDistrictGroups) && bodyDistrictGroups.length > 0;
+    const hasCensusTracts = hasBodyGroups && bodyDistrictGroups.every(g => Array.isArray(g.censusTracts));
+    const hasBodyIsolated = frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup &&
       Object.keys(frontendIsolatedTractsData.isolatedTractsByGroup).length > 0;
+    const canUseFastPath = hasBodyGroups && hasCensusTracts && hasBodyIsolated;
+
+    if (!canUseFastPath) {
+      const reasons = [];
+      if (!hasBodyGroups) reasons.push('no body district groups');
+      else if (!hasCensusTracts) reasons.push('district groups missing censusTracts (send full tract objects for fast path)');
+      if (!hasBodyIsolated) reasons.push('no body isolated data');
+      console.log(`⚠️ Move-all-isolated using cache path: ${reasons.join('; ')}`);
+    }
 
     if (canUseFastPath) {
       const { getTractId } = require('./services/geodistrict-algorithm');
@@ -7669,34 +7684,62 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     const step0IslandSetForMove = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
 
-    // Get isolated tracts data: prefer deriving from persisted dgAdjacentGroupsByGroup, then step cache, then body, then detect
+    // Get isolated tracts data: prefer request body (client's isolated list), then validated dgAdjacentGroupsByGroup, then step cache, then detect.
+    // Use req.body explicitly so we never miss body-isolated when cache path runs.
+    const bodyIsolated = req.body && req.body.isolatedTractsData && req.body.isolatedTractsData.isolatedTractsByGroup &&
+      typeof req.body.isolatedTractsData.isolatedTractsByGroup === 'object' &&
+      Object.keys(req.body.isolatedTractsData.isolatedTractsByGroup).length > 0
+      ? req.body.isolatedTractsData.isolatedTractsByGroup
+      : null;
+
+    const numGroups = currentStep.districtGroups && currentStep.districtGroups.length;
+    const dgAdjacentValid = currentStep.dgAdjacentGroupsByGroup && typeof currentStep.dgAdjacentGroupsByGroup === 'object' &&
+      Object.keys(currentStep.dgAdjacentGroupsByGroup).length > 0 &&
+      (numGroups == null || Object.keys(currentStep.dgAdjacentGroupsByGroup).length === numGroups);
+
+    const MAX_ISOLATED_PER_GROUP = 200; // Reject derived/cached lists that look like wrong-step (e.g. half state)
+    const isReasonableIsolatedList = (byGroup) => {
+      if (!byGroup || typeof byGroup !== 'object') return false;
+      for (const list of Object.values(byGroup)) {
+        if (Array.isArray(list) && list.length > MAX_ISOLATED_PER_GROUP) return false;
+      }
+      return true;
+    };
+
     let isolatedTractsByGroup = {};
-    if (currentStep.dgAdjacentGroupsByGroup && typeof currentStep.dgAdjacentGroupsByGroup === 'object' && Object.keys(currentStep.dgAdjacentGroupsByGroup).length > 0) {
+    if (bodyIsolated) {
+      isolatedTractsByGroup = bodyIsolated;
+      const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+      console.log(`📥 Using isolated tracts data from request body (${total} tract(s) in ${Object.keys(isolatedTractsByGroup).length} group(s))`);
+    } else if (dgAdjacentValid) {
       const derived = deriveIsolatedFromDgAdjacentGroups(currentStep.dgAdjacentGroupsByGroup, step0IslandSetForMove);
-      isolatedTractsByGroup = derived.isolatedTractsByGroup;
-      console.log(`📥 Using isolated tracts derived from step dgAdjacentGroupsByGroup`);
-    } else if (currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
-      isolatedTractsByGroup = currentStep.isolatedTractsData.isolatedTractsByGroup;
-      console.log(`📥 Using isolated tracts data from step cache`);
-    } else if (frontendIsolatedTractsData && frontendIsolatedTractsData.isolatedTractsByGroup && Object.keys(frontendIsolatedTractsData.isolatedTractsByGroup).length > 0) {
-      isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
-      console.log(`📥 Using isolated tracts data from request body`);
-    } else {
-      // Detect isolated tracts now (for backward compatibility)
-      console.log(`⚠️ No isolated tracts data in step cache or request, detecting now...`);
-      // Reconstruct uniqueTracts if needed
-    if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
-      algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+      if (isReasonableIsolatedList(derived.isolatedTractsByGroup)) {
+        isolatedTractsByGroup = derived.isolatedTractsByGroup;
+        console.log(`📥 Using isolated tracts derived from step dgAdjacentGroupsByGroup`);
+      } else {
+        console.warn(`⚠️ Derived isolated list has >${MAX_ISOLATED_PER_GROUP} in a group (wrong step?), skipping dgAdjacentGroupsByGroup`);
+      }
     }
-    const allTractsForDetect = algorithmState.uniqueTracts || [];
+    if (Object.keys(isolatedTractsByGroup).length === 0 && currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
+      if (isReasonableIsolatedList(currentStep.isolatedTractsData.isolatedTractsByGroup)) {
+        isolatedTractsByGroup = currentStep.isolatedTractsData.isolatedTractsByGroup;
+        console.log(`📥 Using isolated tracts data from step cache`);
+      } else {
+        console.warn(`⚠️ Step cache isolated list has >${MAX_ISOLATED_PER_GROUP} in a group (wrong step?), skipping step cache`);
+      }
+    }
+    if (Object.keys(isolatedTractsByGroup).length === 0) {
+      // Detect isolated tracts now (for backward compatibility or after rejecting oversized derived/cache lists)
+      console.log(`⚠️ No isolated tracts data in step cache or request (or rejected oversized list), detecting now...`);
+      if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
+        algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
+      }
+      const allTractsForDetect = algorithmState.uniqueTracts || [];
       const step0IslandForDetect = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
       const detectionResult = algorithmService.detectIsolatedTracts(currentStep.districtGroups, allTractsForDetect, step, step0IslandForDetect);
-      // Convert Map to object
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
         isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
       });
-      
-      // Update step with detected data
       currentStep.isolatedTractsData = {
         isolatedTractsByGroup,
         isolatedTractIds: Array.from(detectionResult.isolatedTractIds),

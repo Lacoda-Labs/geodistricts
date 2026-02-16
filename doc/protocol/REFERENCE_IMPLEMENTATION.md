@@ -30,6 +30,16 @@ This repository (**geodistricts**) is the **reference implementation** of the Ge
 - **Protocol changes**: Algorithm or data-model changes that affect the protocol MUST be proposed in the **protocol repo** as a GDIP (see [CONTRIBUTING.md](../CONTRIBUTING.md) section "Protocol changes"). This repo then implements the accepted GDIP and documents the protocol version or GDIP set it follows.
 - **Reference implementation updates**: When a new GDIP is accepted, update this doc (and README if needed) to reflect which GDIPs are implemented and link to the protocol repo tag or release.
 
+### Syncing to the GDIP repo
+
+The **canonical** protocol content (GDIPs and process docs) is maintained in this repo under `doc/protocol/GDIPs/` and `doc/protocol/process/`. A nested clone of [Lacoda-Labs/gdip](https://github.com/Lacoda-Labs/gdip) may live at `gdip/` (ignored by the geodistricts repo). To publish changes to the GDIP repo:
+
+1. Edit or add GDIPs and process docs under `doc/protocol/` in this repo; commit to geodistricts as usual.
+2. Run the sync script from the repo root: **`./scripts/sync-gdip.sh`**. It copies `doc/protocol/GDIPs/` and `doc/protocol/process/` into `gdip/GDIPs/` and `gdip/process/`.
+3. In the gdip repo: `cd gdip`, then `git add -A`, `git commit -m "Sync protocol docs from geodistricts"`, and `git push origin main`.
+
+If `gdip/` is missing, clone it first: `git clone https://github.com/Lacoda-Labs/gdip.git gdip`.
+
 ---
 
 ## Generative AI: Reference Implementations and GDIP Context
