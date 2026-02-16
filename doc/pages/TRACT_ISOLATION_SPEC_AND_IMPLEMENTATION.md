@@ -17,7 +17,7 @@ A critical distinction:
 
 ## 2. Definitions
 
-- **Isolated tract**: In a district group, a tract that is **not** in the main connected component. The main component is the set of tracts reachable (via adjacency) from a tract that has the maximum reachable count in that group. Adjacency comes from S4 data.
+- **Isolated tract**: In a district group, a tract that is **not** in the main connected component. The main component is the **largest** connected component (dgAdjacentGroup) in that group; connected components are built in one pass via S4 adjacency. Adjacency comes from S4 data.
 - **Island tract (step 0)**: At step 0, a tract in a connected component other than the main one. Treated as a geographic island; excluded from the “isolated” set in **all** steps so they are never flagged for moving.
 - **Bridge tract**: A tract in the **sibling** DG that is adjacent to isolated tracts and, when moved into the isolated group, helps connect them to the main component (has a neighbor in the isolated group’s main component and is adjacent to ≥1 isolated tract; relaxed for large isolations).
 
@@ -37,15 +37,16 @@ A critical distinction:
 - `stepNumber` (optional): Current step; used to treat step 0 as “island detection” and steps 1+ as “isolated detection.”
 - `step0IslandTractIds` (optional): Set or array of geographic island tract IDs from step 0; at steps 1+ these are removed from the isolated set.
 
-### Algorithm
+### Algorithm (one-pass connected components)
 
 1. Build adjacency graph via S4 (`buildGeometryAdjacencyGraph(allTracts)`).
-2. For each district group:
-   - Compute `maxReachableCount` over all tracts in the group (BFS from each, take max).
-   - Identify the main component: pick a tract with that max reachable count, then BFS from it to get all reachable tract IDs.
-   - Isolated tracts = tracts in the group that are not in the reachable set (and not the main-component tract itself).
-   - At **step 0**: Do not add these to `isolatedTractsByGroup`. Instead, group adjacent island tracts and output `islandTractsByGroup` (and optionally `islandTractsData` on the step).
-   - At **steps 1+**: Remove any tract ID in `step0IslandTractIds` from the isolated set, then add the remainder to `isolatedTractsByGroup` and `isolatedTractIds`.
+2. For each district group, build **dgAdjacentGroups** (connected components) in a single pass:
+   - Use the group’s tract list in order. Maintain a visited set across all components.
+   - For each tract in order: if already visited, skip. Otherwise start a new component (Set), add the tract, then BFS over **S4 adjacents that belong to this group only**, adding each to the same Set and to visited. When the frontier is exhausted, append that Set to the list and continue with the next unvisited tract.
+   - Repeat until every tract in the group is in exactly one component.
+3. **Main component** = the largest dgAdjacentGroup by size. **Isolated** = all tracts not in the main component (all other components).
+4. At **step 0**: Do not add to `isolatedTractsByGroup`. Output non-main components as `islandTractsByGroup` (array of arrays per group).
+5. At **steps 1+**: Remove any tract ID in `step0IslandTractIds` from the isolated set, then add the remainder to `isolatedTractsByGroup` and `isolatedTractIds`. Also output `isolatedComponentsByGroup` (Map of group index → array of Sets, one per non-main component) for optional use by bridge detection.
 
 ### Outputs
 
@@ -53,12 +54,13 @@ A critical distinction:
 - `isolatedTractIds`: Set (or array) of all isolated tract IDs across groups.
 - `groupStats`: Per-group stats (e.g. maxReachable, totalTracts, groupLabel).
 - **Step 0 only**: `islandTractsByGroup` (and step-level `islandTractsData` with island groups and counts).
+- **Steps 1+**: `isolatedComponentsByGroup` (optional): Map of group index → array of Sets (non-main components), used so bridge detection can run only for components with 2+ tracts.
 
 ## 5. Bridge tract detection
 
 **Purpose**: Connect isolated tracts to the group’s main component by moving a tract from the **sibling** DG that sits between isolated tracts and the main component (a “bridge”).
 
-**Scope**: Bridge tract detection **only considers tracts from the original parent DG**. The sibling is the other half of the same parent division (e.g. parent DG6-7 splits into DG6-6 and DG7-7; bridge candidates for isolated tracts in DG6-6 come only from DG7-7). Sibling is determined from `tract.properties.sibling_DG` or division metadata. Do not consider tracts outside the parent DG—that would create problems.
+**Scope**: Bridge tract detection **only considers tracts from the original parent DG**. When `isolatedComponentsByGroup` is provided (e.g. from detection), bridge detection runs **only for isolated components with 2+ tracts**; single-tract isolated components are still moved via “move isolated” but do not get bridge detection. The sibling is the other half of the same parent division (e.g. parent DG6-7 splits into DG6-6 and DG7-7; bridge candidates for isolated tracts in DG6-6 come only from DG7-7). Sibling is determined from `tract.properties.sibling_DG` or division metadata. Do not consider tracts outside the parent DG—that would create problems.
 
 **Candidate selection**: Tracts in the sibling group that are adjacent (S4 graph) to at least one isolated tract in the isolated group.
 
@@ -89,12 +91,17 @@ A critical distinction:
 - **Population balance (optional)**: When moving bridge tract(s) into the isolated group, optionally balance by selecting from the isolated group a tract (or set of adjacent tracts) that borders the sibling_DG and whose population closely matches the moved bridge tract(s), then moving that selection to the sibling. Use the same rule: sorted list of boundary tracts, select by population match.
 - **After move**: Re-run isolation detection on the updated district groups.
 
-## 8. Implementation notes
+## 8. Run mode vs step mode
+
+- **Run mode** (e.g. “Run all steps” or `POST /api/algorithm/execute` with `resolveIsolation: true`): The algorithm runs step 0 through the final step sequentially; isolation resolution (detect isolated → detect bridge → move bridge → move isolated) runs automatically after each division step. Bridge tract detection is always run in this path. Each step is cached when complete.
+- **Step mode** (step-by-step API and UI): The user initiates each step (including “Detect isolated”, “Move isolated”, “Detect bridge”, “Move bridge”). Bridge detection is not automatic. A step is cached when the DG is contiguous or as close as possible (e.g. after the user completes moves or advances).
+
+## 9. Implementation notes
 
 ### Backend
 
 - **File**: `backend/services/geodistrict-algorithm.js`
-- **Functions**: `detectIsolatedTracts`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`; `groupAdjacentIslandTracts`.
+- **Functions**: `detectIsolatedTracts`, `_buildDgAdjacentGroups`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`.
 - **S4**: `backend/services/s4-data-loader.js` — state normalization and S4 adjacency load/get.
 
 ### API
@@ -110,13 +117,13 @@ A critical distinction:
 - **Component**: `frontend/src/app/pages/maps-page.component.ts` — `isolatedTractsData`, `bridgeTractsData`; detect/move isolated and detect/move bridge; step cache may store `isolatedTractsData` for display; `isStaleIsolatedTractsData` when loading from cache.
 - **Service**: `frontend/src/app/services/geodistrict-algorithm.service.ts` — `detectIsolatedTracts(districtGroups, allTracts, stepNumber?, step0IslandTractIds?)`; `moveAllIsolatedTractsFromStep(..., step0IslandTractIds?)`.
 
-## 9. Known gaps and discrepancies
+## 10. Known gaps and discrepancies
 
 - **Step 0 island exclusion**: The API and frontend support it. `POST /api/algorithm/detect-isolated-tracts` accepts optional `stepNumber` and `step0IslandTractIds`; `POST /api/algorithm/move-all-isolated-tracts` accepts optional `step0IslandTractIds` and, on the cache path, builds the set from algorithm state step 0 when not provided. The frontend passes step and step-0 island IDs when available (from `algorithmResult.steps[0].islandTractsData`).
 - **GDIP-004 population balance**: GDIP-004 §3(b) says move isolated tracts “while maintaining population balance.” The spec (§6, §7) requires a compensating move using boundary tracts and population match; implementation may optionally balance when moving bridge tracts (§7).
 - **Doc paths**: Island and move-isolated docs live under `doc/history/`. See [Island Tract Detection](../history/251204-island-tract-detection.md) and [Move Isolated Tracts Function](../history/MOVE_ISOLATED_TRACTS_FUNCTION.md).
 
-## 10. High-level flow
+## 11. High-level flow
 
 ```mermaid
 flowchart LR

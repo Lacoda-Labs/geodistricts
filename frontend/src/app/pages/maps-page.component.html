@@ -88,14 +88,6 @@
 
         <div class="info-body">
           <div class="step-info-container" *ngIf="currentStep">
-            <!-- Step 0 Information -->
-            <div class="step-0-info" *ngIf="currentStepIndex === 0 && isAdminMode">
-              <div class="step-0-header">
-                <h4>Step 0: Initial State</h4>
-                <p>The entire state is shown as one district group containing all census tracts. Next: sort tracts and divide by latitude/longitude.</p>
-              </div>
-            </div>
-
             <!-- Step 0: Island & enclosed tracts (collapsible) -->
             <div class="step-0-isolated-panel" *ngIf="currentStepIndex === 0 && (getStep0IslandTractsList().length > 0 || getStep0EnclosedTractsList().length > 0)">
               <mat-expansion-panel [(expanded)]="step0IsolatedSectionExpanded">
@@ -163,7 +155,6 @@
                     <tr>
                       <th>Tract ID</th>
                       <th>Group</th>
-                      <th>Balancing Tracts</th>
                       <th *ngIf="bridgeTractsData">Bridge Tracts</th>
                     </tr>
                   </thead>
@@ -175,7 +166,6 @@
                         <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
                       </td>
                       <td>{{ item.groupLabel }}</td>
-                      <td>{{ item.balancingTractIds.length ? item.balancingTractIds.join(', ') : '—' }}</td>
                       <td *ngIf="bridgeTractsData">
                         <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
                           (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, throwError, of, from, Subject } from 'rxjs';
-import { map, catchError, switchMap } from 'rxjs/operators';
+import { map, catchError, switchMap, timeout } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
 import { LatLongDivisionService } from './latlong-division.service';
@@ -6631,9 +6631,13 @@ export class GeodistrictAlgorithmService {
         'Content-Type': 'application/json'
       }
     }).pipe(
+      timeout(120000), // 2 min - backend can be slow for large states (e.g. CA 52 districts)
       catchError(error => {
         console.error('Error moving all isolated tracts:', error);
-        return throwError(() => new Error(error.error?.message || error.message || 'Failed to move all isolated tracts'));
+        const message = error?.name === 'TimeoutError'
+          ? 'Request timed out. Move isolated tracts can take several minutes for large states.'
+          : (error.error?.message || error.message || 'Failed to move all isolated tracts');
+        return throwError(() => new Error(message));
       })
     );
   }

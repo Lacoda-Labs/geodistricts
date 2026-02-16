@@ -8,7 +8,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
-import { concatMap, tap, last, map, catchError, take } from 'rxjs/operators';
+import { concatMap, tap, last, map, catchError, take, finalize } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
@@ -60,7 +60,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   showSteps: boolean = false;
   isDetectingIsolation: boolean = false;
   isolatedTractIds: Set<string> = new Set(); // Track isolated tract IDs
-  isolatedTractsData: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds: string[]; groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }>; balancingTractIdsByGroup?: { [groupIndex: string]: string[] } } | null = null;
+  isolatedTractsData: { isolatedTractsByGroup: { [groupIndex: string]: string[] }; isolatedTractIds: string[]; groupStats?: Array<{ groupIndex: number; maxReachable: number; totalTracts: number; groupLabel: string }> } | null = null;
   bridgeTractIds: Set<string> = new Set(); // Track bridge tract IDs
   isMovingBridgeTracts: boolean = false;
   isMovingIsolatedTracts: boolean = false;
@@ -1013,8 +1013,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
-              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
             };
           } else {
             this.isolatedTractIds.clear();
@@ -1057,7 +1056,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
-    this.loadingMessage = 'Loading district data...';
+    this.loadingMessage = `Loading ${this.stateName(this.selectedState)} census data`;
     this.errorMessage = '';
     this.cdr.markForCheck();
 
@@ -1112,7 +1111,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
-    this.loadingMessage = 'Loading district data...';
+    this.loadingMessage = `Loading ${this.stateName(this.selectedState)} census data`;
     this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
@@ -1187,8 +1186,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
-              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
             };
             console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
           }
@@ -1336,7 +1334,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mapPolygons = null;
     this.mapPolygonsState = null;
     this.isLoading = true;
-    this.loadingMessage = 'Loading district data...';
+    this.loadingMessage = `Loading ${this.stateName(this.selectedState)} census data`;
     this.isLoadingSteps = true;
     this.errorMessage = '';
     this.algorithmResult = null;
@@ -1434,8 +1432,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
             this.isolatedTractsData = {
               isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
-              balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
+              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
             };
             console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
           }
@@ -1496,6 +1493,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // In map-only view, enable Next so user can run the algorithm (nextStep will call runAlgorithm)
     if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
       return !this.isLoading;
+    }
+    // Disable Next when there are unresolved isolated tracts (user must move isolated or use bridge tracts first)
+    if (this.isolatedTractsData?.isolatedTractIds?.length) {
+      return false;
     }
     // Can go to next step if:
     // 1. Next step is already loaded, OR
@@ -1581,8 +1582,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
                 this.isolatedTractsData = {
                   isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                  isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
-                  balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
+                  isolatedTractIds: stepIsolatedData.isolatedTractIds || []
                 };
                 console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
               }
@@ -1688,12 +1688,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Special handling for step 0 -> check if we need to show sorting first
-    if (this.currentStepIndex === 0 && this.isAdminMode && !this.hasShownSorting) {
-      this.showSortingVisualization();
-      return;
-    }
-
+    // Next always advances to the next step (no longer consuming first click for sorting visualization,
+    // which made "first time clicking Next" appear to do nothing)
     const nextIndex = this.currentStepIndex + 1;
     const step = this.loadedSteps[nextIndex];
     
@@ -1804,8 +1800,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
               this.isolatedTractsData = {
                 isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                isolatedTractIds: stepIsolatedData.isolatedTractIds || [],
-                balancingTractIdsByGroup: (stepIsolatedData as any).balancingTractIdsByGroup || {}
+                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
               };
               console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
             }
@@ -2995,176 +2990,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
         return;
       }
-      
-      // If showTractBoundaries is false and union polygon(s) exist, render them
-      // At Step 0: Prefer unionPolygons array (main + islands) over single unionPolygon
-      // At other steps: Prefer single unionPolygon for visualization (one dissolved polygon for entire district)
-      // Fall back to unionPolygons array if single polygon not available (for backward compatibility)
-      const unionPolygons = (district as any).unionPolygons;
-      const hasUnionPolygonsArray = !this.showTractBoundaries && Array.isArray(unionPolygons) && unionPolygons.length > 0;
-      const hasSingleUnionPolygon = !this.showTractBoundaries && !hasUnionPolygonsArray && district.unionPolygon && district.unionPolygon.geometry;
-      
-      // Debug logging for Step 0
-      if (this.currentStepIndex === 0) {
-        console.log(`🔍 RENDERING STEP 0: District ${district.startDistrictNumber}-${district.endDistrictNumber} - has unionPolygons array: ${Array.isArray(unionPolygons)}, length: ${unionPolygons?.length || 0}, has unionPolygon: ${!!district.unionPolygon}, showTractBoundaries: ${this.showTractBoundaries}`);
-      }
-      
-      // Use union polygons only when checkbox is unchecked (showTractBoundaries = false)
-      if (hasUnionPolygonsArray || hasSingleUnionPolygon) {
-        // Prefer unionPolygons array when available (especially at Step 0 for main + islands)
-        // Otherwise use single unionPolygon
-        const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : [district.unionPolygon];
-        
-        // Validate polygons before rendering
-        if (hasUnionPolygonsArray) {
-          const validPolygons = polygonsToRender.filter((p: any, idx: number) => {
-            const isValid = p && p.geometry;
-            if (!isValid) {
-              console.warn(`⚠️ Polygon ${idx} in unionPolygons array is invalid (missing or no geometry) for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
-            }
-            return isValid;
-          });
-          
-          if (validPolygons.length !== polygonsToRender.length) {
-            console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: ${polygonsToRender.length - validPolygons.length} invalid polygon(s) filtered out`);
-          }
-          
-          // Check if main polygon (first) is present
-          if (validPolygons.length > 0 && validPolygons[0]) {
-            console.log(`✅ Main polygon present: ${validPolygons[0].geometry?.type || 'unknown type'}`);
-          } else {
-            console.error(`❌ CRITICAL: Main polygon missing from unionPolygons array for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
-          }
-          
-          // Use only valid polygons
-          const finalPolygons = validPolygons.length > 0 ? validPolygons : polygonsToRender;
-          console.log(`✅ Rendering ${finalPolygons.length} union polygon(s) for district ${district.startDistrictNumber}-${district.endDistrictNumber} (main + ${finalPolygons.length - 1} island(s))`);
-          
-          // Render valid polygons
-          finalPolygons.forEach((unionPolygon: any, polygonIndex: number) => {
-            if (!unionPolygon || !unionPolygon.geometry) {
-              console.warn(`⚠️ Union polygon ${polygonIndex} is invalid for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
-              return;
-            }
-            
-            // Log each polygon being rendered (especially for Step 0)
-            if (this.currentStepIndex === 0) {
-              const isMain = polygonIndex === 0;
-              const geomType = unionPolygon.geometry?.type || 'unknown';
-              const coords = unionPolygon.geometry?.coordinates;
-              let coordInfo = 'unknown';
-              if (coords) {
-                if (geomType === 'Polygon') {
-                  coordInfo = `ring count: ${coords.length}, first ring points: ${coords[0]?.length || 0}`;
-                } else if (geomType === 'MultiPolygon') {
-                  coordInfo = `polygon count: ${coords.length}`;
-                } else {
-                  coordInfo = `length: ${coords.length}`;
-                }
-              }
-              console.log(`🎨 Rendering ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon ${polygonIndex + 1}/${finalPolygons.length} - type: ${geomType}, ${coordInfo}`);
-              
-              // For main polygon, also log sample coordinates to verify they're valid
-              if (isMain && geomType === 'Polygon' && coords && coords[0] && coords[0].length > 0) {
-                const firstPoint = coords[0][0];
-                const lastPoint = coords[0][coords[0].length - 1];
-                console.log(`📍 MAIN polygon sample: first point: [${firstPoint[1]}, ${firstPoint[0]}], last point: [${lastPoint[1]}, ${lastPoint[0]}]`);
-              }
-            }
-            
-            try {
-              const unionProperties = unionPolygon.properties || {};
-              
-              const geoJson = L.geoJSON(unionPolygon, {
-                style: {
-                  color: color, // Match fill color for seamless appearance
-                  weight: 2, // Slightly thicker border for district outline
-                  opacity: 1.0, // Full opacity for district boundaries
-                  fillOpacity,
-                  fillColor: color
-                }
-              }).bindPopup(`
-                <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-                ${finalPolygons.length > 1 ? `<strong>Component:</strong> ${polygonIndex === 0 ? 'Main' : `Island ${polygonIndex}`} (${polygonIndex + 1} of ${finalPolygons.length})<br>` : ''}
-                <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
-                <strong>Tracts in District:</strong> ${district.censusTracts.length}
-              `);
 
-              this.tractLayer!.addLayer(geoJson);
-              this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
-              totalTracts++;
-
-              // Extend bounds
-              const unionBounds = geoJson.getBounds();
-              if (unionBounds && unionBounds.isValid()) {
-                const isMain = polygonIndex === 0;
-                // Log bounds for final step (step 4) or step 0
-                if ((this.currentStepIndex === 0 || this.currentStepIndex >= 4) && isMain) {
-                  console.log(`🗺️ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon bounds for district ${district.startDistrictNumber}: ${unionBounds.getSouth()} to ${unionBounds.getNorth()} (lat), ${unionBounds.getWest()} to ${unionBounds.getEast()} (lng)`);
-                  console.log(`🗺️ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon center: ${unionBounds.getCenter()}, size: ${unionBounds.getNorth() - unionBounds.getSouth()} x ${unionBounds.getEast() - unionBounds.getWest()}`);
-                }
-                bounds.extend(unionBounds);
-                hasBounds = true;
-              } else {
-                const isMain = polygonIndex === 0;
-                console.error(`❌ ${isMain ? 'MAIN' : `ISLAND ${polygonIndex}`} polygon bounds invalid for district ${district.startDistrictNumber}! unionBounds:`, unionBounds);
-              }
-            } catch (error) {
-              console.error(`⚠️ Error rendering union polygon ${polygonIndex} for district ${district.startDistrictNumber}-${district.endDistrictNumber}:`, error, unionPolygon);
-            }
-          });
-        } else if (hasSingleUnionPolygon) {
-          // Single polygon case - render it
-          const singlePolygon = district.unionPolygon;
-          if (singlePolygon && singlePolygon.geometry) {
-            console.log(`✅ Rendering single union polygon for district ${district.startDistrictNumber}-${district.endDistrictNumber}`);
-            
-            try {
-              const geoJson = L.geoJSON(singlePolygon, {
-                style: {
-                  color: color,
-                  weight: 2,
-                  opacity: 1.0,
-                  fillOpacity,
-                  fillColor: color
-                }
-              }).bindPopup(`
-                <strong>District ${district.startDistrictNumber}${district.endDistrictNumber !== district.startDistrictNumber ? `-${district.endDistrictNumber}` : ''}</strong><br>
-                <strong>Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
-                <strong>Tracts in District:</strong> ${district.censusTracts.length}
-              `);
-
-              this.tractLayer!.addLayer(geoJson);
-              this.tractGeoJsonLayers.set(geoJson, color);
-              totalTracts++;
-
-              const unionBounds = geoJson.getBounds();
-              if (unionBounds && unionBounds.isValid()) {
-                // Log bounds for final step
-                if (this.currentStepIndex >= 4) {
-                  console.log(`🗺️ Single union polygon bounds for district ${district.startDistrictNumber}: ${unionBounds.getSouth()} to ${unionBounds.getNorth()} (lat), ${unionBounds.getWest()} to ${unionBounds.getEast()} (lng)`);
-                }
-                bounds.extend(unionBounds);
-                hasBounds = true;
-              } else {
-                console.error(`❌ Single union polygon bounds invalid for district ${district.startDistrictNumber}! unionBounds:`, unionBounds);
-              }
-            } catch (error) {
-              console.error(`⚠️ Error rendering single union polygon for district ${district.startDistrictNumber}-${district.endDistrictNumber}:`, error);
-            }
-          }
-        }
-      } else {
-        // Render individual tracts ONLY when showTractBoundaries is true
-        // If showTractBoundaries is false, we should have rendered union polygons above
-        // If we reach here with showTractBoundaries=false, it means union polygons aren't available
-        if (!this.showTractBoundaries) {
-          const hasUnionPolygons = Array.isArray((district as any).unionPolygons) && (district as any).unionPolygons.length > 0;
-          console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber}: showTractBoundaries=false but union polygon(s) not available (has unionPolygons array: ${hasUnionPolygons}, has single union: ${!!district.unionPolygon}, has geometry: ${!!district.unionPolygon?.geometry}). Skipping individual tract rendering.`);
-          return; // Skip rendering individual tracts when checkbox is unchecked
-        }
-        // Only render individual tracts when showTractBoundaries is true
-        district.censusTracts.forEach((tract: GeoJsonFeature) => {
+      // Always render individual tracts; toggle only shows/hides tract borders via style
+      district.censusTracts.forEach((tract: GeoJsonFeature) => {
           if (!tract) {
             console.warn('⚠️ Null tract found in district');
             return;
@@ -3243,7 +3071,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             console.error('⚠️ Error rendering tract:', error, tract);
           }
         });
-      }
     });
 
     console.log(`✅ Rendered ${totalTracts} tracts across ${districtsToRender.length} districts`);
@@ -3983,8 +3810,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolatedTractsByGroup,
           isolatedTractIds: result.isolatedTractIds,
-          groupStats: result.groupStats || [],
-          balancingTractIdsByGroup: result.balancingTractIdsByGroup || {}
+          groupStats: result.groupStats || []
         };
         // Clear bridge tracts when new isolation is detected
         this.bridgeTractIds.clear();
@@ -4182,6 +4008,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
       this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
       step0IslandIds
+    ).pipe(
+      finalize(() => {
+        this.isMovingIsolatedTracts = false;
+        this.cdr.detectChanges();
+      })
     ).subscribe({
       next: (result) => {
         this.errorMessage = ''; // Clear any previous error on success
@@ -4193,8 +4024,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
             isolatedTractIds: result.isolationResult.isolatedTractIds,
             totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation,
-            balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation
           };
         }
 
@@ -4202,8 +4032,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds,
-          balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
+          isolatedTractIds: result.isolationResult.isolatedTractIds
         };
 
         if (result.isolationResult.totalIsolated === 0) {
@@ -4225,14 +4054,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Re-render map with updated groups
         this.renderFinalDistricts();
         this.cdr.detectChanges();
-
-        this.isMovingIsolatedTracts = false;
       },
       error: (error) => {
         console.error('Error moving isolated tracts:', error);
-        this.errorMessage = error.error?.message || error.message || 'Failed to move isolated tracts';
-        this.isMovingIsolatedTracts = false;
-        this.cdr.detectChanges();
+        this.errorMessage = error?.message || error.error?.message || error.message || 'Failed to move isolated tracts';
       }
     });
   }
@@ -4285,8 +4110,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isolatedTractIds = new Set(isolationResult.isolatedTractIds);
             this.isolatedTractsData = {
               isolatedTractsByGroup: isolationResult.isolatedTractsByGroup,
-              isolatedTractIds: isolationResult.isolatedTractIds,
-              balancingTractIdsByGroup: (isolationResult as any).balancingTractIdsByGroup || {}
+              isolatedTractIds: isolationResult.isolatedTractIds
             };
             
             // Clear bridge tracts (will need to re-detect)
@@ -4350,14 +4174,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Get isolated tracts list for display
    */
-  getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean, balancingTractIds: string[]}> {
+  getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> {
     if (!this.isolatedTractsData || !this.currentStep) {
       return [];
     }
 
-    const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean, balancingTractIds: string[]}> = [];
-    const balancingByGroup = this.isolatedTractsData.balancingTractIdsByGroup || {};
-    
+    const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> = [];
+
     // If isolatedTractsByGroup is empty but isolatedTractIds has items, try to find which groups they belong to
     if (Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length === 0 && 
         this.isolatedTractsData.isolatedTractIds.length > 0) {
@@ -4365,12 +4188,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       for (let groupIndex = 0; groupIndex < this.currentStep.districtGroups.length; groupIndex++) {
         const group = this.currentStep.districtGroups[groupIndex];
         const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-        const balancingTractIds = balancingByGroup[groupIndex] || [];
         for (const tractId of this.isolatedTractsData.isolatedTractIds) {
           const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
           if (tract) {
             const isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
-            list.push({ tractId, groupIndex, groupLabel, isEnclosed, balancingTractIds });
+            list.push({ tractId, groupIndex, groupLabel, isEnclosed });
           }
         }
       }
@@ -4380,7 +4202,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const groupIndex = parseInt(groupIndexStr);
         const group = this.currentStep.districtGroups[groupIndex];
         const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-        const balancingTractIds = balancingByGroup[groupIndexStr] || [];
         for (const tractId of tractIds) {
           // Check if tract is enclosed by looking for it in the district groups
           let isEnclosed = false;
@@ -4392,11 +4213,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
             }
           }
-          list.push({ tractId, groupIndex, groupLabel, isEnclosed, balancingTractIds });
+          list.push({ tractId, groupIndex, groupLabel, isEnclosed });
         }
       }
     }
-    
+
     return list;
   }
 
@@ -4498,10 +4319,29 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         `;
         L.popup({ className: 'tract-locate-popup' }).setLatLng(center).setContent(popupContent).openOn(this.map);
       } else {
-        console.warn(`Tract ${tractId}: could not get bounds from feature`);
+        // Tract has no boundary data (e.g. water/special-purpose); show message and population at current map center
+        console.warn(`Tract ${tractId}: could not get bounds from feature (no boundary data)`);
+        const props = tractFeature.properties || {};
+        const pop = (props.POPULATION ?? 0).toLocaleString();
+        const noBoundsContent = `
+          <strong>Tract ID:</strong> ${tractId}<br>
+          <strong style="color: #666;">Tract has no boundary data; cannot show on map.</strong><br>
+          <strong>Population:</strong> ${pop}
+        `;
+        const center = this.map.getCenter();
+        L.popup({ className: 'tract-locate-popup' }).setLatLng(center).setContent(noBoundsContent).openOn(this.map);
       }
     } else {
       console.warn(`Tract layer not found for ID: ${tractId}`);
+      // Tract not in layer and not in step data (or no map): show message at map center if we have a map
+      if (this.map) {
+        const noFeatureContent = `
+          <strong>Tract ID:</strong> ${tractId}<br>
+          <strong style="color: #666;">Tract has no boundary data; cannot show on map.</strong>
+        `;
+        const center = this.map.getCenter();
+        L.popup({ className: 'tract-locate-popup' }).setLatLng(center).setContent(noFeatureContent).openOn(this.map);
+      }
     }
   }
 
@@ -4558,6 +4398,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
       this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
       this.currentStep.step !== 0 ? this.getStep0IslandTractIds() : undefined
+    ).pipe(
+      finalize(() => {
+        this.isMovingIsolatedTracts = false;
+        this.cdr.detectChanges();
+      })
     ).subscribe({
       next: (result) => {
         this.errorMessage = '';
@@ -4567,15 +4412,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
             isolatedTractIds: result.isolationResult.isolatedTractIds,
             totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation,
-            balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
+            groupsWithIsolation: result.isolationResult.groupsWithIsolation
           };
         }
         this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
         this.isolatedTractsData = {
           isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds,
-          balancingTractIdsByGroup: (result.isolationResult as any).balancingTractIdsByGroup || {}
+          isolatedTractIds: result.isolationResult.isolatedTractIds
         };
         if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
           this.loadedSteps[this.currentStepIndex] = this.currentStep!;
@@ -4585,11 +4428,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.moveIsolatedHint = (result as any).hint || '';
         this.renderFinalDistricts();
         this.cdr.detectChanges();
-        this.isMovingIsolatedTracts = false;
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || err.message || 'Failed to swap tract';
-        this.isMovingIsolatedTracts = false;
+        this.errorMessage = err?.message || err.error?.message || err.message || 'Failed to swap tract';
       }
     });
   }

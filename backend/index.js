@@ -227,26 +227,77 @@ function isCacheExpired(timestamp, ttl) {
 
 /**
  * Build set of step-0 geographic island tract IDs for exclusion from isolation at steps 1+.
- * @param {Object} algorithmState - Algorithm state (may have steps[0].islandTractsData)
+ * Includes water/special tracts (no geometry or tract code 990000/7990000 etc.) so they never appear as isolated.
+ * When step 0 was cached before excludedTractIds existed, we add water/special from uniqueTracts here.
+ * @param {Object} algorithmState - Algorithm state (may have steps[0].islandTractsData, uniqueTracts)
  * @param {number} step - Current step number
  * @param {string[]|undefined} bodyStep0IslandTractIds - Optional array from request body
  * @returns {Set<string>|null}
  */
 function buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds) {
+  const { getTractId, isWaterOrSpecialTract } = require('./services/geodistrict-algorithm');
   let set = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
-  if (!set && step > 0 && algorithmState?.steps?.[0]?.islandTractsData?.islandTractsByGroup) {
-    const byGroup = algorithmState.steps[0].islandTractsData.islandTractsByGroup;
+  const hasStep0Data = algorithmState?.steps?.[0]?.islandTractsData;
+  const hasUniqueTracts = Array.isArray(algorithmState?.uniqueTracts) && algorithmState.uniqueTracts.length > 0;
+  if (!set && step > 0 && (hasStep0Data || hasUniqueTracts)) {
     set = new Set();
-    for (const islandGroups of Object.values(byGroup)) {
-      if (Array.isArray(islandGroups)) {
-        for (const group of islandGroups) {
-          if (Array.isArray(group)) group.forEach(id => set.add(id));
-          else if (typeof group === 'string') set.add(group);
+    const islandTractsData = hasStep0Data ? algorithmState.steps[0].islandTractsData : null;
+    if (islandTractsData?.islandTractsByGroup) {
+      const byGroup = islandTractsData.islandTractsByGroup;
+      for (const islandGroups of Object.values(byGroup)) {
+        if (Array.isArray(islandGroups)) {
+          for (const group of islandGroups) {
+            if (Array.isArray(group)) group.forEach(id => set.add(id));
+            else if (typeof group === 'string') set.add(group);
+          }
         }
+      }
+    }
+    if (Array.isArray(islandTractsData?.excludedTractIds)) {
+      islandTractsData.excludedTractIds.forEach(id => set.add(id));
+    }
+    // Add water/special tracts from uniqueTracts (covers cache without excludedTractIds, e.g. CA 06017990000, 06061990000)
+    const uniqueTracts = algorithmState.uniqueTracts;
+    if (Array.isArray(uniqueTracts) && uniqueTracts.length > 0) {
+      let added = 0;
+      for (const tract of uniqueTracts) {
+        if (!isWaterOrSpecialTract(tract)) continue;
+        const id = getTractId(tract);
+        if (id && !set.has(id)) {
+          set.add(id);
+          added++;
+        }
+      }
+      if (added > 0) {
+        console.log(`🏝️ Step 0 exclusion: added ${added} water/special tract(s) from uniqueTracts (cache had no excludedTractIds)`);
       }
     }
   }
   return set;
+}
+
+/**
+ * Remove step-0 excluded tract IDs from a step's isolatedTractsData (so cached steps show correct list).
+ * @param {Object} stepData - Step data with isolatedTractsData
+ * @param {Set<string>} exclusionSet - Tract IDs to exclude from isolated lists
+ */
+function filterIsolatedTractsDataByExclusion(stepData, exclusionSet) {
+  if (!stepData?.isolatedTractsData || !exclusionSet || exclusionSet.size === 0) return;
+  const data = stepData.isolatedTractsData;
+  if (data.isolatedTractIds && Array.isArray(data.isolatedTractIds)) {
+    data.isolatedTractIds = data.isolatedTractIds.filter(id => !exclusionSet.has(id));
+    data.totalIsolated = data.isolatedTractIds.length;
+  }
+  if (data.isolatedTractsByGroup && typeof data.isolatedTractsByGroup === 'object') {
+    let groupsWithIsolation = 0;
+    for (const key of Object.keys(data.isolatedTractsByGroup)) {
+      const arr = data.isolatedTractsByGroup[key];
+      if (!Array.isArray(arr)) continue;
+      data.isolatedTractsByGroup[key] = arr.filter(id => !exclusionSet.has(id));
+      if (data.isolatedTractsByGroup[key].length > 0) groupsWithIsolation++;
+    }
+    data.groupsWithIsolation = groupsWithIsolation;
+  }
 }
 
 /**
@@ -2958,10 +3009,16 @@ app.post('/api/algorithm/execute', async (req, res) => {
       if (!shouldCache) return true;
       
       try {
+        // Create union polygons only for the final step (all single-district groups); intermediate steps skip union creation
+        const isFinalStep = stepData.districtGroups.length > 0 &&
+          stepData.districtGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
+        if (isFinalStep) {
+          await recreateUnionPolygonsForGroups(stepData.districtGroups, true, stepNumber);
+        }
         // Normalize step data (remove geometries, keep only IDs)
         const normalized = normalizeStepData(stepData, tractCacheKey);
         
-        // Cache union polygons for this step
+        // Cache union polygons for this step (only final step will have them)
         const unionPolygonCacheKeys = await cacheUnionPolygons(state, stepNumber, stepData.districtGroups);
         
         // Add union polygon cache keys to normalized groups
@@ -3002,14 +3059,14 @@ app.post('/api/algorithm/execute', async (req, res) => {
       return true; // Continue execution
     };
 
-    // Execute algorithm with isolation resolution if requested
+    // Run mode (resolveIsolation true): run step 0 through final step with isolation resolution; bridge tract detection runs automatically each step. Step mode: user initiates each step; bridge detection is not automatic.
     const startTime = Date.now();
     const result = await algorithmService.executeGeodistrictAlgorithm(
       tracts,
       totalDistricts,
       maxIterations,
       options.forceInvalidate || false,
-      resolveIsolation, // Enable isolation resolution
+      resolveIsolation, // Enable isolation resolution (run mode)
       onStepComplete // Always cache each step once calculated (record state per step)
     );
     const executionTime = Date.now() - startTime;
@@ -4639,6 +4696,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 // Reconstruct step data with tract geometries
                 let stepData = cachedEntry.stepData;
                 deserializeStepDataFromFirestore(stepData);
+                // Preserve island (and other) metadata from cache in case reconstruction fails and we rebuild step from fresh tracts
+                const preservedStep0Metadata = stepData?.islandTractsData ? { islandTractsData: stepData.islandTractsData } : null;
                 
                 // For Step 0, ALWAYS use TIGER state boundaries (never use cached tract-based union polygons)
                 // Step 0 should NEVER use union polygons created from tracts - only TIGER boundaries
@@ -4804,6 +4863,10 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                     }],
                     description: 'Initial state: All tracts in single group'
                   };
+                  // Restore island tracts data from cached step so UI and steps 1+ still have it
+                  if (preservedStep0Metadata?.islandTractsData) {
+                    stepData.islandTractsData = preservedStep0Metadata.islandTractsData;
+                  }
                 }
                 
                 // For step 0, use the tracts we just loaded instead of trying to reconstruct from cache
@@ -5232,7 +5295,8 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
 
     // Reconstruct step data with tract geometries from state cache if needed
     let stepData = dataToReconstruct;
-    
+    let uniqueTractsForExclusion = [];
+
     // If normalized, reconstruct from state tract cache
     if (isNormalized && tractCacheKey) {
       try {
@@ -5272,12 +5336,48 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
               if (!stepData || !stepData.districtGroups) {
                 return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
               }
+              uniqueTractsForExclusion = Array.isArray(tractMap) ? tractMap : Array.from(tractMap.values());
             }
           }
         }
       } catch (reconstructError) {
         console.warn(`⚠️ Failed to reconstruct step ${stepNum}: ${reconstructError.message}`);
         return res.status(500).json({ error: `Failed to reconstruct step ${stepNum}` });
+      }
+    }
+
+    // For step > 0, remove step-0 excluded tracts (islands + water/special) from isolated list
+    if (stepNum > 0 && stepData.isolatedTractsData) {
+      try {
+        let step0Data = null;
+        const step0CacheKeyForExclusion = `algorithm_step_${state}_${maxIterations}_0`;
+        let step0Doc = await firestore.collection('census_cache').doc(step0CacheKeyForExclusion).get();
+        if (step0Doc.exists) {
+          const step0Entry = step0Doc.data();
+          if (step0Entry.stepData) {
+            step0Data = step0Entry.stepData;
+            deserializeStepDataFromFirestore(step0Data);
+          }
+        }
+        if (!step0Data) {
+          const step0RunAllKey = `step_${state}_0_${currentVersion}`;
+          step0Doc = await firestore.collection('census_cache').doc(step0RunAllKey).get();
+          if (step0Doc.exists) {
+            const step0Entry = step0Doc.data();
+            step0Data = step0Entry.stepData !== undefined ? step0Entry.stepData : step0Entry;
+            deserializeStepDataFromFirestore(step0Data);
+          }
+        }
+        const algorithmStateForSet = {
+          steps: step0Data ? [step0Data] : [],
+          uniqueTracts: uniqueTractsForExclusion
+        };
+        const exclusionSet = buildStep0IslandSet(algorithmStateForSet, stepNum, undefined);
+        if (exclusionSet && exclusionSet.size > 0) {
+          filterIsolatedTractsDataByExclusion(stepData, exclusionSet);
+        }
+      } catch (filterErr) {
+        console.warn(`⚠️ Filter isolated tracts by step-0 exclusion: ${filterErr.message}`);
       }
     }
 
@@ -5471,11 +5571,15 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
             const currentVersion = ALGORITHM_VERSION;
             
             if (cachedVersion === currentVersion) {
-                logger.debug(`✅ STEP CACHE HIT: Retrieved cached step ${nextStepNumber} for ${state}`);
+                console.log(`✅ NEXT-STEP: Step ${nextStepNumber} cache HIT for ${state} - returning from cache (not re-executing)`);
               
               // Reconstruct step data with tract geometries from state cache if needed
               let stepData = cachedEntry.stepData;
               deserializeStepDataFromFirestore(stepData);
+              // Ensure step number is set for reconstruction (union polygon load uses it)
+              if (stepData && stepData.step === undefined && cachedEntry.step !== undefined) {
+                stepData.step = cachedEntry.step;
+              }
               
               // If normalized, reconstruct from state tract cache
               if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
@@ -5605,6 +5709,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
       }
     }
 
+    console.log(`🚀 NEXT-STEP: Step ${nextStepNumber} cache MISS for ${state} - executing step (not from cache)`);
     logger.info(`🚀 Executing next step for ${state} (iteration ${nextStepNumber})`);
 
     // Execute next step
@@ -5613,11 +5718,21 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     // Cache the step result (await so step is durably recorded before response)
     const cacheStepResult = async () => {
       try {
-        // Normalize step data (store tract IDs instead of full geometries)
-        // Use existing state tract cache key (should already exist from initialization)
         const tractCacheKey = `state_tracts_${state}`;
+        // Create union polygons only for the final step; then cache (intermediate steps have no unions)
+        if (isComplete) {
+          await recreateUnionPolygonsForGroups(step.districtGroups, true, nextStepNumber);
+        }
+        const unionPolygonCacheKeys = await cacheUnionPolygons(state, nextStepNumber, step.districtGroups);
+        if (Object.keys(unionPolygonCacheKeys).length > 0) {
+          step.districtGroups.forEach((group, index) => {
+            if (unionPolygonCacheKeys[index]) {
+              group.unionPolygonCacheKey = unionPolygonCacheKeys[index];
+            }
+          });
+        }
+        // Normalize step data (store tract IDs + unionPolygonCacheKey; no geometries)
         const normalizedStep = normalizeStepData(step, tractCacheKey);
-        
         const cacheData = {
           stepData: normalizedStep.normalized,
           isComplete,
@@ -5626,13 +5741,14 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
           ttl: 24 * 60 * 60 * 1000, // 24 hours
           source: 'algorithm-step-cache',
           normalized: true,
-          tractCacheKey: tractCacheKey,
-          state: state,
-          step: nextStepNumber
+          tractCacheKey,
+          state,
+          step: nextStepNumber,
+          unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
         };
 
         await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
-        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state}`);
+        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} with ${Object.keys(unionPolygonCacheKeys).length} union polygon(s)`);
       } catch (cacheError) {
         console.warn(`⚠️ STEP CACHE STORE ERROR: ${cacheError.message}`);
       }
@@ -5927,12 +6043,16 @@ function serializeIslandTractsDataForFirestore(islandTractsData) {
       Array.isArray(group) ? { tractIds: group } : { tractIds: [group] }
     );
   }
-  return {
+  const result = {
     islandTractsByGroup: serialized,
     totalIslandTracts: islandTractsData.totalIslandTracts,
     totalIslandGroups: islandTractsData.totalIslandGroups,
     groupsWithIslands: islandTractsData.groupsWithIslands
   };
+  if (Array.isArray(islandTractsData.excludedTractIds)) {
+    result.excludedTractIds = islandTractsData.excludedTractIds;
+  }
+  return result;
 }
 
 /**
@@ -5950,10 +6070,11 @@ function deserializeIslandTractsDataFromFirestore(islandTractsData) {
       return item ? [item] : [];
     });
   }
-  return {
-    ...islandTractsData,
-    islandTractsByGroup: restored
-  };
+  const result = { ...islandTractsData, islandTractsByGroup: restored };
+  if (Array.isArray(islandTractsData.excludedTractIds)) {
+    result.excludedTractIds = islandTractsData.excludedTractIds;
+  }
+  return result;
 }
 
 /**
@@ -6535,12 +6656,26 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
       }
     }
   }
-  
-  if (totalTractsWithoutGeometry > 0) {
+
+  // Allow reconstruction when only a small number of tracts lack geometry (e.g. water/special-purpose tracts with no TIGER geometry)
+  const missingThreshold = Math.max(50, Math.ceil(totalTracts * 0.01));
+  if (totalTractsWithoutGeometry > missingThreshold) {
     const percentage = ((totalTractsWithoutGeometry / totalTracts) * 100).toFixed(1);
-    console.error(`❌ RECONSTRUCT FAILED: ${totalTractsWithoutGeometry} out of ${totalTracts} tracts (${percentage}%) are missing geometry.`);
+    console.error(`❌ RECONSTRUCT FAILED: ${totalTractsWithoutGeometry} out of ${totalTracts} tracts (${percentage}%) are missing geometry (threshold: ${missingThreshold}).`);
     console.error(`   This indicates the tract cache is corrupted or incomplete. Returning null to force re-execution.`);
     return null; // Return null to force re-execution
+  }
+
+  if (totalTractsWithoutGeometry > 0) {
+    const percentage = ((totalTractsWithoutGeometry / totalTracts) * 100).toFixed(1);
+    console.warn(`⚠️ RECONSTRUCT: ${totalTractsWithoutGeometry} tract(s) (${percentage}%) missing geometry - excluding from reconstructed groups (within threshold ${missingThreshold}).`);
+    for (const group of reconstructed.districtGroups) {
+      if (group.censusTracts) {
+        group.censusTracts = group.censusTracts.filter(t =>
+          t && (t.geometry || (t.type === 'Feature' && t.geometry))
+        );
+      }
+    }
   }
 
   // Load union polygons from cache if available, otherwise recreate them
@@ -6647,7 +6782,7 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
     return districtGroups; // Return groups unchanged - caller should fetch TIGER boundaries instead
   }
   
-  const { createUnionPolygonsForGroup } = require('./services/geodistrict-algorithm');
+  const { createUnionPolygonsForGroup, createUnionPolygon, buildMultiPolygonFromFeatures } = require('./services/geodistrict-algorithm');
   const { GeodistrictAlgorithmService } = require('./services/geodistrict-algorithm');
   const latLongDivisionService = require('./services/latlong-division');
   const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService);
@@ -6691,18 +6826,19 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       }
       
       if (group.censusTracts && group.censusTracts.length > 0) {
-        // At non-Step-0 steps: Use forceSingleUnion=true to create one union polygon for all tracts (for visualization)
-        const unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber);
-        
+        // At non-Step-0: one union polygon per DG (contiguous = one Polygon, islands = one MultiPolygon)
+        let unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber);
+        if (!unionResult) {
+          unionResult = createUnionPolygon(group); // Fallback so contiguous DG always has a polygon
+        }
         if (unionResult) {
           if (Array.isArray(unionResult) && unionResult.length > 0) {
-            // Multiple polygons: store as array with main first, then islands
-            group.unionPolygon = unionResult[0]; // Main polygon (for backward compatibility)
-            group.unionPolygons = unionResult; // Array with main + islands
+            const multi = buildMultiPolygonFromFeatures(unionResult);
+            group.unionPolygon = multi || unionResult[0];
+            group.unionPolygons = unionResult;
           } else {
-            // Single polygon: store as unionPolygon
             group.unionPolygon = unionResult;
-            group.unionPolygons = undefined; // Clear array if single polygon
+            group.unionPolygons = undefined;
           }
         }
       }
@@ -6805,21 +6941,12 @@ app.post('/api/algorithm/detect-isolated-tracts', async (req, res) => {
 
     const isolatedTractIds = Array.from(detectionResult.isolatedTractIds);
 
-    // For each group with isolated tracts, get balancing tract IDs (preview for UI)
-    const balancingTractIdsByGroup = {};
-    for (const groupIndexStr of Object.keys(isolatedTractsByGroup)) {
-      const groupIndex = parseInt(groupIndexStr, 10);
-      const ids = algorithmService.getBalancingTractIdsForGroup(districtGroups, allTracts, groupIndex);
-      balancingTractIdsByGroup[groupIndexStr] = ids && ids.length > 0 ? ids : [];
-    }
-
     res.json({
       isolatedTractsByGroup,
       isolatedTractIds,
       totalIsolated: isolatedTractIds.length,
       groupsWithIsolation: Object.keys(isolatedTractsByGroup).length,
-      groupStats: detectionResult.groupStats || [],
-      balancingTractIdsByGroup
+      groupStats: detectionResult.groupStats || []
     });
   } catch (error) {
     console.error('Error detecting isolated tracts:', error);
@@ -7003,6 +7130,19 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
       return res.status(400).json({ error: 'isolatedTractIds array is required' });
     }
 
+    // Preload S4 adjacency data so move and post-move isolation detection use a full graph (avoids hang when S4 was not yet in memory)
+    let stateForS4 = state || (allTracts.length > 0 && (allTracts[0]?.properties?.STATE || allTracts[0]?.properties?.state || allTracts[0]?.properties?.STATE_FIPS)) || '';
+    if (stateForS4) {
+      try {
+        const s4DataLoader = require('./services/s4-data-loader');
+        stateForS4 = s4DataLoader.normalizeStateForS4(stateForS4);
+        await s4DataLoader.loadS4AdjacencyData(stateForS4);
+        console.log(`✅ Loaded S4 adjacency data for ${stateForS4} before move isolated tracts`);
+      } catch (s4Err) {
+        console.warn(`⚠️ Failed to load S4 adjacency data for ${stateForS4}: ${s4Err.message}`);
+      }
+    }
+
     console.log(`🔄 Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
 
     // Call the move method with divisionLines (sibling relationships) if provided
@@ -7092,6 +7232,16 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     if (typeof step !== 'number' || step < 0) {
       return res.status(400).json({ error: 'Valid step number is required' });
+    }
+
+    // Preload S4 adjacency data so move and post-move isolation detection use a full graph (avoids hang when S4 was not yet in memory)
+    try {
+      const s4DataLoader = require('./services/s4-data-loader');
+      const stateForS4 = s4DataLoader.normalizeStateForS4(state);
+      await s4DataLoader.loadS4AdjacencyData(stateForS4);
+      console.log(`✅ Loaded S4 adjacency data for ${stateForS4} before move all isolated tracts`);
+    } catch (s4Err) {
+      console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${s4Err.message}`);
     }
 
     // Fast path: frontend sent full district groups + isolated data. No cache I/O - just swap tracts in memory.
@@ -7617,7 +7767,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       // Normalize step data (store tract IDs instead of full geometries)
       const normalizedStep = normalizeStepData(updatedStep, tractCacheKey);
 
-      // Cache union polygons for this updated step
+      // This is the final step (after moving isolated tracts); create union polygons then cache
+      await recreateUnionPolygonsForGroups(updatedGroups, true, step);
       const unionPolygonCacheKeys = await cacheUnionPolygons(state, step, updatedGroups);
       
       // Add union polygon cache keys to normalized groups
