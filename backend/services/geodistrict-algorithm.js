@@ -1929,9 +1929,45 @@ class GeodistrictAlgorithmService {
       }
     }
     
+    // At step > 0, exclude step-0 island and water/special tracts from isolation detection
+    let step0IslandTractIds = null;
+    if (nextIteration > 0 && steps && steps[0] && steps[0].islandTractsData) {
+      const islandSet = new Set();
+      const step0 = steps[0];
+      if (step0.islandTractsData.islandTractsByGroup) {
+        for (const islandGroups of Object.values(step0.islandTractsData.islandTractsByGroup)) {
+          if (Array.isArray(islandGroups)) {
+            for (const group of islandGroups) {
+              if (Array.isArray(group)) {
+                group.forEach(id => islandSet.add(id));
+              } else if (typeof group === 'string') {
+                islandSet.add(group);
+              } else if (group && Array.isArray(group.tractIds)) {
+                group.tractIds.forEach(id => islandSet.add(id));
+              }
+            }
+          }
+        }
+      }
+      if (Array.isArray(step0.islandTractsData.excludedTractIds)) {
+        step0.islandTractsData.excludedTractIds.forEach(id => islandSet.add(id));
+      }
+      if (Array.isArray(uniqueTracts)) {
+        for (const tract of uniqueTracts) {
+          if (!isWaterOrSpecialTract(tract)) continue;
+          const id = getTractId(tract);
+          if (id) islandSet.add(id);
+        }
+      }
+      if (islandSet.size > 0) {
+        step0IslandTractIds = islandSet;
+        console.log(`🏝️ Step ${nextIteration}: Excluding ${islandSet.size} step-0 island/water tract(s) from isolation detection`);
+      }
+    }
+
     const createStepStartTime = Date.now();
     const step = createStep(nextIteration, nextIteration, updatedGroups,
-      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts);
+      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
     const createStepTime = Date.now() - createStepStartTime;
     if (createStepTime > 10) {
       console.log(`⏱️ CREATE STEP: Completed in ${createStepTime}ms`);
@@ -3131,71 +3167,80 @@ class GeodistrictAlgorithmService {
       }
       
       // Check if tract will still be isolated in target group (prevent infinite loops)
-      // If tract has no neighbors in target group, it will remain isolated - skip move
       const neighbors = adjacencyGraph.get(tractId) || [];
-      const hasNeighborInTarget = neighbors.some(neighborId => 
+      const hasNeighborInTarget = neighbors.some(neighborId =>
         targetGroup.censusTracts.some(t => getTractId(t) === neighborId)
       );
-      
+
+      // If primary target (sibling) has no neighbors, try any other group that has a neighbor so the tract is no longer isolated
+      let effectiveTargetGroup = targetGroup;
+      let effectiveTargetGroupIndex = targetGroupIndex;
       if (!hasNeighborInTarget && targetGroup.censusTracts.length > 0) {
-        console.warn(`⚠️ SKIPPING MOVE: Tract ${tractId} has no neighbors in target group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}, would remain isolated. Not moving to prevent infinite loop.`);
+        for (let g = 0; g < updatedGroups.length; g++) {
+          if (g === sourceGroupIndex) continue;
+          const group = updatedGroups[g];
+          const hasNeighborHere = neighbors.some(neighborId =>
+            group.censusTracts.some(t => getTractId(t) === neighborId)
+          );
+          if (hasNeighborHere) {
+            effectiveTargetGroup = group;
+            effectiveTargetGroupIndex = g;
+            console.log(`   Tract ${tractId} has no neighbors in sibling ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}, moving to group ${group.startDistrictNumber}-${group.endDistrictNumber} instead (has neighbor)`);
+            break;
+          }
+        }
+      }
+
+      const hasNeighborInEffectiveTarget = effectiveTargetGroup === targetGroup
+        ? hasNeighborInTarget
+        : neighbors.some(neighborId =>
+            effectiveTargetGroup.censusTracts.some(t => getTractId(t) === neighborId)
+          );
+
+      if (!hasNeighborInEffectiveTarget && effectiveTargetGroup.censusTracts.length > 0) {
+        console.warn(`⚠️ SKIPPING MOVE: Tract ${tractId} has no neighbors in any group, would remain isolated. Not moving to prevent infinite loop.`);
         skippedTractIds.push(tractId);
-        // Put tract back in source group since we're not moving it
         if (!sourceGroup.censusTracts.some(t => getTractId(t) === tractId)) {
           sourceGroup.censusTracts.push(tract);
         }
         continue;
       }
-      
+
       // Add to target group (avoid duplicates - though we just removed it from all groups)
-      if (!targetGroup.censusTracts.some(t => getTractId(t) === tractId)) {
-        targetGroup.censusTracts.push(tract);
+      if (!effectiveTargetGroup.censusTracts.some(t => getTractId(t) === tractId)) {
+        effectiveTargetGroup.censusTracts.push(tract);
         movedCount++;
-        
-        // SWAP tract_DG with sibling_DG (as per user requirement)
-        // When moving isolated tract, swap: tract_DG <-> sibling_DG
+
+        const sourceDG = foundInGroups.length > 0 ? `DG${foundInGroups[0].split('-')[0]}-${foundInGroups[0].split('-')[1]}` : null;
+        const targetDG = `DG${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}`;
+
+        // SWAP tract_DG with sibling_DG when moving to sibling; otherwise set tract_DG to target and sibling_DG to source
         if (tract.properties) {
           const oldTractDG = tract.properties.tract_DG;
           const oldSiblingDG = tract.properties.sibling_DG;
-          const sourceDG = foundInGroups.length > 0 ? `DG${foundInGroups[0].split('-')[0]}-${foundInGroups[0].split('-')[1]}` : null;
-          const targetDG = `DG${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`;
-          
-          if (oldTractDG && oldSiblingDG && oldTractDG !== oldSiblingDG) {
-            // Normal case: swap tract_DG and sibling_DG
+
+          if (effectiveTargetGroupIndex === targetGroupIndex && oldTractDG && oldSiblingDG && oldTractDG !== oldSiblingDG) {
             tract.properties.tract_DG = oldSiblingDG;
             tract.properties.sibling_DG = oldTractDG;
-            
-            // Verify the new tract_DG matches the target group
             if (tract.properties.tract_DG !== targetDG) {
-              console.warn(`⚠️ After swap, tract_DG (${tract.properties.tract_DG}) doesn't match target group (${targetDG})`);
-              // Fix it: set tract_DG to target and sibling_DG to source (or old tract_DG if source not available)
               tract.properties.tract_DG = targetDG;
               tract.properties.sibling_DG = sourceDG || oldTractDG;
             }
-            
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
+            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber} (has neighbors in target)`);
             console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${tract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${tract.properties.sibling_DG}`);
-          } else if (oldTractDG === oldSiblingDG || !oldSiblingDG) {
-            // Edge case: both are the same or sibling_DG is missing - set directly instead of swapping
+          } else {
             tract.properties.tract_DG = targetDG;
             tract.properties.sibling_DG = sourceDG || oldTractDG;
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
-            console.log(`   Set DG: tract_DG=${oldTractDG || 'missing'} -> ${targetDG}, sibling_DG=${oldSiblingDG || 'missing'} -> ${tract.properties.sibling_DG}`);
-          } else {
-            // Update tract_DG to match target group if properties missing
-            if (!tract.properties.tract_DG) {
-              tract.properties.tract_DG = targetDG;
+            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}${effectiveTargetGroupIndex !== targetGroupIndex ? ' (alternate group with neighbor)' : ''}`);
+            if (effectiveTargetGroupIndex !== targetGroupIndex) {
+              console.log(`   Set DG: tract_DG=${oldTractDG || 'missing'} -> ${targetDG}, sibling_DG=${oldSiblingDG || 'missing'} -> ${tract.properties.sibling_DG}`);
             }
-            if (!tract.properties.sibling_DG) {
-              tract.properties.sibling_DG = sourceDG || oldTractDG;
-            }
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
           }
         } else {
-          console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}${hasNeighborInTarget ? ' (has neighbors in target)' : ''}`);
+          console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}`);
         }
       } else {
-        console.warn(`⚠️ Tract ${tractId} already exists in target group ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}, skipping add`);
+        console.warn(`⚠️ Tract ${tractId} already exists in target group ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}, skipping add`);
       }
     }
     
