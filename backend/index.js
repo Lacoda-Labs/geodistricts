@@ -3082,17 +3082,21 @@ app.post('/api/algorithm/execute', async (req, res) => {
       if (!shouldCache) return true;
       
       try {
-        // Create union polygons only for the final step (all single-district groups); intermediate steps skip union creation
+        // Create union polygons only when step is final (all single-district groups) and all isolated tracts have been moved
         const isFinalStep = stepData.districtGroups.length > 0 &&
           stepData.districtGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
-        if (isFinalStep) {
+        const totalIsolated = stepData.isolatedTractsData?.totalIsolated ?? 0;
+        const stepCompleteForUnions = isFinalStep && totalIsolated === 0;
+        if (stepCompleteForUnions) {
           await recreateUnionPolygonsForGroups(stepData.districtGroups, true, stepNumber);
         }
         // Normalize step data (remove geometries, keep only IDs)
         const normalized = normalizeStepData(stepData, tractCacheKey);
         
-        // Cache union polygons for this step (only final step will have them)
-        const unionPolygonCacheKeys = await cacheUnionPolygons(state, stepNumber, stepData.districtGroups);
+        // Cache union polygons for this step (only when we created them)
+        const unionPolygonCacheKeys = stepCompleteForUnions
+          ? await cacheUnionPolygons(state, stepNumber, stepData.districtGroups)
+          : {};
         
         // Add union polygon cache keys to normalized groups
         if (Object.keys(unionPolygonCacheKeys).length > 0) {
@@ -5801,11 +5805,15 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     const cacheStepResult = async () => {
       try {
         const tractCacheKey = `state_tracts_${state}`;
-        // Create union polygons only for the final step; then cache (intermediate steps have no unions)
-        if (isComplete) {
+        // Create union polygons only when step is complete and all isolated tracts have been moved (islands/non-swappable excluded)
+        const totalIsolated = step.isolatedTractsData?.totalIsolated ?? 0;
+        const stepCompleteForUnions = isComplete && totalIsolated === 0;
+        if (stepCompleteForUnions) {
           await recreateUnionPolygonsForGroups(step.districtGroups, true, nextStepNumber);
         }
-        const unionPolygonCacheKeys = await cacheUnionPolygons(state, nextStepNumber, step.districtGroups);
+        const unionPolygonCacheKeys = stepCompleteForUnions
+          ? await cacheUnionPolygons(state, nextStepNumber, step.districtGroups)
+          : {};
         if (Object.keys(unionPolygonCacheKeys).length > 0) {
           step.districtGroups.forEach((group, index) => {
             if (unionPolygonCacheKeys[index]) {
@@ -6860,8 +6868,10 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
               : '';
           console.log(`✅ RECONSTRUCT: Loaded union polygons from cache for ${reconstructed.districtGroups.length} district groups${sourceInfo}`);
         } else {
-          // Some groups missing - need to recreate
+          // Some groups missing - only recreate if step is "complete" (all isolated tracts moved; islands/non-swappable excluded)
           const isStep0 = stepNumber === 0 || stepNumber === '0';
+          const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
+          const stepCompleteForUnions = totalIsolated === 0;
           if (isStep0) {
             // For Step 0, fetch TIGER state boundaries instead of creating union polygons from tracts
             console.log(`⚠️ RECONSTRUCT: Step 0 union polygons missing from cache, fetching TIGER state boundaries...`);
@@ -6869,6 +6879,8 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
             // We can't fetch them here without access to req object, so we'll leave them empty
             // The caller should handle fetching TIGER boundaries for step 0
             console.warn(`⚠️ RECONSTRUCT: Step 0 groups missing union polygons - caller should fetch TIGER state boundaries`);
+          } else if (!stepCompleteForUnions) {
+            console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s); create unions only after all movable isolated tracts are moved.`);
           } else {
             console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
             await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
@@ -6876,8 +6888,12 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         }
       } catch (error) {
         const isStep0 = stepNumber === 0 || stepNumber === '0';
+        const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
+        const stepCompleteForUnions = totalIsolated === 0;
         if (isStep0) {
           console.warn(`⚠️ RECONSTRUCT: Failed to load Step 0 union polygons from cache: ${error.message} - caller should fetch TIGER state boundaries`);
+        } else if (!stepCompleteForUnions) {
+          console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s).`);
         } else {
           console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
           await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
@@ -6886,8 +6902,12 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
     } else {
       // No state/step info - check if it's step 0
       const isStep0 = stepNumber === 0 || stepNumber === '0';
+      const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
+      const stepCompleteForUnions = totalIsolated === 0;
       if (isStep0) {
         console.warn(`⚠️ RECONSTRUCT: Step 0 missing state/step info - caller should fetch TIGER state boundaries`);
+      } else if (!stepCompleteForUnions) {
+        console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s).`);
       } else {
         console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
         await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
@@ -7417,7 +7437,14 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           if (t && getTractId(t)) allTracts.push(t);
         }
       }
-      const step0IslandSet = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
+      let step0IslandSet = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : null;
+      // California at step > 0: exclude known Pacific island tracts so they are not reported as isolated
+      const stateNorm = (typeof state === 'string' && state.length >= 2) ? state.substring(0, 2) : state;
+      const isCA = stateNorm === '06' || state === 'CA';
+      if (step > 0 && isCA) {
+        if (!step0IslandSet) step0IslandSet = new Set();
+        KNOWN_CA_ISLAND_TRACT_IDS.forEach(id => step0IslandSet.add(id));
+      }
       let isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
       let updatedGroups = bodyDistrictGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
       const divisionLines = bodyDivisionLines || [];
@@ -8027,9 +8054,14 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       // Normalize step data (store tract IDs instead of full geometries)
       const normalizedStep = normalizeStepData(updatedStep, tractCacheKey);
 
-      // This is the final step (after moving isolated tracts); create union polygons then cache
-      await recreateUnionPolygonsForGroups(updatedGroups, true, step);
-      const unionPolygonCacheKeys = await cacheUnionPolygons(state, step, updatedGroups);
+      // Create union polygons only when all isolated tracts have been moved (remaining are islands/non-swappable)
+      const totalRemaining = finalIsolationResult.isolatedTractIds.size;
+      const stepCompleteForUnions = totalRemaining === 0;
+      let unionPolygonCacheKeys = {};
+      if (stepCompleteForUnions) {
+        await recreateUnionPolygonsForGroups(updatedGroups, true, step);
+        unionPolygonCacheKeys = await cacheUnionPolygons(state, step, updatedGroups);
+      }
       
       // Add union polygon cache keys to normalized groups
       if (Object.keys(unionPolygonCacheKeys).length > 0) {
@@ -8041,10 +8073,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         });
       }
 
-      // Save the updated step to cache with isComplete: true (this is the final step after moving isolated tracts)
+      // Save the updated step to cache (isComplete: true only when no isolated remain; union polygons only when step complete for unions)
       const cacheData = {
         stepData: normalizedStep.normalized,
-        isComplete: true, // Mark as complete since isolated tracts have been moved
+        isComplete: stepCompleteForUnions, // True only when all movable isolated tracts have been moved
         algorithmVersion: ALGORITHM_VERSION,
         timestamp: Date.now(),
         ttl: 24 * 60 * 60 * 1000, // 24 hours

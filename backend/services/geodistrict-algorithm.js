@@ -4826,6 +4826,7 @@ module.exports = {
   GeodistrictAlgorithmService,
   getDistrictsForState,
   getTractId,
+  isWaterOrSpecialTract,
   calculateBounds,
   calculateCentroid,
   calculateTractCentroid,
