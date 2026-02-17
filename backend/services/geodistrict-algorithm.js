@@ -2005,27 +2005,33 @@ class GeodistrictAlgorithmService {
     
     // At step > 0, exclude step-0 island and water/special tracts from isolation detection
     let step0IslandTractIds = null;
-    if (nextIteration > 0 && steps && steps[0] && steps[0].islandTractsData) {
+    if (nextIteration > 0) {
       const islandSet = new Set();
-      const step0 = steps[0];
-      if (step0.islandTractsData.islandTractsByGroup) {
-        for (const islandGroups of Object.values(step0.islandTractsData.islandTractsByGroup)) {
-          if (Array.isArray(islandGroups)) {
-            for (const group of islandGroups) {
-              if (Array.isArray(group)) {
-                group.forEach(id => islandSet.add(id));
-              } else if (typeof group === 'string') {
-                islandSet.add(group);
-              } else if (group && Array.isArray(group.tractIds)) {
-                group.tractIds.forEach(id => islandSet.add(id));
+
+      // Add step-0 island tracts if available
+      if (steps && steps[0] && steps[0].islandTractsData) {
+        const step0 = steps[0];
+        if (step0.islandTractsData.islandTractsByGroup) {
+          for (const islandGroups of Object.values(step0.islandTractsData.islandTractsByGroup)) {
+            if (Array.isArray(islandGroups)) {
+              for (const group of islandGroups) {
+                if (Array.isArray(group)) {
+                  group.forEach(id => islandSet.add(id));
+                } else if (typeof group === 'string') {
+                  islandSet.add(group);
+                } else if (group && Array.isArray(group.tractIds)) {
+                  group.tractIds.forEach(id => islandSet.add(id));
+                }
               }
             }
           }
         }
+        if (Array.isArray(step0.islandTractsData.excludedTractIds)) {
+          step0.islandTractsData.excludedTractIds.forEach(id => islandSet.add(id));
+        }
       }
-      if (Array.isArray(step0.islandTractsData.excludedTractIds)) {
-        step0.islandTractsData.excludedTractIds.forEach(id => islandSet.add(id));
-      }
+
+      // Add water/special tracts from uniqueTracts
       if (Array.isArray(uniqueTracts)) {
         for (const tract of uniqueTracts) {
           if (!isWaterOrSpecialTract(tract)) continue;
@@ -2033,6 +2039,19 @@ class GeodistrictAlgorithmService {
           if (id) islandSet.add(id);
         }
       }
+
+      // Add known CA island tracts (hardcoded for now - could be made configurable)
+      const knownCAIslandTracts = ['06037599000', '06037599100', '06075980401', '06083980100', '06111980000'];
+      // Check if this is CA by looking at tract IDs
+      if (Array.isArray(uniqueTracts) && uniqueTracts.length > 0) {
+        const firstTract = uniqueTracts[0];
+        const stateCode = firstTract?.properties?.STATE || firstTract?.properties?.['STATE_FIPS'] ||
+                         (firstTract?.properties?.GEOID ? firstTract.properties.GEOID.substring(0, 2) : null);
+        if (stateCode === '06' || stateCode === 'CA') {
+          knownCAIslandTracts.forEach(id => islandSet.add(id));
+        }
+      }
+
       if (islandSet.size > 0) {
         step0IslandTractIds = islandSet;
         console.log(`🏝️ Step ${nextIteration}: Excluding ${islandSet.size} step-0 island/water tract(s) from isolation detection`);
@@ -2362,7 +2381,14 @@ class GeodistrictAlgorithmService {
       const totalIslandTracts = Array.from(islandTractsByGroup.values()).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.length, 0), 0);
       logger.debug(`🏝️ DETECT ISLANDS: Found ${totalIslandTracts} island tracts grouped into ${islandTractsByGroup.size} district group(s) at Step 0`);
     }
-    
+    // Log post-division isolated summary for steps > 0 (confirms main component is not in isolated list)
+    if (!isStep0 && isolatedTractIds.size > 0) {
+      const byGroupSummary = {};
+      isolatedTractsByGroup.forEach((ids, idx) => { byGroupSummary[idx] = ids.size; });
+      const sampleIds = Array.from(isolatedTractIds).slice(0, 15);
+      console.log(`📋 POST-DIVISION ISOLATED (step ${stepNumber}): total=${isolatedTractIds.size}, groups=${isolatedTractsByGroup.size}, byGroup=${JSON.stringify(byGroupSummary)}, sample IDs: ${sampleIds.join(', ')}${isolatedTractIds.size > 15 ? '...' : ''}`);
+    }
+
     return {
       isolatedTractsByGroup,
       isolatedTractIds,
@@ -2849,7 +2875,6 @@ class GeodistrictAlgorithmService {
             bridgeTract.properties.sibling_DG = oldTractDG;
             
             console.log(`✅ Moved bridge tract ${bridgeTractId} from group ${sourceGroup.startDistrictNumber}-${sourceGroup.endDistrictNumber} to ${targetGroup.startDistrictNumber}-${targetGroup.endDistrictNumber}`);
-            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${bridgeTract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${bridgeTract.properties.sibling_DG}`);
             
             // Log warning if swapped tract_DG doesn't match target, but don't override the swap
             if (bridgeTract.properties.tract_DG !== targetDG) {
@@ -2903,7 +2928,7 @@ class GeodistrictAlgorithmService {
    * @returns {Object} - Updated district groups and new isolation detection results
    */
   moveIsolatedTractsToOppositeGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, divisionLines = null, skipBalancing = true) {
-    console.log(`🔄 MOVE ISOLATED TRACTS: Moving ${isolatedTractIds.length} isolated tract(s) from group ${isolatedGroupIndex} to opposite group`);
+    // Single-line summary only; per-tract logs removed for readability
     
     if (isolatedGroupIndex < 0 || isolatedGroupIndex >= districtGroups.length) {
       throw new Error(`Invalid isolated group index: ${isolatedGroupIndex}`);
@@ -2928,7 +2953,6 @@ class GeodistrictAlgorithmService {
       const tractId = getTractId(tract);
       if (isolatedTractIds.includes(tractId) && tract.properties?.sibling_DG) {
         siblingDG = tract.properties.sibling_DG;
-        console.log(`   Found sibling_DG from isolated tract properties: ${siblingDG} (tract ${tractId}, tract_DG=${tract.properties.tract_DG}, parent_DG=${tract.properties.parent_DG})`);
         break;
       }
     }
@@ -2939,10 +2963,7 @@ class GeodistrictAlgorithmService {
         const tract = allTracts.find(t => getTractId(t) === tractId);
         if (tract && tract.properties?.sibling_DG) {
           siblingDG = tract.properties.sibling_DG;
-          console.log(`   Found sibling_DG from allTracts: ${siblingDG} (tract ${tractId}, tract_DG=${tract.properties.tract_DG}, parent_DG=${tract.properties.parent_DG})`);
           break;
-        } else if (tract) {
-          console.log(`   Tract ${tractId} properties: tract_DG=${tract.properties?.tract_DG || 'missing'}, parent_DG=${tract.properties?.parent_DG || 'missing'}, sibling_DG=${tract.properties?.sibling_DG || 'missing'}`);
         }
       }
     }
@@ -2950,7 +2971,6 @@ class GeodistrictAlgorithmService {
     // If sibling_DG is missing, try to set it from divisionLines metadata
     // This fixes data integrity issues where sibling_DG wasn't set during division or reconstruction
     if (!siblingDG && divisionLines && Array.isArray(divisionLines)) {
-      console.log(`   sibling_DG missing from tract properties, attempting to set from divisionLines`);
       
       // Sort division lines by step (most recent first)
       const sortedDivisionLines = [...divisionLines];
@@ -2981,26 +3001,14 @@ class GeodistrictAlgorithmService {
             
             if (otherSibling) {
               siblingDG = `DG${otherSibling.startDistrictNumber}-${otherSibling.endDistrictNumber}`;
-              console.log(`   Set sibling_DG from divisionLines: ${siblingDG} (parent: ${divLine.parentGroup?.startDistrictNumber || 'unknown'}-${divLine.parentGroup?.endDistrictNumber || 'unknown'})`);
-              
               // Update all isolated tracts with the correct sibling_DG
-              // Always update sibling_DG to match the current division, even if it was previously set
-              // This fixes cases where tracts were moved between groups and have stale sibling_DG values
+              const parentDG = divLine.parentGroup ? `DG${divLine.parentGroup.startDistrictNumber}-${divLine.parentGroup.endDistrictNumber}` : null;
               for (const tractId of isolatedTractIds) {
                 const tract = allTracts.find(t => getTractId(t) === tractId);
                 if (tract) {
                   if (!tract.properties) tract.properties = {};
-                  const oldSiblingDG = tract.properties.sibling_DG;
                   tract.properties.sibling_DG = siblingDG;
-                  const parentDG = divLine.parentGroup ? `DG${divLine.parentGroup.startDistrictNumber}-${divLine.parentGroup.endDistrictNumber}` : null;
-                  if (parentDG) {
-                    tract.properties.parent_DG = parentDG; // Always update parent_DG to match current division
-                  }
-                  if (oldSiblingDG && oldSiblingDG !== siblingDG) {
-                    console.log(`   Updated stale sibling_DG for tract ${tractId}: ${oldSiblingDG} -> ${siblingDG}`);
-                  } else if (!oldSiblingDG) {
-                    console.log(`   Fixed missing sibling_DG for tract ${tractId}`);
-                  }
+                  if (parentDG) tract.properties.parent_DG = parentDG;
                 }
               }
               break;
@@ -3045,7 +3053,6 @@ class GeodistrictAlgorithmService {
           if (districtGroups[i].startDistrictNumber === siblingStart &&
               districtGroups[i].endDistrictNumber === siblingEnd) {
             siblingGroupIndex = i;
-            console.log(`   Found target group from sibling_DG: ${siblingDG} -> group index ${i}`);
             break;
           }
         }
@@ -3060,16 +3067,11 @@ class GeodistrictAlgorithmService {
     }
     
     const siblingGroup = districtGroups[siblingGroupIndex];
-    console.log(`   Moving isolated tracts from ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber} to sibling group ${siblingGroup.startDistrictNumber}-${siblingGroup.endDistrictNumber}`);
-    
     // Validate that sibling group index is valid
     if (siblingGroupIndex < 0 || siblingGroupIndex >= districtGroups.length) {
       throw new Error(`Invalid sibling group index: ${siblingGroupIndex} (total groups: ${districtGroups.length})`);
     }
-    
-    // Log which tracts are being moved for debugging
-    console.log(`   Moving ${isolatedTractIds.length} isolated tract(s): ${isolatedTractIds.slice(0, 5).join(', ')}${isolatedTractIds.length > 5 ? '...' : ''}`);
-    
+
     return this._moveTractsToGroup(districtGroups, allTracts, isolatedGroupIndex, isolatedTractIds, siblingGroupIndex, skipBalancing);
   }
 
@@ -3193,7 +3195,7 @@ class GeodistrictAlgorithmService {
     const sourceGroup = updatedGroups[sourceGroupIndex];
     const targetGroup = updatedGroups[targetGroupIndex];
     let movedCount = 0;
-    const skippedTractIds = []; // Tracts skipped (no neighbor in target) so caller can stop retrying
+    const skippedTractIds = []; // Tracts skipped (no neighbor in any group) so caller can stop retrying
 
     // Build adjacency graph for checking if tracts will still be isolated after move
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
@@ -3272,7 +3274,6 @@ class GeodistrictAlgorithmService {
           );
 
       if (!hasNeighborInEffectiveTarget && effectiveTargetGroup.censusTracts.length > 0) {
-        console.warn(`⚠️ SKIPPING MOVE: Tract ${tractId} has no neighbors in any group, would remain isolated. Not moving to prevent infinite loop.`);
         skippedTractIds.push(tractId);
         if (!sourceGroup.censusTracts.some(t => getTractId(t) === tractId)) {
           sourceGroup.censusTracts.push(tract);
@@ -3300,21 +3301,13 @@ class GeodistrictAlgorithmService {
               tract.properties.tract_DG = targetDG;
               tract.properties.sibling_DG = sourceDG || oldTractDG;
             }
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber} (has neighbors in target)`);
-            console.log(`   Swapped DG: tract_DG=${oldTractDG} -> ${tract.properties.tract_DG}, sibling_DG=${oldSiblingDG} -> ${tract.properties.sibling_DG}`);
           } else {
             tract.properties.tract_DG = targetDG;
             tract.properties.sibling_DG = sourceDG || oldTractDG;
-            console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}${effectiveTargetGroupIndex !== targetGroupIndex ? ' (alternate group with neighbor)' : ''}`);
-            if (effectiveTargetGroupIndex !== targetGroupIndex) {
-              console.log(`   Set DG: tract_DG=${oldTractDG || 'missing'} -> ${targetDG}, sibling_DG=${oldSiblingDG || 'missing'} -> ${tract.properties.sibling_DG}`);
-            }
           }
-        } else {
-          console.log(`✅ Moved isolated tract ${tractId} from group(s) ${foundInGroups.join(', ')} to ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}`);
         }
       } else {
-        console.warn(`⚠️ Tract ${tractId} already exists in target group ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}, skipping add`);
+        console.warn(`⚠️ Tract ${tractId} already in target group ${effectiveTargetGroup.startDistrictNumber}-${effectiveTargetGroup.endDistrictNumber}, skipping`);
       }
     }
     
@@ -3353,7 +3346,7 @@ class GeodistrictAlgorithmService {
     if (skippedTractIds.length > 0) {
       const sample = skippedTractIds.slice(0, 5).join(', ');
       const suffix = skippedTractIds.length > 5 ? ` (sample: ${sample}... and ${skippedTractIds.length - 5} more)` : `: ${sample}`;
-      console.log(`   Skipped ${skippedTractIds.length} tract(s) (no neighbor in target)${suffix}`);
+      console.log(`   Skipped ${skippedTractIds.length} tract(s) (no neighbor in any group)${suffix}`);
     }
 
     // Don't re-run isolation detection here - it's expensive and will be done once at the end

@@ -3718,8 +3718,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private isStaleIsolatedTractsData(step: GeodistrictStep | null, stepIsolatedData: { isolatedTractIds?: string[]; totalIsolated?: number } | null): boolean {
     if (!step?.districtGroups || !stepIsolatedData) return false;
-    const totalTracts = step.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length ?? 0), 0);
+    const totalTracts = step.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length ?? g.censusTractIds?.length ?? 0), 0);
     const cachedCount = stepIsolatedData.totalIsolated ?? stepIsolatedData.isolatedTractIds?.length ?? 0;
+    // Don't mark as stale if censusTracts aren't loaded (totalTracts = 0) - trust the cached data
     return cachedCount > 500 || (totalTracts > 0 && cachedCount > totalTracts * 0.1);
   }
 

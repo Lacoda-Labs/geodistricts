@@ -131,7 +131,20 @@ app.use(cors(corsOptions));
 // Handle preflight requests explicitly
 app.options('*', cors(corsOptions));
 
-app.use(morgan('combined'));
+// Log when request is received (before handler runs)
+app.use((req, res, next) => {
+  console.log(`📥 Received: ${req.method} ${req.originalUrl || req.url}`);
+  next();
+});
+
+// Log when request completes (replaces generic combined format with explicit COMPLETED line)
+app.use(morgan((tokens, req, res) => {
+  const method = tokens.method(req, res);
+  const url = tokens.url(req, res);
+  const status = tokens.status(req, res);
+  const length = tokens.res(req, res, 'content-length') || '-';
+  return `✅ COMPLETED: ${method} ${url} ${status} ${length}\n`;
+}));
 // Increase body parser limit for large algorithm results (up to 200MB)
 // Note: Cloud Run has a 32MB limit, but we set this higher for internal processing
 app.use(express.json({ limit: '200mb' }));
@@ -7411,7 +7424,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       let groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
       let iterationCount = 0;
       const maxIter = 10;
-      // Tracts we skipped (no neighbor in target) per group - do not retry to avoid infinite loop
+      // Tracts we skipped (no neighbor in any group) per group - do not retry to avoid infinite loop
       const skippedByGroup = {};
 
       while (groupIndices.length > 0 && iterationCount < maxIter) {
@@ -7695,6 +7708,18 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     const step0IslandSetForMove = buildStep0IslandSet(algorithmState, step, bodyStep0IslandTractIds, state);
 
+    // Check if S4 adjacency data is available (if not, cached data might be broken)
+    let hasS4Data = false;
+    try {
+      const s4DataLoader = require('./services/s4-data-loader');
+      const stateForS4 = s4DataLoader.normalizeStateForS4(state);
+      await s4DataLoader.loadS4AdjacencyData(stateForS4);
+      hasS4Data = true;
+      console.log(`✅ S4 adjacency data available for ${stateForS4} - will prefer fresh detection over potentially broken cached data`);
+    } catch (s4Err) {
+      console.log(`⚠️ S4 adjacency data not available for ${state} - will use cached isolated data`);
+    }
+
     // Get isolated tracts data: prefer request body (client's isolated list), then validated dgAdjacentGroupsByGroup, then step cache, then detect.
     // Use req.body explicitly so we never miss body-isolated when cache path runs.
     const bodyIsolated = req.body && req.body.isolatedTractsData && req.body.isolatedTractsData.isolatedTractsByGroup &&
@@ -7709,39 +7734,101 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       (numGroups == null || Object.keys(currentStep.dgAdjacentGroupsByGroup).length === numGroups);
 
     const MAX_ISOLATED_PER_GROUP = 200; // Reject derived/cached lists that look like wrong-step (e.g. half state)
+    const MAX_ISOLATED_TOTAL = 500;     // Reject body/cache when total isolated is huge (stale/wrong step)
     const isReasonableIsolatedList = (byGroup) => {
       if (!byGroup || typeof byGroup !== 'object') return false;
+      let total = 0;
       for (const list of Object.values(byGroup)) {
-        if (Array.isArray(list) && list.length > MAX_ISOLATED_PER_GROUP) return false;
+        const n = Array.isArray(list) ? list.length : 0;
+        if (n > MAX_ISOLATED_PER_GROUP) return false;
+        total += n;
       }
-      return true;
+      return total <= MAX_ISOLATED_TOTAL;
     };
 
+    // Log at start what we're trying to get
+    console.log(`🔄 MOVE ISOLATED: Starting for step ${step}, checking sources in order: body → stepCacheDoc → stepCache → dgAdjacent → detect`);
+
     let isolatedTractsByGroup = {};
-    if (bodyIsolated) {
+    let isolatedSource = null; // 'body' | 'stepCacheDoc' | 'stepCache' | 'dgAdjacent' | 'detect'
+    if (bodyIsolated && isReasonableIsolatedList(bodyIsolated)) {
       isolatedTractsByGroup = bodyIsolated;
+      isolatedSource = 'body';
       const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
-      console.log(`📥 Using isolated tracts data from request body (${total} tract(s) in ${Object.keys(isolatedTractsByGroup).length} group(s))`);
-    } else if (dgAdjacentValid) {
-      const derived = deriveIsolatedFromDgAdjacentGroups(currentStep.dgAdjacentGroupsByGroup, step0IslandSetForMove);
-      if (isReasonableIsolatedList(derived.isolatedTractsByGroup)) {
-        isolatedTractsByGroup = derived.isolatedTractsByGroup;
-        console.log(`📥 Using isolated tracts derived from step dgAdjacentGroupsByGroup`);
-      } else {
-        console.warn(`⚠️ Derived isolated list has >${MAX_ISOLATED_PER_GROUP} in a group (wrong step?), skipping dgAdjacentGroupsByGroup`);
+      const sample = Object.entries(isolatedTractsByGroup).flatMap(([k, arr]) => (Array.isArray(arr) ? arr : []).slice(0, 5)).slice(0, 10);
+      console.log(`📥 MOVE ISOLATED: Using isolated tracts from request body: total=${total}, groups=${Object.keys(isolatedTractsByGroup).length}, sample IDs: ${sample.join(', ')}${total > 10 ? '...' : ''}`);
+    } else if (bodyIsolated) {
+      console.warn(`⚠️ MOVE ISOLATED: Rejecting body isolated list (per-group >${MAX_ISOLATED_PER_GROUP} or total >${MAX_ISOLATED_TOTAL}), will use cache or detect`);
+    }
+
+    // Prefer step cache doc (written when step was created) over in-memory state / dgAdjacent so we use the correct cached list
+    if (Object.keys(isolatedTractsByGroup).length === 0 && step > 0) {
+      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
+      let stepCachedEntry = stepDoc.exists ? stepDoc.data() : null;
+      if (stepCachedEntry && stepCachedEntry.algorithmVersion === currentVersion && stepCachedEntry.stepData && stepCachedEntry.stepData.isolatedTractsData) {
+        const cachedByGroup = stepCachedEntry.stepData.isolatedTractsData.isolatedTractsByGroup;
+        if (cachedByGroup && typeof cachedByGroup === 'object' && isReasonableIsolatedList(cachedByGroup)) {
+          isolatedTractsByGroup = cachedByGroup;
+          isolatedSource = 'stepCacheDoc';
+          currentStep.isolatedTractsData = stepCachedEntry.stepData.isolatedTractsData;
+          algorithmState.steps[step] = currentStep;
+          const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+          const sample = Object.entries(isolatedTractsByGroup).flatMap(([k, arr]) => (Array.isArray(arr) ? arr : []).slice(0, 5)).slice(0, 10);
+          console.log(`📥 MOVE ISOLATED: Using isolated tracts from step cache doc (algorithm_step_*): total=${total}, groups=${Object.keys(isolatedTractsByGroup).length}, sample IDs: ${sample.join(', ')}${total > 10 ? '...' : ''}`);
+        }
+      }
+      if (Object.keys(isolatedTractsByGroup).length === 0) {
+        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
+        stepCachedEntry = stepDoc.exists ? stepDoc.data() : null;
+        const dataToUse = stepCachedEntry?.stepData !== undefined ? stepCachedEntry.stepData : stepCachedEntry;
+        if (dataToUse?.isolatedTractsData?.isolatedTractsByGroup && isReasonableIsolatedList(dataToUse.isolatedTractsData.isolatedTractsByGroup)) {
+          isolatedTractsByGroup = dataToUse.isolatedTractsData.isolatedTractsByGroup;
+          isolatedSource = 'stepCacheDoc';
+          currentStep.isolatedTractsData = dataToUse.isolatedTractsData;
+          algorithmState.steps[step] = currentStep;
+          const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+          console.log(`📥 MOVE ISOLATED: Using isolated tracts from step cache doc (step_*): total=${total}, groups=${Object.keys(isolatedTractsByGroup).length}`);
+        }
       }
     }
+
     if (Object.keys(isolatedTractsByGroup).length === 0 && currentStep.isolatedTractsData && currentStep.isolatedTractsData.isolatedTractsByGroup && Object.keys(currentStep.isolatedTractsData.isolatedTractsByGroup).length > 0) {
       if (isReasonableIsolatedList(currentStep.isolatedTractsData.isolatedTractsByGroup)) {
         isolatedTractsByGroup = currentStep.isolatedTractsData.isolatedTractsByGroup;
-        console.log(`📥 Using isolated tracts data from step cache`);
+        isolatedSource = 'stepCache';
+        const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+        const sample = Object.entries(isolatedTractsByGroup).flatMap(([k, arr]) => (Array.isArray(arr) ? arr : []).slice(0, 5)).slice(0, 10);
+        console.log(`📥 MOVE ISOLATED: Using isolated tracts from in-memory step cache: total=${total}, groups=${Object.keys(isolatedTractsByGroup).length}, sample IDs: ${sample.join(', ')}${total > 10 ? '...' : ''}`);
       } else {
-        console.warn(`⚠️ Step cache isolated list has >${MAX_ISOLATED_PER_GROUP} in a group (wrong step?), skipping step cache`);
+        console.warn(`⚠️ Step cache isolated list has >${MAX_ISOLATED_PER_GROUP} in a group or total >${MAX_ISOLATED_TOTAL} (wrong step?), skipping step cache`);
       }
     }
+    if (Object.keys(isolatedTractsByGroup).length === 0 && dgAdjacentValid) {
+      const derived = deriveIsolatedFromDgAdjacentGroups(currentStep.dgAdjacentGroupsByGroup, step0IslandSetForMove);
+      if (isReasonableIsolatedList(derived.isolatedTractsByGroup)) {
+        isolatedTractsByGroup = derived.isolatedTractsByGroup;
+        isolatedSource = 'dgAdjacent';
+        const total = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+        console.log(`📥 MOVE ISOLATED: Using isolated tracts derived from dgAdjacentGroupsByGroup: total=${total}, groups=${Object.keys(isolatedTractsByGroup).length}`);
+      } else {
+        console.warn(`⚠️ Derived isolated list has >${MAX_ISOLATED_PER_GROUP} in a group or total >${MAX_ISOLATED_TOTAL} (wrong step?), skipping dgAdjacentGroupsByGroup`);
+      }
+    }
+
+    // If we have cached data but it looks broken (e.g. almost all tracts isolated when S4 data is available), prefer fresh detection
+    const totalTractsInGroups = currentStep.districtGroups?.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0) || 0;
+    const cachedTotal = Object.values(isolatedTractsByGroup).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+    const looksBroken = hasS4Data && cachedTotal > 0 && totalTractsInGroups > 100 && cachedTotal > totalTractsInGroups * 0.5; // >50% of tracts isolated looks suspicious
+
+    if (looksBroken && isolatedSource !== 'detect') {
+      console.log(`⚠️ Cached isolated data looks broken (${cachedTotal} of ${totalTractsInGroups} tracts isolated when S4 data available), discarding ${isolatedSource} data and running fresh detection...`);
+      Object.keys(isolatedTractsByGroup).forEach(k => delete isolatedTractsByGroup[k]);
+      isolatedSource = null;
+    }
+
     if (Object.keys(isolatedTractsByGroup).length === 0) {
-      // Detect isolated tracts now (for backward compatibility or after rejecting oversized derived/cache lists)
-      console.log(`⚠️ No isolated tracts data in step cache or request (or rejected oversized list), detecting now...`);
+      // Last resort: detect (e.g. no cache, first request after step created elsewhere)
+      console.log(`${hasS4Data ? '✅' : '⚠️'} ${hasS4Data ? 'Fresh' : 'Fallback'} isolation detection (S4 ${hasS4Data ? 'available' : 'unavailable'})...`);
       if (!algorithmState.uniqueTracts && algorithmState.uniqueTractIds) {
         algorithmState.uniqueTracts = await reconstructUniqueTracts(algorithmState);
       }
@@ -7751,6 +7838,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       detectionResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
         isolatedTractsByGroup[groupIndex] = Array.from(tractIds);
       });
+      isolatedSource = 'detect';
+      const detTotal = detectionResult.isolatedTractIds.size;
+      const detSample = Array.from(detectionResult.isolatedTractIds).slice(0, 10);
+      console.log(`📥 MOVE ISOLATED: Using isolated tracts from ${hasS4Data ? 'fresh' : 'fallback'} detection: total=${detTotal}, groups=${Object.keys(isolatedTractsByGroup).length}, sample IDs: ${detSample.join(', ')}${detTotal > 10 ? '...' : ''}`);
       currentStep.isolatedTractsData = {
         isolatedTractsByGroup,
         isolatedTractIds: Array.from(detectionResult.isolatedTractIds),
@@ -7799,13 +7890,13 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     let iterationCount = 0;
     const maxProcessingIterations = 10; // Safety limit to prevent infinite loops
-    // Tracts we skipped (no neighbor in target) per group - do not retry to avoid infinite loop
+    // Tracts we skipped (no neighbor in any group) per group - do not retry to avoid infinite loop
     const skippedByGroup = {};
 
     // Recursively process until no more isolated tracts remain
     while (groupIndices.length > 0 && iterationCount < maxProcessingIterations) {
       iterationCount++;
-      console.log(`🔄 Iteration ${iterationCount}: Processing ${groupIndices.length} group(s) with isolated tracts: ${groupIndices.join(', ')}`);
+      // One line per iteration
 
       // Process each group sequentially in this iteration
       for (const groupIndex of groupIndices) {
@@ -7815,7 +7906,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           continue;
         }
 
-        console.log(`   Moving ${isolatedTractIds.length} isolated tract(s) from group ${groupIndex}`);
+        // Per-group move summary (no per-tract logs)
 
         try {
           const result = algorithmService.moveIsolatedTractsToOppositeGroup(
@@ -7864,8 +7955,6 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       const newGroupIndices = Object.keys(isolatedTractsByGroup)
         .map(idx => parseInt(idx))
         .sort((a, b) => a - b);
-      
-      console.log(`🔄 Still have ${remainingCount} isolated tracts in ${Object.keys(newIsolatedTractsByGroup).length} groups. Continuing...`);
       
       groupIndices.length = 0;
       groupIndices.push(...newGroupIndices);
