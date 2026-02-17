@@ -138,7 +138,7 @@
                     class="move-isolated-btn">
                     {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
                   </button>
-                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || !(currentStep?.divisionLines?.length)"
+                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || !(currentStep.divisionLines?.length)"
                     class="balance-districts-btn" matTooltip="Balance sibling district groups after moving isolated tracts">
                     {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
                   </button>

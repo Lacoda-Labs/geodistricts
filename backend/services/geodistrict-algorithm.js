@@ -563,20 +563,42 @@ function calculateBboxFromGeometry(tracts) {
  * @returns {'latitude'|'longitude'}
  */
 function chooseDivisionDirection(group) {
+  const groupLabel = `DG${group.startDistrictNumber}-${group.endDistrictNumber}`;
   const bbox = calculateBboxFromGeometry(group.censusTracts);
   const latSpan = bbox.north - bbox.south;
   const lngSpan = bbox.east - bbox.west;
   const maxSpan = Math.max(latSpan, lngSpan);
+  const minSpan = Math.min(latSpan, lngSpan);
+  const ratio = maxSpan > 0 ? minSpan / maxSpan : 0;
+  const lastDir = group.lastDivisionDirection ?? null;
+
+  let direction;
+  let reason;
+
   if (maxSpan <= 0) {
-    return (group.lastDivisionDirection === 'longitude') ? 'latitude' : (group.lastDivisionDirection === 'latitude' ? 'longitude' : 'latitude');
+    direction = (lastDir === 'longitude') ? 'latitude' : (lastDir === 'latitude' ? 'longitude' : 'latitude');
+    reason = 'zero span, default/tie-break';
+  } else if (ratio >= CLOSE_ASPECT_THRESHOLD) {
+    if (lastDir === 'latitude') {
+      direction = 'longitude';
+      reason = `tie/close ratio ${ratio.toFixed(3)} >= ${CLOSE_ASPECT_THRESHOLD}, alternate from parent (was latitude)`;
+    } else if (lastDir === 'longitude') {
+      direction = 'latitude';
+      reason = `tie/close ratio ${ratio.toFixed(3)} >= ${CLOSE_ASPECT_THRESHOLD}, alternate from parent (was longitude)`;
+    } else {
+      direction = 'latitude';
+      reason = `tie/close ratio ${ratio.toFixed(3)} >= ${CLOSE_ASPECT_THRESHOLD}, no parent -> default latitude`;
+    }
+  } else if (lngSpan > latSpan) {
+    direction = 'longitude';
+    reason = `lngSpan (${lngSpan.toFixed(4)}) > latSpan (${latSpan.toFixed(4)}): bbox wider E-W -> divide by longitude`;
+  } else {
+    direction = 'latitude';
+    reason = `latSpan (${latSpan.toFixed(4)}) >= lngSpan (${lngSpan.toFixed(4)}): bbox taller N-S -> divide by latitude`;
   }
-  const ratio = Math.min(latSpan, lngSpan) / maxSpan;
-  if (ratio >= CLOSE_ASPECT_THRESHOLD) {
-    if (group.lastDivisionDirection === 'latitude') return 'longitude';
-    if (group.lastDivisionDirection === 'longitude') return 'latitude';
-    return 'latitude';
-  }
-  return lngSpan > latSpan ? 'longitude' : 'latitude';
+
+  console.log(`🧭 DIVISION DIRECTION ${groupLabel}: ${direction} | bbox [S=${bbox.south.toFixed(4)} N=${bbox.north.toFixed(4)} W=${bbox.west.toFixed(4)} E=${bbox.east.toFixed(4)}] latSpan=${latSpan.toFixed(4)} lngSpan=${lngSpan.toFixed(4)} ratio=${ratio.toFixed(3)} lastDir=${lastDir} | ${reason}`);
+  return direction;
 }
 
 /**
