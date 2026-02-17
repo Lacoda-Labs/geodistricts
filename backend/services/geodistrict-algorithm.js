@@ -2042,14 +2042,19 @@ class GeodistrictAlgorithmService {
 
       // Add known CA island tracts (hardcoded for now - could be made configurable)
       const knownCAIslandTracts = ['06037599000', '06037599100', '06075980401', '06083980100', '06111980000'];
-      // Check if this is CA by looking at tract IDs
+      let stateCode = null;
       if (Array.isArray(uniqueTracts) && uniqueTracts.length > 0) {
         const firstTract = uniqueTracts[0];
-        const stateCode = firstTract?.properties?.STATE || firstTract?.properties?.['STATE_FIPS'] ||
-                         (firstTract?.properties?.GEOID ? firstTract.properties.GEOID.substring(0, 2) : null);
-        if (stateCode === '06' || stateCode === 'CA') {
-          knownCAIslandTracts.forEach(id => islandSet.add(id));
-        }
+        stateCode = firstTract?.properties?.STATE || firstTract?.properties?.['STATE_FIPS'] ||
+          (firstTract?.properties?.GEOID ? firstTract.properties.GEOID.substring(0, 2) : null);
+      }
+      if (!stateCode && updatedGroups.length > 0 && updatedGroups[0].censusTracts?.length > 0) {
+        const t = updatedGroups[0].censusTracts[0];
+        stateCode = t?.properties?.STATE || t?.properties?.['STATE_FIPS'] ||
+          (t?.properties?.GEOID ? String(t.properties.GEOID).substring(0, 2) : null);
+      }
+      if (stateCode === '06' || stateCode === 'CA') {
+        knownCAIslandTracts.forEach(id => islandSet.add(id));
       }
 
       if (islandSet.size > 0) {
@@ -4138,6 +4143,7 @@ class GeodistrictAlgorithmService {
               for (const group of islandGroups) {
                 if (Array.isArray(group)) group.forEach(id => islandSet.add(id));
                 else if (typeof group === 'string') islandSet.add(group);
+                else if (group && Array.isArray(group.tractIds)) group.tractIds.forEach(id => islandSet.add(id));
               }
             }
           }
@@ -4151,6 +4157,16 @@ class GeodistrictAlgorithmService {
         if (!isWaterOrSpecialTract(tract)) continue;
         const id = getTractId(tract);
         if (id) islandSet.add(id);
+      }
+      // Known CA Pacific island tracts: always exclude from isolation at steps 1+ (even if step-0 island data missing/wrong format)
+      const knownCAIslandTracts = ['06037599000', '06037599100', '06075980401', '06083980100', '06111980000'];
+      if (uniqueTracts.length > 0) {
+        const firstTract = uniqueTracts[0];
+        const stateCode = firstTract?.properties?.STATE || firstTract?.properties?.['STATE_FIPS'] ||
+          (firstTract?.properties?.GEOID ? firstTract.properties.GEOID.substring(0, 2) : null);
+        if (stateCode === '06' || stateCode === 'CA') {
+          knownCAIslandTracts.forEach(id => islandSet.add(id));
+        }
       }
       if (islandSet.size > 0) {
         step0IslandTractIds = islandSet;

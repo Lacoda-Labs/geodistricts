@@ -559,22 +559,6 @@
   font-size: var(--text-sm);
 }
 
-.leaflet-popup-swap-btn {
-  margin-top: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
-  font-family: var(--font-family-primary);
-  cursor: pointer;
-  background: var(--primary, #1976d2);
-  color: var(--white, #fff);
-  border: none;
-  border-radius: var(--radius-md, 6px);
-  appearance: none;
-}
-.leaflet-popup-swap-btn:hover {
-  opacity: 0.9;
-}
-
 .leaflet-popup-tip {
   background: var(--white);
   border: 1px solid var(--gray-200);

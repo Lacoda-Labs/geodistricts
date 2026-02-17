@@ -265,15 +265,6 @@ class LatLongDivisionService {
         }
       }
       
-      // Debug logging for specific tracts (enclosed) and water/special tracts (990000, 999900)
-      const tractNum = tractId ? tractId.slice(-6) : '';
-      const isWaterOrSpecial = tractNum === '990000' || tractNum === '999900';
-      if (tractId && (tractId.includes('001700') || tractId.includes('002302') || isWaterOrSpecial)) {
-        const hasGeom = !!(tract.geometry && (tract.geometry.coordinates?.length || tract.geometry.coordinates?.[0]?.length));
-        const fromProps = !!(tract.properties?.MIN_LAT != null && tract.properties?.MAX_LNG != null);
-        console.log(`📊 SORTING: Tract ${tractId} - isEnclosed=${!!isEnclosed}, sortValue=${typeof sortValue === 'number' ? sortValue.toFixed(6) : sortValue}, bounds=[${bounds.minLng?.toFixed(4)},${bounds.maxLng?.toFixed(4)}] hasGeometry=${hasGeom} boundsFromProps=${fromProps}`);
-      }
-      
       return { tract, bounds, sortValue, population, groupId, isEnclosed, enclosingTractId: isEnclosed };
     });
 

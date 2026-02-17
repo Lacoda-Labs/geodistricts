@@ -220,10 +220,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Popup "Swap to sibling" calls this via window (content is HTML string, not Angular template)
-    if (typeof window !== 'undefined') {
-      (window as any).gdSwapTract = (tractId: string) => this.swapTractToSibling(tractId);
-    }
     // Check if admin mode is enabled via URL hash
     if (typeof window !== 'undefined') {
       this.isAdminMode = window.location.hash === '#admin';
@@ -3068,8 +3064,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
               <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
               <strong>Tracts in District:</strong> ${district.censusTracts.length}<br>
-              <strong>Sibling:</strong> ${this.getSiblingDGLabel(tract)}
-              ${tract.properties?.['sibling_DG'] ? `<br><button type="button" class="leaflet-popup-swap-btn" onclick="window.gdSwapTract('${tractId}')">Swap to sibling</button>` : ''}
+              <strong>Sibling:</strong> ${this.getSiblingDGLabel(tract)}<br>
+              <strong>bbox:</strong> ${this.getTractBboxString(tract)}
             `);
             
             // Store tract ID to layer mapping for popup access
@@ -3718,7 +3714,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private isStaleIsolatedTractsData(step: GeodistrictStep | null, stepIsolatedData: { isolatedTractIds?: string[]; totalIsolated?: number } | null): boolean {
     if (!step?.districtGroups || !stepIsolatedData) return false;
-    const totalTracts = step.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length ?? g.censusTractIds?.length ?? 0), 0);
+    const totalTracts = step.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length ?? 0), 0);
     const cachedCount = stepIsolatedData.totalIsolated ?? stepIsolatedData.isolatedTractIds?.length ?? 0;
     // Don't mark as stale if censusTracts aren't loaded (totalTracts = 0) - trust the cached data
     return cachedCount > 500 || (totalTracts > 0 && cachedCount > totalTracts * 0.1);
@@ -4378,15 +4374,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const isIsolated = this.isolatedTractIds.has(tractId);
         const isBridge = this.bridgeTractIds.has(tractId);
         const siblingLabel = this.getSiblingDGLabel(tractFeature);
-        const hasSibling = !!(tractFeature.properties?.['sibling_DG']);
         const popupContent = `
           <strong>${groupLabel}</strong><br>
           <strong>Tract ID:</strong> ${props.TRACT_FIPS ?? props['GEOID'] ?? tractId}<br>
           ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
           ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
           <strong>Population:</strong> ${(props.POPULATION ?? 0).toLocaleString()}<br>
-          <strong>Sibling:</strong> ${siblingLabel}
-          ${hasSibling ? `<br><button type="button" class="leaflet-popup-swap-btn" onclick="window.gdSwapTract('${tractId}')">Swap to sibling</button>` : ''}
+          <strong>Sibling:</strong> ${siblingLabel}<br>
+          <strong>bbox:</strong> ${this.getTractBboxString(tractFeature)}
         `;
         L.popup({ className: 'tract-locate-popup' }).setLatLng(center).setContent(popupContent).openOn(this.map);
       } else {
@@ -4446,64 +4441,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return '–';
   }
 
-  /**
-   * Move a single tract to its sibling DG (used from popup "Swap to sibling" button).
-   */
-  swapTractToSibling(tractId: string): void {
-    if (!this.currentStep || !this.selectedState) return;
-    const groupIndex = this.currentStep.districtGroups.findIndex(g =>
-      g.censusTracts?.some(t => this.getTractId(t) === tractId)
-    );
-    if (groupIndex < 0) {
-      this.errorMessage = `Tract ${tractId} not found in current step`;
-      return;
-    }
-    this.moveIsolatedHint = '';
-    this.isMovingIsolatedTracts = true;
-    const isolatedTractsByGroup: { [k: string]: string[] } = { [groupIndex]: [tractId] };
-    this.geodistrictService.moveAllIsolatedTractsFromStep(
-      this.selectedState,
-      this.currentStep.step,
-      100,
-      { isolatedTractsByGroup, isolatedTractIds: [tractId] },
-      this.currentStep.districtGroups && Array.isArray(this.currentStep.districtGroups) ? this.currentStep.districtGroups : undefined,
-      this.currentStep.divisionLines && Array.isArray(this.currentStep.divisionLines) ? this.currentStep.divisionLines : undefined,
-      this.currentStep.step !== 0 ? this.getStep0IslandTractIds() : undefined
-    ).pipe(
-      finalize(() => {
-        this.isMovingIsolatedTracts = false;
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: (result) => {
-        this.errorMessage = '';
-        if (this.currentStep) {
-          this.currentStep.districtGroups = result.districtGroups;
-          this.currentStep.isolatedTractsData = {
-            isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-            isolatedTractIds: result.isolationResult.isolatedTractIds,
-            totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation
-          };
-        }
-        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
-        this.isolatedTractsData = {
-          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds
-        };
-        if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
-          this.loadedSteps[this.currentStepIndex] = this.currentStep!;
-        }
-        this.bridgeTractIds.clear();
-        this.bridgeTractsData = null;
-        this.moveIsolatedHint = (result as any).hint || '';
-        this.renderFinalDistricts();
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        this.errorMessage = err?.message || err.error?.message || err.message || 'Failed to swap tract';
-      }
-    });
+  /** Format tract bbox for popup display (S, N, W, E from geometry or properties). */
+  private getTractBboxString(tract: GeoJsonFeature): string {
+    const b = this.getTractBoundsForSort(tract);
+    if (!b) return '';
+    return `S=${b.minLat.toFixed(4)} N=${b.maxLat.toFixed(4)} W=${b.minLng.toFixed(4)} E=${b.maxLng.toFixed(4)}`;
   }
 
   /**
