@@ -1033,7 +1033,8 @@ class LatLongDivisionService {
       totalDistricts: division.first,
       totalPopulation: firstGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
       bounds: calculateBounds(firstGroupTracts),
-      centroid: calculateCentroid(firstGroupTracts)
+      centroid: calculateCentroid(firstGroupTracts),
+      lastDivisionDirection: direction
     };
 
     const secondGroup = {
@@ -1043,7 +1044,8 @@ class LatLongDivisionService {
       totalDistricts: division.second,
       totalPopulation: secondGroupTracts.reduce((sum, tract) => sum + (tract.properties?.POPULATION || 0), 0),
       bounds: calculateBounds(secondGroupTracts),
-      centroid: calculateCentroid(secondGroupTracts)
+      centroid: calculateCentroid(secondGroupTracts),
+      lastDivisionDirection: direction
     };
 
     // Calculate variance

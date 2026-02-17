@@ -26,6 +26,8 @@ export interface DistrictGroup {
     lat: number;
     lng: number;
   };
+  /** Direction used when this group was created (for tie-break when aspect ratio is close). */
+  lastDivisionDirection?: 'latitude' | 'longitude' | null;
   unionPolygon?: GeoJsonFeature; // Union polygon of all tracts in the district group
 }
 
@@ -667,7 +669,8 @@ export class GeodistrictAlgorithmService {
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
       bounds: this.calculateBounds(sortedTracts),
-      centroid: this.calculateCentroid(sortedTracts)
+      centroid: this.calculateCentroid(sortedTracts),
+      lastDivisionDirection: null
     };
 
     const steps: GeodistrictStep[] = [];
@@ -682,10 +685,9 @@ export class GeodistrictAlgorithmService {
     if (currentGroups.some(group => group.totalDistricts > 1)) {
       iteration++;
       const newGroups: DistrictGroup[] = [];
-      const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
-
       const divisionLines: DivisionLineInfo[] = [];
       let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+      let stepDirection: 'latitude' | 'longitude' = 'latitude'; // Primary direction for step (first division)
       
       for (const group of currentGroups) {
         if (group.totalDistricts === 1) {
@@ -693,6 +695,8 @@ export class GeodistrictAlgorithmService {
           newGroups.push(group);
           algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
         } else {
+          const direction = this.chooseDivisionDirection(group);
+          stepDirection = direction;
           // Calculate division ratio for this group
           const division = this.calculateOptimalDivision(group.totalDistricts);
           
@@ -725,7 +729,7 @@ export class GeodistrictAlgorithmService {
       }
 
     // Create step for this iteration
-      steps.push(this.createStep(iteration, 1, newGroups, `Division 1 by ${direction}`, direction, divisionLine, divisionLines));
+      steps.push(this.createStep(iteration, 1, newGroups, `Division 1 by ${stepDirection}`, stepDirection, divisionLine, divisionLines));
       currentGroups = newGroups;
     }
 
@@ -833,10 +837,9 @@ export class GeodistrictAlgorithmService {
     // Execute next division
     iteration++;
     const newGroups: DistrictGroup[] = [];
-    const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
-
     const divisionLines: DivisionLineInfo[] = [];
     let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+    let stepDirection: 'latitude' | 'longitude' = 'latitude'; // Primary direction for step (first division in this step)
     
     for (const group of currentGroups) {
       if (group.totalDistricts === 1) {
@@ -844,6 +847,8 @@ export class GeodistrictAlgorithmService {
         newGroups.push(group);
         algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
       } else {
+        const direction = this.chooseDivisionDirection(group);
+        stepDirection = direction;
         // Calculate division ratio for this group
         const division = this.calculateOptimalDivision(group.totalDistricts);
         
@@ -877,7 +882,7 @@ export class GeodistrictAlgorithmService {
     }
 
     // Create step for this iteration
-    steps.push(this.createStep(iteration, steps.length, newGroups, `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
+    steps.push(this.createStep(iteration, steps.length, newGroups, `Division ${iteration} by ${stepDirection}`, stepDirection, divisionLine, divisionLines));
     currentGroups = newGroups;
 
     // Check if all steps are complete (all groups are single districts)
@@ -893,7 +898,7 @@ export class GeodistrictAlgorithmService {
     // After all steps are complete, also run fixIsolatedTractsAcrossAllGroups to catch any remaining issues
     if (allStepsComplete) {
       const allTracts = currentGroups.flatMap(g => g.censusTracts);
-      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, allTracts, direction);
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, allTracts, stepDirection);
     }
 
     // Calculate final statistics
@@ -1029,7 +1034,8 @@ export class GeodistrictAlgorithmService {
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
       bounds: this.calculateBounds(tracts),
-      centroid: this.calculateCentroid(tracts)
+      centroid: this.calculateCentroid(tracts),
+      lastDivisionDirection: null
     };
 
     const steps: GeodistrictStep[] = [];
@@ -1044,10 +1050,9 @@ export class GeodistrictAlgorithmService {
     while (currentGroups.some(group => group.totalDistricts > 1) && iteration < maxIterations) {
       iteration++;
       const newGroups: DistrictGroup[] = [];
-      const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
-
       const divisionLines: DivisionLineInfo[] = [];
       let divisionLine: number | undefined = undefined; // Keep for backward compatibility
+      let stepDirection: 'latitude' | 'longitude' = 'latitude'; // Primary direction for step (first division in this iteration)
       
       for (const group of currentGroups) {
         if (group.totalDistricts === 1) {
@@ -1055,6 +1060,8 @@ export class GeodistrictAlgorithmService {
           newGroups.push(group);
           algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
         } else {
+          const direction = this.chooseDivisionDirection(group);
+          stepDirection = direction;
           // Calculate division ratio for this group
           const division = this.calculateOptimalDivision(group.totalDistricts);
           
@@ -1145,14 +1152,14 @@ export class GeodistrictAlgorithmService {
       }
       
       // Check for and resolve isolated tracts across all groups after this step
-      // Pass direction so population can be balanced immediately when tracts are moved
-      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts, direction);
+      // Pass stepDirection so population can be balanced immediately when tracts are moved
+      currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, tracts, stepDirection);
       
       // Rebalance populations after isolation fixes (for any remaining imbalance)
       currentGroups = this.rebalanceGroupPopulations(currentGroups, tracts, targetDistrictPopulation);
       
       steps.push(this.createStep(iteration, iteration, currentGroups,
-        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines));
+        `Division ${iteration} by ${stepDirection}`, stepDirection, divisionLine, divisionLines));
     }
 
     if (iteration >= maxIterations) {
@@ -1855,6 +1862,48 @@ export class GeodistrictAlgorithmService {
     }
 
     return { north, south, east, west };
+  }
+
+  /** When aspect ratio min/max >= this, treat as tie and use parent lastDivisionDirection to alternate. */
+  private static readonly CLOSE_ASPECT_THRESHOLD = 0.9;
+
+  /**
+   * Bounding box from tract geometry extents (not centroids). Used for aspect-ratio-based division direction.
+   */
+  private calculateBboxFromGeometry(tracts: GeoJsonFeature[]): { north: number; south: number; east: number; west: number } {
+    if (!tracts || tracts.length === 0) {
+      return { north: 0, south: 0, east: 0, west: 0 };
+    }
+    let north = -90, south = 90, east = -180, west = 180;
+    for (const tract of tracts) {
+      const b = this.getTractBounds(tract);
+      north = Math.max(north, b.maxLat);
+      south = Math.min(south, b.minLat);
+      east = Math.max(east, b.maxLng);
+      west = Math.min(west, b.minLng);
+    }
+    return { north, south, east, west };
+  }
+
+  /**
+   * Choose division direction from group bbox aspect ratio: divide perpendicular to long axis.
+   * On tie or close ratio, alternate from parent's lastDivisionDirection.
+   */
+  private chooseDivisionDirection(group: DistrictGroup): 'latitude' | 'longitude' {
+    const bbox = this.calculateBboxFromGeometry(group.censusTracts);
+    const latSpan = bbox.north - bbox.south;
+    const lngSpan = bbox.east - bbox.west;
+    const maxSpan = Math.max(latSpan, lngSpan);
+    if (maxSpan <= 0) {
+      return (group.lastDivisionDirection === 'longitude') ? 'latitude' : (group.lastDivisionDirection === 'latitude' ? 'longitude' : 'latitude');
+    }
+    const ratio = Math.min(latSpan, lngSpan) / maxSpan;
+    if (ratio >= GeodistrictAlgorithmService.CLOSE_ASPECT_THRESHOLD) {
+      if (group.lastDivisionDirection === 'latitude') return 'longitude';
+      if (group.lastDivisionDirection === 'longitude') return 'latitude';
+      return 'latitude';
+    }
+    return lngSpan > latSpan ? 'longitude' : 'latitude';
   }
 
   /**
@@ -6247,8 +6296,8 @@ export class GeodistrictAlgorithmService {
 
       console.log(`📊 Dividing group ${groupToDivide.startDistrictNumber}-${groupToDivide.endDistrictNumber} (${groupToDivide.totalDistricts} districts, ${groupToDivide.censusTracts.length} tracts)`);
 
-      // Determine division direction (alternate between latitude and longitude)
-      const direction: 'latitude' | 'longitude' = iteration % 2 === 0 ? 'latitude' : 'longitude';
+      // Determine division direction from bbox aspect ratio (perpendicular to long axis); tie-break from parent lastDivisionDirection
+      const direction: 'latitude' | 'longitude' = this.chooseDivisionDirection(groupToDivide);
       console.log(`🧭 Division direction: ${direction}`);
 
       // Divide the group using latlong algorithm

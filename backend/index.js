@@ -684,6 +684,7 @@ function compressGeodistrictResult(result, state) {
         totalPopulation: group.totalPopulation,
         bounds: group.bounds,
         centroid: group.centroid,
+        lastDivisionDirection: group.lastDivisionDirection ?? null,
         // Only store tract IDs - geometries come from state cache
         censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
       })) : step.districtGroups
@@ -3391,6 +3392,7 @@ function normalizeAlgorithmState(algorithmState, tractCacheKey) {
       totalPopulation: group.totalPopulation,
       bounds: group.bounds,
       centroid: group.centroid,
+      lastDivisionDirection: group.lastDivisionDirection ?? null,
       censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
     };
     if (group.unionPolygonCacheKey) {
@@ -5505,6 +5507,7 @@ async function rehydrateAlgorithmStateFromStep0(state, maxIterations) {
         totalPopulation: group.totalPopulation,
         bounds: group.bounds,
         centroid: group.centroid,
+        lastDivisionDirection: group.lastDivisionDirection ?? null,
         censusTractIds,
         unionPolygonCacheKey: group.unionPolygonCacheKey
       };
@@ -6245,6 +6248,7 @@ function normalizeStepData(step, tractCacheKey) {
         totalPopulation: group.totalPopulation,
         bounds: group.bounds, // Simple object with numbers
         centroid: group.centroid, // Simple object with numbers
+        lastDivisionDirection: group.lastDivisionDirection ?? null,
         censusTractIds: group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []
       };
       

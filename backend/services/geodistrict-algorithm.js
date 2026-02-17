@@ -532,6 +532,53 @@ function calculateBounds(tracts) {
   return { north, south, east, west };
 }
 
+/** When aspect ratio min/max >= this, treat as tie and use parent lastDivisionDirection to alternate. */
+const CLOSE_ASPECT_THRESHOLD = 0.9;
+
+/**
+ * Calculate bounding box from tract geometry extents (not centroids).
+ * Used for aspect-ratio-based division direction.
+ * @param {Array} tracts - Array of tract features
+ * @returns {{ north: number, south: number, east: number, west: number }}
+ */
+function calculateBboxFromGeometry(tracts) {
+  if (!tracts || tracts.length === 0) {
+    return { north: 0, south: 0, east: 0, west: 0 };
+  }
+  let north = -90, south = 90, east = -180, west = 180;
+  for (const tract of tracts) {
+    const b = getTractBounds(tract);
+    north = Math.max(north, b.maxLat);
+    south = Math.min(south, b.minLat);
+    east = Math.max(east, b.maxLng);
+    west = Math.min(west, b.minLng);
+  }
+  return { north, south, east, west };
+}
+
+/**
+ * Choose division direction from group bbox aspect ratio: divide perpendicular to long axis.
+ * On tie or close ratio, alternate from parent's lastDivisionDirection.
+ * @param {Object} group - District group with censusTracts and optional lastDivisionDirection
+ * @returns {'latitude'|'longitude'}
+ */
+function chooseDivisionDirection(group) {
+  const bbox = calculateBboxFromGeometry(group.censusTracts);
+  const latSpan = bbox.north - bbox.south;
+  const lngSpan = bbox.east - bbox.west;
+  const maxSpan = Math.max(latSpan, lngSpan);
+  if (maxSpan <= 0) {
+    return (group.lastDivisionDirection === 'longitude') ? 'latitude' : (group.lastDivisionDirection === 'latitude' ? 'longitude' : 'latitude');
+  }
+  const ratio = Math.min(latSpan, lngSpan) / maxSpan;
+  if (ratio >= CLOSE_ASPECT_THRESHOLD) {
+    if (group.lastDivisionDirection === 'latitude') return 'longitude';
+    if (group.lastDivisionDirection === 'longitude') return 'latitude';
+    return 'latitude';
+  }
+  return lngSpan > latSpan ? 'longitude' : 'latitude';
+}
+
 /**
  * Calculate centroid for a single tract
  */
@@ -1679,7 +1726,8 @@ class GeodistrictAlgorithmService {
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
       bounds: calculateBounds(uniqueTracts),
-      centroid: calculateCentroid(uniqueTracts)
+      centroid: calculateCentroid(uniqueTracts),
+      lastDivisionDirection: null
     };
 
     // Initialize DG properties for step 0 (all tracts in single group)
@@ -1752,10 +1800,10 @@ class GeodistrictAlgorithmService {
     }
 
     const nextIteration = iteration + 1;
-    const direction = nextIteration % 2 === 1 ? 'latitude' : 'longitude';
     const newGroups = [];
     const divisionLines = [];
-    
+    let stepDirection = 'latitude'; // Primary direction for step (first division in this step)
+
     // Ensure algorithmHistory is initialized (might be undefined if state was reconstructed from cache)
     if (!algorithmHistory) {
       algorithmState.algorithmHistory = [];
@@ -1765,6 +1813,8 @@ class GeodistrictAlgorithmService {
       if (group.totalDistricts === 1) {
         newGroups.push(group);
       } else {
+        const direction = chooseDivisionDirection(group);
+        stepDirection = direction;
         const division = calculateOptimalDivision(group.totalDistricts);
         const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, false);
         
@@ -1967,7 +2017,7 @@ class GeodistrictAlgorithmService {
 
     const createStepStartTime = Date.now();
     const step = createStep(nextIteration, nextIteration, updatedGroups,
-      `Division ${nextIteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
+      `Division ${nextIteration} by ${stepDirection}`, stepDirection, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
     const createStepTime = Date.now() - createStepStartTime;
     if (createStepTime > 10) {
       console.log(`⏱️ CREATE STEP: Completed in ${createStepTime}ms`);
@@ -4047,7 +4097,8 @@ class GeodistrictAlgorithmService {
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
       bounds: calculateBounds(uniqueTracts),
-      centroid: calculateCentroid(uniqueTracts)
+      centroid: calculateCentroid(uniqueTracts),
+      lastDivisionDirection: null
     };
 
     const steps = [];
@@ -4094,8 +4145,6 @@ class GeodistrictAlgorithmService {
     while (currentGroups.some(group => group.totalDistricts > 1) && iteration < maxIterations) {
       iteration++;
       const newGroups = [];
-      const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
-
       const divisionLines = [];
       let divisionLine = undefined;
 
@@ -4105,6 +4154,7 @@ class GeodistrictAlgorithmService {
           newGroups.push(group);
           algorithmHistory.push(`Group ${group.startDistrictNumber}-${group.endDistrictNumber}: Already single district`);
         } else {
+          const direction = chooseDivisionDirection(group);
           // Calculate division ratio for this group
           const division = calculateOptimalDivision(group.totalDistricts);
           
@@ -4320,8 +4370,9 @@ class GeodistrictAlgorithmService {
         console.log(`✅ Step ${iteration} isolation resolved: ${resolutionSummary.bridgeTractsMoved} bridge, ${resolutionSummary.isolatedTractsMoved} isolated moved`);
       }
       
+      const stepDirection = divisionLines.length > 0 ? divisionLines[0].direction : 'latitude';
       const step = createStep(iteration, iteration, groupsForStep,
-        `Division ${iteration} by ${direction}`, direction, divisionLine, divisionLines, this, uniqueTracts, step0IslandTractIds);
+        `Division ${iteration} by ${stepDirection}`, stepDirection, divisionLine, divisionLines, this, uniqueTracts, step0IslandTractIds);
       
       // Add resolution summary to step if available
       if (resolutionSummary) {
@@ -4490,7 +4541,8 @@ class GeodistrictAlgorithmService {
       totalDistricts: totalDistricts,
       totalPopulation: totalStatePopulation,
       bounds: calculateBounds(uniqueTracts),
-      centroid: calculateCentroid(uniqueTracts)
+      centroid: calculateCentroid(uniqueTracts),
+      lastDivisionDirection: null
     };
 
     // Initialize DG properties for step 0 (all tracts in single group)
@@ -4515,7 +4567,6 @@ class GeodistrictAlgorithmService {
     // Main algorithm loop
     while (currentGroups.some(group => group.totalDistricts > 1) && iteration < maxIterations) {
       iteration++;
-      const direction = iteration % 2 === 1 ? 'latitude' : 'longitude';
       const newGroups = [];
       const divisionLines = [];
 
@@ -4523,6 +4574,7 @@ class GeodistrictAlgorithmService {
         if (group.totalDistricts === 1) {
           newGroups.push(group);
         } else {
+          const direction = chooseDivisionDirection(group);
           const division = calculateOptimalDivision(group.totalDistricts);
           const divisionResult = await this.latLongDivisionService.divideDistrictGroup(group, direction, false);
           
@@ -4609,10 +4661,11 @@ class GeodistrictAlgorithmService {
       }
       
       // Fix isolated tracts after division (DISABLED - now manual via UI)
-      // currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, direction);
+      // currentGroups = this.fixIsolatedTractsAcrossAllGroups(currentGroups, uniqueTracts, stepDirection);
       
+      const stepDirection = divisionLines.length > 0 ? divisionLines[0].direction : 'latitude';
       const step = createStep(iteration, iteration, currentGroups,
-        `Division ${iteration} by ${direction}`, direction, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
+        `Division ${iteration} by ${stepDirection}`, stepDirection, undefined, divisionLines, this, uniqueTracts, step0IslandTractIds);
       steps.push(step);
       
       yield { step: iteration, data: step, isComplete: false };

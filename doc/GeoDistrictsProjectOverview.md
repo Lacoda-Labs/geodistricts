@@ -42,7 +42,7 @@ Democracy is preserved as no centralized state authority can be compromised into
   2. **Tract-Level Refinement**: Within each county group, sort tracts geographically and divide to achieve precise population targets.
 
 - Division of district groups is repeated until each district group has only one district.
-- Each iteration alternates dividing district groups geographically by latitude and longitude.
+- Division direction is chosen **per group** from the group’s bounding-box aspect ratio: divide perpendicular to the long axis (e.g. if the group is taller N–S, divide by latitude). When the aspect ratio is tied or close (e.g. ratio ≥ 0.9), the algorithm alternates from the parent DG’s last division direction so the result remains deterministic.
 - When a district group contains an odd number of districts, subtract 1 from the number of districts in the group and divide by 2, assign the new divided group that even halved number of districts, and the other the same halved number + 1. For example, a district group with 13 districts is divided into two new district groups with 6 in one and 7 in the other and a population ratio of [6/13, 7/13].
     - Population ratios for odd numbers are calculated with the denominator being the total number of districts and even/odd number numerators where one is rounded up and the other rounded down.
 - Only divide district groups that have more than one district (i.e., skip dividing district groups with only one district).
@@ -56,7 +56,7 @@ Democracy is preserved as no centralized state authority can be compromised into
 - **Step-by-Step Visualization**: Track each division iteration for transparency and debugging.
 - **Population Variance Tracking**: Monitor and report deviations from target population.
 - **Contiguity Scoring**: Calculate and report contiguity percentages for each district.
-- **Geographic Sorting**: Alternating latitude/longitude sorting ensures balanced geographic distribution.
+- **Geographic Sorting**: Division direction is chosen per group from bbox aspect ratio (divide perpendicular to the long axis); tie or close ratio uses the parent’s last division direction to alternate, ensuring deterministic and more compact districts.
 - **Performance Optimized**: County-level division reduces complexity for large states.
 
 ### Implementation Status
