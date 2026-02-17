@@ -548,6 +548,8 @@ function calculateBboxFromGeometry(tracts) {
   let north = -90, south = 90, east = -180, west = 180;
   for (const tract of tracts) {
     const b = getTractBounds(tract);
+    // Skip tracts with no geometry (getTractBounds returns 0,0,0,0); they would corrupt bbox (e.g. south=0, east=0)
+    if (b.minLat === 0 && b.maxLat === 0 && b.minLng === 0 && b.maxLng === 0) continue;
     north = Math.max(north, b.maxLat);
     south = Math.min(south, b.minLat);
     east = Math.max(east, b.maxLng);
