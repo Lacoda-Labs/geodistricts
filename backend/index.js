@@ -7444,6 +7444,14 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
 
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
+      // When no isolated tracts remain, create union polygons for the two sibling DGs and include in response for hide-tract map rendering
+      if (totalRemaining === 0 && step > 0) {
+        for (const group of updatedGroups) {
+          group.unionPolygon = undefined;
+          group.unionPolygons = undefined;
+        }
+        await recreateUnionPolygonsForGroups(updatedGroups, true, step);
+      }
       return res.json({
         districtGroups: updatedGroups,
         isolationResult: {

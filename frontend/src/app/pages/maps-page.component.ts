@@ -3029,6 +3029,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
 
         if (polygonsToRender.length > 0) {
+          console.log(`🖼️ Rendering union polygon(s) for DG ${district.startDistrictNumber}-${district.endDistrictNumber} (${polygonsToRender.length} part(s)), showTractBoundaries=false`);
           const districtLabel = district.startDistrictNumber === district.endDistrictNumber
             ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
           const popupContent = `<strong>${districtLabel}</strong><br>
@@ -4106,6 +4107,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         this.errorMessage = ''; // Clear any previous error on success
+        // Log union polygons from response (for hide-tract rendering after move isolated)
+        if (result.districtGroups?.length && result.isolationResult.totalIsolated === 0) {
+          result.districtGroups.forEach((g: any, i: number) => {
+            const hasUnion = !!(g.unionPolygon?.geometry || (Array.isArray(g.unionPolygons) && g.unionPolygons.length > 0));
+            console.log(`🔍 Move isolated response: group ${i} (${g.startDistrictNumber}-${g.endDistrictNumber}) has union polygon: ${hasUnion}`);
+          });
+        }
         // Update current step with new district groups
         if (this.currentStep) {
           this.currentStep.districtGroups = result.districtGroups;
@@ -4544,6 +4552,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get targetDGPopulationRounded(): number {
     return Math.round(this.targetDGPopulation);
+  }
+
+  /**
+   * Final target population per district (state population / number of districts).
+   * Use for display in info-header; differs from targetDGPopulation which is per current DG.
+   */
+  get finalTargetDistrictPopulation(): number {
+    const pop = this.statePopulation;
+    const n = this.getStateDistrictCount(this.selectedState);
+    return n > 0 ? Math.round(pop / n) : 0;
   }
 
   /**

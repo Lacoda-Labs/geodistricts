@@ -50,22 +50,31 @@
     <ng-container *ngIf="selectedState !== 'ALL'">
       <section class="info-section">
         <div class="info-header">
-          <div class="state-rows-header">
-            <div class="header-row">
-              <div class="header-cell state-column" (click)="selectedState = 'ALL'; onStateChange()"
-                style="cursor: pointer;">Map</div>
-              <div class="header-cell congress-column">119th Congress</div>
-              <div class="header-cell geodistricts-column">GeoDistricts</div>
-              <div class="header-cell swing-column">Swing</div>
-            </div>
+          <!-- Row 1: State title + close -->
+          <div class="info-header-state-row">
+            <img *ngIf="selectedState && selectedState !== 'ALL'"
+              [src]="'/images/state-flags/23x15/' + selectedState + '.png'"
+              [alt]="stateName(selectedState) + ' Flag'"
+              class="info-header-flag"
+              (error)="$event.target.style.display='none'">
+            <span class="info-header-title">{{ stateName(selectedState) }} {{ getStateDistrictCount(selectedState) }} Districts</span>
+            <button class="info-header-close"
+              (click)="selectedState = 'ALL'; onStateChange()"
+              mat-icon-button
+              aria-label="Close and return to map">
+              <mat-icon fontIcon="close"></mat-icon>
+            </button>
           </div>
-          <app-state-row 
-            *ngIf="selectedState && selectedState !== 'ALL'"
-            [data]="getStateRowData(selectedState)"
-            [clickable]="false"
-            background="off"
-            section="info">
-          </app-state-row>
+          <!-- Row 2: Population -->
+          <div class="info-header-population-row">
+            <span class="info-header-population-item">
+              Population: <strong>{{ statePopulation.toLocaleString() }}</strong>
+            </span>
+            <span class="info-header-population-item">
+              Target District Population: <strong>{{ finalTargetDistrictPopulation.toLocaleString() }}</strong>
+            </span>
+          </div>
+          <div class="info-header-step-bar">
           <app-step-btn-bar
             [variant]="isAdminMode ? 'admin' : 'public'"
             [canGoToFirst]="canGoToFirstStep()"
@@ -84,6 +93,7 @@
             (restart)="resetToStart()"
             (clearCache)="forceRefreshAndReset()">
           </app-step-btn-bar>
+          </div>
         </div>
 
         <div class="info-body">

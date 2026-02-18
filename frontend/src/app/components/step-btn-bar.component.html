@@ -1,12 +1,12 @@
 <div class="step-btn-bar" [attr.data-variant]="variant">
-  <!-- Admin variant: Show tracts button -->
+  <!-- Admin variant: Restart algorithm (left) -->
   <button 
     *ngIf="variant === 'admin'"
-    class="icon-btn show-tracts-btn"
-    (click)="onToggleTracts()"
+    class="icon-btn restart-btn"
+    (click)="onRestart()"
     mat-icon-button
-    [attr.aria-label]="'Toggle tract boundaries'">
-    <mat-icon fontIcon="dashboard_2"></mat-icon>
+    [attr.aria-label]="'Restart algorithm'">
+    <mat-icon fontIcon="restart_alt"></mat-icon>
   </button>
 
   <!-- Step navigation buttons -->
@@ -60,16 +60,6 @@
       <mat-icon fontIcon="last_page"></mat-icon>
     </button>
   </div>
-
-  <!-- Admin variant: Restart algorithm button -->
-  <button 
-    *ngIf="variant === 'admin'"
-    class="icon-btn restart-btn"
-    (click)="onRestart()"
-    mat-icon-button
-    [attr.aria-label]="'Restart algorithm'">
-    <mat-icon fontIcon="restart_alt"></mat-icon>
-  </button>
 
   <!-- Admin variant: Clear all cache and force refresh (trash) -->
   <button 
