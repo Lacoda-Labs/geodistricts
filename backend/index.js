@@ -5284,7 +5284,9 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
     doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
     
     if (doc.exists) {
-      cachedEntry = doc.data();
+      let entry = doc.data();
+      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      cachedEntry = entry;
       // Check if expired
       if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
         cachedEntry = null; // Mark as invalid
@@ -5605,10 +5607,11 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
         const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
         
         if (doc.exists) {
-          const cachedEntry = doc.data();
+          let cachedEntry = doc.data();
+          cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
           
           // Check if expired
-          if (!isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
+          if (cachedEntry && !isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
             // Check algorithm version
             const cachedVersion = cachedEntry.algorithmVersion;
             const currentVersion = ALGORITHM_VERSION;
@@ -5794,7 +5797,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
           unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
         };
 
-        await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
+        await setStepCache(stepCacheKey, cacheData);
         console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} with ${Object.keys(unionPolygonCacheKeys).length} union polygon(s)`);
       } catch (cacheError) {
         console.warn(`⚠️ STEP CACHE STORE ERROR: ${cacheError.message}`);
@@ -5874,6 +5877,77 @@ function removeUndefinedValues(obj, depth = 0) {
     }
   }
   return cleaned;
+}
+
+/**
+ * Resolve step cache entry: if Firestore doc has step data in Cloud Storage, fetch and return full payload.
+ * @param {string} stepCacheKey - Document ID (e.g. algorithm_step_CA_100_1)
+ * @param {object} firestoreData - Data from Firestore doc
+ * @returns {Promise<object|null>} Full step cache entry (with stepData) or null
+ */
+async function resolveStepCacheEntry(stepCacheKey, firestoreData) {
+  if (!firestoreData) return null;
+  if (!firestoreData.cloudStorage || !firestoreData.cloudStoragePath) {
+    return firestoreData;
+  }
+  try {
+    const cloudResult = await cloudStorageCache.get(stepCacheKey);
+    if (cloudResult && cloudResult.data) {
+      return cloudResult.data;
+    }
+  } catch (err) {
+    console.warn(`⚠️ Failed to load step cache from Cloud Storage (${stepCacheKey}): ${err.message}`);
+  }
+  return firestoreData;
+}
+
+/**
+ * Write step cache: try Firestore first; on "too many index entries" store in Cloud Storage and write metadata-only to Firestore.
+ * @param {string} stepCacheKey - Document ID
+ * @param {object} cacheData - Full step cache payload (stepData, unionPolygonsCached, etc.)
+ * @returns {Promise<void>}
+ */
+async function setStepCache(stepCacheKey, cacheData) {
+  const FIRESTORE_INDEX_ERROR = 'too many index entries';
+  const sizeBytes = JSON.stringify(cacheData).length;
+  const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+  try {
+    await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
+    return;
+  } catch (err) {
+    const isIndexError = err.message && err.message.includes(FIRESTORE_INDEX_ERROR);
+    const isInvalidArg = err.code === 3 || (err.message && err.message.includes('INVALID_ARGUMENT'));
+    if (!isIndexError && !isInvalidArg) {
+      throw err;
+    }
+  }
+  console.log(`📦 CLOUD STORAGE: Step cache too large for Firestore (${sizeMB} MB), storing in Cloud Storage`);
+  try {
+    const cloudStoragePath = await cloudStorageCache.set(stepCacheKey, cacheData, {
+      source: 'algorithm-step-cache',
+      state: cacheData.state,
+      step: String(cacheData.step)
+    });
+    const metadataEntry = {
+      cloudStoragePath,
+      cloudStorage: true,
+      timestamp: cacheData.timestamp,
+      ttl: cacheData.ttl,
+      algorithmVersion: cacheData.algorithmVersion,
+      source: 'algorithm-step-cache-metadata',
+      normalized: cacheData.normalized,
+      tractCacheKey: cacheData.tractCacheKey,
+      state: cacheData.state,
+      step: cacheData.step,
+      isComplete: cacheData.isComplete,
+      unionPolygonsCached: cacheData.unionPolygonsCached
+    };
+    await firestore.collection('census_cache').doc(stepCacheKey).set(metadataEntry);
+    console.log(`💾 CLOUD STORAGE: Stored step cache for ${stepCacheKey} at ${cloudStoragePath}`);
+  } catch (cloudErr) {
+    console.error(`❌ Failed to store step cache in Cloud Storage: ${cloudErr.message}`);
+    throw cloudErr;
+  }
 }
 
 /**
@@ -7478,8 +7552,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       console.log(`⚠️ Algorithm state not found, attempting to reconstruct from cached step ${step}...`);
       
       // Try both step cache key formats (same as get-step): algorithm_step_ first, then step_
-      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
-      let cachedEntry = stepDoc.exists ? stepDoc.data() : null;
+      const algoStepKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+      let stepDoc = await firestore.collection('census_cache').doc(algoStepKey).get();
+      let cachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKey, stepDoc.data()) : null;
 
       if (cachedEntry) {
         if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
@@ -7632,8 +7707,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     );
     if (needsReconstruct) {
       console.log(`⚠️ Step ${step} has normalized groups (no censusTracts), reconstructing from step cache...`);
-      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
-      let cachedEntry = stepDoc.exists ? stepDoc.data() : null;
+      const algoStepKeyReconstruct = `algorithm_step_${state}_${maxIterations}_${step}`;
+      let stepDoc = await firestore.collection('census_cache').doc(algoStepKeyReconstruct).get();
+      let cachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKeyReconstruct, stepDoc.data()) : null;
       if (cachedEntry && cachedEntry.timestamp && !isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl) && cachedEntry.algorithmVersion === currentVersion) {
         // use as-is
       } else {
@@ -7753,8 +7829,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
     // Prefer step cache doc (written when step was created) over in-memory state / dgAdjacent so we use the correct cached list
     if (Object.keys(isolatedTractsByGroup).length === 0 && step > 0) {
-      let stepDoc = await firestore.collection('census_cache').doc(`algorithm_step_${state}_${maxIterations}_${step}`).get();
-      let stepCachedEntry = stepDoc.exists ? stepDoc.data() : null;
+      const algoStepKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+      let stepDoc = await firestore.collection('census_cache').doc(algoStepKey).get();
+      let stepCachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKey, stepDoc.data()) : null;
       if (stepCachedEntry && stepCachedEntry.algorithmVersion === currentVersion && stepCachedEntry.stepData && stepCachedEntry.stepData.isolatedTractsData) {
         const cachedByGroup = stepCachedEntry.stepData.isolatedTractsData.isolatedTractsByGroup;
         if (cachedByGroup && typeof cachedByGroup === 'object' && isReasonableIsolatedList(cachedByGroup)) {
@@ -8051,7 +8128,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
       };
 
-      await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
+      await setStepCache(stepCacheKey, cacheData);
       console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} as final step (after moving isolated tracts)`);
     } catch (cacheError) {
       console.warn(`⚠️ STEP CACHE STORE ERROR: Failed to save updated step after moving isolated tracts: ${cacheError.message}`);
