@@ -18,7 +18,7 @@ This repository (**geodistricts**) is the **reference implementation** of the Ge
 - **Frontend**: Angular 17+, TypeScript, Leaflet. Interactive maps, step-by-step algorithm visualization, division lines, district groups. See [ARCHITECTURE_DETAILS](../pages/ARCHITECTURE_DETAILS.md).
 - **Backend**: Node.js, Express. REST API for census data, algorithm execution, caching (Cloud Storage / local cache). See [ARCHITECTURE_DETAILS](../pages/ARCHITECTURE_DETAILS.md).
 - **Data flow**: Census API + TIGER/Line → backend cache → algorithm → geodistricts (tract list, population, optional steps) → frontend visualization.
-- **Caching**: Multi-tier (memory, backend cache, Cloud Storage for large state data). Caching design supports client performance when navigating algorithm steps. See [CACHING_DESIGN](../history/CACHING_DESIGN.md).
+- **Caching**: Multi-tier (memory, backend cache, Cloud Storage for large state data). Caching design supports client performance when navigating algorithm steps. See [CACHING_DESIGN](../pages/CACHING_DESIGN.md).
 
 ## Deployment
 
@@ -50,7 +50,7 @@ The protocol (GDIPs) can be used as context for an LLM to produce or extend refe
 
 - **Produce geodistrict boundaries for all 50 states + DC**: Use GDIP-002, GDIP-003, GDIP-004 as context; output must conform to the data model and algorithm.
 - **Produce UI that visualizes each algorithm step**: Use GDIP-004 (step structure) and reference implementation docs (step-through behavior, division lines). See `frontend/src/app/pages/maps-page.component.ts`, `frontend/src/app/components/geodistrict-viewer.component.ts`.
-- **Produce caching design for step navigation**: Use [CACHING_DESIGN](../history/CACHING_DESIGN.md) and requirement that client performance be supported as the user navigates steps.
+- **Produce caching design for step navigation**: Use [CACHING_DESIGN](../pages/CACHING_DESIGN.md) and requirement that client performance be supported as the user navigates steps.
 
 Tie generated features to specific GDIPs where applicable (e.g. "implements GDIP-004 step output").
 

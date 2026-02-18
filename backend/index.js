@@ -3253,64 +3253,39 @@ async function ensureStep0UsesTigerBoundaries(stepData, state, stepNumber, req) 
       }
     }
     
-    // If no valid TIGER boundary, fetch it
+    // If no valid TIGER boundary, use same state boundary as "All" states map (getOrCreateStateBoundaryInCloudStorage)
     if (!hasValidTigerBoundary) {
-      console.log(`⚠️ STEP 0: No valid TIGER state boundary found, fetching from TIGERweb...`);
+      console.log(`🔍 STEP 0: Using shared state boundary (same as All-states map)...`);
       try {
-        const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
-        const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
-        const stateBoundaries = stateBoundariesResponse.data;
-        
-        if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
-          const mainStateBoundary = stateBoundaries.features[0];
+        const mainStateBoundary = await getOrCreateStateBoundaryInCloudStorage(state);
+        if (mainStateBoundary && (mainStateBoundary.type === 'Feature' || mainStateBoundary.geometry)) {
           updatedStep0Group.unionPolygon = mainStateBoundary;
           updatedStep0Group.unionPolygons = [mainStateBoundary];
-          console.log(`✅ STEP 0: Fetched and set TIGER state boundary from TIGERweb`);
-          
-          // Cache the TIGER state boundary
-          try {
-            const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-            if (Object.keys(unionCacheKeys).length > 0) {
-              console.log(`💾 STEP 0: Cached TIGER state boundary polygon for step 0`);
-            }
-          } catch (cacheError) {
-            console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
-          }
+          const stateBoundaryKey = `state_boundary_polygon_${state.toUpperCase()}`;
+          updatedStep0Group.unionPolygonCacheKey = stateBoundaryKey;
+          console.log(`✅ STEP 0: Set state boundary from shared cache (${stateBoundaryKey})`);
         } else {
-          console.error(`❌ STEP 0: TIGER state boundaries response empty`);
+          console.error(`❌ STEP 0: getOrCreateStateBoundaryInCloudStorage returned invalid boundary`);
         }
       } catch (stateBoundaryError) {
-        console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries: ${stateBoundaryError.message}`);
+        console.error(`❌ STEP 0: Failed to get state boundary: ${stateBoundaryError.message}`);
       }
     } else {
       console.log(`✅ STEP 0: Valid TIGER state boundary already loaded from cache`);
     }
   } catch (unionLoadError) {
-    console.warn(`⚠️ STEP 0: Failed to load union polygons from cache: ${unionLoadError.message}, fetching TIGER boundaries...`);
-    // Fetch TIGER boundaries as fallback
+    console.warn(`⚠️ STEP 0: Failed to load union polygons from cache: ${unionLoadError.message}, using shared state boundary...`);
     try {
-      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
-      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
-      const stateBoundaries = stateBoundariesResponse.data;
-      
-      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
-        const mainStateBoundary = stateBoundaries.features[0];
+      const mainStateBoundary = await getOrCreateStateBoundaryInCloudStorage(state);
+      if (mainStateBoundary && (mainStateBoundary.type === 'Feature' || mainStateBoundary.geometry)) {
         step0Group.unionPolygon = mainStateBoundary;
         step0Group.unionPolygons = [mainStateBoundary];
-        console.log(`✅ STEP 0: Fetched TIGER state boundary as fallback`);
-        
-        // Cache the TIGER state boundary
-        try {
-          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-          if (Object.keys(unionCacheKeys).length > 0) {
-            console.log(`💾 STEP 0: Cached TIGER state boundary polygon for step 0 (fallback)`);
-          }
-        } catch (cacheError) {
-          console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
-        }
+        const stateBoundaryKey = `state_boundary_polygon_${state.toUpperCase()}`;
+        step0Group.unionPolygonCacheKey = stateBoundaryKey;
+        console.log(`✅ STEP 0: Set state boundary from shared cache (fallback, ${stateBoundaryKey})`);
       }
     } catch (stateBoundaryError) {
-      console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries as fallback: ${stateBoundaryError.message}`);
+      console.error(`❌ STEP 0: Failed to get state boundary as fallback: ${stateBoundaryError.message}`);
     }
   }
   
@@ -4838,38 +4813,20 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                     }
                   }
                   
-                  // If no valid TIGER-based union polygon was loaded, fetch TIGER boundaries
+                  // If no valid TIGER-based union polygon was loaded, use shared state boundary (same as All-states map)
                   if (!group.unionPolygon && !group.unionPolygons) {
-                    console.log(`🔍 STEP 0: Fetching TIGER state boundaries (no valid cache found)`);
+                    console.log(`🔍 STEP 0: Using shared state boundary (same as All-states map)...`);
                     try {
-                      const stateBoundariesUrl = `${req.protocol}://${req.get('host')}/api/census/state-boundaries?state=${state}`;
-                      const stateBoundariesResponse = await axios.get(stateBoundariesUrl);
-                      const stateBoundaries = stateBoundariesResponse.data;
-                      
-                      if (stateBoundaries && stateBoundaries.features && stateBoundaries.features.length > 0) {
-                        const mainStateBoundary = stateBoundaries.features[0];
+                      const mainStateBoundary = await getOrCreateStateBoundaryInCloudStorage(state);
+                      if (mainStateBoundary && (mainStateBoundary.type === 'Feature' || mainStateBoundary.geometry)) {
                         group.unionPolygon = mainStateBoundary;
                         group.unionPolygons = [mainStateBoundary];
-                        console.log(`✅ STEP 0: Fetched and set TIGER state boundary from TIGERweb`);
-                        
-                        // Cache the TIGER state boundary with metadata indicating it's TIGER-based
-                        try {
-                          const unionCacheKeys = await cacheUnionPolygons(state, 0, stepData.districtGroups);
-                          // Mark the cached union polygon as TIGER-based
-                          if (Object.keys(unionCacheKeys).length > 0) {
-                            const newUnionCacheKey = unionCacheKeys[0];
-                            await firestore.collection('census_cache').doc(newUnionCacheKey).update({
-                              source: 'tiger-state-boundary',
-                              tigerBased: true
-                            });
-                            console.log(`💾 STEP 0: Cached TIGER state boundary with metadata`);
-                          }
-                        } catch (cacheError) {
-                          console.warn(`⚠️ STEP 0: Failed to cache TIGER state boundary: ${cacheError.message}`);
-                        }
+                        const stateBoundaryKey = `state_boundary_polygon_${state.toUpperCase()}`;
+                        group.unionPolygonCacheKey = stateBoundaryKey;
+                        console.log(`✅ STEP 0: Set state boundary from shared cache (${stateBoundaryKey})`);
                       }
                     } catch (stateBoundaryError) {
-                      console.error(`❌ STEP 0: Failed to fetch TIGER state boundaries: ${stateBoundaryError.message}`);
+                      console.error(`❌ STEP 0: Failed to get state boundary: ${stateBoundaryError.message}`);
                     }
                   }
                 }
@@ -5928,37 +5885,38 @@ function removeUndefinedValues(obj, depth = 0) {
  */
 async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
   const unionPolygonCacheKeys = {};
-  
+  const isStep0 = stepNumber === 0 || stepNumber === '0';
+
   for (let i = 0; i < districtGroups.length; i++) {
     const group = districtGroups[i];
     if (!group.unionPolygon && !group.unionPolygons) {
       continue; // Skip groups without union polygons
     }
-    
-    // Create cache key for this group's union polygon(s)
+
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+
+    // Step 0: use shared state boundary key (same as All-states map). Skip write - already in Cloud Storage.
+    if (isStep0 && group.unionPolygonCacheKey && group.unionPolygonCacheKey.startsWith('state_boundary_polygon_')) {
+      unionPolygonCacheKeys[i] = group.unionPolygonCacheKey;
+      console.log(`💾 STEP 0: Using shared state boundary key (${group.unionPolygonCacheKey}) - no duplicate write`);
+      continue;
+    }
+
     const unionCacheKey = `union_polygon_${stateCode}_${stepNumber}_${groupKey}`;
-    
+
     try {
-      // Store union polygon(s) - can be single polygon or array
-      // At Step 0, prefer unionPolygons array (main + islands) over single unionPolygon
       const unionData = group.unionPolygons || (group.unionPolygon ? [group.unionPolygon] : null);
-      
-      // Log what we're caching for debugging
-      const isStep0 = stepNumber === 0 || stepNumber === '0';
+
       if (isStep0) {
         const hasArray = Array.isArray(group.unionPolygons);
-        const hasSingle = !!group.unionPolygon;
-        const arrayLength = hasArray ? group.unionPolygons.length : 0;
         const polygonCount = Array.isArray(unionData) ? unionData.length : (unionData ? 1 : 0);
-        console.log(`🔍 STEP 0: Caching TIGER state boundary - Group ${groupKey} - has unionPolygons array: ${hasArray} (length: ${arrayLength}), has unionPolygon: ${hasSingle}, will cache: ${polygonCount} TIGER state boundary/ies`);
+        console.log(`🔍 STEP 0: Caching TIGER state boundary - Group ${groupKey} - will cache: ${polygonCount} TIGER state boundary/ies`);
       }
-      
+
       if (unionData) {
         const unionSize = JSON.stringify(unionData).length;
         const unionSizeMB = (unionSize / (1024 * 1024)).toFixed(2);
-        
-        // Always use Cloud Storage for union polygons (they can be large)
+
         const cloudStoragePath = await cloudStorageCache.set(unionCacheKey, unionData, {
           state: stateCode,
           step: stepNumber.toString(),
@@ -5966,18 +5924,15 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
           source: 'union-polygon-cache',
           polygonCount: Array.isArray(unionData) ? unionData.length.toString() : '1'
         });
-        
-        // Store metadata in Firestore
-        // For Step 0, mark as TIGER-based to distinguish from tract-based union polygons
-        const isStep0 = stepNumber === 0 || stepNumber === '0';
+
         const metadataEntry = {
           cloudStoragePath: cloudStoragePath,
           timestamp: Date.now(),
-          ttl: null, // No expiration - union polygons are static for a given step
+          ttl: null,
           version: CACHE_VERSION,
           source: isStep0 ? 'tiger-state-boundary' : 'union-polygon-cache-metadata',
-          tigerBased: isStep0, // Mark Step 0 union polygons as TIGER-based
-          attribution: isStep0 
+          tigerBased: isStep0,
+          attribution: isStep0
             ? `TIGER state boundary for ${stateCode} step ${stepNumber} group ${groupKey}`
             : `Union polygon(s) for ${stateCode} step ${stepNumber} group ${groupKey}`,
           chunked: false,
@@ -5989,10 +5944,10 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
           size: unionSize,
           sizeMB: parseFloat(unionSizeMB)
         };
-        
+
         await firestore.collection('census_cache').doc(unionCacheKey).set(metadataEntry);
         unionPolygonCacheKeys[i] = unionCacheKey;
-        
+
         const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
         const sourceLabel = isStep0 ? 'TIGER state boundary' : 'union polygon(s)';
         console.log(`💾 CLOUD STORAGE: Cached ${polygonCount} ${sourceLabel} for ${stateCode} step ${stepNumber} group ${groupKey} (${unionSizeMB} MB)${polygonCount > 1 ? ` - main + ${polygonCount - 1} island(s)` : ''}`);
@@ -6001,7 +5956,7 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
       console.error(`❌ Failed to cache union polygon for ${stateCode} step ${stepNumber} group ${groupKey}:`, error.message);
     }
   }
-  
+
   return unionPolygonCacheKeys;
 }
 

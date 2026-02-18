@@ -1197,7 +1197,7 @@ interface NationalSummary {
 
 - `GeoDistrictsProjectOverview.md`: Project overview
 - [GeodistrictingAlgorithmSpecification.md](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md): Algorithm details
-- `CACHING_DESIGN.md`: Caching architecture
+- [CACHING_DESIGN.md](../pages/CACHING_DESIGN.md): Caching architecture
 - `CENSUS_SERVICE_README.md`: Census data integration
 
 ---

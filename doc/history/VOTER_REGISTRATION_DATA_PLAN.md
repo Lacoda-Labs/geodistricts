@@ -829,7 +829,7 @@ Quality Score = (Coverage * 0.3) + (Accuracy * 0.4) + (Timeliness * 0.2) + (Comp
 ### Related Documentation
 
 - `CONGRESSIONAL_DISTRICT_COMPARISON_PLAN.md`: Comparison plan requiring this data
-- `CACHING_DESIGN.md`: Caching architecture for data storage
+- [CACHING_DESIGN.md](../pages/CACHING_DESIGN.md): Caching architecture for data storage
 - [GeodistrictingAlgorithmSpecification.md](https://github.com/Lacoda-Labs/gdip/blob/main/GeodistrictingAlgorithmSpecification.md): Algorithm using this data
 
 ---

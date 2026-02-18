@@ -155,6 +155,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** State code that mapPolygons belong to (prevents rendering wrong state after switch). */
   private mapPolygonsState: string | null = null;
 
+  /** Timestamp when Restart was clicked; used to ignore stale GET final-step responses that arrive after restart. */
+  private lastRestartAt = 0;
+  private static readonly RESTART_IGNORE_MS = 10000;
+
   // US States with their congressional district counts
   states = [
     { code: 'CA', name: 'California', districts: 52 },
@@ -1138,6 +1142,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (stepData) => {
         const { step, stepIndex, isComplete } = stepData;
         
+        // Ignore stale final-step response that arrives after Restart (e.g. GET final-step returned late)
+        if (this.lastRestartAt && (Date.now() - this.lastRestartAt) < MapsPageComponent.RESTART_IGNORE_MS &&
+            stepIndex > 0 && isComplete) {
+          console.log(`⚠️ Ignoring stale final-step ${stepIndex} (restart was ${Date.now() - this.lastRestartAt}ms ago)`);
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          return;
+        }
+        
         // Validate that we're still on the same state (prevent race conditions)
         if (this.selectedState !== options.state) {
           console.warn(`⚠️ State changed during load: was loading ${options.state}, now selected ${this.selectedState}. Ignoring loaded data.`);
@@ -1303,6 +1316,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.errorMessage = 'Please select a state first';
       return;
     }
+    // Cancel any in-flight algorithm requests (e.g. GET final-step from initial load) so a late
+    // response cannot overwrite step 0 after we load it from step-by-step.
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
+    this.lastRestartAt = Date.now();
+
     const state = this.selectedState;
     const maxIterations = 100;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
@@ -3002,7 +3021,48 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // Always render individual tracts; toggle only shows/hides tract borders via style
+      // When tract boundaries are hidden, use union polygon(s) if available (e.g. step complete, isolated resolved)
+      if (!this.showTractBoundaries) {
+        const unionPolygons = (district as any).unionPolygons;
+        const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+        const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
+        const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
+
+        if (polygonsToRender.length > 0) {
+          const districtLabel = district.startDistrictNumber === district.endDistrictNumber
+            ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
+          const popupContent = `<strong>${districtLabel}</strong><br>
+            <strong>Population:</strong> ${(district.totalPopulation ?? 0).toLocaleString()}<br>
+            <strong>Tracts in district:</strong> ${district.censusTracts.length}`;
+
+          for (const unionPolygon of polygonsToRender) {
+            if (!unionPolygon?.geometry) continue;
+            try {
+              const geoJson = L.geoJSON(unionPolygon, {
+                style: {
+                  color,
+                  weight: 0.3,
+                  opacity: fillOpacity,
+                  fillOpacity,
+                  fillColor: color
+                }
+              }).bindPopup(popupContent);
+              this.tractLayer!.addLayer(geoJson);
+              this.tractGeoJsonLayers.set(geoJson, color);
+              const layerBounds = geoJson.getBounds();
+              if (layerBounds?.isValid()) {
+                bounds.extend(layerBounds);
+                hasBounds = true;
+              }
+            } catch (e) {
+              console.warn('Error rendering union polygon for district:', e);
+            }
+          }
+          return; // skip tract-by-tract rendering
+        }
+      }
+
+      // Render individual tracts (when showTractBoundaries, or when no union polygon yet e.g. before step complete)
       district.censusTracts.forEach((tract: GeoJsonFeature) => {
           if (!tract) {
             console.warn('⚠️ Null tract found in district');
