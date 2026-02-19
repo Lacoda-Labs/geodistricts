@@ -1,6 +1,10 @@
 const s4DataLoader = require('./s4-data-loader');
 const turf = require('@turf/turf');
 const logger = require('../utils/logger');
+const { simplifyUnionGeometry, reduceTractGeometryPrecision } = require('../utils/geometry-simplify');
+
+/** When state total tract count exceeds this, reduce tract geometry precision before union/dissolve (e.g. CA). */
+const TRACT_PRECISION_REDUCTION_STATE_THRESHOLD = 7000;
 
 /**
  * Algorithm version - increment this when algorithm logic changes
@@ -755,7 +759,7 @@ function findConnectedComponents(group, adjacencyGraph) {
  * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
  * @returns {Array<Object>|Object|null} - Array of GeoJSON features (main polygon first, then island polygons) or single feature, or null if union fails
  */
-function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) {
+function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null, stateTotalTractCount = null) {
   if (!group.censusTracts || group.censusTracts.length === 0 || !adjacencyGraph) {
     return null;
   }
@@ -765,11 +769,18 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
   if (validTracts.length === 0) return null;
 
   // Sort tracts by ID for consistent ordering
-  const sortedTracts = [...validTracts].sort((a, b) => {
+  let sortedTracts = [...validTracts].sort((a, b) => {
     const idA = getTractId(a) || '';
     const idB = getTractId(b) || '';
     return idA.localeCompare(idB);
   });
+
+  if (stateTotalTractCount != null && stateTotalTractCount > TRACT_PRECISION_REDUCTION_STATE_THRESHOLD) {
+    sortedTracts = sortedTracts.map(t => ({
+      ...t,
+      geometry: reduceTractGeometryPrecision(t.geometry, { decimals: 5 })
+    }));
+  }
 
   console.log(`🔨 S4-ordered merging for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sortedTracts.length} tracts)`);
 
@@ -794,11 +805,11 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
     return polygons;
   }
 
-  // Merge polygon into union
+  // Merge polygon into union (Turf v7: union takes FeatureCollection of 2+ polygons)
   function mergePolygonIntoUnion(union, polygonFeature) {
     if (!union?.geometry || !polygonFeature?.geometry) return null;
     try {
-      const result = turf.union(union, polygonFeature);
+      const result = turf.union(turf.featureCollection([union, polygonFeature]));
       return result?.geometry ? result : null;
     } catch {
       return null;
@@ -808,7 +819,11 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
   // Create union from tracts
   function createUnionFromTracts(tracts) {
     if (tracts.length === 0) return null;
-    if (tracts.length === 1) return tracts[0];
+    if (tracts.length === 1) {
+      const one = tracts[0];
+      const simplified = simplifyUnionGeometry(one.geometry);
+      return simplified !== one.geometry ? { ...one, geometry: simplified } : one;
+    }
 
     const flattened = [];
     for (const tract of tracts) {
@@ -824,9 +839,10 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
       if (merged) union = merged;
     }
 
+    const simplifiedGeometry = simplifyUnionGeometry(union.geometry);
     return {
       type: 'Feature',
-      geometry: union.geometry,
+      geometry: simplifiedGeometry,
       properties: {
         ...tracts[0].properties,
         DISTRICT_START: group.startDistrictNumber,
@@ -1009,6 +1025,11 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
 
   console.log(`✅ S4-ordered merging created ${finalPolygons.length} polygon(s) for group ${group.startDistrictNumber}-${group.endDistrictNumber} (main: ${mainPolygonTracts.length} tracts, ${subsetPolygons.length} subset(s))`);
 
+  // Simplify all polygons (merge may have replaced geometry with unsimplified union output)
+  for (const f of finalPolygons) {
+    if (f?.geometry) f.geometry = simplifyUnionGeometry(f.geometry);
+  }
+
   if (isStep0) {
     return finalPolygons;
   }
@@ -1025,7 +1046,7 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null) 
  * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
  * @returns {Array<Object>|Object|null} - Array of GeoJSON features (main polygon first, then island polygons at Step 0) or single feature, or null if union fails
  */
-function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false, stepNumber = null) {
+function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false, stepNumber = null, stateTotalTractCount = null) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
   }
@@ -1036,17 +1057,17 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
   // If the group has multiple connected components (main + islands), we create a MultiPolygon; otherwise one Polygon.
   if (forceSingleUnion && !isStep0) {
     if (!adjacencyGraph) {
-      return createUnionPolygon(group);
+      return createUnionPolygon(group, stateTotalTractCount);
     }
     const components = findConnectedComponents(group, adjacencyGraph);
     // Single component or empty: always use simple dissolve (contiguous DG)
     if (components.length <= 1) {
-      return createUnionPolygon(group);
+      return createUnionPolygon(group, stateTotalTractCount);
     }
     // If largest component has only 1 tract, graph is likely empty/wrong (e.g. S4 missing) - treat as contiguous
     components.sort((a, b) => b.length - a.length);
     if (components[0].length <= 1) {
-      return createUnionPolygon(group);
+      return createUnionPolygon(group, stateTotalTractCount);
     }
     // Multiple real components (main + islands): fall through to create main + island polygons, then MultiPolygon
   }
@@ -1055,9 +1076,9 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
   // Skip S4-ordered for very large groups (>1000 tracts) as sequential merging is too slow
   const tractCount = group.censusTracts?.length || 0;
   const S4_ORDERED_MAX_TRACTS = 1000;
-  
+
   if (adjacencyGraph && tractCount <= S4_ORDERED_MAX_TRACTS) {
-    const s4Result = createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber);
+    const s4Result = createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber, stateTotalTractCount);
     if (s4Result) {
       return s4Result;
     }
@@ -1136,7 +1157,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
         ...group,
         censusTracts: mainComponent
       };
-      const mainPolygon = createUnionPolygon(mainGroup);
+      const mainPolygon = createUnionPolygon(mainGroup, stateTotalTractCount);
       if (mainPolygon && mainPolygon.geometry) {
         // Log polygon details for debugging
         const geomType = mainPolygon.geometry.type;
@@ -1165,7 +1186,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
             ...group,
             censusTracts: islandComponent
           };
-          const islandPolygon = createUnionPolygon(islandGroup);
+          const islandPolygon = createUnionPolygon(islandGroup, stateTotalTractCount);
           if (islandPolygon && islandPolygon.geometry) {
             unionPolygons.push(islandPolygon);
             console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts`);
@@ -1207,7 +1228,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
 
   // Single component or no adjacency graph - create single union polygon
   // At Step 0 with single component, return as array for consistency
-  const singlePolygon = createUnionPolygon(group);
+  const singlePolygon = createUnionPolygon(group, stateTotalTractCount);
   if (isStep0 && singlePolygon) {
     return [singlePolygon]; // Return as array even for single component at Step 0
   }
@@ -1242,18 +1263,19 @@ function buildMultiPolygonFromFeatures(features) {
 }
 
 /**
- * Create a union polygon from all tracts in a district group
+ * Create a union polygon from all tracts in a district group.
+ * Output is run through simplifyUnionGeometry (precision reduction + dedup) for display and smaller payloads.
  * @param {Object} group - District group containing tracts
  * @returns {Object|null} GeoJSON feature representing the union polygon, or null if union fails
  */
-function createUnionPolygon(group) {
+function createUnionPolygon(group, stateTotalTractCount = null) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
   }
 
   try {
     // Collect all valid tract geometries
-    const validTracts = [];
+    let validTracts = [];
     for (const tract of group.censusTracts) {
       if (tract && tract.geometry) {
         validTracts.push(tract);
@@ -1264,9 +1286,22 @@ function createUnionPolygon(group) {
       return null;
     }
 
-    // If only one tract, return it as-is
+    // For large states, reduce tract precision before union/dissolve to improve performance
+    if (stateTotalTractCount != null && stateTotalTractCount > TRACT_PRECISION_REDUCTION_STATE_THRESHOLD) {
+      console.log(`🔬 Reducing tract precision (5 decimals) for union in group ${group.startDistrictNumber}-${group.endDistrictNumber} (state total ${stateTotalTractCount} tracts > ${TRACT_PRECISION_REDUCTION_STATE_THRESHOLD})`);
+      validTracts = validTracts.map(t => ({
+        ...t,
+        geometry: reduceTractGeometryPrecision(t.geometry, { decimals: 5 })
+      }));
+    }
+
+    // If only one tract, return it with simplified geometry for display
     if (validTracts.length === 1) {
-      return validTracts[0];
+      const one = validTracts[0];
+      const simplified = simplifyUnionGeometry(one.geometry);
+      return simplified !== one.geometry
+        ? { ...one, geometry: simplified }
+        : one;
     }
 
     // Always try to use dissolve first (works better than sequential union after flattening)
@@ -1353,10 +1388,10 @@ function createUnionPolygon(group) {
             console.error(`❌ CRITICAL: Dissolve result is too small: ${pointCount} points for ${validTracts.length} tracts (${flattenedTracts.length} polygons). Expected at least ${minExpectedPoints} points. Dissolve may have failed. Falling back to sequential union.`);
             // Don't return the bad result, fall through to sequential union
           } else {
-            // Result looks good, use it
+            // Result looks good, simplify for display and use it
             const unionFeature = {
               type: 'Feature',
-              geometry: resultFeature.geometry,
+              geometry: simplifyUnionGeometry(resultFeature.geometry),
               properties: {
                 ...group.censusTracts[0].properties,
                 DISTRICT_START: group.startDistrictNumber,
@@ -1401,12 +1436,12 @@ function createUnionPolygon(group) {
       return null;
     }
     
-    // For very large collections, try using turf.dissolve on smaller batches instead of sequential union
-    // Sequential union can be very slow and error-prone for thousands of polygons
+    // For very large collections, dissolve in batches then merge batch results with union (not dissolve).
+    // turf.dissolve on many features can return simplified/wrong geometry; merging with turf.union preserves detail.
+    const minExpectedPoints = validTracts.length > 1000 ? 1000 : Math.max(100, Math.floor(validTracts.length * 0.1));
     if (flattenedTracts.length > 1000) {
-      console.log(`⚠️ Very large collection (${flattenedTracts.length} polygons), using batched dissolve approach for sequential union fallback`);
+      console.log(`⚠️ Very large collection (${flattenedTracts.length} polygons), using batched dissolve then union-of-batches`);
       try {
-        // Process in batches, dissolve each batch, then dissolve the results
         const batchSize = 500;
         const batches = [];
         for (let i = 0; i < flattenedTracts.length; i += batchSize) {
@@ -1419,28 +1454,45 @@ function createUnionPolygon(group) {
         }
         
         if (batches.length > 0) {
-          // Dissolve all batch results together
-          const finalCollection = turf.featureCollection(batches);
-          const finalDissolved = turf.dissolve(finalCollection);
-          if (finalDissolved && finalDissolved.features && finalDissolved.features.length > 0) {
-            const resultFeature = finalDissolved.features[0];
-            const unionFeature = {
-              type: 'Feature',
-              geometry: resultFeature.geometry,
-              properties: {
-                ...group.censusTracts[0].properties,
-                DISTRICT_START: group.startDistrictNumber,
-                DISTRICT_END: group.endDistrictNumber,
-                TOTAL_POPULATION: group.totalPopulation,
-                TRACT_COUNT: group.censusTracts.length
-              }
-            };
-            console.log(`✅ Created union polygon using batched dissolve fallback for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${flattenedTracts.length} polygons -> ${batches.length} batches -> final result)`);
-            return unionFeature;
+          // Merge batch results with turf.union (not dissolve) so geometry is preserved (Turf v7: union takes FeatureCollection)
+          let merged = turf.feature(batches[0].geometry);
+          for (let b = 1; b < batches.length; b++) {
+            const next = turf.feature(batches[b].geometry);
+            const u = turf.union(turf.featureCollection([merged, next]));
+            if (!u || !u.geometry) break;
+            merged = u;
+            if (b % 50 === 0 || b === batches.length - 1) {
+              console.log(`🔨 Batched union progress: ${b + 1}/${batches.length} batches`);
+            }
+          }
+          if (merged && merged.geometry) {
+            const geomType = merged.geometry.type;
+            let pointCount = 0;
+            if (geomType === 'Polygon' && merged.geometry.coordinates && merged.geometry.coordinates[0]) {
+              pointCount = merged.geometry.coordinates[0].length;
+            } else if (geomType === 'MultiPolygon' && merged.geometry.coordinates) {
+              pointCount = merged.geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
+            }
+            if (pointCount >= minExpectedPoints) {
+              const unionFeature = {
+                type: 'Feature',
+                geometry: simplifyUnionGeometry(merged.geometry),
+                properties: {
+                  ...group.censusTracts[0].properties,
+                  DISTRICT_START: group.startDistrictNumber,
+                  DISTRICT_END: group.endDistrictNumber,
+                  TOTAL_POPULATION: group.totalPopulation,
+                  TRACT_COUNT: group.censusTracts.length
+                }
+              };
+              console.log(`✅ Created union polygon using batched dissolve + union for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${flattenedTracts.length} polygons -> ${batches.length} batches -> ${pointCount} points)`);
+              return unionFeature;
+            }
+            console.warn(`⚠️ Batched union result too small (${pointCount} points < ${minExpectedPoints}), falling back to per-polygon sequential union`);
           }
         }
       } catch (batchError) {
-        console.warn(`⚠️ Batched dissolve fallback failed: ${batchError.message}, falling back to sequential union`);
+        console.warn(`⚠️ Batched dissolve/union fallback failed: ${batchError.message}, falling back to sequential union`);
       }
     }
     
@@ -1475,7 +1527,7 @@ function createUnionPolygon(group) {
       }
       
       try {
-        const unionResult = turf.union(union, tractFeature);
+        const unionResult = turf.union(turf.featureCollection([union, tractFeature]));
         if (!unionResult || !unionResult.geometry) {
           // Log first few failures to understand why
           if (skippedCount < 5) {
@@ -1516,10 +1568,13 @@ function createUnionPolygon(group) {
       return null;
     }
 
+    // Simplify geometry for display (reduce precision, remove duplicate points)
+    const simplifiedGeometry = simplifyUnionGeometry(union.geometry);
+
     // Create a GeoJSON feature with the union geometry and group properties
     const unionFeature = {
       type: 'Feature',
-      geometry: union.geometry,
+      geometry: simplifiedGeometry,
       properties: {
         ...group.censusTracts[0].properties,
         DISTRICT_START: group.startDistrictNumber,

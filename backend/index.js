@@ -16,6 +16,7 @@ const poligeoAnalyst = require('./services/poligeo-analyst');
 const congress119Party = require('./services/congress-119-party');
 const mapsComparison = require('./services/maps-comparison');
 const logger = require('./utils/logger');
+const { simplifyUnionGeometry } = require('./utils/geometry-simplify');
 require('dotenv').config();
 
 const app = express();
@@ -5264,6 +5265,27 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
  * - algorithm_step_{state}_{maxIterations}_{step} (step-by-step execution, has stepData field)
  * - step_{state}_{step}_{version} (Run All Steps execution, data directly in document)
  */
+app.get('/api/algorithm/union-polygon-keys/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const fromStep = parseInt(req.query.fromStep || '0', 10);
+    if (!state || state.length < 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    const keys = await cloudStorageCache.listUnionPolygonKeysForState(state, fromStep);
+    const bucket = process.env.CENSUS_DATA_BUCKET || 'geodistricts-census-data';
+    const paths = keys.map(key => {
+      const match = key.match(/^union_polygon_([A-Z]{2})_(\d+)_(.+)$/);
+      const step = match ? match[2] : '0';
+      return `gs://${bucket}/union-polygons/${state}/step-${step}/${key}.json`;
+    });
+    return res.json({ state, fromStep, count: keys.length, keys, paths });
+  } catch (err) {
+    console.error('List union polygon keys error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
   try {
     const { state, stepNumber } = req.params;
@@ -5998,6 +6020,7 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
           source: 'union-polygon-cache',
           polygonCount: Array.isArray(unionData) ? unionData.length.toString() : '1'
         });
+        console.log(`💾 CLOUD STORAGE: Union polygon written for ${stateCode} step ${stepNumber} group ${groupKey} -> ${cloudStoragePath}`);
 
         const metadataEntry = {
           cloudStoragePath: cloudStoragePath,
@@ -6985,6 +7008,8 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
   } catch (error) {
     console.warn(`⚠️ RECONSTRUCT: Failed to build adjacency graph for union polygon recreation: ${error.message}`);
   }
+
+  const totalStateTracts = districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);
   
   // Temporarily suppress console.log if suppressVerboseLogging is true
   const originalLog = console.log;
@@ -7009,9 +7034,9 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       
       if (group.censusTracts && group.censusTracts.length > 0) {
         // At non-Step-0: one union polygon per DG (contiguous = one Polygon, islands = one MultiPolygon)
-        let unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber);
+        let unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber, totalStateTracts);
         if (!unionResult) {
-          unionResult = createUnionPolygon(group); // Fallback so contiguous DG always has a polygon
+          unionResult = createUnionPolygon(group, totalStateTracts); // Fallback so contiguous DG always has a polygon
         }
         if (unionResult) {
           if (Array.isArray(unionResult) && unionResult.length > 0) {
@@ -8135,8 +8160,30 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       // Don't fail the request if caching fails
     }
 
+    // Reduce response payload: aggressively simplify union geometry for JSON (client timeout avoidance).
+    // Cached polygons in Cloud Storage keep full precision; response uses 4 decimals + Douglas–Peucker.
+    const responseGroups = updatedGroups.map(g => {
+      const out = { ...g };
+      if (g.unionPolygon?.geometry) {
+        out.unionPolygon = {
+          ...g.unionPolygon,
+          geometry: simplifyUnionGeometry(g.unionPolygon.geometry, {
+            decimals: 4,
+            removeDuplicatePoints: true,
+            simplifyTolerance: 0.0001
+          })
+        };
+      }
+      if (Array.isArray(g.unionPolygons) && g.unionPolygons.length > 0) {
+        out.unionPolygons = g.unionPolygons.map(f => (f?.geometry
+          ? { ...f, geometry: simplifyUnionGeometry(f.geometry, { decimals: 4, removeDuplicatePoints: true, simplifyTolerance: 0.0001 }) }
+          : f));
+      }
+      return out;
+    });
+
     res.json({
-      districtGroups: updatedGroups,
+      districtGroups: responseGroups,
       isolationResult: {
         isolatedTractsByGroup: finalIsolatedTractsByGroup,
         isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
