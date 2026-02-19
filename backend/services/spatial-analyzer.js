@@ -118,7 +118,7 @@ class SpatialAnalyzer {
         let unioned = polygon.features[0];
         for (let i = 1; i < polygon.features.length; i++) {
           try {
-            unioned = turf.union(unioned, polygon.features[i]);
+            unioned = turf.union(turf.featureCollection([unioned, polygon.features[i]]));
           } catch (error) {
             console.warn(`Warning: Could not union feature ${i}:`, error.message);
           }

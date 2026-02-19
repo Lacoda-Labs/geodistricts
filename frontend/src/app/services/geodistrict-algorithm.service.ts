@@ -590,6 +590,47 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Get union polygons for a step's district groups. Returns 200 body or null on 404.
+   */
+  getStepUnionPolygons(
+    state: string,
+    stepNumber: number,
+    maxIterations: number = 100
+  ): Observable<{ districtGroups: Array<{ startDistrictNumber: number; endDistrictNumber: number; unionPolygon?: GeoJsonFeature; unionPolygons?: GeoJsonFeature[] }> } | null> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}/union-polygons?maxIterations=${maxIterations}`;
+    return this.http.get<{ districtGroups: Array<{ startDistrictNumber: number; endDistrictNumber: number; unionPolygon?: GeoJsonFeature; unionPolygons?: GeoJsonFeature[] }> }>(url).pipe(
+      map(body => body),
+      catchError(err => {
+        if (err?.status === 404) {
+          return of(null);
+        }
+        console.error(`❌ Get step union polygons failed:`, err);
+        return this.handleError(err);
+      })
+    );
+  }
+
+  /**
+   * Start background job to generate union polygons for a step. Returns 202 immediately; client should poll getStepUnionPolygons until 200.
+   */
+  generateStepUnionPolygons(
+    state: string,
+    stepNumber: number,
+    maxIterations: number = 100
+  ): Observable<{ accepted: boolean; message: string; state: string; step: number }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}/union-polygons?maxIterations=${maxIterations}`;
+    return this.http.post<{ accepted: boolean; message: string; state: string; step: number }>(url, {}).pipe(
+      timeout(15000), // POST returns 202 quickly
+      catchError(error => {
+        console.error(`❌ Generate step union polygons failed:`, error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
    * Fallback: Execute algorithm locally (for development/debugging)
    */
   private executeAlgorithmLocally(

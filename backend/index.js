@@ -3083,36 +3083,19 @@ app.post('/api/algorithm/execute', async (req, res) => {
       if (!shouldCache) return true;
       
       try {
-        // Create union polygons only when step is final (all single-district groups) and all isolated tracts have been moved
+        // Union polygons are built async via POST .../union-polygons; do not build inline
         const isFinalStep = stepData.districtGroups.length > 0 &&
           stepData.districtGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
         const totalIsolated = stepData.isolatedTractsData?.totalIsolated ?? 0;
-        const stepCompleteForUnions = isFinalStep && totalIsolated === 0;
-        if (stepCompleteForUnions) {
-          await recreateUnionPolygonsForGroups(stepData.districtGroups, true, stepNumber);
-        }
+        const stepCompleteForUnions = isFinalStep && totalIsolated === 0 && stepNumber > 0;
         // Normalize step data (remove geometries, keep only IDs)
         const normalized = normalizeStepData(stepData, tractCacheKey);
+        const unionPolygonCacheKeys = {};
         
-        // Cache union polygons for this step (only when we created them)
-        const unionPolygonCacheKeys = stepCompleteForUnions
-          ? await cacheUnionPolygons(state, stepNumber, stepData.districtGroups)
-          : {};
-        
-        // Add union polygon cache keys to normalized groups
-        if (Object.keys(unionPolygonCacheKeys).length > 0) {
-          normalized.normalized.districtGroups = normalized.normalized.districtGroups.map((group, index) => {
-            if (unionPolygonCacheKeys[index]) {
-              group.unionPolygonCacheKey = unionPolygonCacheKeys[index];
-            }
-            return group;
-          });
-        }
-        
-        // Create step cache key
+        // Create step cache key (run-all uses step_ format)
         const stepCacheKey = `step_${state}_${stepNumber}_${currentVersion}`;
         
-        // Store normalized step in Firestore (unionPolygonsCached only when we successfully cached union polygons)
+        // Store normalized step in Firestore; union polygons will be built by async job
         const stepCacheEntry = {
           ...normalized.normalized,
           timestamp: Date.now(),
@@ -3123,13 +3106,20 @@ app.post('/api/algorithm/execute', async (req, res) => {
           state: state,
           step: stepNumber,
           isComplete: false, // Will be updated when algorithm completes
-          unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
+          unionPolygonsCached: false
         };
 
         const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
         await stepDocRef.set(stepCacheEntry);
         
-        logger.debug(`💾 Cached step ${stepNumber} for ${state} with ${Object.keys(unionPolygonCacheKeys).length} union polygon(s)`);
+        logger.debug(`💾 Cached step ${stepNumber} for ${state} (union polygons will be built async)`);
+        if (stepCompleteForUnions) {
+          setImmediate(() => {
+            runUnionPolygonGenerationJob(state, stepNumber, maxIterations).catch((err) => {
+              console.error(`❌ Union polygon job failed for ${state} step ${stepNumber}:`, err.message);
+            });
+          });
+        }
       } catch (error) {
         logger.warn(`⚠️ Failed to cache step ${stepNumber}: ${error.message}`);
       }
@@ -5462,6 +5452,239 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
 });
 
 /**
+ * GET /api/algorithm/step/:state/:stepNumber/union-polygons
+ * Return union polygons for a step's district groups if cached. 200 with districtGroups (union fields); 404 if not available.
+ */
+app.get('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res) => {
+  try {
+    const { state, stepNumber } = req.params;
+    const stepNum = parseInt(stepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    const currentVersion = ALGORITHM_VERSION;
+
+    if (isNaN(stepNum) || stepNum < 0) {
+      return res.status(400).json({ error: 'Invalid step number' });
+    }
+
+    let cachedEntry = null;
+    let stepCacheKey = null;
+
+    stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    if (doc.exists) {
+      let entry = doc.data();
+      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+        cachedEntry = entry;
+      }
+    }
+
+    if (!cachedEntry) {
+      stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      if (doc.exists) {
+        let entry = doc.data();
+        entry = await resolveStepCacheEntry(stepCacheKey, entry);
+        if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+          cachedEntry = entry;
+        }
+      }
+    }
+
+    if (!cachedEntry || cachedEntry.unionPolygonsCached !== true) {
+      return res.status(404).json({ error: 'Union polygons not available for this step' });
+    }
+
+    const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
+    const sortedGroups = groups
+      .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
+      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
+
+    if (sortedGroups.length === 0) {
+      return res.status(404).json({ error: 'Union polygons not available for this step' });
+    }
+
+    const groupsWithUnions = await loadUnionPolygonsFromCache(state, stepNum, sortedGroups, { unionPolygonsCached: true });
+    const payload = groupsWithUnions.map(g => ({
+      startDistrictNumber: g.startDistrictNumber,
+      endDistrictNumber: g.endDistrictNumber,
+      unionPolygon: g.unionPolygon,
+      unionPolygons: g.unionPolygons
+    }));
+
+    return res.json({ districtGroups: payload });
+  } catch (error) {
+    console.error('❌ GET union-polygons error:', error);
+    res.status(500).json({
+      error: 'Union polygons request failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Background job: generate and cache union polygons for a step. Runs asynchronously; do not await in request.
+ * @param {string} state - State code
+ * @param {number} stepNum - Step number
+ * @param {number} maxIterations - Max iterations (for cache key)
+ */
+async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
+  const currentVersion = ALGORITHM_VERSION;
+  let stepCacheKey = null;
+  let cachedEntry = null;
+
+  stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+  let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  if (doc.exists) {
+    let entry = doc.data();
+    entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+      cachedEntry = entry;
+    }
+  }
+  if (!cachedEntry) {
+    stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+    doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    if (doc.exists) {
+      let entry = doc.data();
+      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+        cachedEntry = entry;
+      }
+    }
+  }
+  if (!cachedEntry) {
+    throw new Error(`Step ${stepNum} not found in cache for ${state}`);
+  }
+
+  const hasStepDataField = cachedEntry.stepData !== undefined;
+  const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
+  deserializeStepDataFromFirestore(dataToReconstruct);
+  const isNormalized = cachedEntry.normalized;
+  const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`;
+  let stepData = dataToReconstruct;
+
+  if (isNormalized && tractCacheKey) {
+    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+    if (!stateTractDoc.exists) throw new Error(`State tract cache not found for ${state}`);
+    const stateTractData = stateTractDoc.data();
+    if (stateTractData.algorithmVersion !== currentVersion ||
+        (stateTractData.timestamp && stateTractData.ttl && isCacheExpired(stateTractData.timestamp, stateTractData.ttl))) {
+      throw new Error('State tract cache expired or version mismatch');
+    }
+    let tractMap = null;
+    if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+      const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
+      if (cloudStorageResult && cloudStorageResult.data) tractMap = cloudStorageResult.data;
+    } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+      const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get()));
+      const allTracts = [];
+      for (const chunkDoc of chunkDocs) {
+        if (chunkDoc.exists && chunkDoc.data().data) allTracts.push(...chunkDoc.data().data);
+      }
+      tractMap = allTracts;
+    } else if (stateTractData.data) {
+      tractMap = stateTractData.data;
+    }
+    if (!tractMap) throw new Error('State tract data not available for reconstruction');
+    stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+    if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) {
+      throw new Error(`Failed to reconstruct step ${stepNum}`);
+    }
+  } else if (!stepData.districtGroups || stepData.districtGroups.length === 0) {
+    throw new Error(`Step ${stepNum} has no district groups`);
+  }
+
+  const recreated = await recreateUnionPolygonsForGroups(stepData.districtGroups, true, stepNum);
+  if (!recreated || recreated.length === 0) {
+    throw new Error('Failed to create union polygons for district groups');
+  }
+  stepData.districtGroups = recreated;
+
+  const unionPolygonCacheKeys = await cacheUnionPolygons(state, stepNum, stepData.districtGroups);
+  if (Object.keys(unionPolygonCacheKeys).length === 0) {
+    throw new Error('Failed to cache union polygons');
+  }
+
+  const entryToWrite = cachedEntry;
+  const groupsToUpdate = entryToWrite.stepData?.districtGroups ?? entryToWrite.districtGroups ?? [];
+  for (let i = 0; i < groupsToUpdate.length; i++) {
+    if (unionPolygonCacheKeys[i]) {
+      groupsToUpdate[i].unionPolygonCacheKey = unionPolygonCacheKeys[i];
+    }
+  }
+  entryToWrite.unionPolygonsCached = true;
+  entryToWrite.timestamp = Date.now();
+  await setStepCache(stepCacheKey, entryToWrite);
+  console.log(`✅ Union polygon job completed for ${state} step ${stepNum}`);
+}
+
+/**
+ * POST /api/algorithm/step/:state/:stepNumber/union-polygons
+ * Start background job to generate and cache union polygons. Returns 202 immediately; work runs asynchronously.
+ */
+app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res) => {
+  try {
+    const { state, stepNumber } = req.params;
+    const stepNum = parseInt(stepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    console.log(`📥 Received: POST /api/algorithm/step/${state}/${stepNumber}/union-polygons (trigger build job)`);
+    const currentVersion = ALGORITHM_VERSION;
+
+    if (isNaN(stepNum) || stepNum < 0) {
+      return res.status(400).json({ error: 'Invalid step number' });
+    }
+    if (stepNum === 0) {
+      return res.status(400).json({ error: 'Step 0 uses TIGER state boundaries only; union polygons are not generated from tracts' });
+    }
+
+    let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    let cachedEntry = null;
+    if (doc.exists) {
+      let entry = doc.data();
+      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+        cachedEntry = entry;
+      }
+    }
+    if (!cachedEntry) {
+      stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      if (doc.exists) {
+        let entry = doc.data();
+        entry = await resolveStepCacheEntry(stepCacheKey, entry);
+        if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+          cachedEntry = entry;
+        }
+      }
+    }
+    if (!cachedEntry) {
+      return res.status(404).json({ error: `Step ${stepNum} not found in cache for ${state}` });
+    }
+
+    setImmediate(() => {
+      runUnionPolygonGenerationJob(state, stepNum, maxIterations).catch((err) => {
+        console.error(`❌ Union polygon job failed for ${state} step ${stepNum}:`, err.message);
+      });
+    });
+
+    return res.status(202).json({
+      accepted: true,
+      message: 'Union polygon generation started',
+      state,
+      step: stepNum
+    });
+  } catch (error) {
+    console.error('❌ POST union-polygons error:', error);
+    res.status(500).json({
+      error: 'Union polygons generation failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Rehydrate algorithm state from step 0 cache when state doc is missing (e.g. cache write failed after step-by-step).
  * So "Next from step 0" works even if algorithm_state_* was never or no longer present.
  * @param {string} state - State code
@@ -5783,27 +6006,13 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     // Execute next step
     const { step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState);
 
-    // Cache the step result (await so step is durably recorded before response)
+    // Cache the step result (await so step is durably recorded before response). Union polygons built async via job.
     const cacheStepResult = async () => {
       try {
         const tractCacheKey = `state_tracts_${state}`;
-        // Create union polygons only when step is complete and all isolated tracts have been moved (islands/non-swappable excluded)
         const totalIsolated = step.isolatedTractsData?.totalIsolated ?? 0;
-        const stepCompleteForUnions = isComplete && totalIsolated === 0;
-        if (stepCompleteForUnions) {
-          await recreateUnionPolygonsForGroups(step.districtGroups, true, nextStepNumber);
-        }
-        const unionPolygonCacheKeys = stepCompleteForUnions
-          ? await cacheUnionPolygons(state, nextStepNumber, step.districtGroups)
-          : {};
-        if (Object.keys(unionPolygonCacheKeys).length > 0) {
-          step.districtGroups.forEach((group, index) => {
-            if (unionPolygonCacheKeys[index]) {
-              group.unionPolygonCacheKey = unionPolygonCacheKeys[index];
-            }
-          });
-        }
-        // Normalize step data (store tract IDs + unionPolygonCacheKey; no geometries)
+        const stepCompleteForUnions = isComplete && totalIsolated === 0 && nextStepNumber > 0;
+        // Normalize step data (store tract IDs; no geometries). No union polygon cache keys yet.
         const normalizedStep = normalizeStepData(step, tractCacheKey);
         const cacheData = {
           stepData: normalizedStep.normalized,
@@ -5816,11 +6025,18 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
           tractCacheKey,
           state,
           step: nextStepNumber,
-          unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
+          unionPolygonsCached: false
         };
 
         await setStepCache(stepCacheKey, cacheData);
-        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} with ${Object.keys(unionPolygonCacheKeys).length} union polygon(s)`);
+        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} (union polygons will be built async)`);
+        if (stepCompleteForUnions) {
+          setImmediate(() => {
+            runUnionPolygonGenerationJob(state, nextStepNumber, maxIterations).catch((err) => {
+              console.error(`❌ Union polygon job failed for ${state} step ${nextStepNumber}:`, err.message);
+            });
+          });
+        }
       } catch (cacheError) {
         console.warn(`⚠️ STEP CACHE STORE ERROR: ${cacheError.message}`);
       }
@@ -6920,49 +7136,35 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
               : '';
           console.log(`✅ RECONSTRUCT: Loaded union polygons from cache for ${reconstructed.districtGroups.length} district groups${sourceInfo}`);
         } else {
-          // Some groups missing - only recreate if step is "complete" (all isolated tracts moved; islands/non-swappable excluded)
+          // Some groups missing - unions are built async via POST .../union-polygons; do not recreate inline
           const isStep0 = stepNumber === 0 || stepNumber === '0';
           const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
-          const stepCompleteForUnions = totalIsolated === 0;
           if (isStep0) {
-            // For Step 0, fetch TIGER state boundaries instead of creating union polygons from tracts
-            console.log(`⚠️ RECONSTRUCT: Step 0 union polygons missing from cache, fetching TIGER state boundaries...`);
-            // Note: TIGER boundaries should be fetched by the caller (e.g., in final-step endpoint)
-            // We can't fetch them here without access to req object, so we'll leave them empty
-            // The caller should handle fetching TIGER boundaries for step 0
-            console.warn(`⚠️ RECONSTRUCT: Step 0 groups missing union polygons - caller should fetch TIGER state boundaries`);
-          } else if (!stepCompleteForUnions) {
-            console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s); create unions only after all movable isolated tracts are moved.`);
+            console.log(`⚠️ RECONSTRUCT: Step 0 union polygons missing from cache - caller should fetch TIGER state boundaries`);
+          } else if (totalIsolated > 0) {
+            console.log(`⚠️ RECONSTRUCT: Step has ${totalIsolated} isolated tract(s); union polygons built after move-isolated.`);
           } else {
-            console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons loaded from cache, recreating missing ones...`);
-            await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+            console.log(`⚠️ RECONSTRUCT: Only ${loadedCount}/${reconstructed.districtGroups.length} union polygons in cache; client can call POST .../union-polygons or poll GET.`);
           }
         }
       } catch (error) {
         const isStep0 = stepNumber === 0 || stepNumber === '0';
         const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
-        const stepCompleteForUnions = totalIsolated === 0;
         if (isStep0) {
           console.warn(`⚠️ RECONSTRUCT: Failed to load Step 0 union polygons from cache: ${error.message} - caller should fetch TIGER state boundaries`);
-        } else if (!stepCompleteForUnions) {
-          console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s).`);
+        } else if (totalIsolated > 0) {
+          console.log(`⚠️ RECONSTRUCT: Skipping union polygon load - step has ${totalIsolated} isolated tract(s).`);
         } else {
-          console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message}, recreating...`);
-          await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+          console.warn(`⚠️ RECONSTRUCT: Failed to load union polygons from cache: ${error.message} - client can call POST .../union-polygons.`);
         }
       }
     } else {
-      // No state/step info - check if it's step 0
+      // No state/step info
       const isStep0 = stepNumber === 0 || stepNumber === '0';
-      const totalIsolated = normalizedStep.isolatedTractsData?.totalIsolated ?? 0;
-      const stepCompleteForUnions = totalIsolated === 0;
       if (isStep0) {
         console.warn(`⚠️ RECONSTRUCT: Step 0 missing state/step info - caller should fetch TIGER state boundaries`);
-      } else if (!stepCompleteForUnions) {
-        console.log(`⚠️ RECONSTRUCT: Skipping union polygon recreation - step has ${totalIsolated} isolated tract(s).`);
       } else {
-        console.log(`⚠️ RECONSTRUCT: Missing state/step info, recreating union polygons...`);
-        await recreateUnionPolygonsForGroups(reconstructed.districtGroups, true, stepNumber); // Pass step number for proper structure
+        console.log(`⚠️ RECONSTRUCT: Missing state/step info for union polygons - client can call POST .../union-polygons.`);
       }
     }
   } else {
@@ -7543,14 +7745,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
 
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
-      // When no isolated tracts remain, create union polygons for the two sibling DGs and include in response for hide-tract map rendering
-      if (totalRemaining === 0 && step > 0) {
-        for (const group of updatedGroups) {
-          group.unionPolygon = undefined;
-          group.unionPolygons = undefined;
-        }
-        await recreateUnionPolygonsForGroups(updatedGroups, true, step);
-      }
+      // Union polygons are built async via POST .../union-polygons; client can poll GET or show tracts with blended borders
       return res.json({
         districtGroups: updatedGroups,
         isolationResult: {
@@ -8093,15 +8288,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     // Invalidate all subsequent step caches
     await invalidateSubsequentStepCaches(state, maxIterations, step);
 
-    // Recreate union polygons for all groups after moving isolated tracts
-    // Clear existing union polygons first to force recreation
-    for (const group of updatedGroups) {
-      group.unionPolygon = undefined;
-      group.unionPolygons = undefined;
-    }
-    await recreateUnionPolygonsForGroups(updatedGroups, true, step); // Pass step number for proper structure
-
-    // Save the updated step back to cache as the final step (since isolated tracts have been moved)
+    // Save the updated step back to cache; union polygons will be built by async job (POST .../union-polygons)
     // This ensures that on page reload, the final step with moved tracts is loaded
     try {
       const tractCacheKey = `state_tracts_${state}`;
@@ -8118,30 +8305,13 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
       // Normalize step data (store tract IDs instead of full geometries)
       const normalizedStep = normalizeStepData(updatedStep, tractCacheKey);
-
-      // Create union polygons only when all isolated tracts have been moved (remaining are islands/non-swappable)
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
-      const stepCompleteForUnions = totalRemaining === 0;
-      let unionPolygonCacheKeys = {};
-      if (stepCompleteForUnions) {
-        await recreateUnionPolygonsForGroups(updatedGroups, true, step);
-        unionPolygonCacheKeys = await cacheUnionPolygons(state, step, updatedGroups);
-      }
-      
-      // Add union polygon cache keys to normalized groups
-      if (Object.keys(unionPolygonCacheKeys).length > 0) {
-        normalizedStep.normalized.districtGroups = normalizedStep.normalized.districtGroups.map((group, index) => {
-          if (unionPolygonCacheKeys[index]) {
-            group.unionPolygonCacheKey = unionPolygonCacheKeys[index];
-          }
-          return group;
-        });
-      }
+      const stepCompleteForUnions = totalRemaining === 0 && step > 0;
 
-      // Save the updated step to cache (isComplete: true only when no isolated remain; union polygons only when step complete for unions)
+      // Save the updated step to cache; union polygons built async via job
       const cacheData = {
         stepData: normalizedStep.normalized,
-        isComplete: stepCompleteForUnions, // True only when all movable isolated tracts have been moved
+        isComplete: stepCompleteForUnions, // True when all movable isolated tracts have been moved
         algorithmVersion: ALGORITHM_VERSION,
         timestamp: Date.now(),
         ttl: 24 * 60 * 60 * 1000, // 24 hours
@@ -8150,11 +8320,23 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         tractCacheKey: tractCacheKey,
         state: state,
         step: step,
-        unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
+        unionPolygonsCached: false
       };
 
       await setStepCache(stepCacheKey, cacheData);
-      console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} as final step (after moving isolated tracts)`);
+      console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} (union polygons will be built async)`);
+      if (stepCompleteForUnions) {
+        console.log(`📤 Step complete after move-all-isolated: requesting POST .../union-polygons to trigger build job for ${state} step ${step}`);
+        const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+        const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${step}/union-polygons?maxIterations=${maxIterations}`;
+        setImmediate(() => {
+          axios.post(unionPolygonsUrl, {}).then(() => {
+            console.log(`✅ POST union-polygons accepted (202) for ${state} step ${step}`);
+          }).catch((err) => {
+            console.error(`❌ Failed to trigger union polygon job for ${state} step ${step}:`, err.message);
+          });
+        });
+      }
     } catch (cacheError) {
       console.warn(`⚠️ STEP CACHE STORE ERROR: Failed to save updated step after moving isolated tracts: ${cacheError.message}`);
       // Don't fail the request if caching fails

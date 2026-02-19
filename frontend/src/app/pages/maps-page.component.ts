@@ -9,7 +9,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
-import { concatMap, tap, last, map, catchError, take, finalize } from 'rxjs/operators';
+import { concatMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
@@ -76,6 +76,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
+  /** True while POST union-polygons is in progress for the current step */
+  isGeneratingUnionPolygons: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
   step0IsolatedSectionExpanded: boolean = false;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
@@ -1626,10 +1628,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.algorithmResult.finalDistricts = (newStep as any).districtGroups;
             }
 
-            // Render the step on map
+            // Render the step on map (default: tracts with blended borders if no unions)
             setTimeout(() => {
               this.renderFinalDistricts();
             }, 100);
+
+            // Optionally fetch step union polygons; if available, merge and re-render
+            const unionSub = this.geodistrictService.getStepUnionPolygons(this.selectedState, stepIndex, 100).subscribe({
+              next: (body) => {
+                if (body && this.currentStep && (this.currentStep as any).step === stepIndex) {
+                  this.mergeUnionPolygonsIntoStep(this.currentStep as any, body);
+                  this.renderFinalDistricts();
+                }
+              }
+            });
+            this.subscriptions.push(unionSub);
           },
           error: (error) => {
             this.errorMessage = error.message || `Failed to load step ${prevIndex}`;
@@ -1641,6 +1654,59 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.subscriptions.push(subscription);
       }
     }
+  }
+
+  /**
+   * Merge union polygon data from GET union-polygons into current step district groups (match by start/end district number).
+   */
+  private mergeUnionPolygonsIntoStep(
+    step: GeodistrictStep,
+    payload: { districtGroups: Array<{ startDistrictNumber: number; endDistrictNumber: number; unionPolygon?: GeoJsonFeature; unionPolygons?: GeoJsonFeature[] }> }
+  ): void {
+    if (!step.districtGroups || !payload.districtGroups?.length) return;
+    const key = (g: { startDistrictNumber: number; endDistrictNumber: number }) =>
+      `${g.startDistrictNumber}-${g.endDistrictNumber}`;
+    const unionMap = new Map(payload.districtGroups.map(g => [key(g), g]));
+    for (const group of step.districtGroups) {
+      const u = unionMap.get(key(group));
+      if (u) {
+        (group as any).unionPolygon = u.unionPolygon;
+        (group as any).unionPolygons = u.unionPolygons;
+      }
+    }
+  }
+
+  /**
+   * Generate and cache union polygons for the current step (admin). POST returns 202; we poll GET until unions are ready or timeout.
+   */
+  generateUnionPolygonsForCurrentStep(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || !this.currentStep || this.currentStepIndex <= 0) return;
+    this.isGeneratingUnionPolygons = true;
+    this.errorMessage = '';
+    const state = this.selectedState;
+    const stepIndex = this.currentStepIndex;
+    const pollIntervalMs = 3000;
+    const pollTimeoutMs = 300000; // 5 min
+    const sub = this.geodistrictService.generateStepUnionPolygons(state, stepIndex, 100).pipe(
+      concatMap(() => timer(0, pollIntervalMs).pipe(
+        concatMap(() => this.geodistrictService.getStepUnionPolygons(state, stepIndex, 100)),
+        filter((body): body is NonNullable<typeof body> => body != null),
+        take(1),
+        timeout(pollTimeoutMs)
+      )),
+      finalize(() => { this.isGeneratingUnionPolygons = false; this.cdr.markForCheck(); })
+    ).subscribe({
+      next: (body) => {
+        if (this.currentStep && (this.currentStep as any).step === stepIndex) {
+          this.mergeUnionPolygonsIntoStep(this.currentStep, body);
+          this.renderFinalDistricts();
+        }
+      },
+      error: (err) => {
+        this.errorMessage = err?.message || 'Generate union polygons failed or timed out';
+      }
+    });
+    this.subscriptions.push(sub);
   }
 
   /**

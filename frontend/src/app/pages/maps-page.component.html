@@ -94,6 +94,14 @@
             (clearCache)="forceRefreshAndReset()">
           </app-step-btn-bar>
           </div>
+          <!-- Generate union polygons (admin, step > 0) -->
+          <div class="generate-unions-row" *ngIf="isAdminMode && currentStep && currentStepIndex > 0">
+            <button mat-button (click)="generateUnionPolygonsForCurrentStep()"
+              [disabled]="isGeneratingUnionPolygons"
+              matTooltip="Build and cache union polygons for this step (long-running for large states)">
+              {{ isGeneratingUnionPolygons ? 'Generating union polygons...' : 'Generate union polygons' }}
+            </button>
+          </div>
         </div>
 
         <div class="info-body">
