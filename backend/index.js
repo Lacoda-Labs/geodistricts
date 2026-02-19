@@ -5689,10 +5689,18 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, re
       return res.status(404).json({ error: `Step ${stepNum} not found in cache for ${state}` });
     }
 
-    setImmediate(() => {
-      runUnionPolygonGenerationJob(state, stepNum, maxIterations).catch((err) => {
-        console.error(`❌ Union polygon job failed for ${state} step ${stepNum}:`, err.message);
-      });
+    // Run union polygon job in a separate process so the main server NEVER blocks on union polygon creation.
+    // ALL union polygon runs MUST be async via this POST endpoint; the job runs in a child process.
+    const { fork } = require('child_process');
+    const workerPath = require('path').join(__dirname, 'scripts', 'run-union-polygon-job.js');
+    const child = fork(workerPath, [state, String(stepNum), String(maxIterations)], {
+      stdio: ['ignore', 'inherit', 'inherit'],
+      env: process.env,
+      cwd: __dirname
+    });
+    child.on('error', (err) => console.error(`❌ Union polygon worker failed for ${state} step ${stepNum}:`, err.message));
+    child.on('exit', (code, sig) => {
+      if (code !== 0 && code != null) console.error(`❌ Union polygon worker exited with code ${code} for ${state} step ${stepNum}`);
     });
 
     return res.status(202).json({
@@ -7258,7 +7266,7 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
   
   // Yield to event loop periodically so server can serve other requests (NEVER BLOCK on union polygon work).
   const yieldConfig = {
-    yieldEvery: 50,
+    yieldEvery: 25,
     yieldFn: () => new Promise(r => setImmediate(r))
   };
   try {
@@ -9193,12 +9201,14 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server after testing Firestore access
-(async () => {
-  await testFirestoreAccess();
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-})();
+// Start server only when run directly (not when required by union-polygon worker)
+if (require.main === module) {
+  (async () => {
+    await testFirestoreAccess();
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })();
+}
 
-module.exports = app;
+module.exports = { app, runUnionPolygonGenerationJob };

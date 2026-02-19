@@ -1350,6 +1350,7 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
               if (chunkDissolved && chunkDissolved.features && chunkDissolved.features.length > 0) {
                 chunks.push(...chunkDissolved.features);
               }
+              if (yieldConfig?.yieldFn) await yieldConfig.yieldFn();
             }
             
             if (chunks.length > 0) {
@@ -1454,18 +1455,26 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
           if (batchDissolved && batchDissolved.features && batchDissolved.features.length > 0) {
             batches.push(...batchDissolved.features);
           }
+          // Yield to event loop so server can serve other requests (NEVER BLOCK on union polygon work)
+          if (yieldConfig?.yieldFn) await yieldConfig.yieldFn();
         }
         
         if (batches.length > 0) {
           // Merge batch results with turf.union (not dissolve) so geometry is preserved (Turf v7: union takes FeatureCollection)
+          // CA step 2+: each group has ~2k tracts -> 50–250 batches to merge; each turf.union is O(vertices) and gets slower as merged grows
           let merged = turf.feature(batches[0].geometry);
+          const yieldEveryBatches = 5; // Yield often so server can process next-step and other requests
+          const batchUnionStart = Date.now();
           for (let b = 1; b < batches.length; b++) {
             const next = turf.feature(batches[b].geometry);
             const u = turf.union(turf.featureCollection([merged, next]));
             if (!u || !u.geometry) break;
             merged = u;
+            // Yield to event loop so server can serve other requests (NEVER BLOCK on union polygon work)
+            if (yieldConfig?.yieldFn && (b % yieldEveryBatches === 0 || b === batches.length - 1)) await yieldConfig.yieldFn();
             if (b % 50 === 0 || b === batches.length - 1) {
-              console.log(`🔨 Batched union progress: ${b + 1}/${batches.length} batches`);
+              const elapsed = Math.round((Date.now() - batchUnionStart) / 1000);
+              console.log(`🔨 Batched union progress: ${b + 1}/${batches.length} batches (${elapsed}s elapsed)`);
             }
           }
           if (merged && merged.geometry) {
