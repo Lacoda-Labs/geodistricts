@@ -1044,9 +1044,10 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null, 
  * @param {Map<string, string[]>} adjacencyGraph - Adjacency graph for all tracts (optional, for finding connected components)
  * @param {boolean} forceSingleUnion - If true, create one union polygon for all tracts regardless of connectivity (for visualization)
  * @param {number} stepNumber - Step number (optional, used at Step 0 to structure polygons as main + islands)
- * @returns {Array<Object>|Object|null} - Array of GeoJSON features (main polygon first, then island polygons at Step 0) or single feature, or null if union fails
+ * @param {{ yieldEvery?: number, yieldFn?: () => Promise<void> }|null} yieldConfig - Optional: yield to event loop during long union work
+ * @returns {Promise<Array<Object>|Object|null>} - Array of GeoJSON features (main polygon first, then island polygons at Step 0) or single feature, or null if union fails
  */
-function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false, stepNumber = null, stateTotalTractCount = null) {
+async function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUnion = false, stepNumber = null, stateTotalTractCount = null, yieldConfig = null) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
   }
@@ -1057,17 +1058,17 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
   // If the group has multiple connected components (main + islands), we create a MultiPolygon; otherwise one Polygon.
   if (forceSingleUnion && !isStep0) {
     if (!adjacencyGraph) {
-      return createUnionPolygon(group, stateTotalTractCount);
+      return await createUnionPolygon(group, stateTotalTractCount, yieldConfig);
     }
     const components = findConnectedComponents(group, adjacencyGraph);
     // Single component or empty: always use simple dissolve (contiguous DG)
     if (components.length <= 1) {
-      return createUnionPolygon(group, stateTotalTractCount);
+      return await createUnionPolygon(group, stateTotalTractCount, yieldConfig);
     }
     // If largest component has only 1 tract, graph is likely empty/wrong (e.g. S4 missing) - treat as contiguous
     components.sort((a, b) => b.length - a.length);
     if (components[0].length <= 1) {
-      return createUnionPolygon(group, stateTotalTractCount);
+      return await createUnionPolygon(group, stateTotalTractCount, yieldConfig);
     }
     // Multiple real components (main + islands): fall through to create main + island polygons, then MultiPolygon
   }
@@ -1157,7 +1158,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
         ...group,
         censusTracts: mainComponent
       };
-      const mainPolygon = createUnionPolygon(mainGroup, stateTotalTractCount);
+      const mainPolygon = await createUnionPolygon(mainGroup, stateTotalTractCount, yieldConfig);
       if (mainPolygon && mainPolygon.geometry) {
         // Log polygon details for debugging
         const geomType = mainPolygon.geometry.type;
@@ -1186,7 +1187,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
             ...group,
             censusTracts: islandComponent
           };
-          const islandPolygon = createUnionPolygon(islandGroup, stateTotalTractCount);
+          const islandPolygon = await createUnionPolygon(islandGroup, stateTotalTractCount, yieldConfig);
           if (islandPolygon && islandPolygon.geometry) {
             unionPolygons.push(islandPolygon);
             console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts`);
@@ -1228,7 +1229,7 @@ function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSingleUn
 
   // Single component or no adjacency graph - create single union polygon
   // At Step 0 with single component, return as array for consistency
-  const singlePolygon = createUnionPolygon(group, stateTotalTractCount);
+  const singlePolygon = await createUnionPolygon(group, stateTotalTractCount, yieldConfig);
   if (isStep0 && singlePolygon) {
     return [singlePolygon]; // Return as array even for single component at Step 0
   }
@@ -1266,9 +1267,11 @@ function buildMultiPolygonFromFeatures(features) {
  * Create a union polygon from all tracts in a district group.
  * Output is run through simplifyUnionGeometry (precision reduction + dedup) for display and smaller payloads.
  * @param {Object} group - District group containing tracts
- * @returns {Object|null} GeoJSON feature representing the union polygon, or null if union fails
+ * @param {number|null} stateTotalTractCount - Total tract count for state (used for precision reduction threshold)
+ * @param {{ yieldEvery?: number, yieldFn?: () => Promise<void> }|null} yieldConfig - Optional: yield to event loop every N polygons (e.g. { yieldEvery: 50, yieldFn: () => new Promise(r => setImmediate(r)) }) so server can serve other requests
+ * @returns {Promise<Object|null>} GeoJSON feature representing the union polygon, or null if union fails
  */
-function createUnionPolygon(group, stateTotalTractCount = null) {
+async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfig = null) {
   if (!group.censusTracts || group.censusTracts.length === 0) {
     return null;
   }
@@ -1539,6 +1542,10 @@ function createUnionPolygon(group, stateTotalTractCount = null) {
         union = unionResult;
         processedCount++;
 
+        // Yield to event loop so server can serve other requests (NEVER BLOCK on union polygon work)
+        if (yieldConfig && yieldConfig.yieldEvery && yieldConfig.yieldFn && processedCount % yieldConfig.yieldEvery === 0) {
+          await yieldConfig.yieldFn();
+        }
         // Log progress for large unions (only on success to reduce verbosity)
         if (processedCount % batchSize === 0 || i === flattenedTracts.length - 1) {
           const elapsed = Date.now() - startTime;

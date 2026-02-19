@@ -3115,8 +3115,12 @@ app.post('/api/algorithm/execute', async (req, res) => {
         logger.debug(`💾 Cached step ${stepNumber} for ${state} (union polygons will be built async)`);
         if (stepCompleteForUnions) {
           setImmediate(() => {
-            runUnionPolygonGenerationJob(state, stepNumber, maxIterations).catch((err) => {
-              console.error(`❌ Union polygon job failed for ${state} step ${stepNumber}:`, err.message);
+            const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+            const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${stepNumber}/union-polygons?maxIterations=${maxIterations}`;
+            axios.post(unionPolygonsUrl, {}).then(() => {
+              console.log(`✅ POST union-polygons accepted (202) for ${state} step ${stepNumber}`);
+            }).catch((err) => {
+              console.error(`❌ Failed to trigger union polygon job for ${state} step ${stepNumber}:`, err.message);
             });
           });
         }
@@ -5523,7 +5527,10 @@ app.get('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res
 });
 
 /**
- * Background job: generate and cache union polygons for a step. Runs asynchronously; do not await in request.
+ * Background job: generate and cache union polygons for a step.
+ * ONLY invoked from POST /api/algorithm/step/:state/:stepNumber/union-polygons (returns 202 immediately).
+ * All other code (next-step, step-by-step, move-all-isolated) must trigger union polygons via POST, never call this directly.
+ * Yields to the event loop between groups so the server can serve other requests (NEVER BLOCK).
  * @param {string} state - State code
  * @param {number} stepNum - Step number
  * @param {number} maxIterations - Max iterations (for cache key)
@@ -5629,6 +5636,7 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
 /**
  * POST /api/algorithm/step/:state/:stepNumber/union-polygons
  * Start background job to generate and cache union polygons. Returns 202 immediately; work runs asynchronously.
+ * This is the ONLY endpoint that performs union polygon creation. All other code (next-step, step-by-step, move-all-isolated) must trigger this POST, never build unions inline.
  * Always builds and overwrites any existing cached union polygons for this step.
  */
 app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res) => {
@@ -6040,8 +6048,12 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
         console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} (union polygons will be built async)`);
         if (stepCompleteForUnions) {
           setImmediate(() => {
-            runUnionPolygonGenerationJob(state, nextStepNumber, maxIterations).catch((err) => {
-              console.error(`❌ Union polygon job failed for ${state} step ${nextStepNumber}:`, err.message);
+            const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+            const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${nextStepNumber}/union-polygons?maxIterations=${maxIterations}`;
+            axios.post(unionPolygonsUrl, {}).then(() => {
+              console.log(`✅ POST union-polygons accepted (202) for ${state} step ${nextStepNumber}`);
+            }).catch((err) => {
+              console.error(`❌ Failed to trigger union polygon job for ${state} step ${nextStepNumber}:`, err.message);
             });
           });
         }
@@ -7234,8 +7246,13 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
     };
   }
   
+  // Yield to event loop periodically so server can serve other requests (NEVER BLOCK on union polygon work).
+  const yieldConfig = {
+    yieldEvery: 50,
+    yieldFn: () => new Promise(r => setImmediate(r))
+  };
   try {
-    // Recreate union polygons for each district group (only for non-Step-0)
+    // Recreate union polygons for each district group (only for non-Step-0).
     for (const group of districtGroups) {
       // Skip if already has union polygons (from cache)
       if (group.unionPolygon || group.unionPolygons) {
@@ -7244,9 +7261,9 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
       
       if (group.censusTracts && group.censusTracts.length > 0) {
         // At non-Step-0: one union polygon per DG (contiguous = one Polygon, islands = one MultiPolygon)
-        let unionResult = createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber, totalStateTracts);
+        let unionResult = await createUnionPolygonsForGroup(group, adjacencyGraph, true, stepNumber, totalStateTracts, yieldConfig);
         if (!unionResult) {
-          unionResult = createUnionPolygon(group, totalStateTracts); // Fallback so contiguous DG always has a polygon
+          unionResult = await createUnionPolygon(group, totalStateTracts, yieldConfig); // Fallback so contiguous DG always has a polygon
         }
         if (unionResult) {
           if (Array.isArray(unionResult) && unionResult.length > 0) {
@@ -7259,6 +7276,8 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
           }
         }
       }
+      // Yield after each group so other requests can be served.
+      await new Promise(r => setImmediate(r));
     }
   } finally {
     // Restore original console.log
@@ -7680,6 +7699,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
  * POST /api/algorithm/move-all-isolated-tracts
  * Move all isolated tracts for a step - just swap tracts between DGs (fast path when frontend sends full data).
  * Fallback: load from step cache when districtGroups not provided.
+ * NEVER blocks on union polygon work: union polygons are built only by async POST .../union-polygons (triggered here via setImmediate(axios.post)).
  */
 app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
   try {
