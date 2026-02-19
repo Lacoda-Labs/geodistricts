@@ -214,7 +214,7 @@
               <div class="dg-header-left">
                 <h4>{{getStateDistrictCount(selectedState)}} {{stateName(selectedState)}} GeoDistricts</h4>
                 <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
-                  Step {{ currentStepIndex }}<span *ngIf="getTotalSteps() > 0"> of {{ getTotalSteps() }}</span>
+                  Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
                 </span>
               </div>
               <div class="dg-header-right">

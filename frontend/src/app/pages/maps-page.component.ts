@@ -1376,6 +1376,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.max(this.totalSteps, loaded, expected);
   }
 
+  /** Display total = number of division levels (tree depth), ceil(log2(N)) for N districts. */
+  getDisplayTotalSteps(): number {
+    const N = this.getExpectedTotalSteps() || 0;
+    if (N <= 1) return 0;
+    return Math.max(0, Math.ceil(Math.log2(N)));
+  }
+
+  /** Display current step = level for current backend step (by number of district groups). */
+  getDisplayStepIndex(): number {
+    const numGroups = this.currentStep?.districtGroups?.length ?? (this.currentStepIndex + 1);
+    const total = this.getDisplayTotalSteps();
+    if (numGroups <= 0) return 0;
+    const level = Math.ceil(Math.log2(numGroups));
+    return Math.min(total, Math.max(0, level));
+  }
+
   /**
    * Clear all algorithm cache for the selected state (trash) and reload step 0 from cache.
    * Calls backend to delete algorithm step cache and algorithm state from storage; does not touch external data.
