@@ -5595,6 +5595,13 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
     throw new Error(`Step ${stepNum} has no district groups`);
   }
 
+  // POST union-polygons means "always build"; strip any existing union data so we overwrite
+  for (const g of stepData.districtGroups) {
+    delete g.unionPolygon;
+    delete g.unionPolygons;
+    delete g.unionPolygonCacheKey;
+  }
+
   const recreated = await recreateUnionPolygonsForGroups(stepData.districtGroups, true, stepNum);
   if (!recreated || recreated.length === 0) {
     throw new Error('Failed to create union polygons for district groups');
@@ -5622,6 +5629,7 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
 /**
  * POST /api/algorithm/step/:state/:stepNumber/union-polygons
  * Start background job to generate and cache union polygons. Returns 202 immediately; work runs asynchronously.
+ * Always builds and overwrites any existing cached union polygons for this step.
  */
 app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res) => {
   try {
@@ -7745,6 +7753,19 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       finalIsolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => { finalIsolatedTractsByGroup[idx] = Array.from(tractIds); });
 
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
+      const stepCompleteForUnions = totalRemaining === 0 && step > 0;
+      if (stepCompleteForUnions) {
+        console.log(`📤 Step complete after move-all-isolated: requesting POST .../union-polygons to trigger build job for ${state} step ${step}`);
+        const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+        const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${step}/union-polygons?maxIterations=${maxIterations}`;
+        setImmediate(() => {
+          axios.post(unionPolygonsUrl, {}).then(() => {
+            console.log(`✅ POST union-polygons accepted (202) for ${state} step ${step}`);
+          }).catch((err) => {
+            console.error(`❌ Failed to trigger union polygon job for ${state} step ${step}:`, err.message);
+          });
+        });
+      }
       // Union polygons are built async via POST .../union-polygons; client can poll GET or show tracts with blended borders
       return res.json({
         districtGroups: updatedGroups,
