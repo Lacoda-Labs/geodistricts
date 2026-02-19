@@ -98,9 +98,14 @@ export interface MapPolygonsResponse {
   hasFinalStep: boolean;
 }
 
-/** Response from GET /api/algorithm/map-polygons-all - step0 (state boundary) polygons for all states in order */
+/** Response from GET /api/algorithm/map-polygons-all - step0 (state boundary) and optional final-step polygons for all states in order */
 export interface MapPolygonsAllResponse {
-  statePolygons: Array<{ stateCode: string; statePolygon: GeoJsonFeature }>;
+  statePolygons: Array<{
+    stateCode: string;
+    statePolygon: GeoJsonFeature;
+    finalDistrictPolygons?: GeoJsonFeature[];
+    hasFinalStep?: boolean;
+  }>;
 }
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache

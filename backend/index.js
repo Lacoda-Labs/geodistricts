@@ -3885,6 +3885,82 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
 }
 
 /**
+ * Get state boundary and optional final-step district polygons for one state.
+ * Used by map-polygons/:state and map-polygons-all.
+ */
+async function getMapPolygonsForState(stateCode) {
+  const currentVersion = ALGORITHM_VERSION;
+  let hasFinalStep = false;
+  const finalDistrictPolygons = [];
+
+  const [statePolygon, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
+    getOrCreateStateBoundaryInCloudStorage(stateCode),
+    firestore.collection('census_cache').where('state', '==', stateCode).where('isComplete', '==', true).get(),
+    firestore.collection('census_cache').where('state', '==', stateCode).where('source', '==', 'algorithm-step-cache').get(),
+    firestore.collection('census_cache').where('state', '==', stateCode).where('source', '==', 'step-cache').get()
+  ]);
+
+  let finalStepDoc = null;
+  let cachedEntry = null;
+  let highestStep = -1;
+
+  function considerEntry(doc, entry) {
+    if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+        entry.algorithmVersion === currentVersion &&
+        entry.step !== undefined &&
+        entry.step > highestStep &&
+        entry.unionPolygonsCached === true) {
+      finalStepDoc = doc;
+      cachedEntry = entry;
+      highestStep = entry.step;
+    }
+  }
+
+  if (!stepCacheSnapshot.empty) {
+    for (const doc of stepCacheSnapshot.docs) considerEntry(doc, doc.data());
+  }
+  if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
+    for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc, doc.data());
+  }
+  if (!finalStepDoc && !stepCacheSnapshot2.empty) {
+    for (const doc of stepCacheSnapshot2.docs) considerEntry(doc, doc.data());
+  }
+
+  if (finalStepDoc && cachedEntry && cachedEntry.unionPolygonsCached === true) {
+    const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
+    const sortedGroups = groups
+      .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
+      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
+
+    const unionCacheKeys = [];
+    for (const group of sortedGroups) {
+      let unionCacheKey = group.unionPolygonCacheKey;
+      if (!unionCacheKey && group.startDistrictNumber != null && group.endDistrictNumber != null) {
+        unionCacheKey = `union_polygon_${stateCode}_${cachedEntry.step}_${group.startDistrictNumber}-${group.endDistrictNumber}`;
+      }
+      if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
+    }
+    const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
+    for (const cacheResult of cacheResults) {
+      if (cacheResult && cacheResult.data) {
+        const unionData = cacheResult.data;
+        const features = Array.isArray(unionData) ? unionData : [unionData];
+        for (const f of features) {
+          if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
+        }
+      }
+    }
+    hasFinalStep = finalDistrictPolygons.length > 0;
+  }
+
+  return {
+    statePolygon,
+    finalDistrictPolygons: hasFinalStep ? finalDistrictPolygons : undefined,
+    hasFinalStep
+  };
+}
+
+/**
  * GET /api/algorithm/map-polygons/:state
  * Returns only polygon GeoJSON for fast map display: state outline and optional final district polygons.
  * Does not run algorithm or load tract data. All polygons from Cloud Storage.
@@ -3895,77 +3971,11 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
     }
-    const currentVersion = ALGORITHM_VERSION;
-
-    let hasFinalStep = false;
-    const finalDistrictPolygons = [];
-
-    // Fetch state boundary and all step-cache queries in parallel to reduce latency
-    const [statePolygon, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
-      getOrCreateStateBoundaryInCloudStorage(state),
-      firestore.collection('census_cache').where('state', '==', state).where('isComplete', '==', true).get(),
-      firestore.collection('census_cache').where('state', '==', state).where('source', '==', 'algorithm-step-cache').get(),
-      firestore.collection('census_cache').where('state', '==', state).where('source', '==', 'step-cache').get()
-    ]);
-
-    let finalStepDoc = null;
-    let cachedEntry = null;
-    let highestStep = -1;
-
-    function considerEntry(doc, entry) {
-      if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-          entry.algorithmVersion === currentVersion &&
-          entry.step !== undefined &&
-          entry.step > highestStep &&
-          entry.unionPolygonsCached === true) {
-        finalStepDoc = doc;
-        cachedEntry = entry;
-        highestStep = entry.step;
-      }
-    }
-
-    if (!stepCacheSnapshot.empty) {
-      for (const doc of stepCacheSnapshot.docs) considerEntry(doc, doc.data());
-    }
-    if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
-      for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc, doc.data());
-    }
-    if (!finalStepDoc && !stepCacheSnapshot2.empty) {
-      for (const doc of stepCacheSnapshot2.docs) considerEntry(doc, doc.data());
-    }
-
-    // Only load union polygons from Cloud Storage when step has unionPolygonsCached (files known to exist)
-    if (finalStepDoc && cachedEntry && cachedEntry.unionPolygonsCached === true) {
-      const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
-      const sortedGroups = groups
-        .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
-        .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
-
-      const unionCacheKeys = [];
-      for (const group of sortedGroups) {
-        let unionCacheKey = group.unionPolygonCacheKey;
-        if (!unionCacheKey && group.startDistrictNumber != null && group.endDistrictNumber != null) {
-          unionCacheKey = `union_polygon_${state}_${cachedEntry.step}_${group.startDistrictNumber}-${group.endDistrictNumber}`;
-        }
-        if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
-      }
-      const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
-      for (const cacheResult of cacheResults) {
-        if (cacheResult && cacheResult.data) {
-          const unionData = cacheResult.data;
-          const features = Array.isArray(unionData) ? unionData : [unionData];
-          for (const f of features) {
-            if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
-          }
-        }
-      }
-      hasFinalStep = finalDistrictPolygons.length > 0;
-    }
-
+    const result = await getMapPolygonsForState(state);
     return res.json({
-      statePolygon,
-      finalDistrictPolygons: hasFinalStep ? finalDistrictPolygons : undefined,
-      hasFinalStep
+      statePolygon: result.statePolygon,
+      finalDistrictPolygons: result.finalDistrictPolygons,
+      hasFinalStep: result.hasFinalStep
     });
   } catch (error) {
     console.error('❌ GET /api/algorithm/map-polygons error:', error);
@@ -3985,7 +3995,7 @@ const DEFAULT_STATE_CODES_ORDER = Object.entries(CONGRESSIONAL_DISTRICTS_BY_STAT
 
 /**
  * GET /api/algorithm/map-polygons-all
- * Returns step0 (state boundary) polygons for all 51 states in one response.
+ * Returns step0 (state boundary) and optional final-step district polygons for all states in one response.
  * Query: states=CA,TX,FL,... (optional; if omitted uses default order by district count descending).
  */
 app.get('/api/algorithm/map-polygons-all', async (req, res) => {
@@ -4000,8 +4010,8 @@ app.get('/api/algorithm/map-polygons-all', async (req, res) => {
 
     const results = await Promise.all(
       stateCodes.map(async (stateCode) => {
-        const statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
-        return { stateCode, statePolygon };
+        const { statePolygon, finalDistrictPolygons, hasFinalStep } = await getMapPolygonsForState(stateCode);
+        return { stateCode, statePolygon, finalDistrictPolygons, hasFinalStep };
       })
     );
 
