@@ -76,8 +76,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
   isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
-  /** True while POST union-polygons is in progress for the current step */
-  isGeneratingUnionPolygons: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
   step0IsolatedSectionExpanded: boolean = false;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
@@ -1674,39 +1672,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (group as any).unionPolygons = u.unionPolygons;
       }
     }
-  }
-
-  /**
-   * Generate and cache union polygons for the current step (admin). POST returns 202; we poll GET until unions are ready or timeout.
-   */
-  generateUnionPolygonsForCurrentStep(): void {
-    if (!this.selectedState || this.selectedState === 'ALL' || !this.currentStep || this.currentStepIndex <= 0) return;
-    this.isGeneratingUnionPolygons = true;
-    this.errorMessage = '';
-    const state = this.selectedState;
-    const stepIndex = this.currentStepIndex;
-    const pollIntervalMs = 3000;
-    const pollTimeoutMs = 300000; // 5 min
-    const sub = this.geodistrictService.generateStepUnionPolygons(state, stepIndex, 100).pipe(
-      concatMap(() => timer(0, pollIntervalMs).pipe(
-        concatMap(() => this.geodistrictService.getStepUnionPolygons(state, stepIndex, 100)),
-        filter((body): body is NonNullable<typeof body> => body != null),
-        take(1),
-        timeout(pollTimeoutMs)
-      )),
-      finalize(() => { this.isGeneratingUnionPolygons = false; this.cdr.markForCheck(); })
-    ).subscribe({
-      next: (body) => {
-        if (this.currentStep && (this.currentStep as any).step === stepIndex) {
-          this.mergeUnionPolygonsIntoStep(this.currentStep, body);
-          this.renderFinalDistricts();
-        }
-      },
-      error: (err) => {
-        this.errorMessage = err?.message || 'Generate union polygons failed or timed out';
-      }
-    });
-    this.subscriptions.push(sub);
   }
 
   /**

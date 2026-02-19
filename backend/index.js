@@ -7619,6 +7619,31 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
         
         // Also invalidate all subsequent step caches since they depend on this step
         await invalidateSubsequentStepCaches(state, maxIterations, step);
+
+        // Write the updated step back to cache so any later POST union-polygons uses post-move DG tracts
+        if (algorithmState.steps && algorithmState.steps[step] && algorithmState.tractCacheKey) {
+          const updatedStep = algorithmState.steps[step];
+          const normalizedStep = normalizeStepData(updatedStep, algorithmState.tractCacheKey);
+          const cacheData = {
+            stepData: normalizedStep.normalized,
+            isComplete: false,
+            algorithmVersion: ALGORITHM_VERSION,
+            timestamp: Date.now(),
+            ttl: 24 * 60 * 60 * 1000, // 24 hours
+            source: 'algorithm-step-cache',
+            normalized: true,
+            tractCacheKey: algorithmState.tractCacheKey,
+            state: state,
+            step: step,
+            unionPolygonsCached: false
+          };
+          try {
+            await setStepCache(stepCacheKey, cacheData);
+            console.log(`💾 STEP CACHE STORED (move-isolated-tracts): Saved updated step ${step} for ${state} with post-move DG tracts`);
+          } catch (writeErr) {
+            console.warn(`⚠️ Failed to write step cache after move-isolated-tracts: ${writeErr.message}`);
+          }
+        }
       } else {
         console.warn(`⚠️ Algorithm state not found for ${state}, cannot update state or invalidate cache`);
       }
@@ -7755,6 +7780,41 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
       const stepCompleteForUnions = totalRemaining === 0 && step > 0;
       if (stepCompleteForUnions) {
+        // Persist updated step to cache before triggering POST union-polygons so the job uses post-move DG tracts
+        const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+        const tractCacheKey = `state_tracts_${state}`;
+        const stepPayload = {
+          state,
+          step,
+          districtGroups: updatedGroups,
+          divisionLines: bodyDivisionLines || [],
+          isolatedTractsData: {
+            isolatedTractsByGroup: finalIsolatedTractsByGroup,
+            isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
+            totalIsolated: finalIsolationResult.isolatedTractIds.size,
+            groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
+          }
+        };
+        const normalizedStep = normalizeStepData(stepPayload, tractCacheKey);
+        const cacheData = {
+          stepData: normalizedStep.normalized,
+          isComplete: true,
+          algorithmVersion: ALGORITHM_VERSION,
+          timestamp: Date.now(),
+          ttl: 24 * 60 * 60 * 1000, // 24 hours
+          source: 'algorithm-step-cache',
+          normalized: true,
+          tractCacheKey,
+          state,
+          step,
+          unionPolygonsCached: false
+        };
+        try {
+          await setStepCache(stepCacheKey, cacheData);
+          console.log(`💾 STEP CACHE STORED (fast path): Saved updated step ${step} for ${state} before POST union-polygons`);
+        } catch (cacheErr) {
+          console.warn(`⚠️ Failed to save step cache before union-polygons (fast path): ${cacheErr.message}`);
+        }
         console.log(`📤 Step complete after move-all-isolated: requesting POST .../union-polygons to trigger build job for ${state} step ${step}`);
         const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
         const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${step}/union-polygons?maxIterations=${maxIterations}`;
