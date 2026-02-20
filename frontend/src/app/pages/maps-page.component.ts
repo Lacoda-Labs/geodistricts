@@ -28,6 +28,9 @@ import { environment } from '../../environments/environment';
 
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 
+/** Fill opacity for district/tract polygons on the map. 1 = no transparency; use 0.7 for the previous transparent look. */
+const POLYGON_FILL_OPACITY = 1;
+
 declare global {
   interface Window {
     gtag: (command: string, action: string, parameters: any) => void;
@@ -649,12 +652,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (this.tractGeoJsonLayers.size > 0) {
       // Fallback: update existing layer styles if no algorithm result. When boundaries hidden, border same color/opacity as fill.
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
-        const fillOpacityVal = 0.7;
         layer.setStyle({
           color: this.showTractBoundaries ? '#000000' : districtColor,
           weight: this.showTractBoundaries ? 0.5 : 0.3,
-          opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
-          fillOpacity: fillOpacityVal,
+          opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
+          fillOpacity: POLYGON_FILL_OPACITY,
           fillColor: districtColor
         });
       });
@@ -1165,12 +1167,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.markForCheck();
         setTimeout(() => {
           this.renderMapPolygons();
-          // When precomputed data exists, load final step via GET only (visualization mode). Otherwise show map only; no run on /maps.
+          // When precomputed data exists, load final step so population and district list show. /maps: GET-only (visualization). /dev/maps: same load so sidebar shows data; user can still run/restart.
           if (!this.algorithmResult && this.selectedState && this.selectedState !== 'ALL' && !this.isSingleDistrictState(this.selectedState)) {
-            if (this.isVisualizationOnly) {
+            if (this.isVisualizationOnly || this.isDevMode) {
               this.loadVisualizationState();
             }
-            // When !isVisualizationOnly we do not run the algorithm on the maps page (use /dev/maps to run).
           }
         }, 100);
       },
@@ -2714,7 +2715,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private clearSliderHighlight(): void {
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
     const normalColor = this.showTractBoundaries ? '#000000' : undefined;
-    const fillOpacityVal = 0.7;
     this.lastSliderHighlightedTractIds.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
@@ -2722,8 +2722,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
-        fillOpacity: fillOpacityVal,
+        opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
+        fillOpacity: POLYGON_FILL_OPACITY,
         fillColor: tractColor
       });
     });
@@ -2746,7 +2746,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
     const normalColor = this.showTractBoundaries ? '#000000' : undefined;
-    const fillOpacityVal = 0.7;
     toUnhighlight.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
@@ -2754,8 +2753,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : fillOpacityVal,
-        fillOpacity: fillOpacityVal,
+        opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
+        fillOpacity: POLYGON_FILL_OPACITY,
         fillColor: tractColor
       });
     });
@@ -3187,7 +3186,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             color,
             weight: 2,
             opacity: 1.0,
-            fillOpacity: 0.7,
+            fillOpacity: POLYGON_FILL_OPACITY,
             fillColor: color
           }
         }).bindPopup(`<strong>District ${index + 1}</strong>`);
@@ -3307,7 +3306,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
         ? this.colorToGrayscale(baseColor) 
         : baseColor;
-      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : 0.7;
+      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : POLYGON_FILL_OPACITY;
 
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
@@ -3392,14 +3391,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
             // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
             // When boundaries hidden, border uses same color and opacity as fill so it blends (not removed).
-            const fillOpacityVal = isIsolated ? 0.9 : 0.7;
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
             let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
             }
-            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : fillOpacityVal);
+            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : POLYGON_FILL_OPACITY);
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
@@ -3407,7 +3405,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 color: borderColor,
                 weight: borderWeight,
                 opacity: borderOpacityVal,
-                fillOpacity: fillOpacityVal,
+                fillOpacity: POLYGON_FILL_OPACITY,
                 fillColor: tractColor
               }
             }).bindPopup(`

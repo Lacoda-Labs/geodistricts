@@ -130,7 +130,7 @@ flowchart TB
 | No split (current)                                            | —                        | Mixed (run + view same page)    | Partial             | Continued coupling and “blind” waits in dev |
 
 
-**Recommended path**: Implement **visualization behavior** on `/maps` (GET-only when data exists, hide run controls), add `**/dev/maps**` that mirrors current “run algorithm” behavior and calls backend (Option A). Add **union-only step** and optional **step-list** endpoint for mobile and clarity. Defer full client-side algorithm (Option B) unless backend execution becomes a real blocker.
+**Recommended path**: Implement **visualization behavior** on `/maps` (GET-only when data exists, hide run controls), add `**/dev/maps`** that mirrors current “run algorithm” behavior and calls backend (Option A). Add **union-only step** and optional **step-list** endpoint for mobile and clarity. Defer full client-side algorithm (Option B) unless backend execution becomes a real blocker.
 
 ---
 
@@ -138,7 +138,7 @@ flowchart TB
 
 1. **Maps page (visualization)**
   - On state load: if `final-step` or `map-polygons` has data, set “visualization-only” flag; hide or disable Run All / Next Step; step navigation uses `getStep` only.
-2. **New `/dev/maps**`
+2. **New `/dev/maps`**
   - New component (or lazy-loaded route) that contains current “run algorithm”, “next step”, isolation/bridge/balance, and step 0 controls; same backend endpoints as today.
 3. **Backend**
   - Optional `polygonsOnly` (or similar) on `GET step/:state/:stepNumber`; optional `GET step-list/:state`; consider gating POST execute/next-step in production.
