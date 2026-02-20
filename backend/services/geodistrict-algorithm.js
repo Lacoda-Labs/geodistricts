@@ -3600,8 +3600,13 @@ class GeodistrictAlgorithmService {
   /**
    * Run mode: always run bridge tract detection (and move) as part of isolation resolution.
    * Step mode: user initiates each step; bridge detection is not automatic.
+   * @param {Array} districtGroups - Current district groups
+   * @param {Array} allTracts - All tracts
+   * @param {Array} divisionLines - Optional division line metadata (sibling relationships)
+   * @param {Set<string>|null} step0IslandTractIds - Optional. Step-0 island tract IDs to exclude from isolation
+   * @param {number|null} stepNumber - Optional. Step number (for detection; use > 0 so islands are excluded)
    */
-  resolveIsolationForStep(districtGroups, allTracts, divisionLines = null) {
+  resolveIsolationForStep(districtGroups, allTracts, divisionLines = null, step0IslandTractIds = null, stepNumber = 1) {
     logger.debug(`🔧 RESOLVE ISOLATION: Starting isolation resolution for ${districtGroups.length} groups`);
     
     let updatedGroups = districtGroups.map(group => ({
@@ -3618,7 +3623,7 @@ class GeodistrictAlgorithmService {
       resolutionIterations++;
       logger.debug(`🔧 Resolution iteration ${resolutionIterations}`);
       
-      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts);
+      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
       
       if (isolationResult.isolatedTractIds.size === 0) {
         logger.debug(`✅ No isolated tracts found after iteration ${resolutionIterations - 1}`);
@@ -3668,7 +3673,7 @@ class GeodistrictAlgorithmService {
         logger.debug(`   Moved ${bridgeMovedThisIteration} bridge tract(s) this iteration`);
         
         // Re-detect isolation after moving bridge tracts
-        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
+        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
         
         // Check if bridge tract movement actually helped (reduced isolation count)
         if (isolationAfterBridge.isolatedTractIds.size >= isolationCountBeforeBridge) {
@@ -3685,7 +3690,7 @@ class GeodistrictAlgorithmService {
       }
       
       // Step 4: Move remaining isolated tracts
-      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts);
+      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
       if (isolationAfterBridge.isolatedTractIds.size > 0) {
         // Process each group with isolated tracts
         for (const [groupIndex, isolatedTractIds] of isolationAfterBridge.isolatedTractsByGroup.entries()) {
@@ -3706,7 +3711,7 @@ class GeodistrictAlgorithmService {
       }
       
       // Check if we're done
-      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
+      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
       if (finalIsolation.isolatedTractIds.size === 0) {
         logger.info(`✅ All isolation resolved after ${resolutionIterations} iteration(s)`);
         break;
@@ -3720,7 +3725,7 @@ class GeodistrictAlgorithmService {
     }
     
     // Final isolation check
-    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts);
+    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
     
     logger.info(`✅ RESOLVE ISOLATION: Completed - moved ${totalBridgeMoved} bridge tracts, ${totalIsolatedMoved} isolated tracts, ${finalIsolation.isolatedTractIds.size} remaining isolated`);
     
@@ -4159,11 +4164,13 @@ class GeodistrictAlgorithmService {
    * @param {number} totalDistricts - Total number of districts to create
    * @param {number} maxIterations - Maximum iterations
    * @param {boolean} forceInvalidate - Force recalculation
-   * @param {boolean} resolveIsolation - If true, resolve isolation after each step (detect isolated, detect bridge, move bridge, move isolated)
+   * @param {boolean} resolveIsolation - If true, resolve isolation after each step (backward compat; overridden by isolationStrategy)
    * @param {Function} onStepComplete - Optional callback called after each step with (stepNumber, stepData, shouldCache) - if returns false, step won't be cached
+   * @param {string} [isolationStrategy='none'] - 'none' (default, no resolution), 'perStep' (resolve after each division), 'finalStepOnly' (resolve once at final step)
    * @returns {Promise<Object>} GeodistrictResult
    */
-  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, forceInvalidate = false, resolveIsolation = false, onStepComplete = null) {
+  async executeGeodistrictAlgorithm(tracts, totalDistricts, maxIterations, forceInvalidate = false, resolveIsolation = false, onStepComplete = null, isolationStrategy = null) {
+    const strategy = isolationStrategy ?? (resolveIsolation ? 'perStep' : 'none');
     // Preload S4 adjacency data if available
     const state = tracts[0]?.properties?.['STATE'] || '';
     if (state) {
@@ -4459,12 +4466,12 @@ class GeodistrictAlgorithmService {
         }
       }
       
-      // Resolve isolation if requested (for "run all steps" execution)
+      // Resolve isolation only for strategy 'perStep' (skip for 'none' and 'finalStepOnly')
       let groupsForStep = currentGroups;
       let resolutionSummary = null;
-      if (resolveIsolation && iteration > 0) { // Skip for step 0 (no isolation possible)
-        console.log(`🔧 Resolving isolation for step ${iteration}...`);
-        const resolutionResult = this.resolveIsolationForStep(currentGroups, uniqueTracts, divisionLines);
+      if (strategy === 'perStep' && iteration > 0) { // Skip for step 0 (no isolation possible)
+        console.log(`🔧 Resolving isolation for step ${iteration} (perStep)...`);
+        const resolutionResult = this.resolveIsolationForStep(currentGroups, uniqueTracts, divisionLines, step0IslandTractIds, iteration);
         groupsForStep = resolutionResult.districtGroups;
         resolutionSummary = resolutionResult.resolutionSummary;
         
@@ -4489,6 +4496,28 @@ class GeodistrictAlgorithmService {
       if (onStepComplete) {
         const shouldCache = await onStepComplete(iteration, step, true);
         // Callback can return false to skip caching, but we still add the step to the result
+      }
+    }
+
+    // Strategy 'finalStepOnly': resolve isolation once now (all groups are single-district)
+    if (strategy === 'finalStepOnly' && iteration > 0 && steps.length > 0) {
+      const isFinalStep = currentGroups.every(g => g.totalDistricts === 1);
+      if (isFinalStep) {
+        console.log(`🔧 Resolving isolation at final step (finalStepOnly)...`);
+        const resolutionResult = this.resolveIsolationForStep(currentGroups, uniqueTracts, null, step0IslandTractIds, iteration);
+        currentGroups = resolutionResult.districtGroups;
+        const resolutionSummary = resolutionResult.resolutionSummary;
+        console.log(`✅ Final-step isolation resolved: ${resolutionSummary.bridgeTractsMoved} bridge, ${resolutionSummary.isolatedTractsMoved} isolated moved`);
+        // Replace last step with resolved groups and re-run step creation for consistent isolation display
+        const lastStepBefore = steps[steps.length - 1];
+        const stepDirection = lastStepBefore.divisionDirection || 'latitude';
+        const finalStep = createStep(iteration, iteration, currentGroups,
+          lastStepBefore.description || `Division ${iteration} by ${stepDirection}`, stepDirection, undefined, [], this, uniqueTracts, step0IslandTractIds);
+        finalStep.isolationResolution = resolutionSummary;
+        steps[steps.length - 1] = finalStep;
+        if (onStepComplete) {
+          await onStepComplete(iteration, finalStep, true);
+        }
       }
     }
 

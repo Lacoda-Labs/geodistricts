@@ -3078,9 +3078,9 @@ app.post('/api/algorithm/execute', async (req, res) => {
 
     console.log(`📊 Loaded ${tracts.length} tracts for ${state}`);
 
-    // Check if isolation resolution is requested (for "run all steps" execution)
-    const resolveIsolation = req.body.resolveIsolation === true;
-    
+    // Isolation strategy: 'none' (default, grid-only), 'perStep' (resolve after each division), 'finalStepOnly' (resolve once at final step)
+    const isolationStrategy = req.body.isolationStrategy ?? (req.body.resolveIsolation === true ? 'perStep' : 'none');
+
     // Track tract cache key for step caching
     const tractCacheKey = `state_tracts_${state}`;
     
@@ -3137,15 +3137,16 @@ app.post('/api/algorithm/execute', async (req, res) => {
       return true; // Continue execution
     };
 
-    // Run mode (resolveIsolation true): run step 0 through final step with isolation resolution; bridge tract detection runs automatically each step. Step mode: user initiates each step; bridge detection is not automatic.
+    // Run mode: isolationStrategy 'perStep' = resolve after each division; 'finalStepOnly' = resolve once at end; 'none' = no resolution (default).
     const startTime = Date.now();
     const result = await algorithmService.executeGeodistrictAlgorithm(
       tracts,
       totalDistricts,
       maxIterations,
       options.forceInvalidate || false,
-      resolveIsolation, // Enable isolation resolution (run mode)
-      onStepComplete // Always cache each step once calculated (record state per step)
+      isolationStrategy === 'perStep', // backward compat: resolveIsolation
+      onStepComplete,
+      isolationStrategy
     );
     const executionTime = Date.now() - startTime;
 

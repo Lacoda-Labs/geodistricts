@@ -91,10 +91,19 @@ A critical distinction:
 - **Population balance (optional)**: When moving bridge tract(s) into the isolated group, optionally balance by selecting from the isolated group a tract (or set of adjacent tracts) that borders the sibling_DG and whose population closely matches the moved bridge tract(s), then moving that selection to the sibling. Use the same rule: sorted list of boundary tracts, select by population match.
 - **After move**: Re-run isolation detection on the updated district groups.
 
-## 8. Run mode vs step mode
+## 8. Isolation strategies (run mode)
 
-- **Run mode** (e.g. “Run all steps” or `POST /api/algorithm/execute` with `resolveIsolation: true`): The algorithm runs step 0 through the final step sequentially; isolation resolution (detect isolated → detect bridge → move bridge → move isolated) runs automatically after each division step. Bridge tract detection is always run in this path. Each step is cached when complete.
-- **Step mode** (step-by-step API and UI): The user initiates each step (including “Detect isolated”, “Move isolated”, “Detect bridge”, “Move bridge”). Bridge detection is not automatic. A step is cached when the DG is contiguous or as close as possible (e.g. after the user completes moves or advances).
+Three strategies control when (or whether) isolation is resolved during a full algorithm run (`POST /api/algorithm/execute`). Chosen via request body `isolationStrategy`; default is `none`.
+
+| Strategy | Value | When resolution runs | Contiguity |
+|----------|--------|----------------------|------------|
+| **Grid-only (default)** | `none` | Never | Final geodistricts = grid assignment only; districts may be disconnected. |
+| **Per-step** | `perStep` | After each division step | Contiguity enforced every step (same as legacy `resolveIsolation: true`). |
+| **Final-step only** | `finalStepOnly` | Once, after the final geodistrict grid is established | Same contiguity goal; single resolution phase at end. |
+
+- **Backward compatibility**: If `isolationStrategy` is omitted and `resolveIsolation === true`, behavior is `perStep`.
+- **Run mode** with `perStep`: Algorithm runs step 0 through final step; isolation resolution runs after each division. Bridge tract detection is automatic in this path.
+- **Step mode** (step-by-step API and UI): The user initiates each step (Detect isolated, Move isolated, Detect bridge, Move bridge). Bridge detection is not automatic. A step is cached when the DG is contiguous or as close as possible.
 
 ## 9. Implementation notes
 
@@ -106,6 +115,7 @@ A critical distinction:
 
 ### API
 
+- `POST /api/algorithm/execute` — body may include `isolationStrategy`: `'none'` (default), `'perStep'`, or `'finalStepOnly'`; legacy `resolveIsolation: true` implies `perStep` when `isolationStrategy` is omitted.
 - `POST /api/algorithm/detect-isolated-tracts` — body: `districtGroups`, `allTracts`; optional: `stepNumber`, `step0IslandTractIds`.
 - `POST /api/algorithm/detect-bridge-tracts` — body: `districtGroups`, `allTracts`, `isolatedTractsByGroup`.
 - `POST /api/algorithm/move-isolated-tracts` — move isolated tracts for one group; backend updates state and invalidates caches.
