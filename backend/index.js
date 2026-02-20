@@ -3118,15 +3118,15 @@ app.post('/api/algorithm/execute', async (req, res) => {
         const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
         await stepDocRef.set(stepCacheEntry);
         
-        logger.debug(`💾 Cached step ${stepNumber} for ${state} (union polygons will be built async)`);
+        logger.debug(`💾 Cached step ${stepNumber} for ${state} (union polygons will be built when algorithm completes)`);
         if (stepCompleteForUnions) {
           setImmediate(() => {
             const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-            const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${stepNumber}/union-polygons?maxIterations=${maxIterations}`;
-            axios.post(unionPolygonsUrl, {}).then(() => {
-              console.log(`✅ POST union-polygons accepted (202) for ${state} step ${stepNumber}`);
+            const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${stepNumber}&maxIterations=${maxIterations}`;
+            axios.post(buildAllUrl, {}).then(() => {
+              console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${stepNumber}`);
             }).catch((err) => {
-              console.error(`❌ Failed to trigger union polygon job for ${state} step ${stepNumber}:`, err.message);
+              console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
             });
           });
         }
@@ -5729,6 +5729,143 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
 }
 
 /**
+ * Get step cache entry for a step (tries algorithm_step_ and step_ key formats).
+ * @param {string} state - State code
+ * @param {number} stepNum - Step number
+ * @param {number} maxIterations - Max iterations (for algorithm_step_ key)
+ * @returns {Promise<{ stepCacheKey: string, cachedEntry: object }|null>}
+ */
+async function getStepCacheEntry(state, stepNum, maxIterations) {
+  const currentVersion = ALGORITHM_VERSION;
+  let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+  let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  if (doc.exists) {
+    let entry = doc.data();
+    entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+      return { stepCacheKey, cachedEntry: entry };
+    }
+  }
+  stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+  doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  if (doc.exists) {
+    let entry = doc.data();
+    entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
+      return { stepCacheKey, cachedEntry: entry };
+    }
+  }
+  return null;
+}
+
+/**
+ * Build union polygons for final step from tracts, then backfill steps 1..finalStep-1
+ * by unioning sibling DG polygons (parent = union of two children). Step 0 unchanged (TIGER only).
+ * ONLY invoked when algorithm has completed (final step cached).
+ * @param {string} state - State code
+ * @param {number} finalStepNumber - Final step number (last step index)
+ * @param {number} maxIterations - Max iterations (for cache keys)
+ */
+async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxIterations) {
+  const turf = require('@turf/turf');
+  const { buildMultiPolygonFromFeatures } = require('./services/geodistrict-algorithm');
+
+  console.log(`📐 Build-all union polygons: ${state} final step ${finalStepNumber}`);
+  await runUnionPolygonGenerationJob(state, finalStepNumber, maxIterations);
+  console.log(`📐 Build-all: final step ${finalStepNumber} union polygons cached`);
+
+  for (let stepNum = finalStepNumber - 1; stepNum >= 1; stepNum--) {
+    const stepResult = await getStepCacheEntry(state, stepNum, maxIterations);
+    if (!stepResult) {
+      console.warn(`⚠️ Build-all: step ${stepNum} not in cache for ${state}, skipping backward pass from step ${stepNum}`);
+      continue;
+    }
+    const { stepCacheKey, cachedEntry } = stepResult;
+    const districtGroups = cachedEntry.stepData?.districtGroups ?? cachedEntry.districtGroups ?? [];
+    const divisionLines = cachedEntry.stepData?.divisionLines ?? cachedEntry.divisionLines ?? [];
+    if (districtGroups.length === 0) {
+      console.warn(`⚠️ Build-all: step ${stepNum} has no district groups, skipping`);
+      continue;
+    }
+
+    const nextStepResult = await getStepCacheEntry(state, stepNum + 1, maxIterations);
+    if (!nextStepResult) {
+      throw new Error(`Build-all: step ${stepNum + 1} not in cache for ${state} (required for backward pass)`);
+    }
+    const nextGroups = nextStepResult.cachedEntry.stepData?.districtGroups ?? nextStepResult.cachedEntry.districtGroups ?? [];
+    const childGroupsWithPolygons = await loadUnionPolygonsFromCache(state, stepNum + 1, nextGroups, { unionPolygonsCached: true });
+
+    const childPolygonsByKey = {};
+    for (const g of childGroupsWithPolygons) {
+      const key = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
+      let feat = g.unionPolygon;
+      if (!feat && g.unionPolygons && g.unionPolygons.length > 0) {
+        feat = g.unionPolygons.length === 1 ? g.unionPolygons[0] : buildMultiPolygonFromFeatures(g.unionPolygons);
+      }
+      if (feat && feat.geometry) childPolygonsByKey[key] = feat;
+    }
+
+    const groupsWithPolygons = [];
+    for (const group of districtGroups) {
+      const dgKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+      let unionFeature = childPolygonsByKey[dgKey];
+      if (!unionFeature) {
+        const divLine = divisionLines.find(
+          (line) => line.parentGroup &&
+            line.parentGroup.startDistrictNumber === group.startDistrictNumber &&
+            line.parentGroup.endDistrictNumber === group.endDistrictNumber
+        );
+        if (!divLine || !divLine.siblingGroups || divLine.siblingGroups.length !== 2) {
+          console.error(`❌ Build-all: step ${stepNum} DG ${dgKey} has no child polygons and no divisionLine with two siblings`);
+          continue;
+        }
+        const s1 = divLine.siblingGroups[0];
+        const s2 = divLine.siblingGroups[1];
+        const s1Key = `${s1.startDistrictNumber}-${s1.endDistrictNumber}`;
+        const s2Key = `${s2.startDistrictNumber}-${s2.endDistrictNumber}`;
+        const poly1 = childPolygonsByKey[s1Key];
+        const poly2 = childPolygonsByKey[s2Key];
+        if (!poly1 || !poly2) {
+          console.error(`❌ Build-all: step ${stepNum} DG ${dgKey} missing child polygon(s): s1=${s1Key} s2=${s2Key}`);
+          continue;
+        }
+        try {
+          unionFeature = turf.union(poly1, poly2);
+        } catch (err) {
+          console.error(`❌ Build-all: turf.union failed for step ${stepNum} DG ${dgKey}:`, err.message);
+          continue;
+        }
+      }
+      groupsWithPolygons.push({
+        startDistrictNumber: group.startDistrictNumber,
+        endDistrictNumber: group.endDistrictNumber,
+        totalDistricts: group.totalDistricts,
+        totalPopulation: group.totalPopulation,
+        unionPolygon: unionFeature,
+        unionPolygons: unionFeature ? [unionFeature] : undefined
+      });
+    }
+
+    if (groupsWithPolygons.length === 0) {
+      console.warn(`⚠️ Build-all: step ${stepNum} produced no polygons, skipping cache write`);
+      continue;
+    }
+
+    const unionPolygonCacheKeys = await cacheUnionPolygons(state, stepNum, groupsWithPolygons);
+    const entryToWrite = cachedEntry;
+    const groupsToUpdate = entryToWrite.stepData?.districtGroups ?? entryToWrite.districtGroups ?? [];
+    for (let i = 0; i < groupsToUpdate.length; i++) {
+      if (unionPolygonCacheKeys[i]) groupsToUpdate[i].unionPolygonCacheKey = unionPolygonCacheKeys[i];
+    }
+    entryToWrite.unionPolygonsCached = true;
+    entryToWrite.timestamp = Date.now();
+    await setStepCache(stepCacheKey, entryToWrite);
+    console.log(`✅ Build-all: step ${stepNum} union polygons cached (${groupsWithPolygons.length} DGs)`);
+  }
+  console.log(`✅ Build-all union polygons completed for ${state}`);
+}
+
+/**
  * POST /api/algorithm/step/:state/:stepNumber/union-polygons
  * Start background job to generate and cache union polygons. Returns 202 immediately; work runs asynchronously.
  * This is the ONLY endpoint that performs union polygon creation. All other code (next-step, step-by-step, move-all-isolated) must trigger this POST, never build unions inline.
@@ -5798,6 +5935,49 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, re
     console.error('❌ POST union-polygons error:', error);
     res.status(500).json({
       error: 'Union polygons generation failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/algorithm/build-all-union-polygons/:state
+ * Start background job to build union polygons for final step (from tracts) then backfill steps 1..finalStep-1 (union of child DGs). Returns 202 immediately.
+ * Query: finalStepNumber (required), maxIterations (optional, default 100).
+ */
+app.post('/api/algorithm/build-all-union-polygons/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const finalStepNumber = parseInt(req.query.finalStepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    if (!state || state.length !== 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    if (isNaN(finalStepNumber) || finalStepNumber < 1) {
+      return res.status(400).json({ error: 'finalStepNumber query param is required and must be >= 1' });
+    }
+    console.log(`📥 Received: POST /api/algorithm/build-all-union-polygons/${state} (finalStep=${finalStepNumber})`);
+    const { fork } = require('child_process');
+    const workerPath = require('path').join(__dirname, 'scripts', 'run-build-all-union-polygons-job.js');
+    const child = fork(workerPath, [state, String(finalStepNumber), String(maxIterations)], {
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+      env: process.env,
+      cwd: __dirname
+    });
+    child.on('error', (err) => console.error(`❌ Build-all union polygon worker failed for ${state}:`, err.message));
+    child.on('exit', (code, sig) => {
+      if (code !== 0 && code != null) console.error(`❌ Build-all union polygon worker exited with code ${code} for ${state}`);
+    });
+    return res.status(202).json({
+      accepted: true,
+      message: 'Build-all union polygon generation started',
+      state,
+      finalStepNumber
+    });
+  } catch (error) {
+    console.error('❌ POST build-all-union-polygons error:', error);
+    res.status(500).json({
+      error: 'Build-all union polygons failed',
       message: error.message
     });
   }
@@ -6154,15 +6334,15 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
         };
 
         await setStepCache(stepCacheKey, cacheData);
-        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} (union polygons will be built async)`);
-        if (stepCompleteForUnions) {
+        console.log(`💾 STEP CACHE STORED: Cached step ${nextStepNumber} for ${state} (union polygons built only when algorithm completes)`);
+        if (stepCompleteForUnions && isComplete) {
           setImmediate(() => {
             const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-            const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${nextStepNumber}/union-polygons?maxIterations=${maxIterations}`;
-            axios.post(unionPolygonsUrl, {}).then(() => {
-              console.log(`✅ POST union-polygons accepted (202) for ${state} step ${nextStepNumber}`);
+            const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${nextStepNumber}&maxIterations=${maxIterations}`;
+            axios.post(buildAllUrl, {}).then(() => {
+              console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${nextStepNumber}`);
             }).catch((err) => {
-              console.error(`❌ Failed to trigger union polygon job for ${state} step ${nextStepNumber}:`, err.message);
+              console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
             });
           });
         }
@@ -7944,18 +8124,21 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         } catch (cacheErr) {
           console.warn(`⚠️ Failed to save step cache before union-polygons (fast path): ${cacheErr.message}`);
         }
-        console.log(`📤 Step complete after move-all-isolated: requesting POST .../union-polygons to trigger build job for ${state} step ${step}`);
-        const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-        const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${step}/union-polygons?maxIterations=${maxIterations}`;
-        setImmediate(() => {
-          axios.post(unionPolygonsUrl, {}).then(() => {
-            console.log(`✅ POST union-polygons accepted (202) for ${state} step ${step}`);
-          }).catch((err) => {
-            console.error(`❌ Failed to trigger union polygon job for ${state} step ${step}:`, err.message);
+        const isFinalStep = updatedGroups.length > 0 && updatedGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
+        if (isFinalStep) {
+          console.log(`📤 Step complete after move-all-isolated (final step): requesting POST build-all-union-polygons for ${state} step ${step}`);
+          const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+          const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${step}&maxIterations=${maxIterations}`;
+          setImmediate(() => {
+            axios.post(buildAllUrl, {}).then(() => {
+              console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${step}`);
+            }).catch((err) => {
+              console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
+            });
           });
-        });
+        }
       }
-      // Union polygons are built async via POST .../union-polygons; client can poll GET or show tracts with blended borders
+      // Union polygons are built async via build-all job when final step completes; client can poll GET or show tracts with blended borders
       return res.json({
         districtGroups: updatedGroups,
         isolationResult: {
@@ -8534,18 +8717,21 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       };
 
       await setStepCache(stepCacheKey, cacheData);
-      console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} (union polygons will be built async)`);
+      console.log(`💾 STEP CACHE STORED: Saved updated step ${step} for ${state} (union polygons built when final step completes)`);
       if (stepCompleteForUnions) {
-        console.log(`📤 Step complete after move-all-isolated: requesting POST .../union-polygons to trigger build job for ${state} step ${step}`);
-        const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-        const unionPolygonsUrl = `${baseUrl}/api/algorithm/step/${state}/${step}/union-polygons?maxIterations=${maxIterations}`;
-        setImmediate(() => {
-          axios.post(unionPolygonsUrl, {}).then(() => {
-            console.log(`✅ POST union-polygons accepted (202) for ${state} step ${step}`);
-          }).catch((err) => {
-            console.error(`❌ Failed to trigger union polygon job for ${state} step ${step}:`, err.message);
+        const isFinalStep = updatedGroups.length > 0 && updatedGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
+        if (isFinalStep) {
+          console.log(`📤 Step complete after move-all-isolated (final step): requesting POST build-all-union-polygons for ${state} step ${step}`);
+          const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+          const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${step}&maxIterations=${maxIterations}`;
+          setImmediate(() => {
+            axios.post(buildAllUrl, {}).then(() => {
+              console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${step}`);
+            }).catch((err) => {
+              console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
+            });
           });
-        });
+        }
       }
     } catch (cacheError) {
       console.warn(`⚠️ STEP CACHE STORE ERROR: Failed to save updated step after moving isolated tracts: ${cacheError.message}`);
@@ -9302,4 +9488,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { app, runUnionPolygonGenerationJob };
+module.exports = { app, runUnionPolygonGenerationJob, runBuildAllUnionPolygonsForState };
