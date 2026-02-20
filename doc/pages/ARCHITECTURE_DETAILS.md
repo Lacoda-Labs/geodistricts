@@ -62,9 +62,10 @@ src/app/
 
 ### Key Components
 
-#### Maps Component
+#### Maps Component and Two-Mode Architecture
+- **Visualization mode** (`/maps`): GET-only step-through when precomputed data exists; no run/execute or admin controls. Step bar is public variant (no Restart/Clear cache). Intended for campaign and public traffic.
+- **Development mode** (`/dev/maps`): Same component with route data `mode: 'development'`. Full algorithm run (Run All, execute next step), admin step bar (Restart, Clear cache), and isolation/bridge/balance actions. Backend execution (Option A); full client-side algorithm (Option B) is deferred.
 - Interactive Leaflet-based map visualization
-- Real-time algorithm execution display
 - Geographic boundary rendering
 - Population density overlays
 

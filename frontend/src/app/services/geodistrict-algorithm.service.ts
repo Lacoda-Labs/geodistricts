@@ -567,11 +567,15 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Get a specific step by number from cache
+   * Get a specific step by number from cache.
+   * When polygonsOnly is true, backend may return step with union geometries only (lighter payload for visualization).
    */
-  getStep(state: string, stepNumber: number, maxIterations: number = 100): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
+  getStep(state: string, stepNumber: number, maxIterations: number = 100, options?: { polygonsOnly?: boolean }): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const stepUrl = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}?maxIterations=${maxIterations}`;
+    let stepUrl = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}?maxIterations=${maxIterations}`;
+    if (options?.polygonsOnly) {
+      stepUrl += '&polygonsOnly=true';
+    }
 
     console.log(`📥 Getting step ${stepNumber} for ${state}: ${stepUrl}`);
 

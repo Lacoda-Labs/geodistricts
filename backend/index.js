@@ -2621,6 +2621,9 @@ const algorithmService = new GeodistrictAlgorithmService(latLongDivisionService)
  * Divide a district group using lat/long dividing lines
  */
 app.post('/api/algorithm/latlong/divide', async (req, res) => {
+  if (isAlgorithmPostDisabled()) {
+    return res.status(503).json({ error: 'Algorithm execution is disabled (read-only mode). Use local backend for development.' });
+  }
   try {
     const { group, direction, forceRecalculate = false } = req.body;
 
@@ -2789,6 +2792,9 @@ app.post('/api/algorithm/latlong/cache', async (req, res) => {
  * Execute algorithm synchronously (returns complete result)
  */
 app.post('/api/algorithm/execute', async (req, res) => {
+  if (isAlgorithmPostDisabled()) {
+    return res.status(503).json({ error: 'Algorithm execution is disabled (read-only mode). Use local backend for development.' });
+  }
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
 
@@ -3196,6 +3202,14 @@ app.post('/api/algorithm/execute', async (req, res) => {
  * Execute algorithm with step-by-step streaming (Server-Sent Events)
  */
 // Note: Algorithm state is now cached in Firestore/Cloud Storage (stateless for Cloud Run)
+
+/**
+ * When true, POST algorithm execution (execute, step-by-step, next-step, latlong/divide) returns 503.
+ * Set GEODISTRICTS_READONLY=true in production to keep visualization GET-only.
+ */
+function isAlgorithmPostDisabled() {
+  return process.env.GEODISTRICTS_READONLY === 'true';
+}
 
 /**
  * Generate a key for algorithm state storage
@@ -4062,6 +4076,34 @@ app.get('/api/algorithm/final-step-states', async (req, res) => {
 });
 
 /**
+ * GET /api/algorithm/step-list/:state
+ * Returns step indices and final step number for a state (for visualization step scrubber without fetching each step).
+ */
+app.get('/api/algorithm/step-list/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    if (!state || state.length < 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    const stateKey = getAlgorithmStateKey(state, maxIterations);
+    const algorithmState = await getCachedAlgorithmState(stateKey);
+    if (!algorithmState || algorithmState.iteration == null) {
+      return res.status(404).json({ error: `No step list for ${state}`, stepIndices: [], finalStepNumber: -1 });
+    }
+    const finalStepNumber = algorithmState.iteration;
+    const stepIndices = Array.from({ length: finalStepNumber + 1 }, (_, i) => i);
+    return res.json({ stepIndices, finalStepNumber });
+  } catch (error) {
+    console.error('❌ Step-list error:', error);
+    res.status(500).json({
+      error: 'Step list failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/algorithm/final-step/:state
  * Get the final (completed) step for a state if available
  */
@@ -4606,6 +4648,9 @@ app.post('/api/algorithm/restart', async (req, res) => {
  * Initialize algorithm and return step 0 only
  */
 app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
+  if (isAlgorithmPostDisabled()) {
+    return res.status(503).json({ error: 'Algorithm execution is disabled (read-only mode). Use local backend for development.' });
+  }
   try {
     const { state, maxIterations = 100, options = {} } = req.body;
 
@@ -5356,6 +5401,46 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
       return res.status(404).json({ error: `Step ${stepNum} not found in cache for ${state}` });
     }
 
+    const polygonsOnly = req.query.polygonsOnly === 'true';
+    if (polygonsOnly && cachedEntry.unionPolygonsCached === true) {
+      const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
+      const sortedGroups = groups
+        .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
+        .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
+      if (sortedGroups.length > 0) {
+        try {
+          const groupsWithUnions = await loadUnionPolygonsFromCache(state, stepNum, sortedGroups, { unionPolygonsCached: true });
+          const districtGroups = groupsWithUnions.map(g => ({
+            startDistrictNumber: g.startDistrictNumber,
+            endDistrictNumber: g.endDistrictNumber,
+            totalPopulation: g.totalPopulation,
+            totalDistricts: g.totalDistricts,
+            bounds: g.bounds,
+            centroid: g.centroid,
+            unionPolygon: g.unionPolygon,
+            unionPolygons: g.unionPolygons
+          }));
+          const stepData = {
+            step: stepNum,
+            level: stepNum,
+            districtGroups,
+            description: cachedEntry.stepData?.description || `Step ${stepNum}`,
+            totalGroups: districtGroups.length,
+            totalDistricts: districtGroups.reduce((s, g) => s + (g.totalDistricts || 0), 0),
+            divisionDirection: cachedEntry.stepData?.divisionDirection,
+            divisionLines: cachedEntry.stepData?.divisionLines || []
+          };
+          return res.json({
+            step: stepNum,
+            data: stepData,
+            isComplete: cachedEntry.isComplete || false
+          });
+        } catch (polyErr) {
+          console.warn(`⚠️ polygonsOnly load failed, falling back to full step: ${polyErr.message}`);
+        }
+      }
+    }
+
     // Determine if step data is in 'stepData' field (step-by-step) or directly in cachedEntry (Run All Steps)
     const hasStepDataField = cachedEntry.stepData !== undefined;
     const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
@@ -5797,6 +5882,9 @@ async function rehydrateAlgorithmStateFromStep0(state, maxIterations) {
  * Caches step results for fast retrieval on subsequent requests
  */
 app.post('/api/algorithm/execute/next-step', async (req, res) => {
+  if (isAlgorithmPostDisabled()) {
+    return res.status(503).json({ error: 'Algorithm execution is disabled (read-only mode). Use local backend for development.' });
+  }
   console.log(`🚀 NEXT-STEP: POST /api/algorithm/execute/next-step called`);
   console.log(`   Request body:`, JSON.stringify(req.body));
   try {

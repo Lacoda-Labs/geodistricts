@@ -59,6 +59,15 @@ Democracy is preserved as no centralized state authority can be compromised into
 - **Geographic Sorting**: Division direction is chosen per group from bbox aspect ratio (divide perpendicular to the long axis); tie or close ratio uses the parent’s last division direction to alternate, ensuring deterministic and more compact districts.
 - **Performance Optimized**: County-level division reduces complexity for large states.
 
+### Two-Mode Architecture (Visualization vs Development)
+
+The maps experience is split into two modes:
+
+- **Visualization mode** (entry point: `/maps`): Thin client for viewing precomputed geodistricts. When a state has cached step data, the page uses **GET-only** step-through (no algorithm execution). Step navigation loads steps via `GET /api/algorithm/step/:state/:stepNumber` (optionally with `polygonsOnly=true` for lighter payloads). Run All, Next Step (execute), Restart, and Clear cache are not available; isolation/bridge/balance action buttons are hidden. Intended for campaign and public traffic.
+- **Development mode** (entry point: `/dev/maps`): Full algorithm-run experience. Same map and step UI as `/maps`, but with the admin step bar (Restart, Clear cache) and the ability to run the algorithm (Run All, execute next step), plus isolation/bridge/balance and step 0 tools. Uses the same backend POST endpoints (`execute`, `execute/step-by-step`, `execute/next-step`, `latlong/divide`). Algorithm remains server-side (Option A). Option B (port algorithm to TypeScript / shared package, full client-side execution) is **deferred**.
+
+Production (e.g. GCP) can set `GEODISTRICTS_READONLY=true` so POST algorithm execution returns 503; dev runs against a local backend.
+
 ### Implementation Status
 - ✅ Basic algorithm framework implemented
 - ✅ Census data integration (county and tract level)

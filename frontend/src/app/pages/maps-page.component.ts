@@ -1,7 +1,7 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -80,7 +80,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   bridgeTractsData: { bridgeTractsByIsolatedGroup: { [groupIndex: string]: Array<{tractId: string, fromGroupIndex: number, adjacentIsolatedCount: number}> } } | null = null;
   isDetectingBridge: boolean = false;
   selectedDistrictGroupIndex: number | null = null; // Track selected district group for highlighting
-  isAdminMode: boolean = false; // Track if admin mode is enabled via #admin hash
+  /** True when this state has precomputed data: step-through uses GET only, no run/execute. */
+  isVisualizationOnly: boolean = false;
+  /** True when route is /dev/maps: show admin step bar, allow run/execute and isolation/bridge actions. */
+  isDevMode: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
   step0IsolatedSectionExpanded: boolean = false;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
@@ -88,8 +91,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Raw slider position 0..sliderMax. Mapped to tract range: when positions < tracts each step = range of tracts; when positions > tracts multiple steps = same tract. */
   sortSliderValue: number = 0;
   readonly sliderMax: number = 1000;
-  private hashChangeHandler?: () => void; // Store reference to hash change handler
-  
   private map: L.Map | null = null;
   /** State outline polygons for ALL view (below tractLayer). */
   private stateOutlinesLayer: L.LayerGroup | null = null;
@@ -223,23 +224,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     private geodistrictService: GeodistrictAlgorithmService,
     private geodistrictCacheService: GeodistrictCacheService,
     private router: Router,
+    private route: ActivatedRoute,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private congressionalDistrictsService: CongressionalDistrictsService
   ) {}
 
   ngOnInit(): void {
-    // Check if admin mode is enabled via URL hash
-    if (typeof window !== 'undefined') {
-      this.isAdminMode = window.location.hash === '#admin';
-      
-      // Listen for hash changes
-      this.hashChangeHandler = () => {
-        this.isAdminMode = window.location.hash === '#admin';
-      };
-      window.addEventListener('hashchange', this.hashChangeHandler);
-    }
-    
+    this.isDevMode = this.route.snapshot.data['mode'] === 'development';
+    this.route.data.subscribe((data) => {
+      this.isDevMode = data['mode'] === 'development';
+      if (this.isDevMode) this.isVisualizationOnly = false;
+      this.cdr.markForCheck();
+    });
     // Check if we're on production (geodistricts.org)
     const isProduction = typeof window !== 'undefined' && 
       (window.location.hostname === 'geodistricts.org' || 
@@ -306,10 +303,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Remove hash change listener
-    if (typeof window !== 'undefined' && this.hashChangeHandler) {
-      window.removeEventListener('hashchange', this.hashChangeHandler);
-    }
-
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.clearDivisionLines();
     if (this.map) {
@@ -571,6 +564,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStepIndex = 0;
         this.mapPolygons = null;
         this.mapPolygonsState = null;
+        this.isVisualizationOnly = false;
         // Cancel any in-flight requests
         this.subscriptions.forEach(sub => sub.unsubscribe());
         this.subscriptions = [];
@@ -1166,19 +1160,89 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.selectedState !== stateRequested) return;
         this.mapPolygons = response;
         this.mapPolygonsState = stateRequested;
+        this.isVisualizationOnly = !!(response.hasFinalStep) && !this.isDevMode;
         this.isLoading = false;
         this.cdr.markForCheck();
         setTimeout(() => {
           this.renderMapPolygons();
-          // Auto-load step 0 so initial view is Step 0 without requiring a Next click
+          // When precomputed data exists, load final step via GET only (visualization mode). Otherwise show map only; no run on /maps.
           if (!this.algorithmResult && this.selectedState && this.selectedState !== 'ALL' && !this.isSingleDistrictState(this.selectedState)) {
-            this.runAlgorithm();
+            if (this.isVisualizationOnly) {
+              this.loadVisualizationState();
+            }
+            // When !isVisualizationOnly we do not run the algorithm on the maps page (use /dev/maps to run).
           }
         }, 100);
       },
       error: (err) => {
         this.errorMessage = err.message || 'Failed to load map polygons';
         this.isLoading = false;
+        this.cdr.markForCheck();
+      }
+    });
+    this.subscriptions.push(sub);
+  }
+
+  /**
+   * Load final step and step list via GET only (visualization mode). Used when map-polygons hasFinalStep is true.
+   */
+  loadVisualizationState(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || !this.tractLayer) return;
+    const stateRequested = this.selectedState;
+    this.isLoading = true;
+    this.loadingMessage = `Loading step data for ${this.stateName(stateRequested)}`;
+    this.isLoadingSteps = true;
+    this.errorMessage = '';
+    this.loadedSteps = [];
+    this.algorithmResult = null;
+    this.currentStep = null;
+    this.currentStepIndex = 0;
+    this.totalSteps = 0;
+    const sub = this.geodistrictService.getFinalStep(stateRequested).subscribe({
+      next: ({ step: stepIndex, data, isComplete }) => {
+        if (this.selectedState !== stateRequested) return;
+        if (!data?.districtGroups?.length) {
+          this.isLoading = false;
+          this.isLoadingSteps = false;
+          this.errorMessage = 'Final step data is incomplete';
+          this.cdr.markForCheck();
+          return;
+        }
+        this.loadedSteps[stepIndex] = data;
+        this.currentStepIndex = stepIndex;
+        this.currentStep = data;
+        this.totalSteps = stepIndex + 1;
+        this.algorithmResult = {
+          finalDistricts: data.districtGroups,
+          steps: [data],
+          totalPopulation: data.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0),
+          averagePopulation: 0,
+          populationVariance: 0,
+          algorithmHistory: []
+        };
+        this.isLoading = false;
+        this.isLoadingSteps = false;
+        if (data.isolatedTractsData) {
+          this.isolatedTractIds = new Set(data.isolatedTractsData.isolatedTractIds || []);
+          this.isolatedTractsData = {
+            isolatedTractsByGroup: data.isolatedTractsData.isolatedTractsByGroup || {},
+            isolatedTractIds: data.isolatedTractsData.isolatedTractIds || []
+          };
+        } else {
+          this.isolatedTractIds.clear();
+          this.isolatedTractsData = null;
+        }
+        this.cdr.markForCheck();
+        setTimeout(() => {
+          this.renderFinalDistricts();
+          this.loadAllPreviousSteps(stepIndex);
+        }, 100);
+      },
+      error: (err) => {
+        if (this.selectedState !== stateRequested) return;
+        this.errorMessage = err?.message || 'Failed to load step data';
+        this.isLoading = false;
+        this.isLoadingSteps = false;
         this.cdr.markForCheck();
       }
     });
@@ -1627,9 +1691,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canGoToNextStep(): boolean {
-    // In map-only view, enable Next so user can run the algorithm (nextStep will call runAlgorithm)
+    // Visualization-only (/maps): enable Next only when we have precomputed steps and more steps exist
+    if (this.isVisualizationOnly) {
+      const nextIndex = this.currentStepIndex + 1;
+      return nextIndex < this.totalSteps && !this.isLoading;
+    }
+    // Map-only view: on /dev/maps enable Next to run algorithm; on /maps disable
     if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
-      return !this.isLoading;
+      return this.isDevMode && !this.isLoading;
     }
     // Disable Next when there are unresolved isolated tracts (user must move isolated or use bridge tracts first)
     if (this.isolatedTractsData?.isolatedTractIds?.length) {
@@ -1688,7 +1757,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           maxIterations: 100,
         };
 
-        const subscription = this.geodistrictService.getStep(this.selectedState, prevIndex, 100).subscribe({
+        const subscription = this.geodistrictService.getStep(this.selectedState, prevIndex, 100, this.isVisualizationOnly ? { polygonsOnly: true } : undefined).subscribe({
           next: (stepData) => {
             const { step: newStep, stepIndex, isComplete } = stepData;
             
@@ -1808,7 +1877,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       const loadPromise = new Promise<void>((resolve, reject) => {
-        const subscription = this.geodistrictService.getStep(this.selectedState, stepIdx, 100).subscribe({
+        const subscription = this.geodistrictService.getStep(this.selectedState, stepIdx, 100, this.isVisualizationOnly ? { polygonsOnly: true } : undefined).subscribe({
           next: (stepData) => {
             const { step: newStep, stepIndex } = stepData;
             
@@ -1850,14 +1919,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   nextStep(): void {
-    // Map-only view: run algorithm so user can step through (first "Next" starts algorithm)
+    // Map-only view: on /dev/maps run algorithm; on /maps never run.
     if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
-      this.runAlgorithm();
+      if (this.isDevMode) {
+        this.runAlgorithm();
+      }
       return;
     }
 
-    // Next always advances to the next step (no longer consuming first click for sorting visualization,
-    // which made "first time clicking Next" appear to do nothing)
     const nextIndex = this.currentStepIndex + 1;
     const step = this.loadedSteps[nextIndex];
     
@@ -1873,8 +1942,45 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedNorthPrefixSum = [];
     this.cachedSortedTractEntriesByDg.clear();
       this.renderFinalDistricts();
+    } else if (this.isVisualizationOnly) {
+      // Visualization mode: fetch step via GET only
+      console.log(`📥 Loading step ${nextIndex} (GET)...`);
+      this.isLoading = true;
+      this.loadingMessage = `Loading step ${nextIndex}...`;
+      const stateRequested = this.selectedState;
+      const sub = this.geodistrictService.getStep(stateRequested, nextIndex, 100, { polygonsOnly: true }).subscribe({
+        next: (stepData) => {
+          if (this.selectedState !== stateRequested) {
+            this.isLoading = false;
+            return;
+          }
+          const { step: newStep, stepIndex: loadedIndex, isComplete } = stepData;
+          if (!newStep?.districtGroups?.length) {
+            this.isLoading = false;
+            return;
+          }
+          this.loadedSteps[loadedIndex] = newStep;
+          this.currentStepIndex = loadedIndex;
+          this.currentStep = newStep;
+          this.selectedDistrictGroupIndex = null;
+          this.sortSliderValue = 0;
+          this.cachedSortedTractIds = [];
+          this.cachedSortedTractIdsKey = '';
+          this.cachedSortedTractEntries = [];
+          this.cachedNorthPrefixSum = [];
+          this.cachedSortedTractEntriesByDg.clear();
+          this.isLoading = false;
+          this.renderFinalDistricts();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (this.selectedState === stateRequested) this.isLoading = false;
+          this.cdr.markForCheck();
+        }
+      });
+      this.subscriptions.push(sub);
     } else {
-      // Step not loaded yet, request it from backend
+      // Dev mode (or legacy): request step from backend via POST execute next step
       console.log(`🚀 Requesting step ${nextIndex} from backend...`);
       this.isLoading = true;
       this.loadingMessage = nextIndex === 0
@@ -2023,9 +2129,50 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentStepIndex === 0) {
       return; // Already at first step
     }
-    // If in map-only view (no algorithm run yet), run algorithm to load step 0
+    // Visualization-only: load step 0 via GET if not loaded
+    if (this.isVisualizationOnly) {
+      const step = this.loadedSteps[0];
+      if (step) {
+        this.currentStepIndex = 0;
+        this.currentStep = step;
+        this.selectedDistrictGroupIndex = null;
+        this.isolatedTractIds.clear();
+        this.isolatedTractsData = null;
+        this.bridgeTractIds.clear();
+        this.bridgeTractsData = null;
+        this.renderFinalDistricts();
+      } else {
+        const stateRequested = this.selectedState;
+        this.isLoading = true;
+        const sub = this.geodistrictService.getStep(stateRequested, 0, 100, { polygonsOnly: true }).subscribe({
+          next: (stepData) => {
+            if (this.selectedState !== stateRequested) { this.isLoading = false; return; }
+            const { step: newStep, stepIndex } = stepData;
+            if (newStep) {
+              this.loadedSteps[stepIndex] = newStep;
+              this.currentStepIndex = 0;
+              this.currentStep = newStep;
+              this.selectedDistrictGroupIndex = null;
+              this.isolatedTractIds.clear();
+              this.isolatedTractsData = null;
+              this.bridgeTractIds.clear();
+              this.bridgeTractsData = null;
+              this.renderFinalDistricts();
+            }
+            this.isLoading = false;
+            this.cdr.markForCheck();
+          },
+          error: () => { if (this.selectedState === stateRequested) this.isLoading = false; this.cdr.markForCheck(); }
+        });
+        this.subscriptions.push(sub);
+      }
+      return;
+    }
+    // Map-only view: on /dev/maps run algorithm to load step 0; on /maps do nothing
     if (this.mapPolygons && !this.algorithmResult) {
-      this.runAlgorithm();
+      if (this.isDevMode) {
+        this.runAlgorithm();
+      }
       return;
     }
     // Go to step 0
@@ -2112,8 +2259,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canGoToFirstStep(): boolean {
-    // Enable when we can go to step 0: already past step 0, or in map-only view (clicking runs algorithm)
-    return this.currentStepIndex > 0 || (!!this.mapPolygons && !this.algorithmResult && !!this.selectedState && this.selectedState !== 'ALL');
+    if (this.isVisualizationOnly) {
+      return this.currentStepIndex > 0;
+    }
+    // Dev mode: enable when map-only so user can run algorithm
+    return this.currentStepIndex > 0 || (!!this.mapPolygons && !this.algorithmResult && !!this.selectedState && this.selectedState !== 'ALL' && this.isDevMode);
   }
 
   canGoToPreviousStep(): boolean {
