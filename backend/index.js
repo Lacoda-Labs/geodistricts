@@ -5779,7 +5779,7 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, re
     const { fork } = require('child_process');
     const workerPath = require('path').join(__dirname, 'scripts', 'run-union-polygon-job.js');
     const child = fork(workerPath, [state, String(stepNum), String(maxIterations)], {
-      stdio: ['ignore', 'inherit', 'inherit'],
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
       env: process.env,
       cwd: __dirname
     });
@@ -6096,7 +6096,10 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                 steps: updatedSteps
               };
               
-              if (cachedEntry.isComplete) {
+              // Only treat as algorithm complete (and delete state) when this step has union polygons cached.
+              // Legacy step caches may have isComplete: true without unionPolygonsCached (e.g. fast path before fix).
+              const trulyComplete = (cachedEntry.isComplete === true) && (cachedEntry.unionPolygonsCached === true);
+              if (trulyComplete) {
                 await deleteCachedAlgorithmState(stateKey);
                 console.log(`✅ Algorithm completed after ${nextStepNumber} iterations (from cache)`);
               } else {
@@ -6106,7 +6109,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
               return res.json({
                 step: nextStepNumber,
                 data: stepData,
-                isComplete: cachedEntry.isComplete || false
+                isComplete: trulyComplete
               });
             } else {
               console.log(`🔄 STEP CACHE VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}, invalidating`);
@@ -7924,7 +7927,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         const normalizedStep = normalizeStepData(stepPayload, tractCacheKey);
         const cacheData = {
           stepData: normalizedStep.normalized,
-          isComplete: true,
+          isComplete: false, // Only final algorithm step is complete; this step still has more divisions to run
           algorithmVersion: ALGORITHM_VERSION,
           timestamp: Date.now(),
           ttl: 24 * 60 * 60 * 1000, // 24 hours
