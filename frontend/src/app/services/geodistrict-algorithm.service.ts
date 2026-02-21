@@ -73,6 +73,24 @@ export interface GeodistrictStep {
   isolatedTractsData?: IsolatedTractsData; // Isolated tracts data from step cache
 }
 
+/** Per-DG status for union polygon and party % (from GET final-step) */
+export interface PerGroupStatus {
+  groupKey: string;
+  polygon: 'done' | 'missing' | 'in_progress' | 'fail';
+  party: 'done' | 'missing' | 'in_progress' | 'fail';
+}
+
+/** Response from GET /api/algorithm/final-step/:state (includes status for dev/maps) */
+export interface FinalStepResponse {
+  step: number;
+  data: GeodistrictStep;
+  isComplete: boolean;
+  unionPolygonsCached?: boolean;
+  districtPartyPercentagesCalculated?: boolean;
+  perGroupStatus?: PerGroupStatus[];
+  maxIterations?: number;
+}
+
 // Interface for algorithm result
 export interface GeodistrictResult {
   finalDistricts: DistrictGroup[];
@@ -476,11 +494,50 @@ export class GeodistrictAlgorithmService {
   /**
    * Get the final step for a state (for US map view).
    * Returns 404 if no final step is cached. Does not fall back to step 0.
+   * Response includes unionPolygonsCached, districtPartyPercentagesCalculated, perGroupStatus for dev/maps.
    */
-  getFinalStep(state: string): Observable<{ step: number; data: GeodistrictStep; isComplete: boolean }> {
+  getFinalStep(state: string): Observable<FinalStepResponse> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const finalStepUrl = `${backendUrl}/api/algorithm/final-step/${state}`;
-    return this.http.get<{ step: number; data: GeodistrictStep; isComplete: boolean }>(finalStepUrl, {
+    return this.http.get<FinalStepResponse>(finalStepUrl, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /**
+   * Trigger district-level party % job for final step (async, 202).
+   */
+  triggerDistrictPartyJob(state: string, finalStepNumber: number, maxIterations: number = 100): Observable<unknown> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/district-party/${state}?finalStepNumber=${finalStepNumber}&maxIterations=${maxIterations}`;
+    return this.http.post(url, {}, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /**
+   * Compute and persist party % for a single district group.
+   */
+  triggerDistrictPartyForGroup(state: string, finalStepNumber: number, groupKey: string, maxIterations: number = 100): Observable<unknown> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/district-party-for-group/${state}`;
+    return this.http.post(url, { finalStepNumber, maxIterations, groupKey }, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /**
+   * Build and cache union polygon for a single district group.
+   */
+  triggerUnionPolygonForGroup(state: string, stepNumber: number, groupKey: string, maxIterations: number = 100): Observable<unknown> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/step/${state}/${stepNumber}/union-polygon-for-group?groupKey=${encodeURIComponent(groupKey)}&maxIterations=${maxIterations}`;
+    return this.http.post(url, {}, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /**
+   * Get tract-level party percentages for a state and year (for tract coloring by party).
+   */
+  getTractParty(state: string, year: number): Observable<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }> }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/tract-party/${state}/${year}`;
+    return this.http.get<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }> }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
   }

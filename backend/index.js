@@ -4378,11 +4378,26 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                     } catch (cacheError) {
                       console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
                     }
-                    
+
+                    // Per-DG status for union polygon and party % (for dev/maps table)
+                    const districtPartyDataRecon = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+                    const perGroupStatusRecon = (stepData.districtGroups || []).map(g => {
+                      const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
+                      return {
+                        groupKey,
+                        polygon: g.unionPolygonCacheKey ? 'done' : 'missing',
+                        party: (districtPartyDataRecon && districtPartyDataRecon[groupKey]) ? 'done' : 'missing'
+                      };
+                    });
+
                     return res.json({
                       step: finalStepNumber,
                       data: stepData,
-                      isComplete: true
+                      isComplete: true,
+                      unionPolygonsCached: cachedEntry.unionPolygonsCached === true,
+                      districtPartyPercentagesCalculated: !!(districtPartyDataRecon && Object.keys(districtPartyDataRecon).length > 0),
+                      perGroupStatus: perGroupStatusRecon,
+                      maxIterations
                     });
                   } else {
                     console.error(`❌ Reconstruction failed for final step ${finalStepNumber}: returned null or incomplete data`);
@@ -4527,12 +4542,27 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
         } catch (cacheError) {
           console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
         }
-        
-        // Return step data (from stepData field or directly from entry)
+
+        // Per-DG status for union polygon and party % (for dev/maps table)
+        const districtPartyData = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+        const perGroupStatus = (stepData.districtGroups || []).map(g => {
+          const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
+          return {
+            groupKey,
+            polygon: g.unionPolygonCacheKey ? 'done' : 'missing',
+            party: (districtPartyData && districtPartyData[groupKey]) ? 'done' : 'missing'
+          };
+        });
+
+        // Return step data (from stepData field or directly from entry) with status for dev/maps
         return res.json({
           step: finalStepNumber,
           data: stepData,
-          isComplete: true
+          isComplete: true,
+          unionPolygonsCached: cachedEntry.unionPolygonsCached === true,
+          districtPartyPercentagesCalculated: !!(districtPartyData && Object.keys(districtPartyData).length > 0),
+          perGroupStatus,
+          maxIterations
         });
       } else {
         // Cached entry is incomplete - cannot return valid step data
@@ -5996,6 +6026,471 @@ app.post('/api/algorithm/build-all-union-polygons/:state', async (req, res) => {
       error: 'Build-all union polygons failed',
       message: error.message
     });
+  }
+});
+
+/** State FIPS (2-digit) to state code for grouping VEST tract data by state */
+const STATE_FIPS_TO_CODE = {
+  '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
+  '08': 'CO', '09': 'CT', '10': 'DE', '11': 'DC', '12': 'FL', '13': 'GA',
+  '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
+  '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
+  '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
+  '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
+  '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
+  '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
+  '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
+  '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY'
+};
+
+const FIRESTORE_DOC_SIZE_LIMIT = 1024 * 1024; // 1 MiB
+
+/**
+ * Load tract-level party data for a state and year from Firestore/Cloud Storage.
+ * @param {string} state - State code (e.g. 'CA')
+ * @param {number} year - VEST year (e.g. 2020)
+ * @returns {Promise<{ [geoid: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
+ */
+async function loadTractPartyForState(state, year) {
+  const key = `tract_party_${state.toUpperCase()}_${year}`;
+  try {
+    const doc = await firestore.collection('census_cache').doc(key).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    if (data.cloudStoragePath && data.cloudStorage) {
+      const cloud = await cloudStorageCache.get(key);
+      if (cloud && cloud.data && cloud.data.geoids) return cloud.data.geoids;
+      return null;
+    }
+    if (data.geoids && typeof data.geoids === 'object') return data.geoids;
+    if (data.data && typeof data.data === 'object' && data.data.geoids) return data.data.geoids;
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ loadTractPartyForState(${state}, ${year}): ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Run tract-level party percentage persistence job: load VEST tract data for year,
+ * group by state, write to Firestore (and Cloud Storage for large states).
+ * @param {number} year - VEST year (e.g. 2020)
+ * @returns {Promise<{ statesWritten: string[], statesSkipped: string[], error?: string }>}
+ */
+async function runTractPartyPersistenceJob(year) {
+  const statesWritten = [];
+  const statesSkipped = [];
+  try {
+    const vestData = await vestDataLoader.loadVESTData(year);
+    if (!vestData.data || typeof vestData.data !== 'object' || Object.keys(vestData.data).length === 0) {
+      return { statesWritten: [], statesSkipped: [], error: 'VEST tract-level data not available for this year. Use tract-level CSV.' };
+    }
+    const byState = {};
+    for (const [geoid, row] of Object.entries(vestData.data)) {
+      const stateFips = (row.state_fips || String(geoid).substring(0, 2)).padStart(2, '0');
+      const stateCode = STATE_FIPS_TO_CODE[stateFips];
+      if (!stateCode) continue;
+      if (!byState[stateCode]) byState[stateCode] = {};
+      const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
+      byState[stateCode][normalizedGeoid] = {
+        pctDem: row.pct_dem_pres ?? 0,
+        pctRep: row.pct_rep_pres ?? 0,
+        votesDem: row.votes_dem_pres ?? 0,
+        votesRep: row.votes_rep_pres ?? 0,
+        totalVotes: row.total_votes_pres ?? 0
+      };
+    }
+    for (const [stateCode, geoids] of Object.entries(byState)) {
+      const tractCount = Object.keys(geoids).length;
+      if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
+      const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
+      const key = `tract_party_${stateCode}_${year}`;
+      const jsonSize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+      try {
+        if (jsonSize >= FIRESTORE_DOC_SIZE_LIMIT) {
+          const path = await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
+          await firestore.collection('census_cache').doc(key).set({
+            cloudStoragePath: path,
+            cloudStorage: true,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'vest-tract-party-persistence',
+            state: stateCode,
+            year,
+            tractCount,
+            size: jsonSize
+          });
+        } else {
+          await firestore.collection('census_cache').doc(key).set({
+            geoids,
+            year,
+            state: stateCode,
+            tractCount,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'vest-tract-party-persistence'
+          });
+        }
+        statesWritten.push(stateCode);
+        console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts)`);
+      } catch (writeErr) {
+        console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
+        statesSkipped.push(stateCode);
+      }
+    }
+    return { statesWritten, statesSkipped };
+  } catch (err) {
+    console.error('❌ runTractPartyPersistenceJob:', err.message);
+    return { statesWritten, statesSkipped, error: err.message };
+  }
+}
+
+/**
+ * POST /api/algorithm/tract-party-persistence
+ * Trigger tract-level party % persistence for a VEST year. Returns 202 when accepted.
+ */
+app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
+  try {
+    const year = parseInt(req.body?.year || req.query?.year || '2020', 10);
+    if (isNaN(year) || year < 2016) {
+      return res.status(400).json({ error: 'Valid year (2016 or later) is required' });
+    }
+    setImmediate(async () => {
+      try {
+        await runTractPartyPersistenceJob(year);
+      } catch (e) {
+        console.error('❌ Tract party persistence job error:', e.message);
+      }
+    });
+    return res.status(202).json({ accepted: true, message: `Tract party persistence started for ${year}`, year });
+  } catch (error) {
+    console.error('❌ POST tract-party-persistence error:', error);
+    res.status(500).json({ error: 'Tract party persistence failed', message: error.message });
+  }
+});
+
+/**
+ * GET /api/algorithm/tract-party/:state/:year
+ * Return tract-level party percentages for a state and year (for coloring or district aggregation).
+ */
+app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const year = parseInt(req.params.year, 10);
+    if (!state || state.length !== 2 || isNaN(year)) {
+      return res.status(400).json({ error: 'Invalid state or year' });
+    }
+    const geoids = await loadTractPartyForState(state, year);
+    if (geoids == null) {
+      return res.status(404).json({ error: 'Tract party data not found for this state/year. Run POST /api/algorithm/tract-party-persistence first.' });
+    }
+    return res.json({ state, year, geoids });
+  } catch (error) {
+    console.error('❌ GET tract-party error:', error);
+    res.status(500).json({ error: 'Failed to load tract party data', message: error.message });
+  }
+});
+
+/** Default VEST year for district party aggregation */
+const DEFAULT_VEST_YEAR = 2020;
+
+/**
+ * Load district-level party percentages for a state/step (from Firestore).
+ * @param {string} state - State code
+ * @param {number} stepNumber - Final step number
+ * @param {number} maxIterations - Max iterations (for cache key)
+ * @returns {Promise<{ [groupKey: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
+ */
+async function loadDistrictPartyForStep(state, stepNumber, maxIterations) {
+  const key = `district_party_${state}_${stepNumber}_${maxIterations}`;
+  try {
+    const doc = await firestore.collection('census_cache').doc(key).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    if (data.districts && typeof data.districts === 'object') return data.districts;
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ loadDistrictPartyForStep(${state}, ${stepNumber}): ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Run district-level party % job for final step: aggregate tract party data by DG and persist.
+ * @param {string} state - State code
+ * @param {number} finalStepNumber - Final step number
+ * @param {number} maxIterations - Max iterations (for cache keys)
+ * @param {number} [vestYear] - VEST year (default 2020)
+ * @returns {Promise<{ success: boolean, districtsWritten: number, error?: string }>}
+ */
+async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear = DEFAULT_VEST_YEAR) {
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  try {
+    const stepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
+    if (!stepResult) {
+      return { success: false, districtsWritten: 0, error: 'Final step not found in cache' };
+    }
+    const districtGroups = stepResult.cachedEntry.stepData?.districtGroups ?? stepResult.cachedEntry.districtGroups ?? [];
+    if (districtGroups.length === 0) {
+      return { success: false, districtsWritten: 0, error: 'Final step has no district groups' };
+    }
+    const tractParty = await loadTractPartyForState(state, vestYear);
+    if (!tractParty || Object.keys(tractParty).length === 0) {
+      return { success: false, districtsWritten: 0, error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' };
+    }
+    const districts = {};
+    for (const group of districtGroups) {
+      const tractIds = group.censusTractIds && group.censusTractIds.length > 0
+        ? group.censusTractIds
+        : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+      let votesDem = 0;
+      let votesRep = 0;
+      let totalVotes = 0;
+      for (const id of tractIds) {
+        const geoid = String(id).padStart(11, '0').substring(0, 11);
+        const row = tractParty[geoid];
+        if (row) {
+          votesDem += row.votesDem || 0;
+          votesRep += row.votesRep || 0;
+          totalVotes += row.totalVotes || 0;
+        }
+      }
+      const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
+      const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
+      const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+      districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+    }
+    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
+    await firestore.collection('census_cache').doc(key).set({
+      districts,
+      state,
+      step: finalStepNumber,
+      maxIterations,
+      vestYear,
+      timestamp: Date.now(),
+      ttl: null,
+      version: CACHE_VERSION,
+      source: 'district-party-job'
+    });
+    console.log(`💾 District party: wrote ${state} step ${finalStepNumber} (${Object.keys(districts).length} districts)`);
+    return { success: true, districtsWritten: Object.keys(districts).length };
+  } catch (err) {
+    console.error('❌ runDistrictPartyJob:', err.message);
+    return { success: false, districtsWritten: 0, error: err.message };
+  }
+}
+
+/**
+ * POST /api/algorithm/district-party/:state
+ * Trigger district-level party % job for final step. Query: finalStepNumber, maxIterations (optional), vestYear (optional).
+ * Returns 202 when accepted (job runs async).
+ */
+app.post('/api/algorithm/district-party/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const finalStepNumber = parseInt(req.query.finalStepNumber || req.body?.finalStepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || req.body?.maxIterations || '100', 10);
+    const vestYear = parseInt(req.query.vestYear || req.body?.vestYear || String(DEFAULT_VEST_YEAR), 10);
+    if (!state || state.length !== 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    if (isNaN(finalStepNumber) || finalStepNumber < 1) {
+      return res.status(400).json({ error: 'finalStepNumber is required and must be >= 1' });
+    }
+    setImmediate(async () => {
+      try {
+        await runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear);
+      } catch (e) {
+        console.error('❌ District party job error:', e.message);
+      }
+    });
+    return res.status(202).json({
+      accepted: true,
+      message: 'District party calculation started',
+      state,
+      finalStepNumber,
+      maxIterations
+    });
+  } catch (error) {
+    console.error('❌ POST district-party error:', error);
+    res.status(500).json({ error: 'District party job failed', message: error.message });
+  }
+});
+
+/**
+ * GET /api/algorithm/district-party/:state/:stepNumber
+ * Return district-level party percentages for a state and final step. Query: maxIterations (optional).
+ */
+app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const stepNumber = parseInt(req.params.stepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    if (!state || state.length !== 2 || isNaN(stepNumber)) {
+      return res.status(400).json({ error: 'Invalid state or step number' });
+    }
+    const districts = await loadDistrictPartyForStep(state, stepNumber, maxIterations);
+    if (districts == null) {
+      return res.status(404).json({ error: 'District party data not found. Run POST /api/algorithm/district-party/:state first.' });
+    }
+    return res.json({ state, step: stepNumber, maxIterations, districts });
+  } catch (error) {
+    console.error('❌ GET district-party error:', error);
+    res.status(500).json({ error: 'Failed to load district party data', message: error.message });
+  }
+});
+
+/**
+ * POST /api/algorithm/district-party-for-group/:state
+ * Compute and persist party % for a single district group. Body/query: finalStepNumber, maxIterations (optional), groupKey (e.g. "1-1").
+ * Returns 202 when accepted.
+ */
+app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const finalStepNumber = parseInt(req.body?.finalStepNumber || req.query.finalStepNumber, 10);
+    const maxIterations = parseInt(req.body?.maxIterations || req.query.maxIterations || '100', 10);
+    const groupKey = (req.body?.groupKey || req.query.groupKey || '').trim();
+    if (!state || state.length !== 2 || isNaN(finalStepNumber) || finalStepNumber < 1 || !groupKey) {
+      return res.status(400).json({ error: 'state, finalStepNumber (>=1), and groupKey (e.g. "1-1") are required' });
+    }
+    const { getTractId } = require('./services/geodistrict-algorithm');
+    const stepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
+    if (!stepResult) {
+      return res.status(404).json({ error: 'Final step not found in cache' });
+    }
+    const districtGroups = stepResult.cachedEntry.stepData?.districtGroups ?? stepResult.cachedEntry.districtGroups ?? [];
+    const group = districtGroups.find(g => `${g.startDistrictNumber}-${g.endDistrictNumber}` === groupKey);
+    if (!group) {
+      return res.status(404).json({ error: `District group ${groupKey} not found` });
+    }
+    const tractParty = await loadTractPartyForState(state, DEFAULT_VEST_YEAR);
+    if (!tractParty || Object.keys(tractParty).length === 0) {
+      return res.status(400).json({ error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' });
+    }
+    const tractIds = group.censusTractIds && group.censusTractIds.length > 0
+      ? group.censusTractIds
+      : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+    let votesDem = 0, votesRep = 0, totalVotes = 0;
+    for (const id of tractIds) {
+      const geoid = String(id).padStart(11, '0').substring(0, 11);
+      const row = tractParty[geoid];
+      if (row) {
+        votesDem += row.votesDem || 0;
+        votesRep += row.votesRep || 0;
+        totalVotes += row.totalVotes || 0;
+      }
+    }
+    const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
+    const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
+    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
+    const docRef = firestore.collection('census_cache').doc(key);
+    const existing = await docRef.get();
+    const prev = existing.exists ? existing.data() : {};
+    const districts = prev.districts && typeof prev.districts === 'object' ? { ...prev.districts } : {};
+    districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+    await docRef.set({
+      districts,
+      state,
+      step: finalStepNumber,
+      maxIterations,
+      vestYear: DEFAULT_VEST_YEAR,
+      timestamp: Date.now(),
+      ttl: null,
+      version: CACHE_VERSION,
+      source: 'district-party-job'
+    }, { merge: true });
+    return res.json({ ok: true, groupKey, pctDem, pctRep, votesDem, votesRep, totalVotes });
+  } catch (error) {
+    console.error('❌ POST district-party-for-group error:', error);
+    res.status(500).json({ error: 'District party for group failed', message: error.message });
+  }
+});
+
+/**
+ * POST /api/algorithm/step/:state/:stepNumber/union-polygon-for-group
+ * Build and cache union polygon for a single district group. Query: groupKey (e.g. "1-1"), maxIterations (optional).
+ * Returns 200 with updated group cache key or 202 if job is async.
+ */
+app.post('/api/algorithm/step/:state/:stepNumber/union-polygon-for-group', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    const stepNum = parseInt(req.params.stepNumber, 10);
+    const maxIterations = parseInt(req.query.maxIterations || req.body?.maxIterations || '100', 10);
+    const groupKey = (req.query.groupKey || req.body?.groupKey || '').trim();
+    if (!state || state.length !== 2 || isNaN(stepNum) || stepNum < 0 || !groupKey) {
+      return res.status(400).json({ error: 'state, stepNumber, and groupKey (e.g. "1-1") are required' });
+    }
+    const currentVersion = ALGORITHM_VERSION;
+    let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    let cachedEntry = doc.exists ? doc.data() : null;
+    if (cachedEntry) cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
+    if (!cachedEntry || cachedEntry.algorithmVersion !== currentVersion) {
+      stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+      cachedEntry = doc.exists ? doc.data() : null;
+      if (cachedEntry) cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
+    }
+    if (!cachedEntry || !cachedEntry.stepData?.districtGroups?.length && !cachedEntry.districtGroups?.length) {
+      return res.status(404).json({ error: 'Step not found or has no district groups' });
+    }
+    const dataToReconstruct = cachedEntry.stepData || cachedEntry;
+    deserializeStepDataFromFirestore(dataToReconstruct);
+    const tractCacheKey = cachedEntry.tractCacheKey || `state_tracts_${state}`;
+    let stepData = dataToReconstruct;
+    const isNormalized = cachedEntry.normalized;
+    if (isNormalized && tractCacheKey) {
+      const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+      if (!stateTractDoc.exists) {
+        return res.status(500).json({ error: 'State tract cache not found for reconstruction' });
+      }
+      const stateTractData = stateTractDoc.data();
+      let tractMap = null;
+      if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+        const cloud = await cloudStorageCache.get(tractCacheKey);
+        if (cloud && cloud.data) tractMap = cloud.data;
+      } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+        const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => firestore.collection('census_cache').doc(k).get()));
+        tractMap = [];
+        for (const c of chunkDocs) {
+          if (c.exists && c.data().data) tractMap.push(...c.data().data);
+        }
+      } else if (stateTractData.data) {
+        tractMap = stateTractData.data;
+      }
+      if (!tractMap) return res.status(500).json({ error: 'Tract data not available' });
+      stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+      if (!stepData?.districtGroups?.length) return res.status(500).json({ error: 'Reconstruction failed' });
+    }
+    const groups = stepData.districtGroups || [];
+    const groupIndex = groups.findIndex(g => `${g.startDistrictNumber}-${g.endDistrictNumber}` === groupKey);
+    if (groupIndex === -1) {
+      return res.status(404).json({ error: `District group ${groupKey} not found in step` });
+    }
+    const singleGroup = groups[groupIndex];
+    delete singleGroup.unionPolygon;
+    delete singleGroup.unionPolygons;
+    delete singleGroup.unionPolygonCacheKey;
+    const recreated = await recreateUnionPolygonsForGroups([singleGroup], true, stepNum);
+    if (!recreated || recreated.length === 0) {
+      return res.status(500).json({ error: 'Failed to create union polygon for group' });
+    }
+    const unionPolygonCacheKeys = await cacheUnionPolygons(state, stepNum, recreated);
+    const newCacheKey = unionPolygonCacheKeys[0];
+    if (!newCacheKey) {
+      return res.status(500).json({ error: 'Failed to cache union polygon' });
+    }
+    const entryToWrite = cachedEntry;
+    const groupsToUpdate = entryToWrite.stepData?.districtGroups ?? entryToWrite.districtGroups ?? [];
+    if (groupsToUpdate[groupIndex]) groupsToUpdate[groupIndex].unionPolygonCacheKey = newCacheKey;
+    await setStepCache(stepCacheKey, entryToWrite);
+    return res.json({ ok: true, groupKey, unionPolygonCacheKey: newCacheKey });
+  } catch (error) {
+    console.error('❌ POST union-polygon-for-group error:', error);
+    res.status(500).json({ error: 'Union polygon for group failed', message: error.message });
   }
 });
 

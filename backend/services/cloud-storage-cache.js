@@ -97,6 +97,13 @@ class CloudStorageCache {
       const congress = rest.substring(0, firstUnderscore);
       const stateName = rest.substring(firstUnderscore + 1);
       return `congressional-boundaries/${congress}/${stateName}.json`;
+    } else if (cacheKey.startsWith('tract_party_')) {
+      // tract_party_{state}_{year} -> tract-party/{state}/{year}.json
+      const rest = cacheKey.replace('tract_party_', '');
+      const parts = rest.split('_');
+      const state = (parts[0] || 'unknown').toUpperCase();
+      const year = parts[1] || 'unknown';
+      return `tract-party/${state}/${year}.json`;
     } else {
       // Default: store in root with key as filename
       return `${type}/${cacheKey}.json`;

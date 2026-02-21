@@ -12,7 +12,7 @@ import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from '
 import { concatMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse, PerGroupStatus, FinalStepResponse } from '../services/geodistrict-algorithm.service';
 
 /** One frame of the US map reveal: state outline or one district. */
 type USMapRevealItem =
@@ -170,6 +170,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Timestamp when Restart was clicked; used to ignore stale GET final-step responses that arrive after restart. */
   private lastRestartAt = 0;
   private static readonly RESTART_IGNORE_MS = 10000;
+
+  /** Final-step status from GET final-step (for dev/maps summary and table icons). */
+  unionPolygonsCached: boolean = false;
+  districtPartyPercentagesCalculated: boolean = false;
+  perGroupStatus: PerGroupStatus[] = [];
+  finalStepMaxIterations: number = 100;
+  /** When true, we have triggered district party job and may refetch after delay. */
+  districtPartyJobTriggered: boolean = false;
+  /** Loading state for single-DG polygon or party trigger (groupKey or null). */
+  triggeringForGroupKey: string | null = null;
+
+  /** When true, color tracts by VEST party % (red = R, blue = D, light = 50%). */
+  showPartyColor: boolean = false;
+  /** Tract GEOID -> { pctDem } from GET tract-party (for party coloring). */
+  tractPartyByGeoid: Record<string, { pctDem: number }> | null = null;
 
   // US States with their congressional district counts
   states = [
@@ -1194,6 +1209,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   loadVisualizationState(): void {
     if (!this.selectedState || this.selectedState === 'ALL' || !this.tractLayer) return;
     const stateRequested = this.selectedState;
+    this.districtPartyJobTriggered = false;
     this.isLoading = true;
     this.loadingMessage = `Loading step data for ${this.stateName(stateRequested)}`;
     this.isLoadingSteps = true;
@@ -1204,7 +1220,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStepIndex = 0;
     this.totalSteps = 0;
     const sub = this.geodistrictService.getFinalStep(stateRequested).subscribe({
-      next: ({ step: stepIndex, data, isComplete }) => {
+      next: (resp: FinalStepResponse) => {
+        const { step: stepIndex, data, isComplete } = resp;
         if (this.selectedState !== stateRequested) return;
         if (!data?.districtGroups?.length) {
           this.isLoading = false;
@@ -1223,8 +1240,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           totalPopulation: data.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0),
           averagePopulation: 0,
           populationVariance: 0,
-          algorithmHistory: []
+          algorithmHistory: [],
+          maxIterations: resp.maxIterations ?? 100
         };
+        this.unionPolygonsCached = resp.unionPolygonsCached === true;
+        this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
+        this.perGroupStatus = resp.perGroupStatus ?? [];
+        this.finalStepMaxIterations = resp.maxIterations ?? 100;
         this.isLoading = false;
         this.isLoadingSteps = false;
         if (data.isolatedTractsData) {
@@ -1236,6 +1258,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
+        }
+        if (isComplete && !this.districtPartyPercentagesCalculated && !this.districtPartyJobTriggered) {
+          this.districtPartyJobTriggered = true;
+          this.geodistrictService.triggerDistrictPartyJob(stateRequested, stepIndex, this.finalStepMaxIterations).subscribe({
+            next: () => {},
+            error: () => {},
+            complete: () => {
+              setTimeout(() => this.refetchFinalStepForStatus(stateRequested), 3000);
+            }
+          });
         }
         this.cdr.markForCheck();
         setTimeout(() => {
@@ -3460,6 +3492,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
+            if (this.showPartyColor && this.tractPartyByGeoid) {
+              const geoid = String(tractId).padStart(11, '0').substring(0, 11);
+              const row = this.tractPartyByGeoid[geoid];
+              if (row != null) {
+                tractColor = this.getTractColorByParty(row.pctDem);
+              }
+            }
 
             // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
             // When boundaries hidden, border uses same color and opacity as fill so it blends (not removed).
@@ -4981,6 +5020,145 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const variance = ((group.totalPopulation - targetPopulationForGroup) / targetPopulationForGroup) * 100;
     
     return variance;
+  }
+
+  /** Target population for a district group (for variance tooltip). */
+  getGroupTargetPopulation(group: DistrictGroup): number {
+    const stateInfo = this.states.find(s => s.code === this.selectedState);
+    if (!stateInfo || !this.currentStep?.districtGroups?.length) return 0;
+    const totalStatePopulation = this.statePopulation;
+    const targetPerDistrict = totalStatePopulation / stateInfo.districts;
+    return Math.round(targetPerDistrict * group.totalDistricts);
+  }
+
+  /** Variance tooltip: "DG population / Target DG population". */
+  getGroupVarianceTooltip(group: DistrictGroup): string {
+    const target = this.getGroupTargetPopulation(group);
+    return `${group.totalPopulation.toLocaleString()} / ${target.toLocaleString()}`;
+  }
+
+  /** Per-DG status for table (polygon and party). */
+  getGroupStatusForIndex(i: number): PerGroupStatus | null {
+    if (!this.perGroupStatus || this.perGroupStatus.length <= i) return null;
+    return this.perGroupStatus[i];
+  }
+
+  /** Refetch final step to update status (e.g. after district party job). */
+  refetchFinalStepForStatus(state: string): void {
+    this.geodistrictService.getFinalStep(state).subscribe({
+      next: (resp: FinalStepResponse) => {
+        if (this.selectedState !== state) return;
+        this.unionPolygonsCached = resp.unionPolygonsCached === true;
+        this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
+        this.perGroupStatus = resp.perGroupStatus ?? [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Trigger union polygon for one DG (dev/maps). */
+  triggerPolygonForGroup(group: DistrictGroup, e: Event): void {
+    e.stopPropagation();
+    if (!this.selectedState || this.currentStepIndex == null) return;
+    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    if (this.triggeringForGroupKey) return;
+    this.triggeringForGroupKey = groupKey;
+    const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
+    this.geodistrictService.triggerUnionPolygonForGroup(this.selectedState, this.currentStepIndex, groupKey, maxIter).subscribe({
+      next: () => {
+        this.triggeringForGroupKey = null;
+        this.refetchFinalStepForStatus(this.selectedState);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.triggeringForGroupKey = null;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Trigger district party for one DG (dev/maps). */
+  triggerPartyForGroup(group: DistrictGroup, e: Event): void {
+    e.stopPropagation();
+    if (!this.selectedState || this.currentStepIndex == null) return;
+    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    if (this.triggeringForGroupKey) return;
+    this.triggeringForGroupKey = groupKey;
+    const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
+    this.geodistrictService.triggerDistrictPartyForGroup(this.selectedState, this.currentStepIndex, groupKey, maxIter).subscribe({
+      next: () => {
+        this.triggeringForGroupKey = null;
+        this.refetchFinalStepForStatus(this.selectedState);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.triggeringForGroupKey = null;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Summary text for union polygon status. */
+  get unionPolygonStatusText(): string {
+    if (!this.currentStep?.districtGroups?.length) return 'Not cached';
+    const n = this.currentStep.districtGroups.length;
+    const done = this.perGroupStatus?.filter(s => s.polygon === 'done').length ?? 0;
+    if (done === n) return 'All cached';
+    return `${done} of ${n} cached`;
+  }
+
+  /** Summary text for party % status. */
+  get districtPartyStatusText(): string {
+    if (!this.currentStep?.districtGroups?.length) return 'Not calculated';
+    const n = this.currentStep.districtGroups.length;
+    const done = this.perGroupStatus?.filter(s => s.party === 'done').length ?? 0;
+    if (done === n) return 'All calculated';
+    return `${done} of ${n} calculated`;
+  }
+
+  /** Interpolate color by party: pctDem 0 = red (R), 0.5 = light gray, 1 = blue (D). */
+  getTractColorByParty(pctDem: number): string {
+    const t = Math.max(0, Math.min(1, pctDem));
+    const gray = 224;
+    let r: number;
+    let g: number;
+    let b: number;
+    if (t <= 0.5) {
+      const s = t * 2;
+      r = Math.round(255 * (1 - s) + gray * s);
+      g = Math.round(gray * s);
+      b = Math.round(gray * s);
+    } else {
+      const s = (t - 0.5) * 2;
+      r = Math.round(gray * (1 - s));
+      g = Math.round(gray * (1 - s));
+      b = Math.round(gray + (255 - gray) * s);
+    }
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
+  /** Toggle party coloring and fetch tract party data if enabling. */
+  togglePartyColor(): void {
+    this.showPartyColor = !this.showPartyColor;
+    if (this.showPartyColor && this.selectedState && this.selectedState !== 'ALL') {
+      this.tractPartyByGeoid = null;
+      this.geodistrictService.getTractParty(this.selectedState, 2020).subscribe({
+        next: (res) => {
+          this.tractPartyByGeoid = res.geoids || {};
+          this.renderFinalDistricts();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.tractPartyByGeoid = null;
+          this.showPartyColor = false;
+          this.cdr.markForCheck();
+        }
+      });
+    } else if (!this.showPartyColor) {
+      this.tractPartyByGeoid = null;
+      this.renderFinalDistricts();
+    }
+    this.cdr.markForCheck();
   }
 
   // US View Methods

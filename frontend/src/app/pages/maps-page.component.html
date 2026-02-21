@@ -275,13 +275,29 @@
               </mat-expansion-panel>
             </div>
 
+            <div class="district-status-summary" *ngIf="currentStep?.districtGroups?.length && isDevMode">
+              <div class="status-summary-item">
+                <span class="status-label">Union polygons:</span>
+                <span class="status-value">{{ unionPolygonStatusText }}</span>
+              </div>
+              <div class="status-summary-item">
+                <span class="status-label">Party %:</span>
+                <span class="status-value">{{ districtPartyStatusText }}</span>
+              </div>
+              <div class="status-summary-item">
+                <button mat-button (click)="togglePartyColor()" type="button">
+                  {{ showPartyColor ? 'District colors' : 'Color by party %' }}
+                </button>
+              </div>
+            </div>
             <div class="district-groups-container">
               <div class="district-groups-list">
                 <table class="district-groups-table">
                   <thead>
                     <tr>
                       <th>District</th>
-                      <th>Population</th>
+                      <th *ngIf="isDevMode" class="col-polygon" title="Union polygon cached">Polygon</th>
+                      <th *ngIf="isDevMode" class="col-party" title="Party % calculated">Party</th>
                       <th>Variance</th>
                       <th>Next division</th>
                     </tr>
@@ -296,9 +312,29 @@
                           - {{ group.endDistrictNumber }}
                         </span>
                       </td>
-                      <td>{{ group.totalPopulation.toLocaleString() }}</td>
+                      <td *ngIf="isDevMode" class="col-polygon">
+                        <span *ngIf="getGroupStatusForIndex(i) as st"
+                          [matTooltip]="st.polygon === 'done' ? 'Union polygon cached' : (st.polygon === 'missing' ? 'Click to build union polygon' : st.polygon)"
+                          (click)="(st.polygon === 'missing' || st.polygon === 'fail') && triggerPolygonForGroup(group, $event)">
+                          <mat-icon *ngIf="st.polygon === 'done'" class="status-icon done">check_circle</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'fail'" class="status-icon fail">error</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'missing'" class="status-icon missing">warning</mat-icon>
+                        </span>
+                      </td>
+                      <td *ngIf="isDevMode" class="col-party">
+                        <span *ngIf="getGroupStatusForIndex(i) as st"
+                          [matTooltip]="st.party === 'done' ? 'Party % calculated' : (st.party === 'missing' ? 'Click to calculate party %' : st.party)"
+                          (click)="(st.party === 'missing' || st.party === 'fail') && triggerPartyForGroup(group, $event)">
+                          <mat-icon *ngIf="st.party === 'done'" class="status-icon done">check_circle</mat-icon>
+                          <mat-icon *ngIf="st.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
+                          <mat-icon *ngIf="st.party === 'fail'" class="status-icon fail">error</mat-icon>
+                          <mat-icon *ngIf="st.party === 'missing'" class="status-icon missing">warning</mat-icon>
+                        </span>
+                      </td>
                       <td [class.variance-positive]="getGroupVariance(group) > 0"
-                        [class.variance-negative]="getGroupVariance(group) < 0">
+                        [class.variance-negative]="getGroupVariance(group) < 0"
+                        [matTooltip]="getGroupVarianceTooltip(group)">
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
                       <td class="next-division-cell">{{ getNextDivisionLabel(group) }}</td>
