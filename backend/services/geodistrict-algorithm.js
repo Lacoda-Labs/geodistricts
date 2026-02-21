@@ -3100,6 +3100,7 @@ class GeodistrictAlgorithmService {
     let updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
     let movedComponents = 0;
     let movedTractCount = 0;
+    const unmovableTractIds = [];
 
     const buildTractIdToGroupIndex = (groups) => {
       const map = new Map();
@@ -3145,8 +3146,9 @@ class GeodistrictAlgorithmService {
         const tractIdToGroupIndex = buildTractIdToGroupIndex(updatedGroups);
         const adjacentIndices = this._getAdjacentGroupIndicesForComponent(toMove, groupIndex, tractIdToGroupIndex, adjacencyGraph);
         if (adjacentIndices.length === 0) {
+          toMove.forEach(id => unmovableTractIds.push(id));
           const sampleIds = toMove.slice(0, 5).join(', ') + (toMove.length > 5 ? ` ... (${toMove.length} total)` : '');
-          logger.debug(`   No adjacent district for isolated component (${toMove.length} tract(s)), skipping. Tract IDs: ${sampleIds}`);
+          logger.debug(`   No adjacent district for isolated component (${toMove.length} tract(s)), skipping (added to island list). Tract IDs: ${sampleIds}`);
           continue;
         }
 
@@ -3163,7 +3165,8 @@ class GeodistrictAlgorithmService {
     return {
       districtGroups: updatedGroups,
       movedComponents,
-      movedTractCount
+      movedTractCount,
+      unmovableTractIds
     };
   }
 
@@ -3937,11 +3940,12 @@ class GeodistrictAlgorithmService {
     let totalBridgeMoved = 0;
     let resolutionIterations = 0;
     const maxResolutionIterations = 10;
+    let islandSet = step0IslandTractIds instanceof Set ? step0IslandTractIds : (Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : new Set());
 
     while (resolutionIterations < maxResolutionIterations) {
       resolutionIterations++;
       logger.debug(`🔧 Final-step resolution iteration ${resolutionIterations}`);
-      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, islandSet);
       if (isolationResult.isolatedTractIds.size === 0) break;
       logger.debug(`   Found ${isolationResult.isolatedTractIds.size} isolated tracts in ${isolationResult.isolatedTractsByGroup.size} groups`);
 
@@ -3962,23 +3966,27 @@ class GeodistrictAlgorithmService {
           updatedGroups = moveResult.districtGroups;
           totalBridgeMoved += bridgeTractIds.length;
         }
-        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, islandSet);
         if (isolationAfterBridge.isolatedTractIds.size === 0) break;
         if (isolationAfterBridge.isolatedTractIds.size >= isolationCountBeforeBridge) {
           logger.debug(`⚠️ Bridge did not reduce isolation, continuing with move isolated`);
         }
       }
 
-      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, islandSet);
       if (isolationAfterBridge.isolatedTractIds.size > 0) {
         const moveResult = this.moveIsolatedComponentsByAdjacency(
-          updatedGroups, allTracts, isolationAfterBridge, step0IslandTractIds
+          updatedGroups, allTracts, isolationAfterBridge, islandSet
         );
         updatedGroups = moveResult.districtGroups;
         totalIsolatedMoved += moveResult.movedTractCount;
+        if (moveResult.unmovableTractIds && moveResult.unmovableTractIds.length > 0) {
+          moveResult.unmovableTractIds.forEach(id => islandSet.add(id));
+          logger.debug(`   Added ${moveResult.unmovableTractIds.length} unmovable tract(s) to island list for final step`);
+        }
       }
 
-      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, islandSet);
       if (finalIsolation.isolatedTractIds.size === 0) {
         logger.info(`✅ Final-step isolation resolved after ${resolutionIterations} iteration(s)`);
         break;
@@ -3989,7 +3997,7 @@ class GeodistrictAlgorithmService {
     if (resolutionIterations >= maxResolutionIterations) {
       logger.warn(`⚠️ Final-step resolution reached max iterations (${maxResolutionIterations})`);
     }
-    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, islandSet);
     logger.info(`✅ RESOLVE ISOLATION (final step): moved ${totalBridgeMoved} bridge, ${totalIsolatedMoved} isolated, ${finalIsolation.isolatedTractIds.size} remaining`);
     return {
       districtGroups: updatedGroups,

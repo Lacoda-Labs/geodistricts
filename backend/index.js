@@ -6850,6 +6850,8 @@ function normalizeStepData(step, tractCacheKey) {
     })) : step.divisionLines,
     // Preserve isolated tracts data if present (shape is already Firestore-safe: object of string[])
     isolatedTractsData: step.isolatedTractsData || undefined,
+    // Step-level excluded tract IDs (unmovable tracts treated as islands for this step)
+    excludedTractIds: Array.isArray(step.excludedTractIds) ? step.excludedTractIds : undefined,
     // Step-0 island tracts: use Firestore-safe shape (no array-of-arrays)
     islandTractsData: serializeIslandTractsDataForFirestore(step.islandTractsData),
     // Connected components per group: Firestore-safe shape (array of { tractIds } per group)
@@ -8066,6 +8068,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
       if (isFinalStep) {
         // Final step: use adjacency-based move (whole-component, sibling-first) for Move Isolated Tracts button
+        // Unmovable tracts (no adjacent district) are merged into step0IslandSet so they are treated as islands for this step
+        if (!step0IslandSet) step0IslandSet = new Set();
         let iterationCount = 0;
         while (iterationCount < maxIter) {
           iterationCount++;
@@ -8074,6 +8078,10 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           try {
             const moveResult = algorithmService.moveIsolatedComponentsByAdjacency(updatedGroups, allTracts, isolationResult, step0IslandSet);
             updatedGroups = moveResult.districtGroups;
+            if (moveResult.unmovableTractIds && moveResult.unmovableTractIds.length > 0) {
+              moveResult.unmovableTractIds.forEach(id => step0IslandSet.add(id));
+              console.log(`🏝️ Final step: added ${moveResult.unmovableTractIds.length} unmovable tract(s) to island list for this step: ${moveResult.unmovableTractIds.slice(0, 5).join(', ')}${moveResult.unmovableTractIds.length > 5 ? '...' : ''}`);
+            }
             if (moveResult.movedTractCount === 0) break;
           } catch (moveErr) {
             return res.status(500).json({ error: 'Failed to move isolated tracts (final step)', message: moveErr.message });
@@ -8122,6 +8130,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
       const totalRemaining = finalIsolationResult.isolatedTractIds.size;
       const stepCompleteForUnions = totalRemaining === 0 && step > 0;
+      const excludedTractIdsForStep = step0IslandSet && step0IslandSet.size > 0 ? Array.from(step0IslandSet) : undefined;
       if (stepCompleteForUnions) {
         // Persist updated step to cache before triggering POST union-polygons so the job uses post-move DG tracts
         const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
@@ -8136,7 +8145,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
             isolatedTractIds: Array.from(finalIsolationResult.isolatedTractIds),
             totalIsolated: finalIsolationResult.isolatedTractIds.size,
             groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
-          }
+          },
+          ...(excludedTractIdsForStep && excludedTractIdsForStep.length > 0 && { excludedTractIds: excludedTractIdsForStep })
         };
         const normalizedStep = normalizeStepData(stepPayload, tractCacheKey);
         const cacheData = {
@@ -8181,6 +8191,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           totalIsolated: totalRemaining,
           groupsWithIsolation: Object.keys(finalIsolatedTractsByGroup).length
         },
+        ...(excludedTractIdsForStep && excludedTractIdsForStep.length > 0 && { excludedTractIds: excludedTractIdsForStep }),
         ...(totalRemaining > 0 && { hint: 'Some tracts could not be moved (no adjacent tract in target group). Try Detect Bridge Tracts, then Move Bridge Tracts.' })
       });
     }
