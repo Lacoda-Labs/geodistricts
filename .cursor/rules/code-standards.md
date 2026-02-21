@@ -15,6 +15,7 @@
 ## Code Quality Standards
 - Use TypeScript strict mode
 - Follow Angular style guide for frontend code
+- **Use Angular signals** for reactive component state: `signal()` for writable state, `computed()` for derived values (e.g. disabled state from multiple loading flags). Prefer signals over plain class properties so the template updates automatically without manual change detection.
 - Use async/await for asynchronous operations
 - Include error handling and logging
 - Write self-documenting code with clear variable names

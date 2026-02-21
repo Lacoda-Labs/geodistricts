@@ -1772,6 +1772,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         // Step not loaded yet, request it from backend
         console.log(`🚀 Requesting step ${prevIndex} from backend...`);
+        this.isLoadingSteps = true;
         this.isLoading = true;
         this.loadingMessage = 'Loading district data...';
         
@@ -1824,6 +1825,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             
             this.bridgeTractIds.clear();
             this.bridgeTractsData = null;
+            this.isLoadingSteps = false;
             this.isLoading = false;
 
             // Update algorithmResult
@@ -1850,6 +1852,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           },
           error: (error) => {
             this.errorMessage = error.message || `Failed to load step ${prevIndex}`;
+            this.isLoadingSteps = false;
             this.isLoading = false;
             console.error(`Previous step ${prevIndex} load error:`, error);
           }
@@ -1971,17 +1974,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (this.isVisualizationOnly) {
       // Visualization mode: fetch step via GET only
       console.log(`📥 Loading step ${nextIndex} (GET)...`);
+      this.isLoadingSteps = true;
       this.isLoading = true;
       this.loadingMessage = `Loading step ${nextIndex}...`;
       const stateRequested = this.selectedState;
       const sub = this.geodistrictService.getStep(stateRequested, nextIndex, 100, { polygonsOnly: true }).subscribe({
         next: (stepData) => {
           if (this.selectedState !== stateRequested) {
+            this.isLoadingSteps = false;
             this.isLoading = false;
             return;
           }
           const { step: newStep, stepIndex: loadedIndex, isComplete } = stepData;
           if (!newStep?.districtGroups?.length) {
+            this.isLoadingSteps = false;
             this.isLoading = false;
             return;
           }
@@ -1995,13 +2001,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cachedSortedTractEntries = [];
           this.cachedNorthPrefixSum = [];
           this.cachedSortedTractEntriesByDg.clear();
+          this.isLoadingSteps = false;
           this.isLoading = false;
           this.renderFinalDistricts();
           this.cdr.markForCheck();
           this.onStepDisplayComplete();
         },
         error: () => {
-          if (this.selectedState === stateRequested) this.isLoading = false;
+          if (this.selectedState === stateRequested) {
+            this.isLoadingSteps = false;
+            this.isLoading = false;
+          }
           this.cdr.markForCheck();
         }
       });
@@ -2009,6 +2019,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       // Dev mode (or legacy): request step from backend via POST execute next step
       console.log(`🚀 Requesting step ${nextIndex} from backend...`);
+      this.isLoadingSteps = true;
       this.isLoading = true;
       this.loadingMessage = nextIndex === 0
         ? 'Loading initial state...'
@@ -2117,6 +2128,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
+          this.isLoadingSteps = false;
           this.isLoading = false;
           this.loadingMessage = 'Loading district data...';
 
@@ -2134,13 +2146,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
           // If complete, update total steps
           if (isComplete) {
-            this.isLoadingSteps = false;
             this.totalSteps = this.loadedSteps.filter(s => s !== undefined).length;
             console.log(`✅ Algorithm completed: ${this.totalSteps} total steps`);
           }
         },
         error: (error) => {
           this.errorMessage = error.message || 'An error occurred while executing the next step';
+          this.isLoadingSteps = false;
           this.isLoading = false;
           this.loadingMessage = 'Loading district data...';
           console.error('Next step execution error:', error);
@@ -2173,10 +2185,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.renderFinalDistricts();
       } else {
         const stateRequested = this.selectedState;
+        this.isLoadingSteps = true;
         this.isLoading = true;
         const sub = this.geodistrictService.getStep(stateRequested, 0, 100, { polygonsOnly: true }).subscribe({
           next: (stepData) => {
-            if (this.selectedState !== stateRequested) { this.isLoading = false; return; }
+            if (this.selectedState !== stateRequested) { this.isLoadingSteps = false; this.isLoading = false; return; }
             const { step: newStep, stepIndex } = stepData;
             if (newStep) {
               this.loadedSteps[stepIndex] = newStep;
@@ -2189,10 +2202,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.bridgeTractsData = null;
               this.renderFinalDistricts();
             }
+            this.isLoadingSteps = false;
             this.isLoading = false;
             this.cdr.markForCheck();
           },
-          error: () => { if (this.selectedState === stateRequested) this.isLoading = false; this.cdr.markForCheck(); }
+          error: () => { if (this.selectedState === stateRequested) { this.isLoadingSteps = false; this.isLoading = false; } this.cdr.markForCheck(); }
         });
         this.subscriptions.push(sub);
       }
@@ -2244,12 +2258,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       console.log('Last step not loaded yet. Loading final step from backend...');
+      this.isLoadingSteps = true;
       this.isLoading = true;
       this.loadingMessage = 'Loading final step...';
       this.cdr.markForCheck();
       const sub = this.geodistrictService.getFinalStep(this.selectedState).subscribe({
         next: ({ step: stepIndex, data, isComplete }) => {
           if (this.selectedState === 'ALL' || !data?.districtGroups?.length) {
+            this.isLoadingSteps = false;
             this.isLoading = false;
             this.loadingMessage = '';
             if (!data?.districtGroups?.length) {
@@ -2270,6 +2286,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isolatedTractsData = null;
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
+          this.isLoadingSteps = false;
           this.isLoading = false;
           this.loadingMessage = '';
           this.errorMessage = '';
@@ -2277,6 +2294,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.renderFinalDistricts();
         },
         error: (err) => {
+          this.isLoadingSteps = false;
           this.isLoading = false;
           this.loadingMessage = '';
           this.errorMessage = err?.message || 'Failed to load final step';

@@ -80,6 +80,11 @@ When working on specific areas, reference relevant documentation from `doc/pages
 - **Data**: Census API, TIGER/Line shapefiles
 - **Infrastructure**: Google Cloud Platform
 
+### Angular state: use signals
+- Use Angular **signals** for reactive component state (e.g. loading flags, UI state, form-derived state).
+- Prefer `signal()` for writable state and `computed()` for derived values (e.g. "button bar disabled" from multiple loading flags) so the template stays in sync without manual change detection.
+- When adding or changing component state that drives the template, use signals rather than plain class properties.
+
 ### Algorithm Principles
 1. **Population Equality First**: Districts must be as close to equal population as possible (target: <1% variance)
 2. **Contiguity Preferred**: Districts should be contiguous when possible, but discontiguity is acceptable for geographic barriers
