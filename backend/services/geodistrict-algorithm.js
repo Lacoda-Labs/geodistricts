@@ -1741,6 +1741,43 @@ function createStep(step, level, districtGroups, description, divisionDirection,
           islandTractsData.groupsWithIslands = Object.keys(islandTractsData.islandTractsByGroup).length;
           console.log(`🏝️ Step 0: Excluding ${excludedTractIds.length} water/special tract(s) from isolation in later steps: ${excludedTractIds.slice(0, 5).join(', ')}${excludedTractIds.length > 5 ? '...' : ''}`);
         }
+
+        // At Step 0, also exclude tracts with zero adjacency (no S4 neighbors) so they are not flagged as isolated at steps 1+
+        if (adjacencyGraph && adjacencyGraph.size > 0) {
+          const waterSpecialSet = new Set(excludedTractIds);
+          const zeroAdjacencyTractIds = [];
+          for (const id of adjacencyGraph.keys()) {
+            const neighbors = adjacencyGraph.get(id) || [];
+            if (neighbors.length > 0) continue;
+            if (waterSpecialSet.has(id)) continue;
+            const tract = allTracts.find(t => getTractId(t) === id);
+            if (tract && isWaterOrSpecialTract(tract)) continue;
+            zeroAdjacencyTractIds.push(id);
+          }
+          if (zeroAdjacencyTractIds.length > 0) {
+            if (!islandTractsData) {
+              islandTractsData = {
+                islandTractsByGroup: {},
+                totalIslandTracts: 0,
+                totalIslandGroups: 0,
+                groupsWithIslands: 0
+              };
+            }
+            excludedTractIds.push(...zeroAdjacencyTractIds);
+            islandTractsData.excludedTractIds = excludedTractIds;
+            const group0Key = 0;
+            if (!islandTractsData.islandTractsByGroup[group0Key]) {
+              islandTractsData.islandTractsByGroup[group0Key] = [];
+            }
+            const zeroAdjAsIslandGroups = zeroAdjacencyTractIds.map(id => [id]);
+            islandTractsData.islandTractsByGroup[group0Key] = islandTractsData.islandTractsByGroup[group0Key].concat(zeroAdjAsIslandGroups);
+            islandTractsData.totalIslandTracts = Object.values(islandTractsData.islandTractsByGroup).reduce((sum, groups) =>
+              sum + groups.reduce((s, g) => s + g.length, 0), 0);
+            islandTractsData.totalIslandGroups = Object.values(islandTractsData.islandTractsByGroup).reduce((sum, groups) => sum + groups.length, 0);
+            islandTractsData.groupsWithIslands = Object.keys(islandTractsData.islandTractsByGroup).length;
+            console.log(`🏝️ Step 0: Excluding ${zeroAdjacencyTractIds.length} tract(s) with no adjacency from isolation in later steps: ${zeroAdjacencyTractIds.slice(0, 5).join(', ')}${zeroAdjacencyTractIds.length > 5 ? '...' : ''}`);
+          }
+        }
       }
     } catch (error) {
       console.warn(`⚠️ Failed to detect isolated tracts for step ${step}: ${error.message}`);
@@ -3108,7 +3145,8 @@ class GeodistrictAlgorithmService {
         const tractIdToGroupIndex = buildTractIdToGroupIndex(updatedGroups);
         const adjacentIndices = this._getAdjacentGroupIndicesForComponent(toMove, groupIndex, tractIdToGroupIndex, adjacencyGraph);
         if (adjacentIndices.length === 0) {
-          logger.debug(`   No adjacent district for isolated component (${toMove.length} tract(s)), skipping`);
+          const sampleIds = toMove.slice(0, 5).join(', ') + (toMove.length > 5 ? ` ... (${toMove.length} total)` : '');
+          logger.debug(`   No adjacent district for isolated component (${toMove.length} tract(s)), skipping. Tract IDs: ${sampleIds}`);
           continue;
         }
 

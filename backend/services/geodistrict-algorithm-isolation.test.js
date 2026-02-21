@@ -1,10 +1,10 @@
 /**
- * Minimal tests for tract isolation detection (fast one-pass) and bridge scope.
+ * Minimal tests for tract isolation detection (fast one-pass), bridge scope, and zero-adjacency exclusion.
  * Run with: node backend/services/geodistrict-algorithm-isolation.test.js
  * (Backend npm test is currently a no-op; this file can be run directly.)
  */
 const latLongDivision = require('./latlong-division');
-const { GeodistrictAlgorithmService } = require('./geodistrict-algorithm');
+const { GeodistrictAlgorithmService, createStep } = require('./geodistrict-algorithm');
 
 function runTests() {
   const latLongDivisionService = latLongDivision;
@@ -110,6 +110,29 @@ function runTests() {
     return;
   }
   console.log('PASS: _chooseTargetGroupForComponent prefers sibling when in adjacent set');
+
+  // --- 7. Step 0: zero-adjacency tract is added to excludedTractIds and not reported isolated at step 1
+  // Use state XX so S4 is not loaded and graph is empty (all tracts have zero neighbors)
+  const tractWithGeometry = {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
+    properties: { GEOID: '48001010500', STATE: 'XX', TRACT_FIPS: '010500' }
+  };
+  const step0Group = { startDistrictNumber: 1, endDistrictNumber: 52, censusTracts: [tractWithGeometry], totalDistricts: 52 };
+  const step0Step = createStep(0, 0, [step0Group], 'Step 0', 'latitude', undefined, [], algorithmService, [tractWithGeometry], null);
+  if (!step0Step.islandTractsData || !step0Step.islandTractsData.excludedTractIds || !step0Step.islandTractsData.excludedTractIds.includes('48001010500')) {
+    console.error('FAIL: Step 0 should add zero-adjacency tract to excludedTractIds, got', step0Step.islandTractsData?.excludedTractIds);
+    process.exitCode = 1;
+    return;
+  }
+  const step1Groups = [step0Group];
+  const step1Result = algorithmService.detectIsolatedTracts(step1Groups, [tractWithGeometry], 1, new Set(step0Step.islandTractsData.excludedTractIds));
+  if (step1Result.isolatedTractIds.has('48001010500')) {
+    console.error('FAIL: Zero-adjacency tract should not be in isolatedTractIds at step 1 when in step0 exclusion set');
+    process.exitCode = 1;
+    return;
+  }
+  console.log('PASS: Zero-adjacency tract excluded at step 0 and not reported isolated at step 1');
 
   console.log('All isolation/bridge tests passed.');
 }
