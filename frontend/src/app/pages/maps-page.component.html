@@ -77,6 +77,7 @@
           <div class="info-header-step-bar">
           <app-step-btn-bar
             [variant]="isDevMode ? 'admin' : 'public'"
+            [disabled]="isLoadingSteps || isMovingIsolatedTracts || isBalancingDistricts"
             [canGoToFirst]="canGoToFirstStep()"
             [canGoToPrevious]="canGoToPreviousStep()"
             [canGoToNext]="canGoToNextStep()"

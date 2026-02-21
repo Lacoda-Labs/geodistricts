@@ -81,6 +81,8 @@ export interface GeodistrictResult {
   averagePopulation: number;
   populationVariance: number;
   algorithmHistory: string[];
+  /** Used when caching steps and triggering union polygon build (e.g. after balance). */
+  maxIterations?: number;
 }
 
 // Interface for algorithm options
@@ -6743,16 +6745,22 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Run balanceSiblingPairsAfterIsolatedMoves on the backend (manual trigger after move isolated).
+   * At final step the backend marks the step complete and triggers union polygon creation.
+   * Optional maxIterations ensures the step cache key matches (default 100).
    */
   balanceAfterIsolated(
     state: string,
     step: number,
     districtGroups: any[],
-    divisionLines: any[]
+    divisionLines: any[],
+    options?: { maxIterations?: number; step0IslandTractIds?: string[] }
   ): Observable<{ districtGroups: any[] }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const url = `${backendUrl}/api/algorithm/balance-after-isolated`;
-    return this.http.post<{ districtGroups: any[] }>(url, { state, step, districtGroups, divisionLines }, {
+    const body: Record<string, unknown> = { state, step, districtGroups, divisionLines };
+    if (options?.maxIterations != null) body.maxIterations = options.maxIterations;
+    if (options?.step0IslandTractIds != null) body.step0IslandTractIds = options.step0IslandTractIds;
+    return this.http.post<{ districtGroups: any[] }>(url, body, {
       headers: { 'Content-Type': 'application/json' }
     }).pipe(
       timeout(120000),

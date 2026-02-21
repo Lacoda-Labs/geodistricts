@@ -3816,7 +3816,7 @@ class GeodistrictAlgorithmService {
     }
 
     const targetVariancePercent = GeodistrictAlgorithmService.BALANCE_TARGET_VARIANCE * 100; // 1%
-    const maxIterations = 50;
+    const maxIterations = 150; // Run until all within tolerance or no improving move
     let iter = 0;
     while (iter < maxIterations) {
       iter++;

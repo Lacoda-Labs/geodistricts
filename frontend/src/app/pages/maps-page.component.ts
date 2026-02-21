@@ -1476,6 +1476,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxIterations = 100;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const clearCacheUrl = `${backendUrl}/api/algorithm/clear-cache`;
+    this.isLoadingSteps = true;
+    this.isLoading = true;
+    this.loadingMessage = 'Clearing cache...';
     console.log(`🗑️ Clear cache (trash): deleting algorithm cache for ${state}, then reloading step 0...`);
     this.http.post<{ ok: boolean; message?: string }>(clearCacheUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } }).subscribe({
       next: () => {
@@ -1484,6 +1487,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         this.errorMessage = err?.message || 'Failed to clear algorithm cache';
+        this.isLoadingSteps = false;
+        this.isLoading = false;
         console.error('Clear cache failed:', err);
       }
     });
@@ -1508,6 +1513,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxIterations = 100;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const restartUrl = `${backendUrl}/api/algorithm/restart`;
+    this.isLoadingSteps = true;
+    this.isLoading = true;
+    this.loadingMessage = 'Restarting...';
     console.log(`🔄 Restart: clearing step 1+ and algorithm state for ${state}, then loading step 0...`);
     this.http.post<{ ok: boolean; message?: string }>(restartUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } }).subscribe({
       next: () => {
@@ -1516,6 +1524,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         this.errorMessage = err?.message || 'Failed to restart';
+        this.isLoadingSteps = false;
+        this.isLoading = false;
         console.error('Restart failed:', err);
       }
     });
@@ -4423,6 +4433,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.isMovingIsolatedTracts = true;
     this.moveIsolatedHint = '';
+    this.isLoading = true;
+    this.loadingMessage = 'Moving isolated tracts...';
 
     console.log(`🔄 Moving all isolated tracts for step ${this.currentStep.step}${hasStepData ? ' (from step cache)' : ' (from manual detection)'}`);
 
@@ -4448,6 +4460,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     ).pipe(
       finalize(() => {
         this.isMovingIsolatedTracts = false;
+        this.isLoading = false;
+        this.loadingMessage = '';
         this.cdr.detectChanges();
       })
     ).subscribe({
@@ -4519,14 +4533,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.isBalancingDistricts = true;
     this.errorMessage = '';
+    this.isLoading = true;
+    this.loadingMessage = 'Balancing districts...';
+    const maxIterations = this.algorithmResult?.maxIterations ?? 100;
     this.geodistrictService.balanceAfterIsolated(
       this.selectedState,
       this.currentStep.step,
       this.currentStep.districtGroups,
-      this.currentStep.divisionLines
+      this.currentStep.divisionLines ?? [],
+      { maxIterations }
     ).pipe(
       finalize(() => {
         this.isBalancingDistricts = false;
+        this.isLoading = false;
+        this.loadingMessage = '';
         this.cdr.detectChanges();
       })
     ).subscribe({

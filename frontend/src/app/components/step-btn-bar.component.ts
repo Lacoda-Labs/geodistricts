@@ -12,6 +12,7 @@ import { MatButtonModule } from '@angular/material/button';
 })
 export class StepBtnBarComponent {
   @Input() variant: 'admin' | 'public' = 'admin';
+  @Input() disabled: boolean = false;
   @Input() canGoToFirst: boolean = false;
   @Input() canGoToPrevious: boolean = false;
   @Input() canGoToNext: boolean = false;

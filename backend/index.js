@@ -8825,12 +8825,12 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
 /**
  * POST /api/algorithm/balance-after-isolated
- * At final step: run variance-prioritized balance (balanceDistrictsByVariance); divisionLines optional.
+ * At final step: run variance-prioritized balance until tolerance or best, then resolve isolated tracts, then balance again; divisionLines optional.
  * Otherwise: run balanceSiblingPairsAfterIsolatedMoves (divisionLines required).
  */
 app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
   try {
-    const { state, step, districtGroups, divisionLines } = req.body;
+    const { state, step, districtGroups, divisionLines, step0IslandTractIds: bodyStep0IslandTractIds, maxIterations: bodyMaxIterations } = req.body;
 
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
@@ -8868,9 +8868,103 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
     if (isFinalStep) {
       const totalPopulation = updatedGroups.reduce((sum, g) => sum + (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0), 0);
       const targetDistrictPopulation = totalPopulation / updatedGroups.length;
+      const maxAbsVariancePercent = (groups) => {
+        let max = 0;
+        for (const g of groups) {
+          const pop = (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+          const n = g.totalDistricts != null ? g.totalDistricts : (g.endDistrictNumber - g.startDistrictNumber + 1);
+          const target = targetDistrictPopulation * n;
+          if (target <= 0) continue;
+          const v = Math.abs(((pop - target) / target) * 100);
+          if (v > max) max = v;
+        }
+        return max;
+      };
+      const improvementThresholdPercent = 1.0; // target variance; stop when balance doesn't improve by at least this much
+      // Balance until within tolerance or no improving move
       balanced = algorithmService.balanceDistrictsByVariance(updatedGroups, allTracts, targetDistrictPopulation);
+      let step0IslandSet = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : new Set();
+      const maxIsolationIter = 10;
+      const resolveIsolated = () => {
+        for (let isoIter = 0; isoIter < maxIsolationIter; isoIter++) {
+          const isolationResult = algorithmService.detectIsolatedTracts(balanced, allTracts, step, step0IslandSet);
+          if (isolationResult.isolatedTractIds.size === 0) return;
+          try {
+            const moveResult = algorithmService.moveIsolatedComponentsByAdjacency(balanced, allTracts, isolationResult, step0IslandSet);
+            balanced = moveResult.districtGroups;
+            if (moveResult.unmovableTractIds && moveResult.unmovableTractIds.length > 0) {
+              moveResult.unmovableTractIds.forEach(id => step0IslandSet.add(id));
+            }
+            if (moveResult.movedTractCount === 0) return;
+          } catch (moveErr) {
+            console.warn(`Balance-after-isolated: move isolated failed: ${moveErr.message}`);
+            return;
+          }
+        }
+      };
+      resolveIsolated();
+      const worstBeforeSecond = maxAbsVariancePercent(balanced);
+      balanced = algorithmService.balanceDistrictsByVariance(balanced, allTracts, targetDistrictPopulation);
+      const worstAfterSecond = maxAbsVariancePercent(balanced);
+      // If second balance didn't improve worst variance by at least threshold, we've balanced as far as possible
+      if (worstBeforeSecond - worstAfterSecond < improvementThresholdPercent) {
+        // Skip third balance; some districts may remain outside target variance
+      } else {
+        resolveIsolated();
+        balanced = algorithmService.balanceDistrictsByVariance(balanced, allTracts, targetDistrictPopulation);
+      }
     } else {
       balanced = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
+    }
+
+    // At final step, mark step complete and trigger union polygon creation so the balanced result is persisted
+    if (isFinalStep && balanced) {
+      const maxIterations = typeof bodyMaxIterations === 'number' && bodyMaxIterations > 0 ? bodyMaxIterations : 100;
+      const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
+      const tractCacheKey = `state_tracts_${state}`;
+      const excludedTractIdsForStep = (bodyStep0IslandTractIds && Array.isArray(bodyStep0IslandTractIds) && bodyStep0IslandTractIds.length > 0) ? bodyStep0IslandTractIds : undefined;
+      const stepPayload = {
+        state,
+        step,
+        districtGroups: balanced,
+        divisionLines: Array.isArray(divisionLines) ? divisionLines : [],
+        isolatedTractsData: {
+          isolatedTractsByGroup: {},
+          isolatedTractIds: [],
+          totalIsolated: 0,
+          groupsWithIsolation: 0
+        },
+        ...(excludedTractIdsForStep && { excludedTractIds: excludedTractIdsForStep })
+      };
+      const normalizedStep = normalizeStepData(stepPayload, tractCacheKey);
+      const cacheData = {
+        stepData: normalizedStep.normalized,
+        isComplete: true,
+        algorithmVersion: ALGORITHM_VERSION,
+        timestamp: Date.now(),
+        ttl: 24 * 60 * 60 * 1000, // 24 hours
+        source: 'algorithm-step-cache',
+        normalized: true,
+        tractCacheKey,
+        state,
+        step,
+        unionPolygonsCached: false
+      };
+      try {
+        await setStepCache(stepCacheKey, cacheData);
+        console.log(`💾 STEP CACHE STORED (balance-after-isolated): Marked final step ${step} complete for ${state}`);
+        const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+        const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${step}&maxIterations=${maxIterations}`;
+        setImmediate(() => {
+          axios.post(buildAllUrl, {}).then(() => {
+            console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${step} after balance`);
+          }).catch((err) => {
+            console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
+          });
+        });
+      } catch (cacheErr) {
+        console.warn(`⚠️ Failed to save step cache after balance (final step): ${cacheErr.message}`);
+      }
     }
 
     return res.json({ districtGroups: balanced });
