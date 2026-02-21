@@ -3767,6 +3767,198 @@ class GeodistrictAlgorithmService {
   }
 
   /**
+   * Balance district groups by variance: prioritize districts with largest |variance|,
+   * pair each with an adjacent district of opposite variance, move boundary tracts to reduce variance.
+   * Intended for final step only (each group is a single district).
+   * @param {Array} districtGroups - District groups (final step: one district per group)
+   * @param {Array} allTracts - All tracts in the dataset
+   * @param {number} targetDistrictPopulation - Target population per district (state total / total districts)
+   * @returns {Array} Updated district groups
+   */
+  balanceDistrictsByVariance(districtGroups, allTracts, targetDistrictPopulation) {
+    if (!districtGroups || districtGroups.length < 2 || targetDistrictPopulation <= 0) {
+      return districtGroups;
+    }
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+    let groups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+
+    const getGroupPopulation = (group) =>
+      (group.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+    const getTargetForGroup = (group) => {
+      const n = group.totalDistricts != null ? group.totalDistricts : (group.endDistrictNumber - group.startDistrictNumber + 1);
+      return targetDistrictPopulation * n;
+    };
+    const variancePercent = (group) => {
+      const pop = getGroupPopulation(group);
+      const target = getTargetForGroup(group);
+      if (target <= 0) return 0;
+      return ((pop - target) / target) * 100;
+    };
+
+    // Build group index -> Set of adjacent group indices
+    const groupAdjacent = new Map();
+    for (let i = 0; i < groups.length; i++) {
+      groupAdjacent.set(i, new Set());
+    }
+    for (let i = 0; i < groups.length; i++) {
+      const tractIdsI = new Set((groups[i].censusTracts || []).map(t => getTractId(t)).filter(Boolean));
+      for (let j = i + 1; j < groups.length; j++) {
+        const tractIdsJ = new Set((groups[j].censusTracts || []).map(t => getTractId(t)).filter(Boolean));
+        for (const tid of tractIdsI) {
+          const neighbors = adjacencyGraph.get(tid) || [];
+          if (neighbors.some(n => tractIdsJ.has(n))) {
+            groupAdjacent.get(i).add(j);
+            groupAdjacent.get(j).add(i);
+            break;
+          }
+        }
+      }
+    }
+
+    const targetVariancePercent = GeodistrictAlgorithmService.BALANCE_TARGET_VARIANCE * 100; // 1%
+    const maxIterations = 50;
+    let iter = 0;
+    while (iter < maxIterations) {
+      iter++;
+      // Recompute population and variance for each group
+      const groupData = groups.map((g, i) => ({
+        index: i,
+        group: g,
+        pop: getGroupPopulation(g),
+        target: getTargetForGroup(g),
+        variancePercent: variancePercent(g)
+      }));
+
+      // Sort by descending |variancePercent| (worst first)
+      groupData.sort((a, b) => Math.abs(b.variancePercent) - Math.abs(a.variancePercent));
+      const worst = groupData[0];
+      if (Math.abs(worst.variancePercent) <= targetVariancePercent) break;
+
+      const worstIdx = worst.index;
+      const adjacentIndices = groupAdjacent.get(worstIdx) || new Set();
+      const oppositeCandidates = groupData.filter(
+        (d) => d.index !== worstIdx && adjacentIndices.has(d.index) && d.variancePercent * worst.variancePercent < 0
+      );
+      if (oppositeCandidates.length === 0) {
+        // Try next worst group (skip this one)
+        let foundMove = false;
+        for (let w = 1; w < groupData.length; w++) {
+          const next = groupData[w];
+          if (Math.abs(next.variancePercent) <= targetVariancePercent) break;
+          const adj = groupAdjacent.get(next.index) || new Set();
+          const opp = groupData.filter(
+            (d) => d.index !== next.index && adj.has(d.index) && d.variancePercent * next.variancePercent < 0
+          );
+          if (opp.length > 0) {
+            // Use next as worst and pick partner
+            const partner = opp.sort((a, b) => Math.abs(a.variancePercent) - Math.abs(b.variancePercent))[opp.length - 1];
+            const overIdx = next.variancePercent > 0 ? next.index : partner.index;
+            const underIdx = next.variancePercent > 0 ? partner.index : next.index;
+            const moved = this._tryOneVarianceBalanceMove(groups, overIdx, underIdx, adjacencyGraph, getGroupPopulation, getTargetForGroup);
+            if (moved) {
+              foundMove = true;
+              break;
+            }
+          }
+        }
+        if (!foundMove) break;
+        continue;
+      }
+
+      // Pick partner: adjacent with largest |variancePercent|
+      oppositeCandidates.sort((a, b) => Math.abs(a.variancePercent) - Math.abs(b.variancePercent));
+      const partner = oppositeCandidates[oppositeCandidates.length - 1];
+      const overIdx = worst.variancePercent > 0 ? worstIdx : partner.index;
+      const underIdx = worst.variancePercent > 0 ? partner.index : worstIdx;
+
+      const moved = this._tryOneVarianceBalanceMove(groups, overIdx, underIdx, adjacencyGraph, getGroupPopulation, getTargetForGroup);
+      if (!moved) {
+        // Try next worst
+        let foundAny = false;
+        for (let w = 1; w < groupData.length; w++) {
+          const next = groupData[w];
+          if (Math.abs(next.variancePercent) <= targetVariancePercent) break;
+          const adj = groupAdjacent.get(next.index) || new Set();
+          const opp = groupData.filter(
+            (d) => d.index !== next.index && adj.has(d.index) && d.variancePercent * next.variancePercent < 0
+          );
+          if (opp.length === 0) continue;
+          const p = opp.sort((a, b) => Math.abs(a.variancePercent) - Math.abs(b.variancePercent))[opp.length - 1];
+          const oIdx = next.variancePercent > 0 ? next.index : p.index;
+          const uIdx = next.variancePercent > 0 ? p.index : next.index;
+          if (this._tryOneVarianceBalanceMove(groups, oIdx, uIdx, adjacencyGraph, getGroupPopulation, getTargetForGroup)) {
+            foundAny = true;
+            break;
+          }
+        }
+        if (!foundAny) break;
+      }
+    }
+    return groups;
+  }
+
+  /**
+   * Try a single boundary tract move from over group to under group to reduce variance.
+   * @private
+   * @returns {boolean} true if a move was made
+   */
+  _tryOneVarianceBalanceMove(groups, overIdx, underIdx, adjacencyGraph, getGroupPopulation, getTargetForGroup) {
+    const overGroup = groups[overIdx];
+    const underGroup = groups[underIdx];
+    const overTractIds = new Set((overGroup.censusTracts || []).map(t => getTractId(t)).filter(Boolean));
+    const underTractIds = new Set((underGroup.censusTracts || []).map(t => getTractId(t)).filter(Boolean));
+    const boundaryTracts = (overGroup.censusTracts || []).filter(t => {
+      const tid = getTractId(t);
+      const neighbors = adjacencyGraph.get(tid) || [];
+      return neighbors.some(n => underTractIds.has(n));
+    });
+    if (boundaryTracts.length === 0) return false;
+
+    const targetOver = getTargetForGroup(overGroup);
+    const targetUnder = getTargetForGroup(underGroup);
+    const popOver = getGroupPopulation(overGroup);
+    const popUnder = getGroupPopulation(underGroup);
+
+    const scoreTract = (tract) => {
+      const pop = tract.properties?.POPULATION || 0;
+      const newOver = popOver - pop;
+      const newUnder = popUnder + pop;
+      const varOver = targetOver > 0 ? Math.abs(newOver - targetOver) / targetOver : 0;
+      const varUnder = targetUnder > 0 ? Math.abs(newUnder - targetUnder) / targetUnder : 0;
+      return Math.max(varOver, varUnder);
+    };
+    boundaryTracts.sort((a, b) => scoreTract(a) - scoreTract(b));
+
+    for (const tract of boundaryTracts) {
+      const tractId = getTractId(tract);
+      const remaining = overGroup.censusTracts.filter(t => getTractId(t) !== tractId);
+      if (remaining.length === 0) continue;
+      const maxReachable = this.calculateMaxReachableCount(remaining, adjacencyGraph);
+      if (maxReachable < remaining.length * 0.95) continue;
+
+      const tractIndex = overGroup.censusTracts.findIndex(t => getTractId(t) === tractId);
+      if (tractIndex === -1) continue;
+      const [movedTract] = overGroup.censusTracts.splice(tractIndex, 1);
+      underGroup.censusTracts.push(movedTract);
+
+      const targetDG = `DG${underGroup.startDistrictNumber}-${underGroup.endDistrictNumber}`;
+      const sourceDG = `DG${overGroup.startDistrictNumber}-${overGroup.endDistrictNumber}`;
+      if (movedTract.properties) {
+        movedTract.properties.tract_DG = targetDG;
+        movedTract.properties.sibling_DG = sourceDG;
+      }
+      overGroup.totalPopulation = overGroup.censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+      overGroup.bounds = calculateBounds(overGroup.censusTracts);
+      overGroup.centroid = calculateCentroid(overGroup.censusTracts);
+      underGroup.totalPopulation = underGroup.censusTracts.reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+      underGroup.bounds = calculateBounds(underGroup.censusTracts);
+      underGroup.centroid = calculateCentroid(underGroup.censusTracts);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Resolve isolation for a step: detect isolated, detect bridge, move bridge, move remaining isolated
    * This is the complete isolation resolution flow used in the "run all steps" execution
    * @param {Array} districtGroups - All district groups

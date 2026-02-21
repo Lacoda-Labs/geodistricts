@@ -8825,7 +8825,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
 
 /**
  * POST /api/algorithm/balance-after-isolated
- * Run balanceSiblingPairsAfterIsolatedMoves on current step data (client sends districtGroups + divisionLines).
+ * At final step: run variance-prioritized balance (balanceDistrictsByVariance); divisionLines optional.
+ * Otherwise: run balanceSiblingPairsAfterIsolatedMoves (divisionLines required).
  */
 app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
   try {
@@ -8840,8 +8841,10 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
     if (!Array.isArray(districtGroups) || districtGroups.length === 0) {
       return res.status(400).json({ error: 'districtGroups is required and must be a non-empty array' });
     }
-    if (!Array.isArray(divisionLines) || divisionLines.length === 0) {
-      return res.status(400).json({ error: 'divisionLines is required and must be a non-empty array' });
+
+    const isFinalStep = districtGroups.length > 0 && districtGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
+    if (!isFinalStep && (!Array.isArray(divisionLines) || divisionLines.length === 0)) {
+      return res.status(400).json({ error: 'divisionLines is required and must be a non-empty array when not at final step' });
     }
 
     try {
@@ -8860,7 +8863,15 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
       }
     }
     const updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
-    const balanced = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
+
+    let balanced;
+    if (isFinalStep) {
+      const totalPopulation = updatedGroups.reduce((sum, g) => sum + (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0), 0);
+      const targetDistrictPopulation = totalPopulation / updatedGroups.length;
+      balanced = algorithmService.balanceDistrictsByVariance(updatedGroups, allTracts, targetDistrictPopulation);
+    } else {
+      balanced = algorithmService.balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines);
+    }
 
     return res.json({ districtGroups: balanced });
   } catch (error) {

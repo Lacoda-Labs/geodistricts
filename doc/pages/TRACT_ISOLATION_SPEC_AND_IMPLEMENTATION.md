@@ -96,6 +96,7 @@ Used when **strategy is final-step only** (run mode) or when the user clicks **M
 - **Action**: Move the **entire component** (all tracts in that component) to the chosen target in one operation. Remove from source, add to target, and set `tract_DG` / `sibling_DG` on each moved tract (swap when target is sibling; otherwise set `tract_DG` to target DG and `sibling_DG` to source DG).
 - **Iteration**: After moving all components for the current detection, re-run isolation detection and repeat until no isolated tracts remain or a max iteration count is reached.
 - **Implementation**: `moveIsolatedComponentsByAdjacency`, `_getAdjacentGroupIndicesForComponent`, `_chooseTargetGroupForComponent` in `geodistrict-algorithm.js`. The move-all-isolated-tracts endpoint uses this path when every group is single-district (final step).
+- **Variance-based balancing (after isolated moves)**: After moving isolated tracts at the final step, a separate balancing phase may be run to bring district populations within target variance (e.g. 1%). This phase prioritizes districts by **largest |variance|** first, pairs each with an **adjacent** district of opposite variance (e.g. over +40% with under -20%), and moves boundary tracts from the over-populated to the under-populated district (preserving contiguity). It iterates until all districts are within target variance or no improving move is possible. If one district is adjacent to multiple districts with opposite variance, it is paired with the one that has the largest |variance|, then the process re-sorts and continues. This logic is used by the **Balance** action at the final step (`POST /api/algorithm/balance-after-isolated` when all groups are single-district). Implementation: `balanceDistrictsByVariance`, `_tryOneVarianceBalanceMove` in `geodistrict-algorithm.js`.
 
 ## 7. Moving bridge tracts
 
@@ -123,7 +124,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 ### Backend
 
 - **File**: `backend/services/geodistrict-algorithm.js`
-- **Functions**: `detectIsolatedTracts`, `_buildDgAdjacentGroups`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveIsolatedComponentsByAdjacency` (final step only), `_getAdjacentGroupIndicesForComponent`, `_chooseTargetGroupForComponent`, `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`; `resolveIsolationForFinalStep` (strategy finalStepOnly).
+- **Functions**: `detectIsolatedTracts`, `_buildDgAdjacentGroups`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveIsolatedComponentsByAdjacency` (final step only), `_getAdjacentGroupIndicesForComponent`, `_chooseTargetGroupForComponent`, `balanceDistrictsByVariance`, `_tryOneVarianceBalanceMove` (variance-prioritized balance at final step), `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`; `resolveIsolationForFinalStep` (strategy finalStepOnly).
 - **S4**: `backend/services/s4-data-loader.js` — state normalization and S4 adjacency load/get.
 
 ### API
@@ -134,6 +135,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 - `POST /api/algorithm/move-isolated-tracts` — move isolated tracts for one group; backend updates state and invalidates caches.
 - `POST /api/algorithm/move-bridge-tracts` — move bridge tracts into isolated group; re-detect isolation after.
 - `POST /api/algorithm/move-all-isolated-tracts` — move all isolated tracts for a step; **fast path** when frontend sends `districtGroups`, `isolatedTractsData`, and `divisionLines` (no cache I/O). When every group is single-district (final step), the backend uses the **adjacency-based** move (whole-component, sibling-first) instead of the sibling-only move.
+- `POST /api/algorithm/balance-after-isolated` — body: `state`, `step`, `districtGroups`; `divisionLines` required only when not at final step. At final step (all single-district groups), runs **variance-based balancing** (`balanceDistrictsByVariance`). Otherwise runs `balanceSiblingPairsAfterIsolatedMoves` (sibling pairs from division lines).
 
 ### Frontend
 
