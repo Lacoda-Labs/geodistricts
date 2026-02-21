@@ -3151,7 +3151,22 @@ app.post('/api/algorithm/execute', async (req, res) => {
     const executionTime = Date.now() - startTime;
 
     logger.info(`✅ Algorithm completed in ${executionTime}ms (${result.steps.length} steps)`);
-    
+
+    // Verify all steps 1..N-1 are in cache before marking final step complete
+    const missingStepIndices = [];
+    for (let stepNum = 1; stepNum < result.steps.length; stepNum++) {
+      const stepEntry = await getStepCacheEntry(state, stepNum, maxIterations);
+      if (!stepEntry) {
+        missingStepIndices.push(stepNum);
+        logger.warn(`⚠️ Step ${stepNum} not found in cache after algorithm completion`);
+      }
+    }
+    if (missingStepIndices.length > 0) {
+      logger.warn(`⚠️ Missing step indices in cache: ${missingStepIndices.join(', ')}`);
+    } else if (result.steps.length > 1) {
+      logger.debug(`✅ All steps 1..${result.steps.length - 1} verified in cache`);
+    }
+
     // Mark final step as complete in cache
     if (result.steps.length > 0) {
       try {

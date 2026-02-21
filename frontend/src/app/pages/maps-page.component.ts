@@ -91,6 +91,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   showIsolationResolutionUI: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
   step0IsolatedSectionExpanded: boolean = false;
+  /** Collapsible "Final step isolated tracts" panel: true = expanded when showing Move isolated tracts */
+  finalStepIsolatedSectionExpanded: boolean = true;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
   isSortingVisualization: boolean = false; // Track if we're currently showing sorting visualization
   /** Raw slider position 0..sliderMax. Mapped to tract range: when positions < tracts each step = range of tracts; when positions > tracts multiple steps = same tract. */
@@ -2224,26 +2226,51 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.bridgeTractsData = null;
       this.renderFinalDistricts();
     } else {
-      // Last step not loaded, need to load it
-      // This would require loading all steps up to the last one
-      console.log('Last step not loaded yet. Loading steps...');
-      // For now, just go to the highest loaded step
-      let highestIndex = 0;
-      for (let i = this.loadedSteps.length - 1; i >= 0; i--) {
-        if (this.loadedSteps[i]) {
-          highestIndex = i;
-          break;
-        }
+      // Last step not loaded: fetch it from the backend
+      if (!this.selectedState || this.selectedState === 'ALL') {
+        return;
       }
-      if (highestIndex > this.currentStepIndex) {
-        const step = this.loadedSteps[highestIndex];
-        if (step) {
-          this.currentStepIndex = highestIndex;
-          this.currentStep = step;
+      console.log('Last step not loaded yet. Loading final step from backend...');
+      this.isLoading = true;
+      this.loadingMessage = 'Loading final step...';
+      this.cdr.markForCheck();
+      const sub = this.geodistrictService.getFinalStep(this.selectedState).subscribe({
+        next: ({ step: stepIndex, data, isComplete }) => {
+          if (this.selectedState === 'ALL' || !data?.districtGroups?.length) {
+            this.isLoading = false;
+            this.loadingMessage = '';
+            if (!data?.districtGroups?.length) {
+              this.errorMessage = 'Final step data is incomplete';
+            }
+            this.cdr.markForCheck();
+            return;
+          }
+          const idx = this.getTotalSteps() - 1;
+          this.loadedSteps[idx] = data;
+          this.currentStepIndex = idx;
+          this.currentStep = data;
+          if (this.totalSteps <= idx) {
+            this.totalSteps = idx + 1;
+          }
           this.selectedDistrictGroupIndex = null;
+          this.isolatedTractIds.clear();
+          this.isolatedTractsData = null;
+          this.bridgeTractIds.clear();
+          this.bridgeTractsData = null;
+          this.isLoading = false;
+          this.loadingMessage = '';
+          this.errorMessage = '';
+          this.cdr.markForCheck();
           this.renderFinalDistricts();
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.loadingMessage = '';
+          this.errorMessage = err?.message || 'Failed to load final step';
+          this.cdr.markForCheck();
         }
-      }
+      });
+      this.subscriptions.push(sub);
     }
   }
 

@@ -231,6 +231,49 @@
               </button>
             </div>
 
+            <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
+            <div class="final-step-isolated-panel" *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              <mat-expansion-panel [(expanded)]="finalStepIsolatedSectionExpanded">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Isolated tracts
+                    <span class="final-step-isolated-count">({{ isolatedTractsData.isolatedTractIds.length }})</span>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="final-step-isolated-content">
+                  <div class="isolated-tracts-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Tract ID</th>
+                          <th>Group</th>
+                          <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
+                          class="tract-row-clickable">
+                          <td class="tract-id-cell">
+                            {{ item.tractId }}
+                            <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                          </td>
+                          <td>{{ item.groupLabel }}</td>
+                          <td *ngIf="bridgeTractsData">
+                            <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
+                              (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                              {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount }}
+                              adjacent)
+                            </span>
+                            <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </mat-expansion-panel>
+            </div>
+
             <div class="district-groups-container">
               <div class="district-groups-list">
                 <table class="district-groups-table">
