@@ -135,9 +135,9 @@
               </mat-expansion-panel>
             </div>
 
-            <!-- Isolated Tracts Table -->
+            <!-- Isolated Tracts Table (only when isolation resolution is enabled for this run) -->
             <div class="isolated-tracts-container"
-              *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
               <div class="isolated-tracts-error" *ngIf="errorMessage">
                 <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
               </div>
@@ -195,9 +195,9 @@
               </div>
             </div>
 
-            <!-- No Isolation Message -->
+            <!-- No Isolation Message (only when isolation resolution is enabled) -->
             <div class="no-isolation-message"
-              *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
               <div class="no-isolation-content">
                 <p class="no-isolation-title">No isolation tracts found</p>
                 <div class="group-stats-list">
@@ -211,20 +211,24 @@
             </div>
 
             <div class="dg-header">
-              <div class="dg-header-left">
-                <h4>{{getStateDistrictCount(selectedState)}} {{stateName(selectedState)}} GeoDistricts</h4>
-                <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
-                  Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
-                </span>
-              </div>
-              <div class="dg-header-right">
-                <div class="dg-header-label">State Population:</div>
-                <div class="dg-header-value">{{ statePopulation.toLocaleString() }}</div>
-              </div>
-              <div class="dg-header-right">
-                <div class="dg-header-label">Target DG Population:</div>
-                <div class="dg-header-value">{{ targetDGPopulationRounded.toLocaleString() }}</div>
-              </div>
+              <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
+                Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
+              </span>
+              <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
+            </div>
+
+            <!-- Final step: Move isolated tracts, then Balance once isolation is resolved -->
+            <div class="final-step-actions" *ngIf="isFinalStepActive">
+              <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
+                {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+              </button>
+              <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                *ngIf="!hasUnresolvedIsolation" class="balance-districts-btn"
+                matTooltip="Balance sibling district groups (available once all isolation is resolved)">
+                {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
+              </button>
             </div>
 
             <div class="district-groups-container">

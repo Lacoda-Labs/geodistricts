@@ -87,6 +87,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isVisualizationOnly: boolean = false;
   /** True when route is /dev/maps: show admin step bar, allow run/execute and isolation/bridge actions. */
   isDevMode: boolean = false;
+  /** True when current run uses isolation resolution (perStep/finalStepOnly); hide isolated-tracts UI when false (grid-only). */
+  showIsolationResolutionUI: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
   step0IsolatedSectionExpanded: boolean = false;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
@@ -1076,6 +1078,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     console.log(`🚀 Running all steps with isolation resolution for ${this.selectedState}`);
+    this.showIsolationResolutionUI = true;
 
     // Execute all steps with isolation resolution
     const subscription = this.geodistrictService.executeAllSteps(options).subscribe({
@@ -1297,6 +1300,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     console.log(`🚀 Initializing algorithm for ${this.selectedState}`);
+    this.showIsolationResolutionUI = false;
 
     // Initialize algorithm and load step 0 (or final step if available)
     const subscription = this.geodistrictService.initializeAlgorithm(options).subscribe({
@@ -1545,6 +1549,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isolatedTractsData = null;
     this.bridgeTractIds.clear();
     this.bridgeTractsData = null;
+    this.showIsolationResolutionUI = false;
     this.selectedDistrictGroupIndex = null; // Clear selection
     this.hasShownSorting = false; // Reset sorting visualization state
     this.isSortingVisualization = false; // Reset sorting visualization state
@@ -1701,10 +1706,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.mapPolygons && !this.algorithmResult && this.selectedState && this.selectedState !== 'ALL') {
       return this.isDevMode && !this.isLoading;
     }
-    // Disable Next when there are unresolved isolated tracts (user must move isolated or use bridge tracts first)
-    if (this.isolatedTractsData?.isolatedTractIds?.length) {
-      return false;
-    }
+    // Next is enabled regardless of isolated tracts (grid-only default; isolation is informational)
     // Can go to next step if:
     // 1. Next step is already loaded, OR
     // 2. Algorithm is not complete (we can request next step)
@@ -1719,6 +1721,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return !allComplete && !this.isLoading;
     }
     return false;
+  }
+
+  /** True when current step is the final step (all single-district groups). Used to show final-step actions. */
+  get isFinalStepActive(): boolean {
+    if (!this.isDevMode || !this.currentStep?.districtGroups?.length) return false;
+    return this.currentStep.districtGroups.every(g => g.totalDistricts === 1);
+  }
+
+  /** True when there are isolated tracts to resolve (for Move button at final step). */
+  get hasUnresolvedIsolation(): boolean {
+    return !!(this.isolatedTractsData?.isolatedTractIds?.length);
   }
 
   previousStep(): void {
@@ -1994,6 +2007,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         forceInvalidate: false,
         maxIterations: 100,
       };
+      this.showIsolationResolutionUI = false;
 
       const subscription = this.geodistrictService.executeNextStep(options).subscribe({
         next: (stepData) => {

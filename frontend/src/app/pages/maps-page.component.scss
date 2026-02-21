@@ -770,53 +770,29 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
   padding: 16px;
-  .dg-header-left {
-    flex: 1;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    flex-wrap: wrap;
 
-    h4 {
-      margin: 0;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--mat-sys-on-surface, #181C20);
-    }
-
-    .step-indicator {
-      font-size: 0.875rem;
-      color: var(--mat-sys-on-surface-variant, #42474E);
-      white-space: nowrap;
-    }
-  }
-
-  .dg-header-right {
-    text-align: right;
-    font-size: 0.75rem;
+  .step-indicator {
+    font-size: 0.875rem;
     color: var(--mat-sys-on-surface-variant, #42474E);
     white-space: nowrap;
   }
 
-  .dg-header-label {
-    display: flex;
-    justify-content: flex-end;
-    width: 165px;
-    font-size: 0.75rem;
+  .dg-header-target {
+    font-size: 0.875rem;
     color: var(--mat-sys-on-surface-variant, #42474E);
     white-space: nowrap;
   }
+}
 
-  .dg-header-value {
-    font-size: 0.75rem;
-    color: var(--mat-sys-on-surface, #181C20);
-    white-space: nowrap;
-  }
+.final-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  flex-wrap: wrap;
 }
 
 .district-groups-container {
@@ -1408,7 +1384,6 @@
 }
 
 .step-0-isolated-panel {
-  margin-bottom: 16px;
 
   .mat-mdc-expansion-panel {
     background-color: var(--mat-sys-surface-container, #f5f5f5);
