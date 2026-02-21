@@ -8059,43 +8059,61 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         if (!step0IslandSet) step0IslandSet = new Set();
         KNOWN_CA_ISLAND_TRACT_IDS.forEach(id => step0IslandSet.add(id));
       }
-      let isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
       let updatedGroups = bodyDistrictGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
       const divisionLines = bodyDivisionLines || [];
-      let groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
-      let iterationCount = 0;
+      const isFinalStep = updatedGroups.length > 0 && updatedGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
       const maxIter = 10;
-      // Tracts we skipped (no neighbor in any group) per group - do not retry to avoid infinite loop
-      const skippedByGroup = {};
 
-      while (groupIndices.length > 0 && iterationCount < maxIter) {
-        iterationCount++;
-        for (const groupIndex of groupIndices) {
-          const isolatedTractIds = isolatedTractsByGroup[groupIndex.toString()] || [];
-          if (isolatedTractIds.length === 0) continue;
+      if (isFinalStep) {
+        // Final step: use adjacency-based move (whole-component, sibling-first) for Move Isolated Tracts button
+        let iterationCount = 0;
+        while (iterationCount < maxIter) {
+          iterationCount++;
+          const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
+          if (isolationResult.isolatedTractIds.size === 0) break;
           try {
-            const result = algorithmService.moveIsolatedTractsToOppositeGroup(
-              updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null, true
-            );
-            updatedGroups = result.districtGroups;
-            if (result.skippedTractIds && result.skippedTractIds.length > 0) {
-              if (!skippedByGroup[groupIndex]) skippedByGroup[groupIndex] = new Set();
-              result.skippedTractIds.forEach(id => skippedByGroup[groupIndex].add(id));
-            }
+            const moveResult = algorithmService.moveIsolatedComponentsByAdjacency(updatedGroups, allTracts, isolationResult, step0IslandSet);
+            updatedGroups = moveResult.districtGroups;
+            if (moveResult.movedTractCount === 0) break;
           } catch (moveErr) {
-            return res.status(500).json({ error: 'Failed to move isolated tracts', message: moveErr.message });
+            return res.status(500).json({ error: 'Failed to move isolated tracts (final step)', message: moveErr.message });
           }
         }
-        const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
-        if (isolationResult.isolatedTractIds.size === 0) break;
-        isolatedTractsByGroup = {};
-        isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => {
-          const skipped = skippedByGroup[idx];
-          const list = Array.from(tractIds);
-          const filtered = skipped ? list.filter(id => !skipped.has(id)) : list;
-          if (filtered.length > 0) isolatedTractsByGroup[idx] = filtered;
-        });
-        groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+      } else {
+        // Non-final step: use sibling-only move (existing behavior)
+        let isolatedTractsByGroup = frontendIsolatedTractsData.isolatedTractsByGroup;
+        let groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+        let iterationCount = 0;
+        const skippedByGroup = {};
+        while (groupIndices.length > 0 && iterationCount < maxIter) {
+          iterationCount++;
+          for (const groupIndex of groupIndices) {
+            const isolatedTractIds = isolatedTractsByGroup[groupIndex.toString()] || [];
+            if (isolatedTractIds.length === 0) continue;
+            try {
+              const result = algorithmService.moveIsolatedTractsToOppositeGroup(
+                updatedGroups, allTracts, groupIndex, isolatedTractIds, divisionLines.length ? divisionLines : null, true
+              );
+              updatedGroups = result.districtGroups;
+              if (result.skippedTractIds && result.skippedTractIds.length > 0) {
+                if (!skippedByGroup[groupIndex]) skippedByGroup[groupIndex] = new Set();
+                result.skippedTractIds.forEach(id => skippedByGroup[groupIndex].add(id));
+              }
+            } catch (moveErr) {
+              return res.status(500).json({ error: 'Failed to move isolated tracts', message: moveErr.message });
+            }
+          }
+          const isolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);
+          if (isolationResult.isolatedTractIds.size === 0) break;
+          isolatedTractsByGroup = {};
+          isolationResult.isolatedTractsByGroup.forEach((tractIds, idx) => {
+            const skipped = skippedByGroup[idx];
+            const list = Array.from(tractIds);
+            const filtered = skipped ? list.filter(id => !skipped.has(id)) : list;
+            if (filtered.length > 0) isolatedTractsByGroup[idx] = filtered;
+          });
+          groupIndices = Object.keys(isolatedTractsByGroup).map(idx => parseInt(idx)).sort((a, b) => a - b);
+        }
       }
 
       const finalIsolationResult = algorithmService.detectIsolatedTracts(updatedGroups, allTracts, step, step0IslandSet);

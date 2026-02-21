@@ -83,6 +83,34 @@ function runTests() {
   }
   console.log('PASS: detectBridgeTracts without isolatedComponentsByGroup runs (backward compatible)');
 
+  // --- 5. _getAdjacentGroupIndicesForComponent: component tract has neighbor in another group => that group index returned
+  const tractIdToGroupIndex = new Map([['99001', 0], ['99002', 1], ['99003', 0]]);
+  const adjGraph = new Map([['99001', ['99002']], ['99002', ['99001']], ['99003', []]]);
+  const adjacent = algorithmService._getAdjacentGroupIndicesForComponent(new Set(['99001']), 0, tractIdToGroupIndex, adjGraph);
+  if (!Array.isArray(adjacent) || adjacent.length !== 1 || adjacent[0] !== 1) {
+    console.error('FAIL: _getAdjacentGroupIndicesForComponent expected [1], got', adjacent);
+    process.exitCode = 1;
+    return;
+  }
+  console.log('PASS: _getAdjacentGroupIndicesForComponent returns adjacent group index');
+
+  // --- 6. _chooseTargetGroupForComponent: when sibling is in adjacent set, prefer it
+  const twoGroups = [
+    { startDistrictNumber: 1, endDistrictNumber: 1, censusTracts: [{ properties: { GEOID: '99001', sibling_DG: 'DG2-2' } }] },
+    { startDistrictNumber: 2, endDistrictNumber: 2, censusTracts: [{ properties: { GEOID: '99002' } }] }
+  ];
+  const allTractsTwo = [
+    { properties: { GEOID: '99001', sibling_DG: 'DG2-2' } },
+    { properties: { GEOID: '99002' } }
+  ];
+  const target = algorithmService._chooseTargetGroupForComponent([1, 0], ['99001'], twoGroups, allTractsTwo);
+  if (target !== 1) {
+    console.error('FAIL: _chooseTargetGroupForComponent expected 1 (sibling), got', target);
+    process.exitCode = 1;
+    return;
+  }
+  console.log('PASS: _chooseTargetGroupForComponent prefers sibling when in adjacent set');
+
   console.log('All isolation/bridge tests passed.');
 }
 

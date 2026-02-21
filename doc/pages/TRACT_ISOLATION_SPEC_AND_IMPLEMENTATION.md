@@ -78,11 +78,24 @@ A critical distinction:
 
 ## 6. Moving isolated tracts
 
+Two move strategies exist:
+
+### 6a. Per-step / non–final step (sibling-only)
+
 - **Target**: The **sibling group** (from `sibling_DG` on the tract or from `divisionLines` metadata).
 - **Validation**: Before moving, check that the tract has at least one neighbor in the target group. If it has no neighbors in the target, skip the move to prevent infinite loops (tract would remain isolated).
 - **Action**: Remove tract from source group(s), add to target group, then **swap** `tract_DG` and `sibling_DG` on the tract.
 - **Population balance (compensating move)**: After moving isolated tract(s) to the sibling, perform a compensating move so the two sibling DGs end up within target variance and as close to balanced as possible. Use the **current sibling DG populations** (not the moved-tract population). Build a sorted list of tracts in the target group that have an adjacent tract bordering the source group (boundary tracts). Score each candidate by the resulting population variance between the two sibling groups after the move (distance from ideal split); prefer the tract that minimizes this variance and whose removal from the target would not create new isolated tracts. Target variance (e.g. 1%) is used to prefer outcomes within spec. Move the selected tract(s) from target to source and swap their `tract_DG` / `sibling_DG`. If no suitable tract exists, skip the compensating move.
 - **Cache/state**: Backend updates `algorithmState.currentGroups` and invalidates the current step cache and all subsequent step caches. Frontend processes all groups with isolated tracts recursively, using the latest isolation result after each move.
+
+### 6b. Final step only (adjacency-based, whole-component)
+
+Used when **strategy is final-step only** (run mode) or when the user clicks **Move Isolated Tracts** at the **final step** (e.g. strategy grid-only).
+
+- **Target**: Determined by **adjacency**. For each **isolated component** (connected set of isolated tracts from `isolatedComponentsByGroup`), find all DGs that are S4-adjacent to that component (neighbors of any tract in the component that belong to another DG). Among those adjacent DGs, **prefer the division-tree sibling** (`sibling_DG` from any tract in the component); if the sibling is adjacent, use it; otherwise choose another adjacent DG.
+- **Action**: Move the **entire component** (all tracts in that component) to the chosen target in one operation. Remove from source, add to target, and set `tract_DG` / `sibling_DG` on each moved tract (swap when target is sibling; otherwise set `tract_DG` to target DG and `sibling_DG` to source DG).
+- **Iteration**: After moving all components for the current detection, re-run isolation detection and repeat until no isolated tracts remain or a max iteration count is reached.
+- **Implementation**: `moveIsolatedComponentsByAdjacency`, `_getAdjacentGroupIndicesForComponent`, `_chooseTargetGroupForComponent` in `geodistrict-algorithm.js`. The move-all-isolated-tracts endpoint uses this path when every group is single-district (final step).
 
 ## 7. Moving bridge tracts
 
@@ -110,7 +123,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 ### Backend
 
 - **File**: `backend/services/geodistrict-algorithm.js`
-- **Functions**: `detectIsolatedTracts`, `_buildDgAdjacentGroups`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`.
+- **Functions**: `detectIsolatedTracts`, `_buildDgAdjacentGroups`, `detectBridgeTracts`, `moveIsolatedTractsToOppositeGroup`, `moveIsolatedComponentsByAdjacency` (final step only), `_getAdjacentGroupIndicesForComponent`, `_chooseTargetGroupForComponent`, `moveBridgeTractsAndRecheck`, `_moveTractsToGroup`, `_moveBridgeTractsToGroup`; `buildGeometryAdjacencyGraph`; `resolveIsolationForFinalStep` (strategy finalStepOnly).
 - **S4**: `backend/services/s4-data-loader.js` — state normalization and S4 adjacency load/get.
 
 ### API
@@ -120,7 +133,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 - `POST /api/algorithm/detect-bridge-tracts` — body: `districtGroups`, `allTracts`, `isolatedTractsByGroup`.
 - `POST /api/algorithm/move-isolated-tracts` — move isolated tracts for one group; backend updates state and invalidates caches.
 - `POST /api/algorithm/move-bridge-tracts` — move bridge tracts into isolated group; re-detect isolation after.
-- `POST /api/algorithm/move-all-isolated-tracts` — move all isolated tracts for a step; **fast path** when frontend sends `districtGroups`, `isolatedTractsData`, and `divisionLines` (no cache I/O).
+- `POST /api/algorithm/move-all-isolated-tracts` — move all isolated tracts for a step; **fast path** when frontend sends `districtGroups`, `isolatedTractsData`, and `divisionLines` (no cache I/O). When every group is single-district (final step), the backend uses the **adjacency-based** move (whole-component, sibling-first) instead of the sibling-only move.
 
 ### Frontend
 

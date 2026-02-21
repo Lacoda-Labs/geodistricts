@@ -2992,6 +2992,142 @@ class GeodistrictAlgorithmService {
     };
   }
 
+  /**
+   * Get district group indices that are S4-adjacent to an isolated component (neighbors of any tract in the component belong to these DGs).
+   * @private
+   * @param {Set<string>|string[]} componentTractIds - Tract IDs in the isolated component
+   * @param {number} sourceGroupIndex - Index of the group that contains the component
+   * @param {Map<string, number>} tractIdToGroupIndex - Map from tract ID to group index
+   * @param {Map<string, string[]>} adjacencyGraph - S4 adjacency graph
+   * @returns {number[]} - Unique adjacent group indices (excluding source)
+   */
+  _getAdjacentGroupIndicesForComponent(componentTractIds, sourceGroupIndex, tractIdToGroupIndex, adjacencyGraph) {
+    const adjacent = new Set();
+    const idList = componentTractIds instanceof Set ? Array.from(componentTractIds) : componentTractIds;
+    for (const tractId of idList) {
+      const neighbors = adjacencyGraph.get(tractId) || [];
+      for (const neighborId of neighbors) {
+        const gi = tractIdToGroupIndex.get(neighborId);
+        if (gi !== undefined && gi !== sourceGroupIndex) {
+          adjacent.add(gi);
+        }
+      }
+    }
+    return Array.from(adjacent);
+  }
+
+  /**
+   * Choose target group for moving an isolated component: prefer division-tree sibling if adjacent, else first adjacent.
+   * @private
+   * @param {number[]} adjacentGroupIndices - Candidate target group indices (from _getAdjacentGroupIndicesForComponent)
+   * @param {Set<string>|string[]} componentTractIds - Tract IDs in the component
+   * @param {Array} districtGroups - Current district groups
+   * @param {Array} allTracts - All tracts (to read sibling_DG from a tract in the component)
+   * @returns {number|null} - Chosen target group index, or null if no adjacent groups
+   */
+  _chooseTargetGroupForComponent(adjacentGroupIndices, componentTractIds, districtGroups, allTracts) {
+    if (!adjacentGroupIndices || adjacentGroupIndices.length === 0) return null;
+    const firstId = componentTractIds instanceof Set ? componentTractIds.values().next().value : componentTractIds[0];
+    const tract = allTracts.find(t => getTractId(t) === firstId);
+    const siblingDG = tract?.properties?.sibling_DG;
+    if (siblingDG) {
+      const match = siblingDG.match(/DG(\d+)-(\d+)/);
+      if (match) {
+        const siblingStart = parseInt(match[1], 10);
+        const siblingEnd = parseInt(match[2], 10);
+        for (let i = 0; i < districtGroups.length; i++) {
+          if (districtGroups[i].startDistrictNumber === siblingStart &&
+              districtGroups[i].endDistrictNumber === siblingEnd) {
+            if (adjacentGroupIndices.includes(i)) return i;
+            break;
+          }
+        }
+      }
+    }
+    return Math.min(...adjacentGroupIndices);
+  }
+
+  /**
+   * Move isolated tracts by adjacency: for each isolated component, choose an adjacent DG (sibling first), move entire component.
+   * Used at final step only (strategy finalStepOnly run-mode and Move Isolated Tracts button at final step).
+   * @param {Array} districtGroups - Current district groups
+   * @param {Array} allTracts - All tracts in the dataset
+   * @param {Object} isolationResult - Result of detectIsolatedTracts (isolatedTractsByGroup, isolatedComponentsByGroup)
+   * @param {Set<string>|string[]|null} step0IslandTractIds - Optional step-0 island tract IDs to exclude
+   * @returns {Object} - { districtGroups, movedComponents, movedTractCount }
+   */
+  moveIsolatedComponentsByAdjacency(districtGroups, allTracts, isolationResult, step0IslandTractIds = null) {
+    const islandSet = step0IslandTractIds instanceof Set ? step0IslandTractIds : (Array.isArray(step0IslandTractIds) ? new Set(step0IslandTractIds) : null);
+    const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
+
+    let updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+    let movedComponents = 0;
+    let movedTractCount = 0;
+
+    const buildTractIdToGroupIndex = (groups) => {
+      const map = new Map();
+      for (let i = 0; i < groups.length; i++) {
+        for (const t of groups[i].censusTracts || []) {
+          const id = getTractId(t);
+          if (id) map.set(id, i);
+        }
+      }
+      return map;
+    };
+
+    const isolatedTractsByGroup = isolationResult.isolatedTractsByGroup;
+    const isolatedComponentsByGroup = isolationResult.isolatedComponentsByGroup || new Map();
+
+    const groupEntries = isolatedTractsByGroup instanceof Map
+      ? isolatedTractsByGroup.entries()
+      : Object.entries(isolatedTractsByGroup || {});
+    for (const [key, isolatedTractIds] of groupEntries) {
+      const groupIndex = typeof key === 'number' ? key : parseInt(key, 10);
+      if (Number.isNaN(groupIndex) || groupIndex < 0 || groupIndex >= updatedGroups.length) continue;
+      const groupIsolated = isolatedTractIds instanceof Set ? Array.from(isolatedTractIds) : (Array.isArray(isolatedTractIds) ? isolatedTractIds : []);
+      if (groupIsolated.length === 0) continue;
+
+      let components;
+      const hasComponents = isolatedComponentsByGroup && (isolatedComponentsByGroup instanceof Map ? isolatedComponentsByGroup.has(groupIndex) : Object.prototype.hasOwnProperty.call(isolatedComponentsByGroup, groupIndex));
+      if (hasComponents) {
+        components = isolatedComponentsByGroup.get ? isolatedComponentsByGroup.get(groupIndex) : isolatedComponentsByGroup[groupIndex];
+        if (!Array.isArray(components)) {
+          components = components instanceof Set ? [components] : [new Set(components)];
+        } else {
+          components = components.map(c => c instanceof Set ? c : new Set(c));
+        }
+      } else {
+        components = groupIsolated.map(id => new Set([id]));
+      }
+
+      for (const component of components) {
+        const componentIds = Array.from(component);
+        const toMove = islandSet ? componentIds.filter(id => !islandSet.has(id)) : componentIds;
+        if (toMove.length === 0) continue;
+
+        const tractIdToGroupIndex = buildTractIdToGroupIndex(updatedGroups);
+        const adjacentIndices = this._getAdjacentGroupIndicesForComponent(toMove, groupIndex, tractIdToGroupIndex, adjacencyGraph);
+        if (adjacentIndices.length === 0) {
+          logger.debug(`   No adjacent district for isolated component (${toMove.length} tract(s)), skipping`);
+          continue;
+        }
+
+        const targetGroupIndex = this._chooseTargetGroupForComponent(adjacentIndices, toMove, updatedGroups, allTracts);
+        if (targetGroupIndex === null) continue;
+
+        const result = this._moveTractsToGroup(updatedGroups, allTracts, groupIndex, toMove, targetGroupIndex, true);
+        updatedGroups = result.districtGroups;
+        movedComponents++;
+        movedTractCount += toMove.length;
+      }
+    }
+
+    return {
+      districtGroups: updatedGroups,
+      movedComponents,
+      movedTractCount
+    };
+  }
 
   /**
    * Move isolated tracts to opposite group (sibling group from same parent division) and re-run isolation detection
@@ -3729,6 +3865,94 @@ class GeodistrictAlgorithmService {
     
     logger.info(`✅ RESOLVE ISOLATION: Completed - moved ${totalBridgeMoved} bridge tracts, ${totalIsolatedMoved} isolated tracts, ${finalIsolation.isolatedTractIds.size} remaining isolated`);
     
+    return {
+      districtGroups: updatedGroups,
+      resolutionSummary: {
+        bridgeTractsMoved: totalBridgeMoved,
+        isolatedTractsMoved: totalIsolatedMoved,
+        remainingIsolated: finalIsolation.isolatedTractIds.size,
+        iterations: resolutionIterations
+      },
+      finalIsolation: {
+        isolatedTractsByGroup: Object.fromEntries(
+          Array.from(finalIsolation.isolatedTractsByGroup.entries()).map(([k, v]) => [k, Array.from(v)])
+        ),
+        isolatedTractIds: Array.from(finalIsolation.isolatedTractIds),
+        totalIsolated: finalIsolation.isolatedTractIds.size
+      }
+    };
+  }
+
+  /**
+   * Resolve isolation at final step using adjacency-based move (whole-component, sibling-first).
+   * Used when isolationStrategy === 'finalStepOnly'. No divisionLines; sibling from tract.properties.sibling_DG.
+   * @param {Array} districtGroups - Current district groups (all single-district at final step)
+   * @param {Array} allTracts - All tracts
+   * @param {Set<string>|string[]|null} step0IslandTractIds - Step-0 island tract IDs to exclude
+   * @param {number} stepNumber - Step number for detection (e.g. final step number)
+   * @returns {Object} - Same shape as resolveIsolationForStep (districtGroups, resolutionSummary, finalIsolation)
+   */
+  resolveIsolationForFinalStep(districtGroups, allTracts, step0IslandTractIds = null, stepNumber = 1) {
+    logger.debug(`🔧 RESOLVE ISOLATION (final step): Starting adjacency-based resolution for ${districtGroups.length} groups`);
+    let updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+    let totalIsolatedMoved = 0;
+    let totalBridgeMoved = 0;
+    let resolutionIterations = 0;
+    const maxResolutionIterations = 10;
+
+    while (resolutionIterations < maxResolutionIterations) {
+      resolutionIterations++;
+      logger.debug(`🔧 Final-step resolution iteration ${resolutionIterations}`);
+      const isolationResult = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      if (isolationResult.isolatedTractIds.size === 0) break;
+      logger.debug(`   Found ${isolationResult.isolatedTractIds.size} isolated tracts in ${isolationResult.isolatedTractsByGroup.size} groups`);
+
+      const isolatedTractsByGroupMap = new Map();
+      isolationResult.isolatedTractsByGroup.forEach((tractIds, groupIndex) => {
+        isolatedTractsByGroupMap.set(groupIndex, tractIds);
+      });
+      const bridgeResult = this.detectBridgeTracts(
+        updatedGroups, allTracts, isolatedTractsByGroupMap,
+        isolationResult.isolatedComponentsByGroup || null
+      );
+
+      if (bridgeResult.bridgeTractsByIsolatedGroup.size > 0) {
+        const isolationCountBeforeBridge = isolationResult.isolatedTractIds.size;
+        for (const [isolatedGroupIndex, bridgeTracts] of bridgeResult.bridgeTractsByIsolatedGroup.entries()) {
+          const bridgeTractIds = bridgeTracts.map(bt => bt.tractId);
+          const moveResult = this.moveBridgeTractsAndRecheck(updatedGroups, allTracts, isolatedGroupIndex, bridgeTractIds, null);
+          updatedGroups = moveResult.districtGroups;
+          totalBridgeMoved += bridgeTractIds.length;
+        }
+        const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+        if (isolationAfterBridge.isolatedTractIds.size === 0) break;
+        if (isolationAfterBridge.isolatedTractIds.size >= isolationCountBeforeBridge) {
+          logger.debug(`⚠️ Bridge did not reduce isolation, continuing with move isolated`);
+        }
+      }
+
+      const isolationAfterBridge = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      if (isolationAfterBridge.isolatedTractIds.size > 0) {
+        const moveResult = this.moveIsolatedComponentsByAdjacency(
+          updatedGroups, allTracts, isolationAfterBridge, step0IslandTractIds
+        );
+        updatedGroups = moveResult.districtGroups;
+        totalIsolatedMoved += moveResult.movedTractCount;
+      }
+
+      const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+      if (finalIsolation.isolatedTractIds.size === 0) {
+        logger.info(`✅ Final-step isolation resolved after ${resolutionIterations} iteration(s)`);
+        break;
+      }
+      logger.debug(`   Still have ${finalIsolation.isolatedTractIds.size} isolated tracts, continuing...`);
+    }
+
+    if (resolutionIterations >= maxResolutionIterations) {
+      logger.warn(`⚠️ Final-step resolution reached max iterations (${maxResolutionIterations})`);
+    }
+    const finalIsolation = this.detectIsolatedTracts(updatedGroups, allTracts, stepNumber, step0IslandTractIds);
+    logger.info(`✅ RESOLVE ISOLATION (final step): moved ${totalBridgeMoved} bridge, ${totalIsolatedMoved} isolated, ${finalIsolation.isolatedTractIds.size} remaining`);
     return {
       districtGroups: updatedGroups,
       resolutionSummary: {
@@ -4499,12 +4723,12 @@ class GeodistrictAlgorithmService {
       }
     }
 
-    // Strategy 'finalStepOnly': resolve isolation once now (all groups are single-district)
+    // Strategy 'finalStepOnly': resolve isolation once now (all groups are single-district) using adjacency-based move
     if (strategy === 'finalStepOnly' && iteration > 0 && steps.length > 0) {
       const isFinalStep = currentGroups.every(g => g.totalDistricts === 1);
       if (isFinalStep) {
-        console.log(`🔧 Resolving isolation at final step (finalStepOnly)...`);
-        const resolutionResult = this.resolveIsolationForStep(currentGroups, uniqueTracts, null, step0IslandTractIds, iteration);
+        console.log(`🔧 Resolving isolation at final step (finalStepOnly, adjacency-based move)...`);
+        const resolutionResult = this.resolveIsolationForFinalStep(currentGroups, uniqueTracts, step0IslandTractIds, iteration);
         currentGroups = resolutionResult.districtGroups;
         const resolutionSummary = resolutionResult.resolutionSummary;
         console.log(`✅ Final-step isolation resolved: ${resolutionSummary.bridgeTractsMoved} bridge, ${resolutionSummary.isolatedTractsMoved} isolated moved`);
