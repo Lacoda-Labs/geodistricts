@@ -146,7 +146,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
   private mapToggleControl: L.Control | null = null; // Custom toggle control
   isPlaying: boolean = false; // Track if auto-playing steps
-  private playInterval: any = null; // Interval for auto-playing steps
 
   /** US map view: states with completed final step and their step data */
   usMapStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep }> = [];
@@ -1958,6 +1957,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedNorthPrefixSum = [];
     this.cachedSortedTractEntriesByDg.clear();
       this.renderFinalDistricts();
+      setTimeout(() => this.onStepDisplayComplete(), 0);
     } else if (this.isVisualizationOnly) {
       // Visualization mode: fetch step via GET only
       console.log(`📥 Loading step ${nextIndex} (GET)...`);
@@ -1988,6 +1988,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoading = false;
           this.renderFinalDistricts();
           this.cdr.markForCheck();
+          this.onStepDisplayComplete();
         },
         error: () => {
           if (this.selectedState === stateRequested) this.isLoading = false;
@@ -2035,6 +2036,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.loadingMessage = 'Loading district data...';
               this.isLoadingSteps = false;
               this.totalSteps = this.loadedSteps.filter(s => s !== undefined).length;
+              this.onStepDisplayComplete(); // Stop play at final step
               return; // Keep current step displayed
             } else {
               console.warn(`⚠️ Algorithm completed but no step data available`);
@@ -2117,6 +2119,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           // Render the step on map
           setTimeout(() => {
             this.renderFinalDistricts();
+            this.onStepDisplayComplete();
           }, 100);
 
           // If complete, update total steps
@@ -2279,25 +2282,25 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pauseSteps();
       return;
     }
-
     this.isPlaying = true;
-    const playDelay = 2000; // 2 seconds between steps
-
-    this.playInterval = setInterval(() => {
-      if (!this.canGoToNextStep()) {
-        this.pauseSteps();
-        return;
-      }
-      this.nextStep();
-    }, playDelay);
+    this.nextStep();
   }
 
   pauseSteps(): void {
     this.isPlaying = false;
-    if (this.playInterval) {
-      clearInterval(this.playInterval);
-      this.playInterval = null;
+  }
+
+  /**
+   * Called when the current step has finished loading and displaying.
+   * If auto-play is on, advances to next step or pauses at final step.
+   */
+  private onStepDisplayComplete(): void {
+    if (!this.isPlaying) return;
+    if (!this.canGoToNextStep()) {
+      this.pauseSteps();
+      return;
     }
+    this.nextStep();
   }
 
   canGoToFirstStep(): boolean {
