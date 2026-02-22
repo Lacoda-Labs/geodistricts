@@ -6184,9 +6184,9 @@ app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
     }
     const geoids = await loadTractPartyForState(state, year);
     if (geoids == null) {
-      return res.status(404).json({ error: 'Tract party data not found for this state/year. Run POST /api/algorithm/tract-party-persistence first.' });
+      return res.json({ state, year, geoids: {}, available: false });
     }
-    return res.json({ state, year, geoids });
+    return res.json({ state, year, geoids, available: true });
   } catch (error) {
     console.error('❌ GET tract-party error:', error);
     res.status(500).json({ error: 'Failed to load tract party data', message: error.message });
@@ -6368,7 +6368,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     }
     const tractParty = await loadTractPartyForState(state, DEFAULT_VEST_YEAR);
     if (!tractParty || Object.keys(tractParty).length === 0) {
-      return res.status(400).json({ error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' });
+      return res.status(503).json({ error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' });
     }
     const tractIds = group.censusTractIds && group.censusTractIds.length > 0
       ? group.censusTractIds

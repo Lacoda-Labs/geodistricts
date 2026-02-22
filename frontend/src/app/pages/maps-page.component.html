@@ -225,7 +225,7 @@
                 {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
                 *ngIf="!hasUnresolvedIsolation" class="balance-districts-btn"
                 matTooltip="Balance sibling district groups (available once all isolation is resolved)">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}

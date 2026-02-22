@@ -6815,8 +6815,8 @@ export class GeodistrictAlgorithmService {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const url = `${backendUrl}/api/algorithm/balance-after-isolated`;
     const body: Record<string, unknown> = { state, step, districtGroups, divisionLines };
-    if (options?.['maxIterations'] != null) body.maxIterations = options['maxIterations'];
-    if (options?.['step0IslandTractIds'] != null) body.step0IslandTractIds = options['step0IslandTractIds'];
+    if (options?.['maxIterations'] != null) body['maxIterations'] = options['maxIterations'];
+    if (options?.['step0IslandTractIds'] != null) body['step0IslandTractIds'] = options['step0IslandTractIds'];
     return this.http.post<{ districtGroups: any[] }>(url, body, {
       headers: { 'Content-Type': 'application/json' }
     }).pipe(

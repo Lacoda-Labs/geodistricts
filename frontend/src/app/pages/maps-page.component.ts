@@ -142,7 +142,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private animatedLineLayers: L.Layer[] = []; // Track animated line layers for cleanup
   private loadedSteps: GeodistrictStep[] = []; // Store steps as they arrive
   private totalSteps: number = 0; // Total number of steps (known when complete)
-  private isLoadingSteps: boolean = false; // Track if we're currently loading steps
+  isLoadingSteps: boolean = false; // Track if we're currently loading steps (used in template)
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
   private mapToggleControl: L.Control | null = null; // Custom toggle control
   isPlaying: boolean = false; // Track if auto-playing steps
@@ -512,6 +512,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           localStorage.setItem('showTractBoundaries', component.showTractBoundaries.toString());
           component.updateMapLayers();
           updateButtonStates();
+          // When turning tracts on, load tract party data so party colors can be used
+          if (component.showTractBoundaries && component.selectedState && component.selectedState !== 'ALL' && !component.tractPartyByGeoid) {
+            component.geodistrictService.getTractParty(component.selectedState, 2020).subscribe({
+              next: (res) => {
+                component.tractPartyByGeoid = res.geoids || {};
+                component.updateMapLayers();
+                component.cdr.markForCheck();
+              },
+              error: () => { component.tractPartyByGeoid = null; }
+            });
+          }
         });
 
         // Division lines button click handler (toggles both historical division lines and sort slider lines)
@@ -3492,9 +3503,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
-            if (this.showPartyColor && this.tractPartyByGeoid) {
+            const partyData = this.tractPartyByGeoid;
+            const usePartyColor = (this.showTractBoundaries || this.showPartyColor) && partyData;
+            if (usePartyColor && partyData) {
               const geoid = String(tractId).padStart(11, '0').substring(0, 11);
-              const row = this.tractPartyByGeoid[geoid];
+              const row = partyData[geoid];
               if (row != null) {
                 tractColor = this.getTractColorByParty(row.pctDem);
               }
@@ -3535,7 +3548,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.tractIdToLayer.set(tractId, geoJson);
 
             this.tractLayer!.addLayer(geoJson);
-            this.tractGeoJsonLayers.set(geoJson, color); // Store layer -> color mapping for style updates
+            this.tractGeoJsonLayers.set(geoJson, tractColor); // Store actual fill color (party or district) for style updates
             totalTracts++;
 
             // Extend bounds
@@ -5088,11 +5101,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.geodistrictService.triggerDistrictPartyForGroup(this.selectedState, this.currentStepIndex, groupKey, maxIter).subscribe({
       next: () => {
         this.triggeringForGroupKey = null;
+        this.errorMessage = '';
         this.refetchFinalStepForStatus(this.selectedState);
         this.cdr.markForCheck();
       },
-      error: () => {
+      error: (err) => {
         this.triggeringForGroupKey = null;
+        this.errorMessage = err?.error?.error || err?.message || 'Failed to compute district party. Run tract party persistence for this state first.';
         this.cdr.markForCheck();
       }
     });
