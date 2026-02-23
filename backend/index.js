@@ -7608,13 +7608,14 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
  * Does NOT touch external data (tract boundaries, census tract data, state tract cache).
  */
 async function deleteAlgorithmCacheForState(state, maxIterations) {
-  const stateKey = getAlgorithmStateKey(state, maxIterations);
+  const stateNorm = (state || '').toUpperCase().trim();
+  const stateKey = getAlgorithmStateKey(stateNorm, maxIterations);
   const currentVersion = ALGORITHM_VERSION;
   let firestoreDeleted = 0;
 
   // 1. Delete all step docs: algorithm_step_{state}_{maxIterations}_*
   for (let stepNum = 0; stepNum <= 100; stepNum++) {
-    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    const stepCacheKey = `algorithm_step_${stateNorm}_${maxIterations}_${stepNum}`;
     try {
       const doc = await getCacheDoc(stepCacheKey);
       if (doc) {
@@ -7622,7 +7623,7 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
-    const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
+    const runAllKey = `step_${stateNorm}_${stepNum}_${currentVersion}`;
     try {
       const doc = await getCacheDoc(runAllKey);
       if (doc) {
@@ -7638,25 +7639,25 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
 
   // 3. List union polygon keys, delete cache docs and (when not local) Cloud Storage files
   if (USE_LOCAL_CACHE) {
-    const allKeys = await listCacheDocIds(`union_polygon_${state}_`);
+    const allKeys = await listCacheDocIds(`union_polygon_${stateNorm}_`);
     for (const key of allKeys) {
       try {
         const doc = await getCacheDoc(key);
         if (doc) { await deleteCacheDoc(key); firestoreDeleted++; }
       } catch (e) { /* continue */ }
     }
-    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${state}: ${firestoreDeleted} local doc(s)`);
+    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} local doc(s)`);
     return { firestoreDeleted, cloudDeleted: 0 };
   }
-  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 0);
+  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(stateNorm, 0);
   for (const key of unionKeys) {
     try {
       const d = await getCacheDoc(key);
       if (d) { await deleteCacheDoc(key); firestoreDeleted++; }
     } catch (e) { /* continue */ }
   }
-  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 0);
-  console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${state}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
+  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(stateNorm, 0);
+  console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
   return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
 }
 
@@ -7665,13 +7666,14 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
  * Keeps step 0 and its union polygon. Caller should then set algorithm state to iteration 0.
  */
 async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
-  const stateKey = getAlgorithmStateKey(state, maxIterations);
+  const stateNorm = (state || '').toUpperCase().trim();
+  const stateKey = getAlgorithmStateKey(stateNorm, maxIterations);
   const currentVersion = ALGORITHM_VERSION;
   let firestoreDeleted = 0;
 
   // 1. Delete step docs for step >= 1 only
   for (let stepNum = 1; stepNum <= 100; stepNum++) {
-    const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    const stepCacheKey = `algorithm_step_${stateNorm}_${maxIterations}_${stepNum}`;
     try {
       const doc = await getCacheDoc(stepCacheKey);
       if (doc) {
@@ -7679,7 +7681,7 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
-    const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
+    const runAllKey = `step_${stateNorm}_${stepNum}_${currentVersion}`;
     try {
       const doc = await getCacheDoc(runAllKey);
       if (doc) {
@@ -7695,7 +7697,7 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
 
   // 3. List union polygon keys (step >= 1), delete cache docs and (when not local) Cloud files
   if (USE_LOCAL_CACHE) {
-    const allKeys = await listCacheDocIds(`union_polygon_${state}_`);
+    const allKeys = await listCacheDocIds(`union_polygon_${stateNorm}_`);
     for (const key of allKeys) {
       const stepMatch = key.match(/union_polygon_\w+_(\d+)_/);
       if (stepMatch && parseInt(stepMatch[1], 10) >= 1) {
@@ -7705,18 +7707,18 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
         } catch (e) { /* continue */ }
       }
     }
-    console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${state}: ${firestoreDeleted} local doc(s)`);
+    console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${stateNorm}: ${firestoreDeleted} local doc(s)`);
     return { firestoreDeleted, cloudDeleted: 0 };
   }
-  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 1);
+  const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(stateNorm, 1);
   for (const key of unionKeys) {
     try {
       const d = await getCacheDoc(key);
       if (d) { await deleteCacheDoc(key); firestoreDeleted++; }
     } catch (e) { /* continue */ }
   }
-  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 1);
-  console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${state}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
+  const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(stateNorm, 1);
+  console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${stateNorm}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
   return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
 }
 
