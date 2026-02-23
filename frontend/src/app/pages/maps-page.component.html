@@ -226,9 +226,9 @@
                 {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || (!isFinalStepActive && !(currentStep?.divisionLines?.length)) || finalStepBalancingComplete"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || (!isFinalStepActive && !(currentStep.divisionLines?.length)) || finalStepBalancingComplete"
                 class="balance-districts-btn"
-                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : ((!isFinalStepActive && !(currentStep?.divisionLines?.length)) ? 'No division lines' : (finalStepBalancingComplete ? 'Balance complete' : 'Balance population across districts'))">
+                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : ((!isFinalStepActive && !(currentStep.divisionLines?.length)) ? 'No division lines' : (finalStepBalancingComplete ? 'Balance complete' : 'Balance population across districts'))">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
               </button>
             </div>
@@ -322,7 +322,7 @@
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
                       <td *ngIf="!isFinalStepActive" class="next-division-cell">
-                        <mat-icon *ngIf="getNextDivisionIcon(group)" [fontIcon]="getNextDivisionIcon(group)" class="next-division-icon"></mat-icon>
+                        <mat-icon *ngIf="getNextDivisionIcon(group) as icon" [fontIcon]="icon" class="next-division-icon"></mat-icon>
                         <span>{{ getNextDivisionLabel(group) }}</span>
                       </td>
                       <td *ngIf="isDevMode" class="col-polygon">
