@@ -300,10 +300,10 @@
                   <thead>
                     <tr>
                       <th>District</th>
+                      <th>Variance</th>
+                      <th *ngIf="!isFinalStepActive">Next</th>
                       <th *ngIf="isDevMode" class="col-polygon" title="Union polygon cached">Polygon</th>
                       <th *ngIf="isDevMode" class="col-party" title="Party % calculated">Party</th>
-                      <th>Variance</th>
-                      <th>Next division</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -315,6 +315,15 @@
                         <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
                           - {{ group.endDistrictNumber }}
                         </span>
+                      </td>
+                      <td [class.variance-positive]="getGroupVariance(group) > 0"
+                        [class.variance-negative]="getGroupVariance(group) < 0"
+                        [matTooltip]="getGroupVarianceTooltip(group)">
+                        {{ getGroupVariance(group).toFixed(2) }}%
+                      </td>
+                      <td *ngIf="!isFinalStepActive" class="next-division-cell">
+                        <mat-icon *ngIf="getNextDivisionIcon(group)" [fontIcon]="getNextDivisionIcon(group)" class="next-division-icon"></mat-icon>
+                        <span>{{ getNextDivisionLabel(group) }}</span>
                       </td>
                       <td *ngIf="isDevMode" class="col-polygon">
                         <span *ngIf="getGroupStatusForIndex(i) as st"
@@ -336,12 +345,6 @@
                           <mat-icon *ngIf="st.party === 'missing'" class="status-icon missing">warning</mat-icon>
                         </span>
                       </td>
-                      <td [class.variance-positive]="getGroupVariance(group) > 0"
-                        [class.variance-negative]="getGroupVariance(group) < 0"
-                        [matTooltip]="getGroupVarianceTooltip(group)">
-                        {{ getGroupVariance(group).toFixed(2) }}%
-                      </td>
-                      <td class="next-division-cell">{{ getNextDivisionLabel(group) }}</td>
                     </tr>
                   </tbody>
                 </table>

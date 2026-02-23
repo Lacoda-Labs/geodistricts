@@ -2480,8 +2480,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Label for the next division that would apply to this group (direction and ratio as percentages), e.g. "lat 44/56", "long 50/50", "lat 40/60".
-   * Returns "–" when the group has only one district (won't be divided).
+   * Label for the next division ratio only (percentages), e.g. "44/56", "50/50". Returns "–" when the group has only one district.
    */
   getNextDivisionLabel(group: DistrictGroup): string {
     const n = group.totalDistricts ?? (group.endDistrictNumber != null && group.startDistrictNumber != null
@@ -2490,9 +2489,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const first = Math.floor(n / 2);
     const second = n - first;
     const pctFirst = Math.round((first / n) * 100);
-    const pctSecond = 100 - pctFirst; // avoid rounding drift
-    const nextDir = (this.currentStepIndex + 1) % 2 === 1 ? 'lat' : 'long';
-    return `${nextDir} ${pctFirst}/${pctSecond}`;
+    const pctSecond = 100 - pctFirst;
+    return `${pctFirst}/${pctSecond}`;
+  }
+
+  /**
+   * Material icon name for next division direction: arrow_range (lat) or height (long). Null when group has one district.
+   */
+  getNextDivisionIcon(group: DistrictGroup): 'arrow_range' | 'height' | null {
+    const n = group.totalDistricts ?? (group.endDistrictNumber != null && group.startDistrictNumber != null
+      ? group.endDistrictNumber - group.startDistrictNumber + 1 : 0);
+    if (n <= 1) return null;
+    return (this.currentStepIndex + 1) % 2 === 1 ? 'arrow_range' : 'height';
   }
 
   /** Bounds of a district group from its tracts (min/max lat/lng). */
