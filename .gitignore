@@ -80,3 +80,5 @@ data/census-cache/
 
 # Protocol repo (separate git repo, multi-root workspace)
 gdip/
+
+data/

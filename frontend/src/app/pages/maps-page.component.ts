@@ -1411,27 +1411,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loadAllPreviousSteps(stepIndex);
         }
         
-        // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
-        if (step.isolatedTractsData) {
-          const stepIsolatedData = step.isolatedTractsData;
-          if (this.isStaleIsolatedTractsData(step, stepIsolatedData)) {
-            this.isolatedTractIds.clear();
-            this.isolatedTractsData = null;
-            this.detectIsolatedTracts();
-          } else {
-            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-            this.isolatedTractsData = {
-              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-            };
-            console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
-          }
-        } else {
-          this.isolatedTractIds.clear();
-          this.isolatedTractsData = null;
-          if (stepIndex > 0 && step.districtGroups?.length) {
-            this.detectIsolatedTracts();
-          }
+        // Always run isolation detection at each step (step > 0); do not use cached isolation data
+        this.isolatedTractIds.clear();
+        this.isolatedTractsData = null;
+        if (stepIndex > 0 && step.districtGroups?.length) {
+          this.detectIsolatedTracts();
         }
         
         // Validate step has districtGroups
@@ -1695,27 +1679,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoadingSteps = false;
         }
         
-        // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
-        if (step.isolatedTractsData) {
-          const stepIsolatedData = step.isolatedTractsData;
-          if (this.isStaleIsolatedTractsData(step, stepIsolatedData)) {
-            this.isolatedTractIds.clear();
-            this.isolatedTractsData = null;
-            this.detectIsolatedTracts();
-          } else {
-            this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-            this.isolatedTractsData = {
-              isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-              isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-            };
-            console.log(`📥 Loaded isolated tracts data from step 0 cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts`);
-          }
-        } else {
-          this.isolatedTractIds.clear();
-          this.isolatedTractsData = null;
-          if (stepIndex > 0 && step.districtGroups?.length) {
-            this.detectIsolatedTracts();
-          }
+        // Always run isolation detection at each step (step > 0); do not use cached isolation data
+        this.isolatedTractIds.clear();
+        this.isolatedTractsData = null;
+        if (stepIndex > 0 && step.districtGroups?.length) {
+          this.detectIsolatedTracts();
         }
         
         // Validate step has districtGroups
@@ -1807,6 +1775,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** True when balance can no longer improve variances (or final step was loaded as complete). Hides Balance button. */
   finalStepBalancingComplete: boolean = false;
 
+  /** Sync component isolation state from currentStep so final-step Move/Balance buttons reflect this step. */
+  private syncIsolationFromCurrentStep(): void {
+    const data = this.currentStep?.isolatedTractsData;
+    const ids = data?.isolatedTractIds;
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      this.isolatedTractIds = new Set(ids);
+      this.isolatedTractsData = {
+        isolatedTractsByGroup: data.isolatedTractsByGroup || {},
+        isolatedTractIds: ids
+      };
+    } else {
+      this.isolatedTractIds.clear();
+      this.isolatedTractsData = null;
+    }
+  }
+
   previousStep(): void {
     if (this.currentStepIndex > 0) {
       const prevIndex = this.currentStepIndex - 1;
@@ -1817,8 +1801,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Step already loaded, just display it
         this.currentStepIndex = prevIndex;
         this.currentStep = step;
-        this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
-        this.isolatedTractsData = null;
+        this.syncIsolationFromCurrentStep();
         this.moveIsolatedHint = '';
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
@@ -1865,24 +1848,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.currentStep = newStep as any;
             this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
             
-            // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
-            if ((newStep as any).isolatedTractsData) {
-              const stepIsolatedData = (newStep as any).isolatedTractsData;
-              if (this.isStaleIsolatedTractsData(newStep as any, stepIsolatedData)) {
-                this.isolatedTractIds.clear();
-                this.isolatedTractsData = null;
-                this.detectIsolatedTracts();
-              } else {
-                this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-                this.isolatedTractsData = {
-                  isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                  isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-                };
-                console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
-              }
-            } else {
-              this.isolatedTractIds.clear();
-              this.isolatedTractsData = null;
+            // Always run isolation detection at each step (step > 0); do not use cached isolation data
+            this.isolatedTractIds.clear();
+            this.isolatedTractsData = null;
+            if ((newStep as any).step > 0 && (newStep as any).districtGroups?.length) {
+              this.detectIsolatedTracts();
             }
             
             this.bridgeTractIds.clear();
@@ -2024,6 +1994,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Step already loaded, just display it
       this.currentStepIndex = nextIndex;
       this.currentStep = step;
+      this.syncIsolationFromCurrentStep();
       this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
       this.sortSliderValue = 0;
     this.cachedSortedTractIds = [];
@@ -2165,27 +2136,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.currentStep = stepToUse as any;
           this.selectedDistrictGroupIndex = null; // Clear selection when loading new step
           
-          // Populate isolated tracts data from step cache if available (skip when stale, re-detect)
-          if ((stepToUse as any).isolatedTractsData) {
-            const stepIsolatedData = (stepToUse as any).isolatedTractsData;
-            if (this.isStaleIsolatedTractsData(stepToUse as any, stepIsolatedData)) {
-              this.isolatedTractIds.clear();
-              this.isolatedTractsData = null;
-              this.detectIsolatedTracts();
-            } else {
-              this.isolatedTractIds = new Set(stepIsolatedData.isolatedTractIds || []);
-              this.isolatedTractsData = {
-                isolatedTractsByGroup: stepIsolatedData.isolatedTractsByGroup || {},
-                isolatedTractIds: stepIsolatedData.isolatedTractIds || []
-              };
-              console.log(`📥 Loaded isolated tracts data from step cache: ${stepIsolatedData.totalIsolated || 0} isolated tracts in ${stepIsolatedData.groupsWithIsolation || 0} groups`);
-            }
-          } else {
-            this.isolatedTractIds.clear(); // Clear isolation highlights when changing steps
-            this.isolatedTractsData = null;
-            if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
-              this.detectIsolatedTracts();
-            }
+          // Always run isolation detection at each step (step > 0); do not use cached isolation data
+          this.isolatedTractIds.clear();
+          this.isolatedTractsData = null;
+          if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
+            this.detectIsolatedTracts();
           }
           
           this.bridgeTractIds.clear();
@@ -2286,9 +2241,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (step) {
       this.currentStepIndex = 0;
       this.currentStep = step;
+      this.syncIsolationFromCurrentStep();
       this.selectedDistrictGroupIndex = null;
-      this.isolatedTractIds.clear();
-      this.isolatedTractsData = null;
       this.bridgeTractIds.clear();
       this.bridgeTractsData = null;
       this.renderFinalDistricts();
@@ -2299,18 +2253,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   goToLastStep(): void {
-    const lastIndex = this.getTotalSteps() - 1;
-    if (lastIndex <= 0 || this.currentStepIndex === lastIndex) {
+    // Prefer final step index from backend when known; otherwise derive from total steps
+    const lastIndex = this.finalStepNumber ?? (this.getTotalSteps() - 1);
+    if (lastIndex < 0 || this.currentStepIndex === lastIndex) {
       return; // Already at last step or no steps available
     }
-    
+
     const step = this.loadedSteps[lastIndex];
     if (step) {
       this.currentStepIndex = lastIndex;
       this.currentStep = step;
+      this.syncIsolationFromCurrentStep();
       this.selectedDistrictGroupIndex = null;
-      this.isolatedTractIds.clear();
-      this.isolatedTractsData = null;
       this.bridgeTractIds.clear();
       this.bridgeTractsData = null;
       this.renderFinalDistricts();
@@ -2336,7 +2290,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.cdr.markForCheck();
             return;
           }
-          const idx = this.getTotalSteps() - 1;
+          // Use step index from API response so we store at the correct index
+          const idx = stepIndex;
           this.loadedSteps[idx] = data;
           this.currentStepIndex = idx;
           this.currentStep = data;
@@ -2345,8 +2300,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.finalStepNumber = idx;
           }
           this.selectedDistrictGroupIndex = null;
-          this.isolatedTractIds.clear();
-          this.isolatedTractsData = null;
+          this.syncIsolationFromCurrentStep();
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
           this.isLoadingSteps = false;
@@ -2407,8 +2361,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canGoToLastStep(): boolean {
-    const total = this.getTotalSteps();
-    return total > 0 && this.currentStepIndex < total - 1;
+    const lastIndex = this.finalStepNumber ?? (this.getTotalSteps() - 1);
+    return lastIndex >= 0 && this.currentStepIndex < lastIndex;
   }
 
   private showSortingVisualization(): void {
@@ -4579,14 +4533,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           });
         }
         // Update current step with new district groups
+        const isolatedIds = result.isolationResult?.isolatedTractIds ?? [];
+        const isolatedByGroup = result.isolationResult?.isolatedTractsByGroup ?? {};
         if (this.currentStep) {
           this.currentStep.districtGroups = result.districtGroups;
-          // Update isolated tracts data from result
+          // Update isolated tracts data from result (empty = isolation resolved → show Balance button)
           this.currentStep.isolatedTractsData = {
-            isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-            isolatedTractIds: result.isolationResult.isolatedTractIds,
-            totalIsolated: result.isolationResult.totalIsolated,
-            groupsWithIsolation: result.isolationResult.groupsWithIsolation
+            isolatedTractsByGroup: isolatedByGroup,
+            isolatedTractIds: isolatedIds,
+            totalIsolated: result.isolationResult?.totalIsolated ?? 0,
+            groupsWithIsolation: Object.keys(isolatedByGroup).length
           };
           // Persist excludedTractIds (unmovable tracts treated as islands for this step) so next detect/move use them
           if (Array.isArray((result as any).excludedTractIds) && (result as any).excludedTractIds.length > 0) {
@@ -4594,21 +4550,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         }
 
-        // Update component state
-        this.isolatedTractIds = new Set(result.isolationResult.isolatedTractIds);
+        // Update component state so Move button hides and Balance button shows when isolation is resolved
+        this.isolatedTractIds = new Set(isolatedIds);
         this.isolatedTractsData = {
-          isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
-          isolatedTractIds: result.isolationResult.isolatedTractIds
+          isolatedTractsByGroup: isolatedByGroup,
+          isolatedTractIds: isolatedIds
         };
-        if (result.isolationResult.isolatedTractIds?.length) {
+        if (isolatedIds.length > 0) {
           this.finalStepBalancingComplete = false;
         }
-
-        if (result.isolationResult.totalIsolated === 0) {
+        if (result.isolationResult?.totalIsolated === 0) {
+          this.finalStepBalancingComplete = false; // Show Balance button once all isolation is resolved
           console.log(`✅ All isolated tracts moved. Final isolation: 0 isolated tracts in 0 groups`);
           this.moveIsolatedHint = '';
         } else {
-          console.log(`⚠️ Completed processing. Remaining isolation: ${result.isolationResult.totalIsolated} isolated tracts in ${result.isolationResult.groupsWithIsolation} groups`);
+          console.log(`⚠️ Completed processing. Remaining isolation: ${result.isolationResult?.totalIsolated} isolated tracts in ${result.isolationResult?.groupsWithIsolation} groups`);
           this.moveIsolatedHint = (result as any).hint || 'Some tracts could not be moved. Try "Detect Bridge Tracts" then "Move Bridge Tracts".';
         }
 
@@ -4632,12 +4588,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Run balanceSiblingPairsAfterIsolatedMoves on the backend and update the map.
+   * Run balance on the backend. At final step uses variance-based balance (no division lines required);
+   * otherwise uses balanceSiblingPairsAfterIsolatedMoves (division lines required).
    */
   balanceDistrictsAfterIsolated(): void {
-    if (!this.currentStep?.districtGroups?.length || !this.currentStep?.divisionLines?.length) {
-      return;
-    }
+    if (!this.currentStep?.districtGroups?.length) return;
+    if (!this.isFinalStepActive && !(this.currentStep?.divisionLines?.length)) return;
     this.isBalancingDistricts = true;
     this.errorMessage = '';
     this.isLoading = true;
@@ -4645,9 +4601,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxIterations = this.algorithmResult?.maxIterations ?? 100;
     this.geodistrictService.balanceAfterIsolated(
       this.selectedState,
-      this.currentStep.step,
-      this.currentStep.districtGroups,
-      this.currentStep.divisionLines ?? [],
+      this.currentStep!.step,
+      this.currentStep!.districtGroups,
+      this.currentStep!.divisionLines ?? [],
       { maxIterations }
     ).pipe(
       finalize(() => {
@@ -5097,7 +5053,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.perGroupStatus[i];
   }
 
-  /** Refetch final step to update status (e.g. after district party job). */
+  /** True when union polygon is being built for this group (show hourglass). */
+  isTriggeringPolygonForGroup(group: DistrictGroup): boolean {
+    if (!this.triggeringForGroupKey) return false;
+    return this.triggeringForGroupKey === `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+  }
+
+  /** Refetch final step to update status (e.g. after district party job or union polygon build). */
   refetchFinalStepForStatus(state: string): void {
     this.geodistrictService.getFinalStep(state).subscribe({
       next: (resp: FinalStepResponse) => {
@@ -5105,6 +5067,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.unionPolygonsCached = resp.unionPolygonsCached === true;
         this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
         this.perGroupStatus = resp.perGroupStatus ?? [];
+        // Merge step data so map and table show new union polygons / party data
+        if (resp.data?.districtGroups?.length && this.currentStepIndex === resp.step) {
+          this.currentStep = resp.data;
+          if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+            this.loadedSteps[this.currentStepIndex] = resp.data;
+          }
+          this.renderFinalDistricts();
+        }
         this.cdr.markForCheck();
       }
     });
@@ -5117,15 +5087,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
     if (this.triggeringForGroupKey) return;
     this.triggeringForGroupKey = groupKey;
+    this.errorMessage = '';
     const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
     this.geodistrictService.triggerUnionPolygonForGroup(this.selectedState, this.currentStepIndex, groupKey, maxIter).subscribe({
       next: () => {
         this.triggeringForGroupKey = null;
+        this.errorMessage = '';
         this.refetchFinalStepForStatus(this.selectedState);
         this.cdr.markForCheck();
       },
-      error: () => {
+      error: (err) => {
         this.triggeringForGroupKey = null;
+        this.errorMessage = err?.error?.message || err?.message || 'Failed to build union polygon for this district.';
         this.cdr.markForCheck();
       }
     });

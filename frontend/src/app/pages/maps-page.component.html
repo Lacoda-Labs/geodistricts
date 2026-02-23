@@ -149,8 +149,9 @@
                     class="move-isolated-btn">
                     {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
                   </button>
-                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || !(currentStep.divisionLines?.length)"
-                    *ngIf="!finalStepBalancingComplete" class="balance-districts-btn" matTooltip="Balance sibling district groups after moving isolated tracts">
+                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
+                    *ngIf="!finalStepBalancingComplete" class="balance-districts-btn"
+                    [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : 'Balance sibling district groups after moving isolated tracts'">
                     {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
                   </button>
                   <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
@@ -225,9 +226,9 @@
                 {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
-                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete" class="balance-districts-btn"
-                matTooltip="Balance sibling district groups (available once all isolation is resolved)">
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || (!isFinalStepActive && !(currentStep?.divisionLines?.length)) || finalStepBalancingComplete"
+                class="balance-districts-btn"
+                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : ((!isFinalStepActive && !(currentStep?.divisionLines?.length)) ? 'No division lines' : (finalStepBalancingComplete ? 'Balance complete' : 'Balance population across districts'))">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
               </button>
             </div>
@@ -317,12 +318,12 @@
                       </td>
                       <td *ngIf="isDevMode" class="col-polygon">
                         <span *ngIf="getGroupStatusForIndex(i) as st"
-                          [matTooltip]="st.polygon === 'done' ? 'Union polygon cached' : (st.polygon === 'missing' ? 'Click to build union polygon' : st.polygon)"
-                          (click)="(st.polygon === 'missing' || st.polygon === 'fail') && triggerPolygonForGroup(group, $event)">
-                          <mat-icon *ngIf="st.polygon === 'done'" class="status-icon done">check_circle</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'fail'" class="status-icon fail">error</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'missing'" class="status-icon missing">warning</mat-icon>
+                          [matTooltip]="isTriggeringPolygonForGroup(group) ? 'Building...' : (st.polygon === 'done' ? 'Union polygon cached' : (st.polygon === 'missing' ? 'Click to build union polygon' : st.polygon))"
+                          (click)="(st.polygon === 'missing' || st.polygon === 'fail') && !triggeringForGroupKey && triggerPolygonForGroup(group, $event)">
+                          <mat-icon *ngIf="st.polygon === 'done' && !isTriggeringPolygonForGroup(group)" class="status-icon done">check_circle</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'in_progress' || isTriggeringPolygonForGroup(group)" class="status-icon in-progress">hourglass_empty</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'fail' && !isTriggeringPolygonForGroup(group)" class="status-icon fail">error</mat-icon>
+                          <mat-icon *ngIf="st.polygon === 'missing' && !isTriggeringPolygonForGroup(group)" class="status-icon missing">warning</mat-icon>
                         </span>
                       </td>
                       <td *ngIf="isDevMode" class="col-party">

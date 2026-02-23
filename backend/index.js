@@ -4318,19 +4318,39 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       let finalStepDoc = null;
       let cachedEntry = null;
       let highestStep = -1;
+      // Track latest step (any step with data) so we can return it when it's more advanced than highest with union polygons
+      let latestStepDoc = null;
+      let latestEntry = null;
+      let highestStepAny = -1;
 
       if (USE_LOCAL_CACHE) {
         const algoIds = await listCacheDocIds(`algorithm_step_${state}_`);
         const stepIds = await listCacheDocIds(`step_${state}_`);
         for (const id of [...algoIds, ...stepIds]) {
           const entry = await getCacheDoc(id);
-          if (entry && (entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-              entry.algorithmVersion === currentVersion && entry.step !== undefined &&
-              entry.step > highestStep && entry.unionPolygonsCached === true) {
+          if (!entry || (entry.source !== 'algorithm-step-cache' && entry.source !== 'step-cache') ||
+              entry.algorithmVersion !== currentVersion || entry.step === undefined) continue;
+          const stepNum = entry.step;
+          const hasStepData = entry.stepData !== undefined || (entry.districtGroups !== undefined && entry.districtGroups?.length > 0);
+          if (hasStepData && stepNum > highestStepAny) {
+            latestStepDoc = { id };
+            latestEntry = entry;
+            highestStepAny = stepNum;
+          }
+          if (entry.unionPolygonsCached === true && stepNum > highestStep) {
             finalStepDoc = { id };
             cachedEntry = entry;
-            highestStep = entry.step;
+            highestStep = stepNum;
           }
+        }
+        if (latestEntry && highestStepAny > highestStep) {
+          finalStepDoc = latestStepDoc;
+          cachedEntry = latestEntry;
+          highestStep = highestStepAny;
+        } else if (!finalStepDoc && latestEntry) {
+          finalStepDoc = latestStepDoc;
+          cachedEntry = latestEntry;
+          highestStep = highestStepAny;
         }
       } else {
         const stepCacheQuery = getFirestore().collection('census_cache')
@@ -4341,11 +4361,19 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           for (const doc of stepCacheSnapshot.docs) {
             const entry = doc.data();
             if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-                entry.algorithmVersion === currentVersion && entry.step !== undefined &&
-                entry.step > highestStep && entry.unionPolygonsCached === true) {
-              finalStepDoc = doc;
-              cachedEntry = entry;
-              highestStep = entry.step;
+                entry.algorithmVersion === currentVersion && entry.step !== undefined) {
+              const stepNum = entry.step;
+              const hasStepData = entry.stepData !== undefined || (entry.districtGroups !== undefined && entry.districtGroups?.length > 0);
+              if (hasStepData && stepNum > highestStepAny) {
+                latestStepDoc = doc;
+                latestEntry = entry;
+                highestStepAny = stepNum;
+              }
+              if (entry.unionPolygonsCached === true && stepNum > highestStep) {
+                finalStepDoc = doc;
+                cachedEntry = entry;
+                highestStep = stepNum;
+              }
             }
           }
         }
@@ -4357,11 +4385,19 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           if (!algorithmStepsSnapshot.empty) {
             for (const doc of algorithmStepsSnapshot.docs) {
               const entry = doc.data();
-              if (entry.algorithmVersion === currentVersion && entry.step !== undefined &&
-                  entry.step > highestStep && entry.unionPolygonsCached === true) {
-                finalStepDoc = doc;
-                cachedEntry = entry;
-                highestStep = entry.step;
+              if (entry.algorithmVersion === currentVersion && entry.step !== undefined) {
+                const stepNum = entry.step;
+                const hasStepData = entry.stepData !== undefined || (entry.districtGroups !== undefined && entry.districtGroups?.length > 0);
+                if (hasStepData && stepNum > highestStepAny) {
+                  latestStepDoc = doc;
+                  latestEntry = entry;
+                  highestStepAny = stepNum;
+                }
+                if (entry.unionPolygonsCached === true && stepNum > highestStep) {
+                  finalStepDoc = doc;
+                  cachedEntry = entry;
+                  highestStep = stepNum;
+                }
               }
             }
           }
@@ -4373,20 +4409,37 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
             if (!stepCacheSnapshot2.empty) {
               for (const doc of stepCacheSnapshot2.docs) {
                 const entry = doc.data();
-                if (entry.algorithmVersion === currentVersion && entry.step !== undefined &&
-                    entry.step > highestStep && entry.unionPolygonsCached === true) {
-                  finalStepDoc = doc;
-                  cachedEntry = entry;
-                  highestStep = entry.step;
+                if (entry.algorithmVersion === currentVersion && entry.step !== undefined) {
+                  const stepNum = entry.step;
+                  const hasStepData = entry.stepData !== undefined || (entry.districtGroups !== undefined && entry.districtGroups?.length > 0);
+                  if (hasStepData && stepNum > highestStepAny) {
+                    latestStepDoc = doc;
+                    latestEntry = entry;
+                    highestStepAny = stepNum;
+                  }
+                  if (entry.unionPolygonsCached === true && stepNum > highestStep) {
+                    finalStepDoc = doc;
+                    cachedEntry = entry;
+                    highestStep = stepNum;
+                  }
                 }
               }
             }
           }
         }
+        if (latestEntry && highestStepAny > highestStep) {
+          finalStepDoc = latestStepDoc;
+          cachedEntry = latestEntry;
+          highestStep = highestStepAny;
+        } else if (!finalStepDoc && latestEntry) {
+          finalStepDoc = latestStepDoc;
+          cachedEntry = latestEntry;
+          highestStep = highestStepAny;
+        }
       }
 
       if (!finalStepDoc || !cachedEntry) {
-        return res.status(404).json({ error: 'No final step found for this state with current algorithm version (no step with union polygons cached)' });
+        return res.status(404).json({ error: 'No final or latest step found for this state with current algorithm version' });
       }
       
       const finalStepNumber = cachedEntry.step;
@@ -5838,31 +5891,11 @@ app.get('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res
  */
 async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
   const currentVersion = ALGORITHM_VERSION;
-  let stepCacheKey = null;
-  let cachedEntry = null;
-
-  stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-  let doc = await getCacheDoc(stepCacheKey);
-  if (doc.exists) {
-    let entry = doc.data();
-    entry = await resolveStepCacheEntry(stepCacheKey, entry);
-    if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
-      cachedEntry = entry;
-    }
-  }
-  if (!cachedEntry) {
-    stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-    doc = await getCacheDoc(stepCacheKey);
-    if (doc) {
-      let entry = doc;
-      if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
-        cachedEntry = entry;
-      }
-    }
-  }
-  if (!cachedEntry) {
+  const stepResult = await getStepCacheEntry(state, stepNum, maxIterations);
+  if (!stepResult) {
     throw new Error(`Step ${stepNum} not found in cache for ${state}`);
   }
+  const { stepCacheKey, cachedEntry } = stepResult;
 
   const hasStepDataField = cachedEntry.stepData !== undefined;
   const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
@@ -5942,10 +5975,17 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
  */
 async function getStepCacheEntry(state, stepNum, maxIterations) {
   const currentVersion = ALGORITHM_VERSION;
+
+  function entryFromDoc(doc) {
+    if (!doc) return null;
+    const entry = typeof doc.exists !== 'undefined' ? (doc.exists ? doc.data() : null) : doc;
+    return entry;
+  }
+
   let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
   let doc = await getCacheDoc(stepCacheKey);
-  if (doc.exists) {
-    let entry = doc.data();
+  let entry = entryFromDoc(doc);
+  if (entry) {
     entry = await resolveStepCacheEntry(stepCacheKey, entry);
     if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
       return { stepCacheKey, cachedEntry: entry };
@@ -5953,8 +5993,8 @@ async function getStepCacheEntry(state, stepNum, maxIterations) {
   }
   stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
   doc = await getCacheDoc(stepCacheKey);
-  if (doc.exists) {
-    let entry = doc.data();
+  entry = entryFromDoc(doc);
+  if (entry) {
     entry = await resolveStepCacheEntry(stepCacheKey, entry);
     if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
       return { stepCacheKey, cachedEntry: entry };
@@ -9508,11 +9548,17 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
         console.log(`💾 STEP CACHE STORED (balance-after-isolated): Marked final step ${step} complete for ${state}`);
         const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
         const buildAllUrl = `${baseUrl}/api/algorithm/build-all-union-polygons/${state}?finalStepNumber=${step}&maxIterations=${maxIterations}`;
+        const districtPartyUrl = `${baseUrl}/api/algorithm/district-party/${state}?finalStepNumber=${step}&maxIterations=${maxIterations}`;
         setImmediate(() => {
           axios.post(buildAllUrl, {}).then(() => {
             console.log(`✅ POST build-all-union-polygons accepted (202) for ${state} final step ${step} after balance`);
           }).catch((err) => {
             console.error(`❌ Failed to trigger build-all union polygon job for ${state}:`, err.message);
+          });
+          axios.post(districtPartyUrl, {}).then(() => {
+            console.log(`✅ POST district-party accepted (202) for ${state} final step ${step} after balance`);
+          }).catch((err) => {
+            console.error(`❌ Failed to trigger district-party job for ${state}:`, err.message);
           });
         });
       } catch (cacheErr) {
