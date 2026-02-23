@@ -12,6 +12,7 @@ const { GeodistrictAlgorithmService, getDistrictsForState, CONGRESSIONAL_DISTRIC
 const latLongDivisionService = require('./services/latlong-division');
 const voterRegistrationLoader = require('./services/voter-registration-loader');
 const vestDataLoader = require('./services/vest-data-loader');
+const tractPartyPersistence = require('./services/tract-party-persistence');
 const poligeoAnalyst = require('./services/poligeo-analyst');
 const congress119Party = require('./services/congress-119-party');
 const mapsComparison = require('./services/maps-comparison');
@@ -5801,6 +5802,22 @@ async function getStepCacheEntry(state, stepNum, maxIterations) {
       return { stepCacheKey, cachedEntry: entry };
     }
   }
+
+  // Fallback: use algorithm state blob when per-step doc missing (e.g. final step from reconstruction)
+  const stateKey = getAlgorithmStateKey(state, maxIterations);
+  const algorithmState = await getCachedAlgorithmState(stateKey);
+  if (algorithmState && algorithmState.steps && algorithmState.steps[stepNum]) {
+    const stepFromState = algorithmState.steps[stepNum];
+    const cachedEntry = {
+      stepData: stepFromState,
+      normalized: true,
+      tractCacheKey: algorithmState.tractCacheKey || `state_tracts_${state}`,
+      isComplete: algorithmState.iteration === stepNum
+    };
+    stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+    return { stepCacheKey, cachedEntry };
+  }
+
   return null;
 }
 
@@ -6029,124 +6046,6 @@ app.post('/api/algorithm/build-all-union-polygons/:state', async (req, res) => {
   }
 });
 
-/** State FIPS (2-digit) to state code for grouping VEST tract data by state */
-const STATE_FIPS_TO_CODE = {
-  '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
-  '08': 'CO', '09': 'CT', '10': 'DE', '11': 'DC', '12': 'FL', '13': 'GA',
-  '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
-  '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
-  '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
-  '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
-  '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
-  '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
-  '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
-  '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY'
-};
-
-const FIRESTORE_DOC_SIZE_LIMIT = 1024 * 1024; // 1 MiB
-
-/**
- * Load tract-level party data for a state and year from Firestore/Cloud Storage.
- * @param {string} state - State code (e.g. 'CA')
- * @param {number} year - VEST year (e.g. 2020)
- * @returns {Promise<{ [geoid: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
- */
-async function loadTractPartyForState(state, year) {
-  const key = `tract_party_${state.toUpperCase()}_${year}`;
-  try {
-    const doc = await firestore.collection('census_cache').doc(key).get();
-    if (!doc.exists) return null;
-    const data = doc.data();
-    if (data.cloudStoragePath && data.cloudStorage) {
-      const cloud = await cloudStorageCache.get(key);
-      if (cloud && cloud.data && cloud.data.geoids) return cloud.data.geoids;
-      return null;
-    }
-    if (data.geoids && typeof data.geoids === 'object') return data.geoids;
-    if (data.data && typeof data.data === 'object' && data.data.geoids) return data.data.geoids;
-    return null;
-  } catch (err) {
-    console.warn(`⚠️ loadTractPartyForState(${state}, ${year}): ${err.message}`);
-    return null;
-  }
-}
-
-/**
- * Run tract-level party percentage persistence job: load VEST tract data for year,
- * group by state, write to Firestore (and Cloud Storage for large states).
- * @param {number} year - VEST year (e.g. 2020)
- * @returns {Promise<{ statesWritten: string[], statesSkipped: string[], error?: string }>}
- */
-async function runTractPartyPersistenceJob(year) {
-  const statesWritten = [];
-  const statesSkipped = [];
-  try {
-    const vestData = await vestDataLoader.loadVESTData(year);
-    if (!vestData.data || typeof vestData.data !== 'object' || Object.keys(vestData.data).length === 0) {
-      return { statesWritten: [], statesSkipped: [], error: 'VEST tract-level data not available for this year. Use tract-level CSV.' };
-    }
-    const byState = {};
-    for (const [geoid, row] of Object.entries(vestData.data)) {
-      const stateFips = (row.state_fips || String(geoid).substring(0, 2)).padStart(2, '0');
-      const stateCode = STATE_FIPS_TO_CODE[stateFips];
-      if (!stateCode) continue;
-      if (!byState[stateCode]) byState[stateCode] = {};
-      const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
-      byState[stateCode][normalizedGeoid] = {
-        pctDem: row.pct_dem_pres ?? 0,
-        pctRep: row.pct_rep_pres ?? 0,
-        votesDem: row.votes_dem_pres ?? 0,
-        votesRep: row.votes_rep_pres ?? 0,
-        totalVotes: row.total_votes_pres ?? 0
-      };
-    }
-    for (const [stateCode, geoids] of Object.entries(byState)) {
-      const tractCount = Object.keys(geoids).length;
-      if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
-      const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
-      const key = `tract_party_${stateCode}_${year}`;
-      const jsonSize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
-      try {
-        if (jsonSize >= FIRESTORE_DOC_SIZE_LIMIT) {
-          const path = await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
-          await firestore.collection('census_cache').doc(key).set({
-            cloudStoragePath: path,
-            cloudStorage: true,
-            timestamp: Date.now(),
-            ttl: null,
-            version: CACHE_VERSION,
-            source: 'vest-tract-party-persistence',
-            state: stateCode,
-            year,
-            tractCount,
-            size: jsonSize
-          });
-        } else {
-          await firestore.collection('census_cache').doc(key).set({
-            geoids,
-            year,
-            state: stateCode,
-            tractCount,
-            timestamp: Date.now(),
-            ttl: null,
-            version: CACHE_VERSION,
-            source: 'vest-tract-party-persistence'
-          });
-        }
-        statesWritten.push(stateCode);
-        console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts)`);
-      } catch (writeErr) {
-        console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
-        statesSkipped.push(stateCode);
-      }
-    }
-    return { statesWritten, statesSkipped };
-  } catch (err) {
-    console.error('❌ runTractPartyPersistenceJob:', err.message);
-    return { statesWritten, statesSkipped, error: err.message };
-  }
-}
-
 /**
  * POST /api/algorithm/tract-party-persistence
  * Trigger tract-level party % persistence for a VEST year. Returns 202 when accepted.
@@ -6157,9 +6056,10 @@ app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
     if (isNaN(year) || year < 2016) {
       return res.status(400).json({ error: 'Valid year (2016 or later) is required' });
     }
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
     setImmediate(async () => {
       try {
-        await runTractPartyPersistenceJob(year);
+        await tractPartyPersistence.runTractPartyPersistenceJob(year, { apiBaseUrl });
       } catch (e) {
         console.error('❌ Tract party persistence job error:', e.message);
       }
@@ -6182,7 +6082,7 @@ app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
     if (!state || state.length !== 2 || isNaN(year)) {
       return res.status(400).json({ error: 'Invalid state or year' });
     }
-    const geoids = await loadTractPartyForState(state, year);
+    const geoids = await tractPartyPersistence.loadTractPartyForState(state, year);
     if (geoids == null) {
       return res.json({ state, year, geoids: {}, available: false });
     }
@@ -6236,7 +6136,7 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
     if (districtGroups.length === 0) {
       return { success: false, districtsWritten: 0, error: 'Final step has no district groups' };
     }
-    const tractParty = await loadTractPartyForState(state, vestYear);
+    const tractParty = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
     if (!tractParty || Object.keys(tractParty).length === 0) {
       return { success: false, districtsWritten: 0, error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' };
     }
@@ -6366,7 +6266,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     if (!group) {
       return res.status(404).json({ error: `District group ${groupKey} not found` });
     }
-    const tractParty = await loadTractPartyForState(state, DEFAULT_VEST_YEAR);
+    const tractParty = await tractPartyPersistence.loadTractPartyForState(state, DEFAULT_VEST_YEAR);
     if (!tractParty || Object.keys(tractParty).length === 0) {
       return res.status(503).json({ error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' });
     }
@@ -9360,6 +9260,7 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
     const updatedGroups = districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
 
     let balanced;
+    let noMoreBalancingPossible;
     if (isFinalStep) {
       const totalPopulation = updatedGroups.reduce((sum, g) => sum + (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0), 0);
       const targetDistrictPopulation = totalPopulation / updatedGroups.length;
@@ -9379,6 +9280,7 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
       // Balance until within tolerance or no improving move
       balanced = algorithmService.balanceDistrictsByVariance(updatedGroups, allTracts, targetDistrictPopulation);
       let step0IslandSet = Array.isArray(bodyStep0IslandTractIds) ? new Set(bodyStep0IslandTractIds) : new Set();
+      noMoreBalancingPossible = false;
       const maxIsolationIter = 10;
       const resolveIsolated = () => {
         for (let isoIter = 0; isoIter < maxIsolationIter; isoIter++) {
@@ -9403,6 +9305,7 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
       const worstAfterSecond = maxAbsVariancePercent(balanced);
       // If second balance didn't improve worst variance by at least threshold, we've balanced as far as possible
       if (worstBeforeSecond - worstAfterSecond < improvementThresholdPercent) {
+        noMoreBalancingPossible = true;
         // Skip third balance; some districts may remain outside target variance
       } else {
         resolveIsolated();
@@ -9462,7 +9365,11 @@ app.post('/api/algorithm/balance-after-isolated', async (req, res) => {
       }
     }
 
-    return res.json({ districtGroups: balanced });
+    const responsePayload = { districtGroups: balanced };
+    if (isFinalStep && typeof noMoreBalancingPossible === 'boolean') {
+      responsePayload.noMoreBalancingPossible = noMoreBalancingPossible;
+    }
+    return res.json(responsePayload);
   } catch (error) {
     console.error('Error balancing after isolated:', error);
     res.status(500).json({

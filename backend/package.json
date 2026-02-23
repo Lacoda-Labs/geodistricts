@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"No tests specified - skipping test phase\" && exit 0"
+    "test": "npm run test:isolation && npm run test:vest",
+    "test:isolation": "node services/geodistrict-algorithm-isolation.test.js",
+    "test:vest": "node services/vest-party.test.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.0.0",

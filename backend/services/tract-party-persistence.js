@@ -1,0 +1,157 @@
+/**
+ * Tract-level party percentage persistence: load VEST data by state,
+ * write to Firestore (and Cloud Storage for large payloads), and read back.
+ * Used by index.js routes and by vest-party.test.js.
+ */
+
+const { Firestore } = require('@google-cloud/firestore');
+const cloudStorageCache = require('./cloud-storage-cache');
+const vestDataLoader = require('./vest-data-loader');
+
+const CACHE_VERSION = '1.0';
+const FIRESTORE_DOC_SIZE_LIMIT = 1024 * 1024; // 1 MiB
+
+let firestore = null;
+
+function getFirestore() {
+  if (!firestore) {
+    firestore = new Firestore({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
+    });
+  }
+  return firestore;
+}
+
+/** State FIPS (2-digit) to state code for grouping VEST tract data by state. 50 states + DC = 51. */
+const STATE_FIPS_TO_CODE = {
+  '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
+  '08': 'CO', '09': 'CT', '10': 'DE', '11': 'DC', '12': 'FL', '13': 'GA',
+  '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
+  '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
+  '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
+  '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
+  '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
+  '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
+  '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
+  '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY'
+};
+
+/**
+ * Load tract-level party data for a state and year from Firestore/Cloud Storage.
+ * @param {string} state - State code (e.g. 'CA')
+ * @param {number} year - VEST year (e.g. 2020)
+ * @returns {Promise<{ [geoid: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
+ */
+async function loadTractPartyForState(state, year) {
+  const key = `tract_party_${state.toUpperCase()}_${year}`;
+  try {
+    const db = getFirestore();
+    const doc = await db.collection('census_cache').doc(key).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    if (data.cloudStoragePath && data.cloudStorage) {
+      const cloud = await cloudStorageCache.get(key);
+      if (cloud && cloud.data && cloud.data.geoids) return cloud.data.geoids;
+      return null;
+    }
+    if (data.geoids && typeof data.geoids === 'object') return data.geoids;
+    if (data.data && typeof data.data === 'object' && data.data.geoids) return data.data.geoids;
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ loadTractPartyForState(${state}, ${year}): ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Run tract-level party percentage persistence job: load VEST tract data for year,
+ * group by state, write to Firestore (and Cloud Storage for large states).
+ * When only county-level VEST data is available, builds tract-level data via
+ * county→tract allocation (vest-data-loader.buildTractDataFromCountyVEST).
+ * @param {number} year - VEST year (e.g. 2020)
+ * @param {{ apiBaseUrl?: string }} options - Optional. apiBaseUrl for tract boundaries when using county allocation.
+ * @returns {Promise<{ statesWritten: string[], statesSkipped: string[], error?: string }>}
+ */
+async function runTractPartyPersistenceJob(year, options = {}) {
+  const statesWritten = [];
+  const statesSkipped = [];
+  const { apiBaseUrl } = options;
+  try {
+    let vestData = await vestDataLoader.loadVESTData(year);
+    if (!vestData.data || typeof vestData.data !== 'object' || Object.keys(vestData.data).length === 0) {
+      if (vestData.countyData && Object.keys(vestData.countyData).length > 0) {
+        console.log('📊 Building tract-level party data from county VEST data...');
+        vestData = await vestDataLoader.buildTractDataFromCountyVEST(year, apiBaseUrl);
+      }
+      if (!vestData.data || Object.keys(vestData.data).length === 0) {
+        return { statesWritten: [], statesSkipped: [], error: 'VEST tract-level data not available for this year. Use tract-level CSV or county-level file (countypres) with tract boundaries.' };
+      }
+    }
+    const byState = {};
+    for (const [geoid, row] of Object.entries(vestData.data)) {
+      const stateFips = (row.state_fips || String(geoid).substring(0, 2)).padStart(2, '0');
+      const stateCode = STATE_FIPS_TO_CODE[stateFips];
+      if (!stateCode) continue;
+      if (!byState[stateCode]) byState[stateCode] = {};
+      const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
+      byState[stateCode][normalizedGeoid] = {
+        pctDem: row.pct_dem_pres ?? 0,
+        pctRep: row.pct_rep_pres ?? 0,
+        votesDem: row.votes_dem_pres ?? 0,
+        votesRep: row.votes_rep_pres ?? 0,
+        totalVotes: row.total_votes_pres ?? 0
+      };
+    }
+    const db = getFirestore();
+    for (const [stateCode, geoids] of Object.entries(byState)) {
+      const tractCount = Object.keys(geoids).length;
+      if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
+      const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
+      const key = `tract_party_${stateCode}_${year}`;
+      const jsonSize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+      try {
+        if (jsonSize >= FIRESTORE_DOC_SIZE_LIMIT) {
+          const path = await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
+          await db.collection('census_cache').doc(key).set({
+            cloudStoragePath: path,
+            cloudStorage: true,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'vest-tract-party-persistence',
+            state: stateCode,
+            year,
+            tractCount,
+            size: jsonSize
+          });
+        } else {
+          await db.collection('census_cache').doc(key).set({
+            geoids,
+            year,
+            state: stateCode,
+            tractCount,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            source: 'vest-tract-party-persistence'
+          });
+        }
+        statesWritten.push(stateCode);
+        console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts)`);
+      } catch (writeErr) {
+        console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
+        statesSkipped.push(stateCode);
+      }
+    }
+    return { statesWritten, statesSkipped };
+  } catch (err) {
+    console.error('❌ runTractPartyPersistenceJob:', err.message);
+    return { statesWritten, statesSkipped, error: err.message };
+  }
+}
+
+module.exports = {
+  STATE_FIPS_TO_CODE,
+  loadTractPartyForState,
+  runTractPartyPersistenceJob
+};

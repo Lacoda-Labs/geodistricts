@@ -168,6 +168,14 @@ gsutil du -sh gs://geodistricts-census-data/
 gsutil ls -lh gs://geodistricts-census-data/state-tracts/
 ```
 
+## Bucket READMEs
+
+Each folder (prefix) in the bucket has a `README.md` describing its data and usage. To create or update them, edit the files under `backend/scripts/gcs-readmes/` and run:
+
+```bash
+cd backend && node scripts/upload-gcs-readmes.js
+```
+
 ## Troubleshooting
 
 ### Cloud Storage Not Initializing

@@ -150,7 +150,7 @@
                     {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
                   </button>
                   <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || !(currentStep.divisionLines?.length)"
-                    class="balance-districts-btn" matTooltip="Balance sibling district groups after moving isolated tracts">
+                    *ngIf="!finalStepBalancingComplete" class="balance-districts-btn" matTooltip="Balance sibling district groups after moving isolated tracts">
                     {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
                   </button>
                   <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
@@ -226,7 +226,7 @@
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
                 [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
-                *ngIf="!hasUnresolvedIsolation" class="balance-districts-btn"
+                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete" class="balance-districts-btn"
                 matTooltip="Balance sibling district groups (available once all isolation is resolved)">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
               </button>
@@ -288,6 +288,9 @@
                 <button mat-button (click)="togglePartyColor()" type="button">
                   {{ showPartyColor ? 'District colors' : 'Color by party %' }}
                 </button>
+                <span class="party-data-unavailable" *ngIf="partyDataUnavailableMessage" [matTooltip]="partyDataUnavailableMessage">
+                  Party data not loaded
+                </span>
               </div>
             </div>
             <div class="district-groups-container">

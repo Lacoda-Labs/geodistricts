@@ -176,6 +176,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   districtPartyPercentagesCalculated: boolean = false;
   perGroupStatus: PerGroupStatus[] = [];
   finalStepMaxIterations: number = 100;
+  /** Final step number from API (e.g. 4 for VA); used for district-party-for-group so backend finds correct step. */
+  finalStepNumber: number | null = null;
   /** When true, we have triggered district party job and may refetch after delay. */
   districtPartyJobTriggered: boolean = false;
   /** Loading state for single-DG polygon or party trigger (groupKey or null). */
@@ -1096,6 +1098,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStepIndex = 0;
     this.currentStep = null;
     this.totalSteps = 0;
+    this.finalStepNumber = null;
 
     const options: GeodistrictOptions = {
       state: this.selectedState,
@@ -1118,6 +1121,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Steps should be indexed by step number (step 0 at index 0, step 1 at index 1, etc.)
         this.loadedSteps = result.steps;
         this.totalSteps = result.steps.length;
+        this.finalStepNumber = result.steps.length > 0 ? result.steps.length - 1 : null;
         
         // Display the final step
         if (result.steps.length > 0) {
@@ -1230,6 +1234,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStep = null;
     this.currentStepIndex = 0;
     this.totalSteps = 0;
+    this.finalStepNumber = null;
     const sub = this.geodistrictService.getFinalStep(stateRequested).subscribe({
       next: (resp: FinalStepResponse) => {
         const { step: stepIndex, data, isComplete } = resp;
@@ -1245,6 +1250,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStepIndex = stepIndex;
         this.currentStep = data;
         this.totalSteps = stepIndex + 1;
+        this.finalStepNumber = resp.step;
         this.algorithmResult = {
           finalDistricts: data.districtGroups,
           steps: [data],
@@ -1266,9 +1272,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             isolatedTractsByGroup: data.isolatedTractsData.isolatedTractsByGroup || {},
             isolatedTractIds: data.isolatedTractsData.isolatedTractIds || []
           };
+          if ((data.isolatedTractsData.isolatedTractIds?.length ?? 0) > 0) {
+            this.finalStepBalancingComplete = false;
+          }
         } else {
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
+        }
+        if (isComplete && !(this.isolatedTractsData?.isolatedTractIds?.length)) {
+          this.finalStepBalancingComplete = true;
         }
         if (isComplete && !this.districtPartyPercentagesCalculated && !this.districtPartyJobTriggered) {
           this.districtPartyJobTriggered = true;
@@ -1329,9 +1341,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.algorithmResult = null;
     this.loadedSteps = [];
     this.currentStepIndex = 0;
-    this.currentStep = null;
-    this.totalSteps = 0;
-    this.isolatedTractIds.clear();
+        this.currentStep = null;
+        this.totalSteps = 0;
+        this.finalStepNumber = null;
+        this.isolatedTractIds.clear();
     this.isolatedTractsData = null;
     this.bridgeTractIds.clear();
     this.bridgeTractsData = null;
@@ -1390,6 +1403,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // If this is the final step, load all previous steps to show all division lines
         if (isComplete) {
           this.totalSteps = stepIndex + 1;
+          this.finalStepNumber = stepIndex;
           this.isLoadingSteps = false;
           console.log(`✅ Loaded final step ${stepIndex} for ${this.selectedState}`);
           
@@ -1597,9 +1611,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.algorithmResult = null;
     this.loadedSteps = [];
     this.currentStepIndex = 0;
-    this.currentStep = null;
-    this.totalSteps = 0;
-    this.isolatedTractIds.clear();
+        this.currentStep = null;
+        this.totalSteps = 0;
+        this.finalStepNumber = null;
+        this.isolatedTractIds.clear();
     this.isolatedTractsData = null;
     this.bridgeTractIds.clear();
     this.bridgeTractsData = null;
@@ -1669,6 +1684,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // If this is the final step, load all previous steps to show all division lines
         if (isComplete) {
           this.totalSteps = stepIndex + 1;
+          this.finalStepNumber = stepIndex;
           this.isLoadingSteps = false;
           console.log(`✅ Loaded final step ${stepIndex} for ${this.selectedState}`);
           
@@ -1787,6 +1803,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   get hasUnresolvedIsolation(): boolean {
     return !!(this.isolatedTractsData?.isolatedTractIds?.length);
   }
+
+  /** True when balance can no longer improve variances (or final step was loaded as complete). Hides Balance button. */
+  finalStepBalancingComplete: boolean = false;
 
   previousStep(): void {
     if (this.currentStepIndex > 0) {
@@ -2323,6 +2342,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.currentStep = data;
           if (this.totalSteps <= idx) {
             this.totalSteps = idx + 1;
+            this.finalStepNumber = idx;
           }
           this.selectedDistrictGroupIndex = null;
           this.isolatedTractIds.clear();
@@ -3506,7 +3526,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             const partyData = this.tractPartyByGeoid;
             const usePartyColor = (this.showTractBoundaries || this.showPartyColor) && partyData;
             if (usePartyColor && partyData) {
-              const geoid = String(tractId).padStart(11, '0').substring(0, 11);
+              const geoid = this.normalizeTractPartyGeoid(tractId);
               const row = partyData[geoid];
               if (row != null) {
                 tractColor = this.getTractColorByParty(row.pctDem);
@@ -4324,6 +4344,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           isolatedTractIds: result.isolatedTractIds,
           groupStats: result.groupStats || []
         };
+        if (result.isolatedTractIds?.length) {
+          this.finalStepBalancingComplete = false;
+        }
         // Clear bridge tracts when new isolation is detected
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
@@ -4355,6 +4378,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Normalize tract ID to 11-digit GEOID for tract-party lookup (matches backend tract_party key format).
+   */
+  private normalizeTractPartyGeoid(tractId: string): string {
+    const digits = String(tractId).replace(/\D/g, '');
+    return digits.padStart(11, '0').substring(0, 11);
+  }
+
+  /**
    * Get tract ID from a GeoJSON feature
    * IMPORTANT: Must match backend getTractId logic for proper ID matching
    */
@@ -4373,9 +4404,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return geoId;
     }
     
-    // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS
-    if (tract.properties?.['STATE_FIPS'] && tract.properties?.['COUNTY_FIPS'] && tract.properties?.['TRACT_FIPS']) {
-      return `${tract.properties['STATE_FIPS']}${tract.properties['COUNTY_FIPS']}${tract.properties['TRACT_FIPS']}`;
+    // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS (pad to 2+3+6 for tract-party lookup)
+    if (tract.properties?.['STATE_FIPS'] != null && tract.properties?.['COUNTY_FIPS'] != null && tract.properties?.['TRACT_FIPS'] != null) {
+      const s = String(tract.properties['STATE_FIPS']).padStart(2, '0');
+      const c = String(tract.properties['COUNTY_FIPS']).padStart(3, '0');
+      const t = String(tract.properties['TRACT_FIPS']).padStart(6, '0');
+      return `${s}${c}${t}`;
     }
     
     // Last resort: use TRACT_FIPS alone
@@ -4566,6 +4600,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           isolatedTractsByGroup: result.isolationResult.isolatedTractsByGroup,
           isolatedTractIds: result.isolationResult.isolatedTractIds
         };
+        if (result.isolationResult.isolatedTractIds?.length) {
+          this.finalStepBalancingComplete = false;
+        }
 
         if (result.isolationResult.totalIsolated === 0) {
           console.log(`✅ All isolated tracts moved. Final isolation: 0 isolated tracts in 0 groups`);
@@ -4626,6 +4663,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
           this.loadedSteps[this.currentStepIndex] = this.currentStep!;
+        }
+        const noMore = (result as { noMoreBalancingPossible?: boolean }).noMoreBalancingPossible;
+        if (noMore === true) {
+          this.finalStepBalancingComplete = true;
         }
         this.renderFinalDistricts();
         this.cdr.detectChanges();
@@ -5098,7 +5139,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.triggeringForGroupKey) return;
     this.triggeringForGroupKey = groupKey;
     const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
-    this.geodistrictService.triggerDistrictPartyForGroup(this.selectedState, this.currentStepIndex, groupKey, maxIter).subscribe({
+    const finalStep = this.finalStepNumber ?? this.currentStepIndex;
+    this.geodistrictService.triggerDistrictPartyForGroup(this.selectedState, finalStep, groupKey, maxIter).subscribe({
       next: () => {
         this.triggeringForGroupKey = null;
         this.errorMessage = '';
@@ -5129,6 +5171,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const done = this.perGroupStatus?.filter(s => s.party === 'done').length ?? 0;
     if (done === n) return 'All calculated';
     return `${done} of ${n} calculated`;
+  }
+
+  /** Message when party coloring is on but tract party data is not loaded for this state. */
+  get partyDataUnavailableMessage(): string | null {
+    if (!this.selectedState || this.selectedState === 'ALL') return null;
+    if (!this.showPartyColor && !this.showTractBoundaries) return null;
+    if (this.tractPartyByGeoid != null && Object.keys(this.tractPartyByGeoid).length > 0) return null;
+    return 'Party data not loaded for this state. Run tract party persistence (POST /api/algorithm/tract-party-persistence).';
   }
 
   /** Interpolate color by party: pctDem 0 = red (R), 0.5 = light gray, 1 = blue (D). */

@@ -1248,6 +1248,70 @@ class VESTDataLoader {
   }
 
   /**
+   * Build tract-level party data from county-level VEST data by allocating county
+   * votes to tracts (spatial intersection or county fallback). Use when loadVESTData
+   * returns countyData but empty data (e.g. countypres file only).
+   * @param {number} year - VEST year (e.g. 2020)
+   * @param {string|null} apiBaseUrl - Backend base URL for tract boundaries (optional)
+   * @returns {Promise<{ data: object, countyData?: object, metadata: object }>}
+   */
+  async buildTractDataFromCountyVEST(year, apiBaseUrl = null) {
+    const vestData = await this.loadVESTData(year);
+    if (vestData.data && Object.keys(vestData.data).length > 0) {
+      return vestData;
+    }
+    if (!vestData.countyData || Object.keys(vestData.countyData).length === 0) {
+      return vestData;
+    }
+    const stateFipsMap = {
+      '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
+      '08': 'CO', '09': 'CT', '10': 'DE', '11': 'DC', '12': 'FL', '13': 'GA',
+      '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
+      '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
+      '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
+      '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
+      '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
+      '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
+      '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
+      '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY'
+    };
+    const stateFipsInCountyData = new Set();
+    for (const c of Object.values(vestData.countyData)) {
+      if (c.stateFips) stateFipsInCountyData.add(String(c.stateFips).padStart(2, '0'));
+    }
+    const spatialAnalyzer = require('./spatial-analyzer');
+    const data = {};
+    let totalTracts = 0;
+    for (const stateFips of stateFipsInCountyData) {
+      const stateCode = stateFipsMap[stateFips];
+      if (!stateCode) continue;
+      try {
+        const boundaries = await spatialAnalyzer.loadTractBoundaries(stateCode, apiBaseUrl);
+        const geoids = (boundaries.features || []).map(f => spatialAnalyzer.getTractGeoid(f)).filter(Boolean);
+        if (geoids.length === 0) continue;
+        const tractResults = await this.getTractData(geoids, year, apiBaseUrl);
+        for (const [geoid, row] of Object.entries(tractResults)) {
+          data[geoid] = row;
+          totalTracts++;
+        }
+        console.log(`✅ County→tract allocation: ${stateCode} ${geoids.length} tracts`);
+      } catch (err) {
+        console.warn(`⚠️ Skipped ${stateCode}: ${err.message}`);
+      }
+    }
+    return {
+      data,
+      countyData: vestData.countyData,
+      metadata: {
+        year,
+        totalTracts,
+        dataType: 'county_allocated',
+        processedAt: new Date().toISOString(),
+      }
+    };
+  }
+
+  /**
    * Get status of VEST data availability
    */
   async getStatus() {

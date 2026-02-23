@@ -810,6 +810,12 @@
     .status-value {
       font-weight: 500;
     }
+    .party-data-unavailable {
+      margin-left: 8px;
+      font-size: 0.8rem;
+      color: var(--mat-sys-on-surface-variant, #42474E);
+      font-style: italic;
+    }
   }
 }
 
