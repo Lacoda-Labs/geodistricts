@@ -28,8 +28,9 @@ import { environment } from '../../environments/environment';
 
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 
-/** Fill opacity for district/tract polygons on the map. 1 = no transparency; use 0.7 for the previous transparent look. */
-const POLYGON_FILL_OPACITY = 1;
+/** Fill opacity for district/tract polygons: 1 = solid, 0.5 = 50%. Toggled by map overlay button. */
+const POLYGON_OPACITY_SOLID = 1;
+const POLYGON_OPACITY_HALF = 0.5;
 
 declare global {
   interface Window {
@@ -61,6 +62,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedState: string = '';
   showTractBoundaries: boolean = false;
   showDivisionLines: boolean = false;
+  /** Polygon fill opacity: 1 = solid, 0.5 = 50%. Toggled by map overlay button. */
+  polygonFillOpacity: number = POLYGON_OPACITY_SOLID;
   isLoading: boolean = false;
   errorMessage: string = '';
   canRunNextStep: boolean = false;
@@ -474,11 +477,29 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         divisionButton.style.justifyContent = 'center';
         divisionButton.style.textDecoration = 'none';
         divisionButton.style.color = '#333';
+        divisionButton.style.borderBottom = '1px solid rgba(0,0,0,0.1)';
 
         const divisionIcon = L.DomUtil.create('span', 'material-icons', divisionButton);
         divisionIcon.innerHTML = 'show_chart';
         divisionIcon.style.fontSize = '18px';
         divisionIcon.style.lineHeight = '1';
+
+        // Polygon opacity toggle button (50% vs solid)
+        const opacityButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
+        opacityButton.href = '#';
+        opacityButton.title = 'Toggle polygon opacity (50% / solid)';
+        opacityButton.style.width = '30px';
+        opacityButton.style.height = '30px';
+        opacityButton.style.display = 'flex';
+        opacityButton.style.alignItems = 'center';
+        opacityButton.style.justifyContent = 'center';
+        opacityButton.style.textDecoration = 'none';
+        opacityButton.style.color = '#333';
+
+        const opacityIcon = L.DomUtil.create('span', 'material-icons', opacityButton);
+        opacityIcon.innerHTML = 'opacity';
+        opacityIcon.style.fontSize = '18px';
+        opacityIcon.style.lineHeight = '1';
 
         // Update button states
         const updateButtonStates = () => {
@@ -496,6 +517,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             divisionButton.style.backgroundColor = 'transparent';
             divisionButton.style.color = '#333';
+          }
+
+          if (component.polygonFillOpacity < 1) {
+            opacityButton.style.backgroundColor = '#1976d2';
+            opacityButton.style.color = 'white';
+          } else {
+            opacityButton.style.backgroundColor = 'transparent';
+            opacityButton.style.color = '#333';
           }
         };
 
@@ -534,6 +563,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           component.showDivisionLines = !component.showDivisionLines;
           component.renderDivisionLines();
           component.updateDivisionLineAndLabels();
+          updateButtonStates();
+        });
+
+        // Polygon opacity button click handler (50% vs solid)
+        L.DomEvent.on(opacityButton, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          component.polygonFillOpacity = component.polygonFillOpacity === POLYGON_OPACITY_SOLID ? POLYGON_OPACITY_HALF : POLYGON_OPACITY_SOLID;
+          component.updateMapLayers();
           updateButtonStates();
         });
 
@@ -686,8 +724,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         layer.setStyle({
           color: this.showTractBoundaries ? '#000000' : districtColor,
           weight: this.showTractBoundaries ? 0.5 : 0.3,
-          opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
-          fillOpacity: POLYGON_FILL_OPACITY,
+          opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+          fillOpacity: this.polygonFillOpacity,
           fillColor: districtColor
         });
       });
@@ -2819,8 +2857,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
-        fillOpacity: POLYGON_FILL_OPACITY,
+        opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+        fillOpacity: this.polygonFillOpacity,
         fillColor: tractColor
       });
     });
@@ -2850,8 +2888,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (layer as any).setStyle({
         weight: normalWeight,
         color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : POLYGON_FILL_OPACITY,
-        fillOpacity: POLYGON_FILL_OPACITY,
+        opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+        fillOpacity: this.polygonFillOpacity,
         fillColor: tractColor
       });
     });
@@ -3283,7 +3321,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             color,
             weight: 2,
             opacity: 1.0,
-            fillOpacity: POLYGON_FILL_OPACITY,
+            fillOpacity: this.polygonFillOpacity,
             fillColor: color
           }
         }).bindPopup(`<strong>District ${index + 1}</strong>`);
@@ -3403,7 +3441,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
         ? this.colorToGrayscale(baseColor) 
         : baseColor;
-      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : POLYGON_FILL_OPACITY;
+      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : this.polygonFillOpacity;
 
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
@@ -3503,7 +3541,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               borderWeight = 3;
               borderColor = '#ffffff';
             }
-            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : POLYGON_FILL_OPACITY);
+            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : this.polygonFillOpacity);
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
@@ -3511,7 +3549,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 color: borderColor,
                 weight: borderWeight,
                 opacity: borderOpacityVal,
-                fillOpacity: POLYGON_FILL_OPACITY,
+                fillOpacity: this.polygonFillOpacity,
                 fillColor: tractColor
               }
             }).bindPopup(`
