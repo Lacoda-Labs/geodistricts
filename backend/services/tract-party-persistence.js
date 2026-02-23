@@ -1,12 +1,16 @@
 /**
  * Tract-level party percentage persistence: load VEST data by state,
  * write to Firestore (and Cloud Storage for large payloads), and read back.
+ * When USE_LOCAL_CACHE, uses local file cache only.
  * Used by index.js routes and by vest-party.test.js.
  */
 
 const { Firestore } = require('@google-cloud/firestore');
 const cloudStorageCache = require('./cloud-storage-cache');
+const localCache = require('../local-cache');
 const vestDataLoader = require('./vest-data-loader');
+
+const USE_LOCAL_CACHE = process.env.NODE_ENV !== 'production' || process.env.USE_LOCAL_CACHE === 'true';
 
 const CACHE_VERSION = '1.0';
 const FIRESTORE_DOC_SIZE_LIMIT = 1024 * 1024; // 1 MiB
@@ -45,6 +49,13 @@ const STATE_FIPS_TO_CODE = {
 async function loadTractPartyForState(state, year) {
   const key = `tract_party_${state.toUpperCase()}_${year}`;
   try {
+    if (USE_LOCAL_CACHE) {
+      const data = await localCache.getFromCache(key);
+      if (!data) return null;
+      if (data.geoids && typeof data.geoids === 'object') return data.geoids;
+      if (data.data && typeof data.data === 'object' && data.data.geoids) return data.data.geoids;
+      return null;
+    }
     const db = getFirestore();
     const doc = await db.collection('census_cache').doc(key).get();
     if (!doc.exists) return null;
@@ -102,45 +113,62 @@ async function runTractPartyPersistenceJob(year, options = {}) {
         totalVotes: row.total_votes_pres ?? 0
       };
     }
-    const db = getFirestore();
-    for (const [stateCode, geoids] of Object.entries(byState)) {
-      const tractCount = Object.keys(geoids).length;
-      if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
-      const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
-      const key = `tract_party_${stateCode}_${year}`;
-      const jsonSize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
-      try {
-        if (jsonSize >= FIRESTORE_DOC_SIZE_LIMIT) {
-          const path = await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
-          await db.collection('census_cache').doc(key).set({
-            cloudStoragePath: path,
-            cloudStorage: true,
-            timestamp: Date.now(),
-            ttl: null,
-            version: CACHE_VERSION,
-            source: 'vest-tract-party-persistence',
-            state: stateCode,
-            year,
-            tractCount,
-            size: jsonSize
-          });
-        } else {
-          await db.collection('census_cache').doc(key).set({
-            geoids,
-            year,
-            state: stateCode,
-            tractCount,
-            timestamp: Date.now(),
-            ttl: null,
-            version: CACHE_VERSION,
-            source: 'vest-tract-party-persistence'
-          });
+    if (USE_LOCAL_CACHE) {
+      for (const [stateCode, geoids] of Object.entries(byState)) {
+        const tractCount = Object.keys(geoids).length;
+        if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
+        const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
+        const key = `tract_party_${stateCode}_${year}`;
+        try {
+          await localCache.setCache(key, payload, null);
+          statesWritten.push(stateCode);
+          console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts) to local cache`);
+        } catch (writeErr) {
+          console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
+          statesSkipped.push(stateCode);
         }
-        statesWritten.push(stateCode);
-        console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts)`);
-      } catch (writeErr) {
-        console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
-        statesSkipped.push(stateCode);
+      }
+    } else {
+      const db = getFirestore();
+      for (const [stateCode, geoids] of Object.entries(byState)) {
+        const tractCount = Object.keys(geoids).length;
+        if (tractCount === 0) { statesSkipped.push(stateCode); continue; }
+        const payload = { geoids, year, state: stateCode, tractCount, timestamp: Date.now() };
+        const key = `tract_party_${stateCode}_${year}`;
+        const jsonSize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+        try {
+          if (jsonSize >= FIRESTORE_DOC_SIZE_LIMIT) {
+            const path = await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
+            await db.collection('census_cache').doc(key).set({
+              cloudStoragePath: path,
+              cloudStorage: true,
+              timestamp: Date.now(),
+              ttl: null,
+              version: CACHE_VERSION,
+              source: 'vest-tract-party-persistence',
+              state: stateCode,
+              year,
+              tractCount,
+              size: jsonSize
+            });
+          } else {
+            await db.collection('census_cache').doc(key).set({
+              geoids,
+              year,
+              state: stateCode,
+              tractCount,
+              timestamp: Date.now(),
+              ttl: null,
+              version: CACHE_VERSION,
+              source: 'vest-tract-party-persistence'
+            });
+          }
+          statesWritten.push(stateCode);
+          console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts)`);
+        } catch (writeErr) {
+          console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
+          statesSkipped.push(stateCode);
+        }
       }
     }
     return { statesWritten, statesSkipped };

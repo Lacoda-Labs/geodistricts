@@ -37,6 +37,25 @@ The system automatically selects the cache mode based on:
    - `NODE_ENV === 'production'` AND
    - `USE_LOCAL_CACHE !== 'true'`
 
+## Local-Only Data (dev/maps on localhost)
+
+When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE_LOCAL_CACHE=true`), **all** backend cache data uses only the local filesystem. No Firestore or Cloud Storage is used for:
+
+- Census API cache (tract boundaries, tract data, counties)
+- VEST processed data (vest-data-loader)
+- Algorithm step cache and state tract cache (algorithm_step_*, state_tracts_*, etc.)
+- Tract-party persistence and district-party cache
+- Union polygon cache keys stored in census_cache
+
+The server can start **without GCP credentials** in this mode. Firestore and Cloud Storage are not initialized until a code path that requires them runs (i.e. when `USE_LOCAL_CACHE` is false).
+
+### Risks and considerations
+
+- **Disk space**: Local cache can grow with state tracts, step data, and VEST data. Clear `backend/data/census-cache/` (and optionally `backend/data/vest/`) if needed.
+- **Large payloads**: Single JSON files (e.g. for large states) have no built-in size cap. Monitor disk usage for very large states (e.g. CA, TX).
+- **Dev vs production**: Data in local cache is not in GCP. Switching from local to Firestore (or vice versa) does not migrate data; repopulate or clear as needed.
+- **Listing/querying**: Listing cache keys uses the local cache directory (e.g. for algorithm step invalidation). Some Firestore-style queries are emulated via key prefix and loading docs.
+
 ## Local File Cache Benefits
 
 - ✅ **No external dependencies** - No need for Firestore or cloud services

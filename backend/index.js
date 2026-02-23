@@ -20,6 +20,10 @@ const logger = require('./utils/logger');
 const { simplifyUnionGeometry } = require('./utils/geometry-simplify');
 require('dotenv').config();
 
+// Cache mode: when true, all backend cache (census, VEST, algorithm steps, tract-party) uses local filesystem only
+const USE_LOCAL_CACHE = process.env.NODE_ENV !== 'production' || process.env.USE_LOCAL_CACHE === 'true';
+console.log(`🗂️ Cache mode: ${USE_LOCAL_CACHE ? 'LOCAL FILES' : 'FIRESTORE'}`);
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -30,22 +34,32 @@ if (global.gc) {
   logger.debug('Garbage collection is not available - consider running with --expose-gc');
 }
 
-// Initialize Firestore (for production)
-const firestore = new Firestore({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
-});
+// Firestore: lazy init only when not using local cache (dev can start without GCP credentials)
+let _firestore = null;
+function getFirestore() {
+  if (_firestore === null && !USE_LOCAL_CACHE) {
+    _firestore = new Firestore({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
+    });
+  }
+  return _firestore;
+}
 
 /**
- * Test Firestore and Cloud Storage access on startup
+ * Test Firestore and Cloud Storage access on startup. Skipped when USE_LOCAL_CACHE (dev runs without GCP).
  */
 async function testFirestoreAccess() {
+  if (USE_LOCAL_CACHE) {
+    logger.info('🗂️ Skipping Firestore/Cloud Storage test (local cache mode)');
+    return;
+  }
   try {
     logger.debug('🔍 Testing Firestore access...');
     logger.debug(`   Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'}`);
     logger.debug(`   GOOGLE_APPLICATION_CREDENTIALS: ${process.env.GOOGLE_APPLICATION_CREDENTIALS || 'not set'}`);
     
-    // Try to access Firestore - this will fail if credentials aren't available
-    const testDoc = await firestore.collection('census_cache').doc('_startup_test').get();
+    const firestore = getFirestore();
+    const testDoc = await getFirestore().collection('census_cache').doc('_startup_test').get();
     logger.info('✅ Firestore access verified - credentials are available');
     
     // Test Cloud Storage access (non-blocking - will fallback to Firestore if unavailable)
@@ -84,10 +98,6 @@ async function testFirestoreAccess() {
 const secretClient = new SecretManagerServiceClient();
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts';
 const CENSUS_API_KEY_SECRET_NAME = 'census-api-key-v2';
-
-// Determine cache mode based on environment
-const USE_LOCAL_CACHE = process.env.NODE_ENV !== 'production' || process.env.USE_LOCAL_CACHE === 'true';
-console.log(`🗂️ Cache mode: ${USE_LOCAL_CACHE ? 'LOCAL FILES' : 'FIRESTORE'}`);
 
 // Census API Configuration
 const CENSUS_API_BASE = 'https://api.census.gov/data';
@@ -388,15 +398,13 @@ async function getFromCache(key) {
         console.log(`🔍 FIRESTORE CACHE: Checking cache for key: ${key}`);
       }
       
-      const doc = await firestore.collection('census_cache').doc(key).get();
+      const data = await getCacheDoc(key);
       
-      if (doc.exists) {
-        const data = doc.data();
-        
+      if (data) {
         // Check if expired
         if (isCacheExpired(data.timestamp, data.ttl)) {
           console.log(`⏰ FIRESTORE CACHE: Cache expired for key: ${key}, deleting`);
-          await firestore.collection('census_cache').doc(key).delete();
+          await deleteCacheDoc(key);
           // Also delete from Cloud Storage if it exists there
           if (data.cloudStoragePath) {
             try {
@@ -411,7 +419,7 @@ async function getFromCache(key) {
         // Check version
         if (data.version !== CACHE_VERSION) {
           console.log(`🔄 FIRESTORE CACHE: Cache version mismatch for key: ${key}, deleting`);
-          await firestore.collection('census_cache').doc(key).delete();
+          await deleteCacheDoc(key);
           if (data.cloudStoragePath) {
             try {
               await cloudStorageCache.delete(key);
@@ -436,7 +444,7 @@ async function getFromCache(key) {
           } else {
             // Cloud Storage file missing, clean up Firestore reference
             console.warn(`⚠️ Cloud Storage file missing for ${key}, cleaning up Firestore reference`);
-            await firestore.collection('census_cache').doc(key).delete();
+            await deleteCacheDoc(key);
             return null;
           }
         }
@@ -516,7 +524,7 @@ async function setCache(key, data, ttl = CACHE_TTL) {
           storedIn: 'cloud-storage'
         };
         
-        const docRef = firestore.collection('census_cache').doc(key);
+        const docRef = getFirestore().collection('census_cache').doc(key);
         await docRef.set(cacheEntry);
         
         console.log(`✅ CLOUD STORAGE: Successfully cached ${dataSizeMB} MB for key: ${key}`);
@@ -536,7 +544,7 @@ async function setCache(key, data, ttl = CACHE_TTL) {
           storedIn: 'firestore'
         };
         
-        const docRef = firestore.collection('census_cache').doc(key);
+        const docRef = getFirestore().collection('census_cache').doc(key);
         await docRef.set(cacheEntry);
         
         console.log(`✅ FIRESTORE CACHE: Successfully cached data for key: ${key}, size: ${dataSize} bytes`);
@@ -548,6 +556,112 @@ async function setCache(key, data, ttl = CACHE_TTL) {
       console.error('❌ CACHE ERROR:', error);
     }
   }
+}
+
+/**
+ * Get a single census_cache document by key. When USE_LOCAL_CACHE, reads from local file cache.
+ * When not local, reads from Firestore and resolves Cloud Storage payload if present.
+ * @param {string} key - Document ID (e.g. algorithm_step_CA_100_1, state_tracts_CA)
+ * @returns {Promise<object|null>} Document data or null
+ */
+async function getCacheDoc(key) {
+  if (USE_LOCAL_CACHE) {
+    return await localCache.getFromCache(key);
+  }
+  const firestore = getFirestore();
+  const doc = await firestore.collection('census_cache').doc(key).get();
+  if (!doc.exists) return null;
+  const data = doc.data();
+  if (data.cloudStoragePath) {
+    try {
+      const cloudData = await cloudStorageCache.get(key);
+      if (cloudData && cloudData.data) return cloudData.data;
+    } catch (err) {
+      console.warn(`⚠️ getCacheDoc: Failed to load from Cloud Storage (${key}): ${err.message}`);
+    }
+    return data;
+  }
+  return data;
+}
+
+/**
+ * Set a census_cache document. When USE_LOCAL_CACHE, writes to local file cache only.
+ * When not local, writes to Firestore (or Cloud Storage + metadata for large payloads).
+ * @param {string} key - Document ID
+ * @param {object} data - Full document payload
+ * @param {{ ttl?: number }} options - Optional; ttl for expiry
+ */
+async function setCacheDoc(key, data, options = {}) {
+  if (USE_LOCAL_CACHE) {
+    return await localCache.setCache(key, data, options.ttl ?? null);
+  }
+  const firestore = getFirestore();
+  const FIRESTORE_INDEX_ERROR = 'too many index entries';
+  const sizeBytes = JSON.stringify(data).length;
+  try {
+    await getFirestore().collection('census_cache').doc(key).set(data);
+    return;
+  } catch (err) {
+    const isIndexError = err.message && err.message.includes(FIRESTORE_INDEX_ERROR);
+    const isInvalidArg = err.code === 3 || (err.message && err.message.includes('INVALID_ARGUMENT'));
+    if (!isIndexError && !isInvalidArg) throw err;
+  }
+  const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+  console.log(`📦 CLOUD STORAGE: Doc too large for Firestore (${sizeMB} MB), storing in Cloud Storage: ${key}`);
+  const cloudStoragePath = await cloudStorageCache.set(key, data, {
+    source: 'census-cache-doc',
+    key
+  });
+  const metadataEntry = {
+    cloudStoragePath,
+    cloudStorage: true,
+    timestamp: data.timestamp != null ? data.timestamp : Date.now(),
+    ttl: data.ttl != null ? data.ttl : options.ttl ?? null
+  };
+  await getFirestore().collection('census_cache').doc(key).set(metadataEntry);
+}
+
+/**
+ * Delete a census_cache document. When USE_LOCAL_CACHE, deletes from local file cache.
+ * When not local, deletes from Firestore and Cloud Storage if present.
+ * @param {string} key - Document ID
+ */
+async function deleteCacheDoc(key) {
+  if (USE_LOCAL_CACHE) {
+    return await localCache.deleteCacheEntry(key);
+  }
+  const firestore = getFirestore();
+  const docSnap = await firestore.collection('census_cache').doc(key).get();
+  if (docSnap.exists) {
+    const data = docSnap.data();
+    if (data.cloudStoragePath) {
+      try {
+        await cloudStorageCache.delete(key);
+      } catch (e) {
+        // ignore
+      }
+    }
+    await firestore.collection('census_cache').doc(key).delete();
+  }
+}
+
+/**
+ * List census_cache document IDs, optionally filtered by key prefix. Used for emulating Firestore queries in local mode.
+ * @param {string} [prefix] - If provided, only return keys that start with prefix
+ * @returns {Promise<string[]>}
+ */
+async function listCacheDocIds(prefix) {
+  if (USE_LOCAL_CACHE) {
+    const info = await localCache.getCacheInfo();
+    let keys = info.map(i => i.key);
+    if (prefix) keys = keys.filter(k => k.startsWith(prefix));
+    return keys;
+  }
+  const firestore = getFirestore();
+  const snapshot = await getFirestore().collection('census_cache').get();
+  let ids = snapshot.docs.map(d => d.id);
+  if (prefix) ids = ids.filter(k => k.startsWith(prefix));
+  return ids;
 }
 
 /**
@@ -1157,7 +1271,7 @@ app.get('/api/test/cache', async (req, res) => {
       const testKey = 'test_' + Date.now();
       const testData = { message: 'Hello Firestore!', timestamp: new Date().toISOString() };
       
-      await firestore.collection('census_cache').doc(testKey).set({
+      await setCacheDoc(testKey, {
         data: testData,
         timestamp: Date.now(),
         ttl: 300000, // 5 minutes
@@ -1169,13 +1283,13 @@ app.get('/api/test/cache', async (req, res) => {
       console.log('✅ Firestore write test successful');
       
       // Test read
-      const doc = await firestore.collection('census_cache').doc(testKey).get();
+      const retrieved = await getCacheDoc(testKey);
       
-      if (doc.exists) {
+      if (retrieved) {
         console.log('✅ Firestore read test successful');
         
         // Clean up test document
-        await firestore.collection('census_cache').doc(testKey).delete();
+        await deleteCacheDoc(testKey);
         console.log('✅ Firestore delete test successful');
         
         res.json({
@@ -1855,13 +1969,14 @@ app.delete('/api/census/cache', async (req, res) => {
     } else {
       if (key) {
         // Clear specific cache entry
-        await firestore.collection('census_cache').doc(key).delete();
+        await deleteCacheDoc(key);
         res.json({ 
           message: `Cache entry ${key} cleared`,
           cacheMode: 'FIRESTORE'
         });
       } else {
         // Clear all cache entries
+        const firestore = getFirestore();
         const snapshot = await firestore.collection('census_cache').get();
         const batch = firestore.batch();
         
@@ -1903,7 +2018,7 @@ app.get('/api/census/cache-info', async (req, res) => {
         totalEntries: cacheInfo.length
       });
     } else {
-      const snapshot = await firestore.collection('census_cache').get();
+      const snapshot = await getFirestore().collection('census_cache').get();
       const cacheInfo = [];
       
       snapshot.docs.forEach(doc => {
@@ -2002,10 +2117,42 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
     const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
     
     // Store state-level tract cache (tract geometries)
-    // Use Cloud Storage for large files (> 1MB) instead of Firestore chunking
+    const stateTractCacheKey = `state_tracts_${stateCode}`;
+
+    if (USE_LOCAL_CACHE) {
+      await setCacheDoc(stateTractCacheKey, finalTractMap);
+      const algorithmCacheEntry = {
+        data: normalizedResult,
+        timestamp: Date.now(),
+        ttl: ttl === null ? null : (ttl || CACHE_TTL),
+        version: CACHE_VERSION,
+        algorithmVersion: algorithmVersion,
+        source: 'algorithm-cache',
+        normalized: true,
+        state: stateCode,
+        tractCacheKey: stateTractCacheKey
+      };
+      await setCacheDoc(cacheKey, algorithmCacheEntry);
+      const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+      const originalSizeMB = (JSON.stringify(divisionResult).length / (1024 * 1024)).toFixed(2);
+      const normalizedSizeMB = (normalizedSize / (1024 * 1024)).toFixed(2);
+      console.log(`💾 LOCAL CACHE: Cached algorithm result for key: ${cacheKey} and ${finalTractMap.length} tracts for state ${stateCode}`);
+      return {
+        success: true,
+        cacheKey,
+        stateTractCacheKey,
+        sizes: {
+          originalMB: parseFloat(originalSizeMB),
+          normalizedMB: parseFloat(normalizedSizeMB),
+          tractCacheMB: parseFloat(tractCacheSizeMB),
+          compressionRatio: tractCacheSize && normalizedSize ? (normalizedSize / tractCacheSize).toFixed(2) : '0',
+          tractCount: finalTractMap.length
+        }
+      };
+    }
+
     const FIRESTORE_MAX_SIZE = 1024 * 1024; // 1MB
     let useCloudStorage = tractCacheSize > FIRESTORE_MAX_SIZE;
-    const stateTractCacheKey = `state_tracts_${stateCode}`;
     
     if (useCloudStorage) {
       // Store in Cloud Storage (no size limit, no chunking needed)
@@ -2035,7 +2182,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
           sizeMB: parseFloat(tractCacheSizeMB)
         };
         
-        const metadataDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        const metadataDocRef = getFirestore().collection('census_cache').doc(stateTractCacheKey);
         await metadataDocRef.set(metadataEntry);
         
         console.log(`💾 CLOUD STORAGE: Stored ${tractCacheSizeMB} MB tract cache for state ${stateCode} at ${cloudStoragePath}`);
@@ -2138,6 +2285,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
         }
         
         // Store each chunk as a separate document
+        const firestore = getFirestore();
         const batch = firestore.batch();
         for (let i = 0; i < chunks.length; i++) {
           const chunkKey = `${stateTractCacheKey}_chunk_${i}`;
@@ -2159,7 +2307,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
         }
         
         // Store metadata document with chunk references
-        const metadataDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        const metadataDocRef = getFirestore().collection('census_cache').doc(stateTractCacheKey);
         const metadataEntry = {
           timestamp: Date.now(),
           ttl: null,
@@ -2189,7 +2337,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
           tractCount: finalTractMap.length,
           chunked: false
         };
-        const stateTractDocRef = firestore.collection('census_cache').doc(stateTractCacheKey);
+        const stateTractDocRef = getFirestore().collection('census_cache').doc(stateTractCacheKey);
         await stateTractDocRef.set(stateTractCacheEntry);
       }
     }
@@ -2242,7 +2390,7 @@ async function cacheAlgorithmResult(cacheKey, divisionResult, stateCode, algorit
     // Note: State tract cache was already stored above (either as chunks or single document)
     
     // Store algorithm cache
-    const algorithmDocRef = firestore.collection('census_cache').doc(cacheKey);
+    const algorithmDocRef = getFirestore().collection('census_cache').doc(cacheKey);
     await algorithmDocRef.set(algorithmCacheEntry, { ignoreUndefinedProperties: true });
     
     console.log(`💾 ALGORITHM CACHE (${algorithm}): Cached normalized result for key: ${cacheKey} and ${finalTractMap.length} tracts for state ${stateCode}`);
@@ -2379,9 +2527,9 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
     // Algorithm cache always uses Firestore (shared between localhost and production)
     let cachedEntry;
     logger.debug(`🔍 FIRESTORE ALGORITHM CACHE: Checking Firestore for key: ${cacheKey}`);
-    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    const doc = await getCacheDoc(cacheKey);
     
-    if (!doc.exists) {
+    if (!doc) {
       logger.debug(`❌ FIRESTORE ALGORITHM CACHE: No document found for key: ${cacheKey}`);
       cachedEntry = null;
     } else {
@@ -2390,7 +2538,7 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
       // Check if expired
       if (isCacheExpired(data.timestamp, data.ttl)) {
         logger.debug(`⏰ FIRESTORE ALGORITHM CACHE: Cache expired for key: ${cacheKey}, deleting`);
-        await firestore.collection('census_cache').doc(cacheKey).delete();
+        await deleteCacheDoc(cacheKey);
         cachedEntry = null;
       } else {
         logger.debug(`✅ FIRESTORE ALGORITHM CACHE HIT: Retrieved data for key: ${cacheKey}`);
@@ -2410,7 +2558,7 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
       if (!cachedVersion) {
         console.log(`🔄 ALGORITHM VERSION MISSING (${algorithm}): Old cache entry without version. Invalidating.`);
         // Delete the outdated cache entry (always use Firestore for algorithm cache)
-        await firestore.collection('census_cache').doc(cacheKey).delete();
+        await deleteCacheDoc(cacheKey);
         return res.json({
           status: 'miss',
           cached: false,
@@ -2424,7 +2572,7 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
       if (cachedVersion !== currentVersion) {
         console.log(`🔄 ALGORITHM VERSION MISMATCH (${algorithm}): Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache.`);
         // Delete the outdated cache entry (always use Firestore for algorithm cache)
-        await firestore.collection('census_cache').doc(cacheKey).delete();
+        await deleteCacheDoc(cacheKey);
         return res.json({
           status: 'miss',
           cached: false,
@@ -2439,9 +2587,8 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
       if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
         // Fetch state-level tract cache metadata (always uses Firestore)
         let stateTractCache;
-        const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
-        if (stateTractDoc.exists) {
-          const stateTractData = stateTractDoc.data();
+        const stateTractData = await getCacheDoc(cachedEntry.tractCacheKey);
+        if (stateTractData) {
           if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
             stateTractCache = stateTractData;
           }
@@ -2470,15 +2617,15 @@ app.get('/api/algorithm/cache/:cacheKey', async (req, res) => {
           // Fetch all chunks and combine
           console.log(`📦 FIRESTORE: Fetching ${stateTractCache.totalChunks} tract cache chunks...`);
           const chunkPromises = stateTractCache.chunkKeys.map(chunkKey => 
-            firestore.collection('census_cache').doc(chunkKey).get()
+            getCacheDoc(chunkKey)
           );
           const chunkDocs = await Promise.all(chunkPromises);
           
           // Combine all chunks into single array
           const allTracts = [];
           for (const chunkDoc of chunkDocs) {
-            if (chunkDoc.exists) {
-              const chunkData = chunkDoc.data();
+            if (chunkDoc) {
+              const chunkData = chunkDoc;
               if (chunkData.data && Array.isArray(chunkData.data)) {
                 allTracts.push(...chunkData.data);
               }
@@ -2579,13 +2726,14 @@ app.delete('/api/algorithm/cache', async (req, res) => {
       }
     } else {
       if (key) {
-        await firestore.collection('census_cache').doc(key).delete();
+        await deleteCacheDoc(key);
         res.json({
           message: `Latlong cache entry ${key} cleared`,
           cacheMode: 'FIRESTORE'
         });
       } else {
         // Delete all latlong cache entries (those with 'latlong_division' prefix)
+        const firestore = getFirestore();
         const snapshot = await firestore.collection('census_cache')
           .where('source', '==', 'latlong-division-cache')
           .get();
@@ -2670,9 +2818,9 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
     console.log(`🔍 LATLONG CACHE CHECK: Key=${cacheKey}`);
 
     // Use Firestore for latlong cache (same as algorithm cache)
-    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    const doc = await getCacheDoc(cacheKey);
     
-    if (!doc.exists) {
+    if (!doc) {
       console.log(`❌ LATLONG CACHE MISS: No document found for key: ${cacheKey}`);
       return res.json({
         status: 'miss',
@@ -2685,7 +2833,7 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
     // Check if expired
     if (isCacheExpired(data.timestamp, data.ttl)) {
       console.log(`⏰ LATLONG CACHE EXPIRED: Cache expired for key: ${cacheKey}, deleting`);
-      await firestore.collection('census_cache').doc(cacheKey).delete();
+      await deleteCacheDoc(cacheKey);
       return res.json({
         status: 'miss',
         cached: false,
@@ -2700,7 +2848,7 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
       
       if (cachedVersion !== currentVersion) {
         console.log(`🔄 LATLONG CACHE VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating.`);
-        await firestore.collection('census_cache').doc(cacheKey).delete();
+        await deleteCacheDoc(cacheKey);
         return res.json({
           status: 'miss',
           cached: false,
@@ -2716,9 +2864,9 @@ app.get('/api/algorithm/latlong/cache/:cacheKey', async (req, res) => {
     
     if (data.normalized && data.tractCacheKey) {
       // Fetch state-level tract cache and reconstruct
-      const stateTractDoc = await firestore.collection('census_cache').doc(data.tractCacheKey).get();
-      if (stateTractDoc.exists) {
-        const stateTractData = stateTractDoc.data();
+      const stateTractDoc = await getCacheDoc(data.tractCacheKey);
+      if (stateTractDoc) {
+        const stateTractData = stateTractDoc;
         if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
           // Reconstruct full result with tract geometries
           // This is simplified - full implementation would reconstruct from normalized format
@@ -2769,7 +2917,7 @@ app.post('/api/algorithm/latlong/cache', async (req, res) => {
       source: 'latlong-division-cache'
     };
 
-    await firestore.collection('census_cache').doc(cacheKey).set(cacheData);
+    await setCacheDoc(cacheKey, cacheData);
 
     console.log(`✅ LATLONG CACHE STORED: Key=${cacheKey}`);
 
@@ -2820,10 +2968,10 @@ app.post('/api/algorithm/execute', async (req, res) => {
     let cachedResult = null;
     
     try {
-      const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+      const doc = await getCacheDoc(cacheKey);
       
-      if (doc.exists) {
-        const cachedEntry = doc.data();
+      if (doc) {
+        const cachedEntry = doc;
         
         // Check if expired
         if (!isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
@@ -2834,13 +2982,13 @@ app.post('/api/algorithm/execute', async (req, res) => {
           // If no version is stored, treat as old cache and invalidate
           if (!cachedVersion) {
             logger.debug(`🔄 ALGORITHM VERSION MISSING: Old cache entry without version. Invalidating and re-executing.`);
-            await firestore.collection('census_cache').doc(cacheKey).delete();
+            await deleteCacheDoc(cacheKey);
             // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
             if (cachedEntry.tractCacheKey) {
               try {
-                const tractCacheDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
-                if (tractCacheDoc.exists) {
-                  const tractCacheData = tractCacheDoc.data();
+                const tractCacheDoc = await getCacheDoc(cachedEntry.tractCacheKey);
+                if (tractCacheDoc) {
+                  const tractCacheData = tractCacheDoc;
                   // Delete from Cloud Storage if it exists there
                   if (tractCacheData?.cloudStoragePath) {
                     try {
@@ -2851,7 +2999,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
                     }
                   }
                   // Delete Firestore metadata
-                  await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).delete();
+                  await deleteCacheDoc(cachedEntry.tractCacheKey);
                   console.log(`🗑️ Deleted state tract cache from Firestore: ${cachedEntry.tractCacheKey}`);
                 }
               } catch (e) {
@@ -2861,13 +3009,13 @@ app.post('/api/algorithm/execute', async (req, res) => {
             shouldExecute = true;
           } else if (cachedVersion !== currentVersion) {
             logger.debug(`🔄 ALGORITHM VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}. Invalidating cache and re-executing.`);
-            await firestore.collection('census_cache').doc(cacheKey).delete();
+            await deleteCacheDoc(cacheKey);
             // Also delete state tract cache if it exists (both Firestore and Cloud Storage)
             if (cachedEntry.tractCacheKey) {
               try {
-                const tractCacheDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
-                if (tractCacheDoc.exists) {
-                  const tractCacheData = tractCacheDoc.data();
+                const tractCacheDoc = await getCacheDoc(cachedEntry.tractCacheKey);
+                if (tractCacheDoc) {
+                  const tractCacheData = tractCacheDoc;
                   // Delete from Cloud Storage if it exists there
                   if (tractCacheData?.cloudStoragePath) {
                     try {
@@ -2878,7 +3026,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
                     }
                   }
                   // Delete Firestore metadata
-                  await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).delete();
+                  await deleteCacheDoc(cachedEntry.tractCacheKey);
                   console.log(`🗑️ Deleted state tract cache from Firestore: ${cachedEntry.tractCacheKey}`);
                 }
               } catch (e) {
@@ -3116,8 +3264,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
           unionPolygonsCached: false
         };
 
-        const stepDocRef = firestore.collection('census_cache').doc(stepCacheKey);
-        await stepDocRef.set(stepCacheEntry);
+        await setCacheDoc(stepCacheKey, stepCacheEntry);
         
         logger.debug(`💾 Cached step ${stepNumber} for ${state} (union polygons will be built when algorithm completes)`);
         if (stepCompleteForUnions) {
@@ -3173,8 +3320,13 @@ app.post('/api/algorithm/execute', async (req, res) => {
       try {
         const finalStepNumber = result.steps.length - 1;
         const finalStepCacheKey = `step_${state}_${finalStepNumber}_${currentVersion}`;
-        const finalStepDocRef = firestore.collection('census_cache').doc(finalStepCacheKey);
-        await finalStepDocRef.update({ isComplete: true });
+        if (USE_LOCAL_CACHE) {
+          const doc = await getCacheDoc(finalStepCacheKey);
+          if (doc) await setCacheDoc(finalStepCacheKey, { ...doc, isComplete: true });
+        } else {
+          const finalStepDocRef = getFirestore().collection('census_cache').doc(finalStepCacheKey);
+          await finalStepDocRef.update({ isComplete: true });
+        }
         logger.debug(`✅ Marked final step ${finalStepNumber} as complete`);
       } catch (error) {
         logger.warn(`⚠️ Failed to mark final step as complete: ${error.message}`);
@@ -3268,9 +3420,9 @@ async function ensureStep0UsesTigerBoundaries(stepData, state, stepNumber, req) 
     let hasValidTigerBoundary = false;
     if (updatedStep0Group.unionPolygon && updatedStep0Group.unionPolygonCacheKey) {
       try {
-        const unionCacheDoc = await firestore.collection('census_cache').doc(updatedStep0Group.unionPolygonCacheKey).get();
-        if (unionCacheDoc.exists) {
-          const metadata = unionCacheDoc.data();
+        const unionCacheDoc = await getCacheDoc(updatedStep0Group.unionPolygonCacheKey);
+        if (unionCacheDoc) {
+          const metadata = unionCacheDoc;
           hasValidTigerBoundary = metadata.tigerBased === true || metadata.source === 'tiger-state-boundary';
         }
       } catch (e) {
@@ -3330,10 +3482,10 @@ async function loadTractsFromStateTractCache(state) {
   const GEOMETRY_COVERAGE_THRESHOLD = 0.95;
 
   try {
-    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-    if (!stateTractDoc.exists) return null;
+    const stateTractDoc = await getCacheDoc(tractCacheKey);
+    if (!stateTractDoc) return null;
 
-    const stateTractData = stateTractDoc.data();
+    const stateTractData = stateTractDoc;
     if (stateTractData.algorithmVersion !== ALGORITHM_VERSION) return null;
     if (isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) return null;
 
@@ -3343,12 +3495,12 @@ async function loadTractsFromStateTractCache(state) {
       if (cloudResult && cloudResult.data) tractMap = cloudResult.data;
     } else if (stateTractData.chunked && stateTractData.chunkKeys) {
       const chunkDocs = await Promise.all(
-        stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+        stateTractData.chunkKeys.map(key => getCacheDoc(key))
       );
       tractMap = [];
       for (const chunkDoc of chunkDocs) {
-        if (chunkDoc.exists && chunkDoc.data().data && Array.isArray(chunkDoc.data().data)) {
-          tractMap.push(...chunkDoc.data().data);
+        if (chunkDoc && chunkDoc.data && Array.isArray(chunkDoc.data)) {
+          tractMap.push(...chunkDoc.data);
         }
       }
     } else if (stateTractData.data && Array.isArray(stateTractData.data)) {
@@ -3494,7 +3646,7 @@ async function cacheAlgorithmState(stateKey, algorithmState) {
           sizeMB: parseFloat(stateSizeMB)
         };
         
-        await firestore.collection('census_cache').doc(cacheKey).set(metadataEntry);
+        await setCacheDoc(cacheKey, metadataEntry);
         console.log(`💾 CLOUD STORAGE: Stored algorithm state for ${stateKey} at ${cloudStoragePath}`);
       } catch (error) {
         console.error(`❌ CLOUD STORAGE: Failed to store algorithm state: ${error.message}`);
@@ -3515,7 +3667,7 @@ async function cacheAlgorithmState(stateKey, algorithmState) {
         sizeMB: parseFloat(stateSizeMB)
       };
       
-      await firestore.collection('census_cache').doc(cacheKey).set(cacheEntry);
+      await setCacheDoc(cacheKey, cacheEntry);
       console.log(`💾 FIRESTORE: Stored algorithm state for ${stateKey} (${stateSizeMB} MB)`);
     }
   } catch (error) {
@@ -3546,13 +3698,13 @@ async function reconstructUniqueTracts(algorithmState) {
   
   try {
     // Get tract cache
-    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-    if (!stateTractDoc.exists) {
+    const stateTractDoc = await getCacheDoc(tractCacheKey);
+    if (!stateTractDoc) {
       console.error(`❌ Tract cache not found: ${tractCacheKey}`);
       return [];
     }
     
-    const stateTractData = stateTractDoc.data();
+    const stateTractData = stateTractDoc;
     let tractMap = null;
     
     // Get tract map from Cloud Storage or Firestore
@@ -3563,12 +3715,12 @@ async function reconstructUniqueTracts(algorithmState) {
       }
     } else if (stateTractData.chunked && stateTractData.chunkKeys) {
       const chunkDocs = await Promise.all(
-        stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+        stateTractData.chunkKeys.map(key => getCacheDoc(key))
       );
       const allTracts = [];
       for (const chunkDoc of chunkDocs) {
-        if (chunkDoc.exists && chunkDoc.data().data) {
-          allTracts.push(...chunkDoc.data().data);
+        if (chunkDoc && chunkDoc.data) {
+          allTracts.push(...chunkDoc.data);
         }
       }
       tractMap = allTracts;
@@ -3648,28 +3800,29 @@ async function getCachedAlgorithmState(stateKey) {
   try {
     const cacheKey = `algorithm_state_${stateKey}`;
     console.log(`🔍 GET-CACHED-STATE: Looking for cached algorithm state with key: ${cacheKey}`);
-    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    const doc = await getCacheDoc(cacheKey);
     
-    if (!doc.exists) {
+    if (!doc) {
       console.log(`⚠️ GET-CACHED-STATE: Algorithm state cache document not found: ${cacheKey}`);
-      // Try to list what documents exist for debugging
-      try {
-        const allDocs = await firestore.collection('census_cache')
-          .where('source', '==', 'algorithm-state-cache-metadata')
-          .where('state', '==', stateKey.split('_')[0])
-          .limit(5)
-          .get();
-        console.log(`🔍 GET-CACHED-STATE: Found ${allDocs.size} algorithm state metadata docs for state ${stateKey.split('_')[0]}`);
-        allDocs.forEach(d => {
-          console.log(`   - Doc ID: ${d.id}, state: ${d.data().state}, size: ${d.data().sizeMB}MB`);
-        });
-      } catch (listError) {
-        console.warn(`⚠️ GET-CACHED-STATE: Could not list docs: ${listError.message}`);
+      if (!USE_LOCAL_CACHE) {
+        try {
+          const allDocs = await getFirestore().collection('census_cache')
+            .where('source', '==', 'algorithm-state-cache-metadata')
+            .where('state', '==', stateKey.split('_')[0])
+            .limit(5)
+            .get();
+          console.log(`🔍 GET-CACHED-STATE: Found ${allDocs.size} algorithm state metadata docs for state ${stateKey.split('_')[0]}`);
+          allDocs.forEach(d => {
+            console.log(`   - Doc ID: ${d.id}, state: ${d.data().state}, size: ${d.data().sizeMB}MB`);
+          });
+        } catch (listError) {
+          console.warn(`⚠️ GET-CACHED-STATE: Could not list docs: ${listError.message}`);
+        }
       }
       return null;
     }
     
-    const cachedEntry = doc.data();
+    const cachedEntry = doc;
     
     console.log(`🔍 GET-CACHED-STATE: Found document, checking validity...`);
     console.log(`   - Has cloudStorage: ${!!cachedEntry.cloudStorage}`);
@@ -3739,10 +3892,10 @@ async function getCachedAlgorithmState(stateKey) {
 async function deleteCachedAlgorithmState(stateKey) {
   try {
     const cacheKey = `algorithm_state_${stateKey}`;
-    const doc = await firestore.collection('census_cache').doc(cacheKey).get();
+    const doc = await getCacheDoc(cacheKey);
     
-    if (doc.exists) {
-      const cachedEntry = doc.data();
+    if (doc) {
+      const cachedEntry = doc;
       
       // Delete from Cloud Storage if applicable
       if (cachedEntry.cloudStorage && cachedEntry.cloudStoragePath) {
@@ -3755,7 +3908,7 @@ async function deleteCachedAlgorithmState(stateKey) {
       }
       
       // Delete from Firestore
-      await firestore.collection('census_cache').doc(cacheKey).delete();
+      await deleteCacheDoc(cacheKey);
       console.log(`🗑️ Deleted algorithm state cache for ${stateKey}`);
     }
   } catch (error) {
@@ -3910,7 +4063,7 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
     state: state,
     polygonCount: 1
   };
-  await firestore.collection('census_cache').doc(stateBoundaryKey).set(metadataEntry);
+  await setCacheDoc(stateBoundaryKey, metadataEntry);
   console.log(`💾 MAP-POLYGONS: Saved state boundary to Cloud Storage (${stateBoundaryKey})`);
   return mainFeature;
 }
@@ -3924,37 +4077,48 @@ async function getMapPolygonsForState(stateCode) {
   let hasFinalStep = false;
   const finalDistrictPolygons = [];
 
-  const [statePolygon, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
-    getOrCreateStateBoundaryInCloudStorage(stateCode),
-    firestore.collection('census_cache').where('state', '==', stateCode).where('isComplete', '==', true).get(),
-    firestore.collection('census_cache').where('state', '==', stateCode).where('source', '==', 'algorithm-step-cache').get(),
-    firestore.collection('census_cache').where('state', '==', stateCode).where('source', '==', 'step-cache').get()
-  ]);
-
+  let statePolygon;
   let finalStepDoc = null;
   let cachedEntry = null;
   let highestStep = -1;
 
-  function considerEntry(doc, entry) {
+  function considerEntry(id, entry) {
     if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
         entry.algorithmVersion === currentVersion &&
         entry.step !== undefined &&
         entry.step > highestStep &&
         entry.unionPolygonsCached === true) {
-      finalStepDoc = doc;
+      finalStepDoc = { id };
       cachedEntry = entry;
       highestStep = entry.step;
     }
   }
 
-  if (!stepCacheSnapshot.empty) {
-    for (const doc of stepCacheSnapshot.docs) considerEntry(doc, doc.data());
-  }
-  if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
-    for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc, doc.data());
-  }
-  if (!finalStepDoc && !stepCacheSnapshot2.empty) {
-    for (const doc of stepCacheSnapshot2.docs) considerEntry(doc, doc.data());
+  if (USE_LOCAL_CACHE) {
+    statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
+    const algoIds = await listCacheDocIds(`algorithm_step_${stateCode}_`);
+    const stepIds = await listCacheDocIds(`step_${stateCode}_`);
+    for (const id of [...algoIds, ...stepIds]) {
+      const entry = await getCacheDoc(id);
+      if (entry) considerEntry(id, entry);
+    }
+  } else {
+    const [statePolygonRes, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
+      getOrCreateStateBoundaryInCloudStorage(stateCode),
+      getFirestore().collection('census_cache').where('state', '==', stateCode).where('isComplete', '==', true).get(),
+      getFirestore().collection('census_cache').where('state', '==', stateCode).where('source', '==', 'algorithm-step-cache').get(),
+      getFirestore().collection('census_cache').where('state', '==', stateCode).where('source', '==', 'step-cache').get()
+    ]);
+    statePolygon = statePolygonRes;
+    if (!stepCacheSnapshot.empty) {
+      for (const doc of stepCacheSnapshot.docs) considerEntry(doc.id, doc.data());
+    }
+    if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
+      for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc.id, doc.data());
+    }
+    if (!finalStepDoc && !stepCacheSnapshot2.empty) {
+      for (const doc of stepCacheSnapshot2.docs) considerEntry(doc.id, doc.data());
+    }
   }
 
   if (finalStepDoc && cachedEntry && cachedEntry.unionPolygonsCached === true) {
@@ -3971,10 +4135,12 @@ async function getMapPolygonsForState(stateCode) {
       }
       if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
     }
-    const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
+    const cacheResults = USE_LOCAL_CACHE
+      ? await Promise.all(unionCacheKeys.map(key => getCacheDoc(key)))
+      : await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
     for (const cacheResult of cacheResults) {
-      if (cacheResult && cacheResult.data) {
-        const unionData = cacheResult.data;
+      const unionData = USE_LOCAL_CACHE ? (cacheResult && (cacheResult.data != null ? cacheResult.data : cacheResult)) : (cacheResult && cacheResult.data);
+      if (unionData) {
         const features = Array.isArray(unionData) ? unionData : [unionData];
         for (const f of features) {
           if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
@@ -4065,18 +4231,27 @@ app.get('/api/algorithm/final-step-states', async (req, res) => {
     const currentVersion = ALGORITHM_VERSION;
     const stateCodesSet = new Set();
 
-    // Query docs with isComplete: true (final steps)
-    const completeQuery = firestore.collection('census_cache')
-      .where('isComplete', '==', true);
-
-    const completeSnapshot = await completeQuery.get();
-
-    for (const doc of completeSnapshot.docs) {
-      const entry = doc.data();
-      if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-          entry.algorithmVersion === currentVersion &&
-          entry.state) {
-        stateCodesSet.add(entry.state);
+    if (USE_LOCAL_CACHE) {
+      const algoIds = await listCacheDocIds('algorithm_step_');
+      const stepIds = await listCacheDocIds('step_');
+      for (const id of [...algoIds, ...stepIds]) {
+        const entry = await getCacheDoc(id);
+        if (entry && entry.isComplete === true &&
+            (entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+            entry.algorithmVersion === currentVersion && entry.state) {
+          stateCodesSet.add(entry.state);
+        }
+      }
+    } else {
+      const completeQuery = getFirestore().collection('census_cache')
+        .where('isComplete', '==', true);
+      const completeSnapshot = await completeQuery.get();
+      for (const doc of completeSnapshot.docs) {
+        const entry = doc.data();
+        if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+            entry.algorithmVersion === currentVersion && entry.state) {
+          stateCodesSet.add(entry.state);
+        }
       }
     }
 
@@ -4140,78 +4315,71 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
     // Query for all completed steps for this state
     // Try both cache key formats: algorithm_step_{state}_{maxIterations}_{step} and step_{state}_{step}_{version}
     try {
-      // First, try to find the highest step number with isComplete: true
-      // Query for steps with source='algorithm-step-cache'
-      // Note: Query by state and isComplete only (no orderBy to avoid index requirement), then filter by source and algorithmVersion in memory
       let finalStepDoc = null;
       let cachedEntry = null;
       let highestStep = -1;
-      
-      const stepCacheQuery = firestore.collection('census_cache')
-        .where('state', '==', state)
-        .where('isComplete', '==', true);
 
-      const stepCacheSnapshot = await stepCacheQuery.get();
-
-      if (!stepCacheSnapshot.empty) {
-        // Find the highest step that matches the current algorithm version and has union polygons cached
-        for (const doc of stepCacheSnapshot.docs) {
-          const entry = doc.data();
-          // Filter by source, algorithm version, unionPolygonsCached, and find the highest step
-          if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-              entry.algorithmVersion === currentVersion &&
-              entry.step !== undefined &&
-              entry.step > highestStep &&
-              entry.unionPolygonsCached === true) {
-            finalStepDoc = doc;
+      if (USE_LOCAL_CACHE) {
+        const algoIds = await listCacheDocIds(`algorithm_step_${state}_`);
+        const stepIds = await listCacheDocIds(`step_${state}_`);
+        for (const id of [...algoIds, ...stepIds]) {
+          const entry = await getCacheDoc(id);
+          if (entry && (entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+              entry.algorithmVersion === currentVersion && entry.step !== undefined &&
+              entry.step > highestStep && entry.unionPolygonsCached === true) {
+            finalStepDoc = { id };
             cachedEntry = entry;
             highestStep = entry.step;
           }
         }
-      }
-
-      // Fallback: If no step with isComplete: true and unionPolygonsCached found, query for all steps for this state
-      if (!finalStepDoc || !cachedEntry) {
-        console.log(`ℹ️ No step with isComplete: true and unionPolygonsCached found, searching for highest step number...`);
-
-        // Try 'algorithm-step-cache' source first
-        const algorithmStepsQuery = firestore.collection('census_cache')
+      } else {
+        const stepCacheQuery = getFirestore().collection('census_cache')
           .where('state', '==', state)
-          .where('source', '==', 'algorithm-step-cache');
-
-        const algorithmStepsSnapshot = await algorithmStepsQuery.get();
-
-        if (!algorithmStepsSnapshot.empty) {
-          for (const doc of algorithmStepsSnapshot.docs) {
+          .where('isComplete', '==', true);
+        const stepCacheSnapshot = await stepCacheQuery.get();
+        if (!stepCacheSnapshot.empty) {
+          for (const doc of stepCacheSnapshot.docs) {
             const entry = doc.data();
-            if (entry.algorithmVersion === currentVersion &&
-                entry.step !== undefined &&
-                entry.step > highestStep &&
-                entry.unionPolygonsCached === true) {
+            if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
+                entry.algorithmVersion === currentVersion && entry.step !== undefined &&
+                entry.step > highestStep && entry.unionPolygonsCached === true) {
               finalStepDoc = doc;
               cachedEntry = entry;
               highestStep = entry.step;
             }
           }
         }
-
-        // Also try 'step-cache' source (used by /api/algorithm/execute endpoint)
-        const stepCacheQuery = firestore.collection('census_cache')
-          .where('state', '==', state)
-          .where('source', '==', 'step-cache');
-
-        const stepCacheSnapshot = await stepCacheQuery.get();
-
-        if (!stepCacheSnapshot.empty) {
-          for (const doc of stepCacheSnapshot.docs) {
-            const entry = doc.data();
-            if (entry.algorithmVersion === currentVersion &&
-                entry.step !== undefined &&
-                entry.step > highestStep &&
-                entry.unionPolygonsCached === true) {
-              finalStepDoc = doc;
-              cachedEntry = entry;
-              highestStep = entry.step;
+        if (!finalStepDoc || !cachedEntry) {
+          const algorithmStepsQuery = getFirestore().collection('census_cache')
+            .where('state', '==', state)
+            .where('source', '==', 'algorithm-step-cache');
+          const algorithmStepsSnapshot = await algorithmStepsQuery.get();
+          if (!algorithmStepsSnapshot.empty) {
+            for (const doc of algorithmStepsSnapshot.docs) {
+              const entry = doc.data();
+              if (entry.algorithmVersion === currentVersion && entry.step !== undefined &&
+                  entry.step > highestStep && entry.unionPolygonsCached === true) {
+                finalStepDoc = doc;
+                cachedEntry = entry;
+                highestStep = entry.step;
+              }
+            }
+          }
+          if (!finalStepDoc || !cachedEntry) {
+            const stepCacheQuery2 = getFirestore().collection('census_cache')
+              .where('state', '==', state)
+              .where('source', '==', 'step-cache');
+            const stepCacheSnapshot2 = await stepCacheQuery2.get();
+            if (!stepCacheSnapshot2.empty) {
+              for (const doc of stepCacheSnapshot2.docs) {
+                const entry = doc.data();
+                if (entry.algorithmVersion === currentVersion && entry.step !== undefined &&
+                    entry.step > highestStep && entry.unionPolygonsCached === true) {
+                  finalStepDoc = doc;
+                  cachedEntry = entry;
+                  highestStep = entry.step;
+                }
+              }
             }
           }
         }
@@ -4248,9 +4416,9 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       
       if (needsReconstruction && (hasStepDataField || hasDirectData)) {
           try {
-            const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-            if (stateTractDoc.exists) {
-              const stateTractData = stateTractDoc.data();
+            const stateTractDoc = await getCacheDoc(tractCacheKey);
+            if (stateTractDoc) {
+              const stateTractData = stateTractDoc;
               if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
                 let tractMap = null;
                 if (stateTractData.cloudStorage && stateTractData.cloudStoragePath && tractCacheKey) {
@@ -4291,12 +4459,12 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                   }
                 } else if (stateTractData.chunked && stateTractData.chunkKeys) {
                   const chunkDocs = await Promise.all(
-                    stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+                    stateTractData.chunkKeys.map(key => getCacheDoc(key))
                   );
                   const allTracts = [];
                   for (const chunkDoc of chunkDocs) {
-                    if (chunkDoc.exists && chunkDoc.data().data) {
-                      allTracts.push(...chunkDoc.data().data);
+                    if (chunkDoc && chunkDoc.data) {
+                      allTracts.push(...chunkDoc.data);
                     }
                   }
                   tractMap = allTracts;
@@ -4321,7 +4489,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                     // If step wasn't marked as complete, update it now for future queries
                     if (!cachedEntry.isComplete) {
                       try {
-                        await finalStepDoc.ref.update({ isComplete: true });
+                        const keyToUpdate = finalStepDoc.id || `algorithm_step_${state}_100_${finalStepNumber}`;
+                        await setCacheDoc(keyToUpdate, { ...cachedEntry, isComplete: true });
                         console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
                       } catch (updateError) {
                         console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
@@ -4632,12 +4801,12 @@ app.post('/api/algorithm/restart', async (req, res) => {
       return res.json({ ok: true, message: `Restarted (step 1+ deleted) for ${state}; step 0 not found, call step-by-step to re-init` });
     }
 
-    const step0Doc = await firestore.collection('census_cache').doc(step0CacheKey).get();
-    if (!step0Doc.exists) {
+    const step0Doc = await getCacheDoc(step0CacheKey);
+    if (!step0Doc) {
       return res.json({ ok: true, message: `Restarted for ${state}; no cached step 0, call step-by-step to load step 0` });
     }
 
-    const cachedEntry = step0Doc.data();
+    const cachedEntry = step0Doc;
     if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl) || cachedEntry.algorithmVersion !== ALGORITHM_VERSION) {
       return res.json({ ok: true, message: `Restarted for ${state}; step 0 cache expired/version mismatch, call step-by-step` });
     }
@@ -4838,10 +5007,10 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
       
       if (!forceInvalidate) {
         try {
-          const doc = await firestore.collection('census_cache').doc(step0CacheKey).get();
+          const doc = await getCacheDoc(step0CacheKey);
           
-          if (doc.exists) {
-            const cachedEntry = doc.data();
+          if (doc) {
+            const cachedEntry = doc;
             
             if (!isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
               const cachedVersion = cachedEntry.algorithmVersion;
@@ -4866,9 +5035,9 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   if (unionCacheKey) {
                     // Check if this is a TIGER-based union polygon by checking metadata
                     try {
-                      const unionCacheDoc = await firestore.collection('census_cache').doc(unionCacheKey).get();
-                      if (unionCacheDoc.exists) {
-                        const unionMetadata = unionCacheDoc.data();
+                      const unionCacheDoc = await getCacheDoc(unionCacheKey);
+                      if (unionCacheDoc) {
+                        const unionMetadata = unionCacheDoc;
                         // Check if this union polygon is marked as TIGER-based
                         const isTigerBased = unionMetadata.source === 'tiger-state-boundary' || unionMetadata.tigerBased === true;
                         
@@ -4879,7 +5048,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                             // Delete old union polygon from Cloud Storage
                             await cloudStorageCache.delete(unionCacheKey);
                             // Delete metadata from Firestore
-                            await firestore.collection('census_cache').doc(unionCacheKey).delete();
+                            await deleteCacheDoc(unionCacheKey);
                             console.log(`🗑️ STEP 0: Deleted old tract-based union polygon cache`);
                           } catch (deleteError) {
                             console.warn(`⚠️ STEP 0: Failed to delete old union polygon cache: ${deleteError.message}`);
@@ -4930,9 +5099,9 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 
                 if (cachedEntry.normalized && cachedEntry.tractCacheKey) {
                   try {
-                    const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
-                    if (stateTractDoc.exists) {
-                      const stateTractData = stateTractDoc.data();
+                    const stateTractDoc = await getCacheDoc(cachedEntry.tractCacheKey);
+                    if (stateTractDoc) {
+                      const stateTractData = stateTractDoc;
                       // Check if state tract cache version matches current algorithm version
                       const stateTractVersion = stateTractData.algorithmVersion;
                       if (stateTractVersion !== ALGORITHM_VERSION) {
@@ -4949,12 +5118,12 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                           }
                         } else if (stateTractData.chunked && stateTractData.chunkKeys) {
                           const chunkDocs = await Promise.all(
-                            stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+                            stateTractData.chunkKeys.map(key => getCacheDoc(key))
                           );
                           const allTracts = [];
                           for (const chunkDoc of chunkDocs) {
-                            if (chunkDoc.exists && chunkDoc.data().data) {
-                              allTracts.push(...chunkDoc.data().data);
+                            if (chunkDoc && chunkDoc.data) {
+                              allTracts.push(...chunkDoc.data);
                             }
                           }
                           tractMap = allTracts;
@@ -5056,7 +5225,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 });
               } else {
                 console.log(`🔄 STEP 0 CACHE VERSION MISMATCH: Invalidating`);
-                await firestore.collection('census_cache').doc(step0CacheKey).delete();
+                await deleteCacheDoc(step0CacheKey);
               }
             }
           }
@@ -5112,16 +5281,16 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
           
           // Store state tract cache if it doesn't exist, version changed, or geometry coverage is bad.
           // This step 0 path is the single writer for state tract cache in step-by-step flow; do not add other writers that strip geometry.
-          const existingTractCache = await firestore.collection('census_cache').doc(tractCacheKey).get();
+          const existingTractCache = await getCacheDoc(tractCacheKey);
           
-          const existingVersion = existingTractCache.exists ? existingTractCache.data()?.algorithmVersion : null;
-          let shouldRegenerateCache = !existingTractCache.exists || existingVersion !== ALGORITHM_VERSION;
+          const existingVersion = existingTractCache ? existingTractCache.algorithmVersion : null;
+          let shouldRegenerateCache = !existingTractCache || existingVersion !== ALGORITHM_VERSION;
 
           // When cache exists and version matches, validate geometry coverage or that the file actually exists
           const GEOMETRY_COVERAGE_THRESHOLD = 0.95; // Require at least 95% of tracts to have geometry
-          if (!shouldRegenerateCache && existingTractCache.exists) {
+          if (!shouldRegenerateCache && existingTractCache) {
             let existingTractMap = null;
-            const existingData = existingTractCache.data();
+            const existingData = existingTractCache;
             if (existingData?.cloudStorage && existingData?.cloudStoragePath) {
               try {
                 const cloudResult = await cloudStorageCache.get(tractCacheKey);
@@ -5156,13 +5325,13 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
             }
           }
 
-          console.log(`🔍 State tract cache check: exists=${existingTractCache.exists}, version=${existingVersion || 'none'}, current=${ALGORITHM_VERSION}, shouldRegenerate=${shouldRegenerateCache}`);
+          console.log(`🔍 State tract cache check: exists=${!!existingTractCache}, version=${existingVersion || 'none'}, current=${ALGORITHM_VERSION}, shouldRegenerate=${shouldRegenerateCache}`);
           
           if (shouldRegenerateCache) {
-            if (existingTractCache.exists) {
+            if (existingTractCache) {
               console.log(`🔄 State tract cache regenerating (version mismatch or bad geometry coverage)...`);
               // Delete old Cloud Storage file if it exists
-              if (existingTractCache.data()?.cloudStorage && existingTractCache.data()?.cloudStoragePath) {
+              if (existingTractCache.cloudStorage && existingTractCache.cloudStoragePath) {
                 try {
                   await cloudStorageCache.delete(tractCacheKey);
                   console.log(`🗑️ Deleted old Cloud Storage cache for ${state}`);
@@ -5252,7 +5421,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                 sizeMB: parseFloat(tractCacheSizeMB)
               };
               
-              await firestore.collection('census_cache').doc(tractCacheKey).set(metadataEntry);
+              await setCacheDoc(tractCacheKey, metadataEntry);
               console.log(`💾 CLOUD STORAGE: Stored ${tractCacheSizeMB} MB tract cache for state ${state} at ${cloudStoragePath}`);
             } catch (error) {
               console.warn(`⚠️ Failed to store state tract cache in Cloud Storage: ${error.message}`);
@@ -5275,7 +5444,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
               sizeMB: parseFloat(tractCacheSizeMB)
             };
             
-            await firestore.collection('census_cache').doc(tractCacheKey).set(metadataEntry);
+            await setCacheDoc(tractCacheKey, metadataEntry);
             console.log(`💾 FIRESTORE: Stored ${tractCacheSizeMB} MB tract cache for state ${state} in Firestore`);
             }
           } else {
@@ -5314,7 +5483,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
             unionPolygonsCached: Object.keys(unionPolygonCacheKeys).length > 0
           };
 
-          await firestore.collection('census_cache').doc(step0CacheKey).set(cacheData);
+          await setCacheDoc(step0CacheKey, cacheData);
           console.log(`💾 STEP 0 CACHE STORED: Cached step 0 for ${state} with ${Object.keys(unionPolygonCacheKeys).length} union polygon(s)`);
         } catch (cacheError) {
           console.warn(`⚠️ STEP 0 CACHE STORE ERROR: ${cacheError.message}`);
@@ -5393,34 +5562,26 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
       return res.status(400).json({ error: 'Invalid step number' });
     }
 
-    let doc = null;
     let cachedEntry = null;
     let stepCacheKey = null;
 
     // Try step-by-step cache format first (algorithm_step_{state}_{maxIterations}_{step})
     stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-    doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-    
-    if (doc.exists) {
-      let entry = doc.data();
-      entry = await resolveStepCacheEntry(stepCacheKey, entry);
-      cachedEntry = entry;
+    cachedEntry = await getCacheDoc(stepCacheKey);
+    if (cachedEntry) {
       // Check if expired
       if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
-        cachedEntry = null; // Mark as invalid
+        cachedEntry = null;
       } else if (cachedEntry.algorithmVersion !== currentVersion) {
-        cachedEntry = null; // Mark as invalid
+        cachedEntry = null;
       }
     }
 
     // If not found or invalid, try Run All Steps cache format (step_{state}_{step}_{version})
     if (!cachedEntry) {
       stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      
-      if (doc.exists) {
-        cachedEntry = doc.data();
-        // Check if expired (Run All Steps uses ttl: null, so only check timestamp if ttl exists)
+      cachedEntry = await getCacheDoc(stepCacheKey);
+      if (cachedEntry) {
         if (cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
           cachedEntry = null;
         } else if (cachedEntry.algorithmVersion !== currentVersion) {
@@ -5503,10 +5664,10 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
     if (isNormalized && tractCacheKey) {
       try {
         // Fetch state-level tract cache
-        const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
+        const stateTractDoc = await getCacheDoc(tractCacheKey);
         
-        if (stateTractDoc.exists) {
-          const stateTractData = stateTractDoc.data();
+        if (stateTractDoc) {
+          const stateTractData = stateTractDoc;
           if (stateTractData.algorithmVersion === currentVersion && 
               (!stateTractData.timestamp || !isCacheExpired(stateTractData.timestamp, stateTractData.ttl))) {
             
@@ -5519,12 +5680,12 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
               }
             } else if (stateTractData.chunked && stateTractData.chunkKeys) {
               const chunkDocs = await Promise.all(
-                stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+                stateTractData.chunkKeys.map(key => getCacheDoc(key))
               );
               const allTracts = [];
               for (const chunkDoc of chunkDocs) {
-                if (chunkDoc.exists && chunkDoc.data().data) {
-                  allTracts.push(...chunkDoc.data().data);
+                if (chunkDoc && chunkDoc.data) {
+                  allTracts.push(...chunkDoc.data);
                 }
               }
               tractMap = allTracts;
@@ -5553,9 +5714,9 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
       try {
         let step0Data = null;
         const step0CacheKeyForExclusion = `algorithm_step_${state}_${maxIterations}_0`;
-        let step0Doc = await firestore.collection('census_cache').doc(step0CacheKeyForExclusion).get();
-        if (step0Doc.exists) {
-          const step0Entry = step0Doc.data();
+        let step0Doc = await getCacheDoc(step0CacheKeyForExclusion);
+        if (step0Doc) {
+          const step0Entry = step0Doc;
           if (step0Entry.stepData) {
             step0Data = step0Entry.stepData;
             deserializeStepDataFromFirestore(step0Data);
@@ -5563,9 +5724,9 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
         }
         if (!step0Data) {
           const step0RunAllKey = `step_${state}_0_${currentVersion}`;
-          step0Doc = await firestore.collection('census_cache').doc(step0RunAllKey).get();
-          if (step0Doc.exists) {
-            const step0Entry = step0Doc.data();
+          step0Doc = await getCacheDoc(step0RunAllKey);
+          if (step0Doc) {
+            const step0Entry = step0Doc;
             step0Data = step0Entry.stepData !== undefined ? step0Entry.stepData : step0Entry;
             deserializeStepDataFromFirestore(step0Data);
           }
@@ -5616,10 +5777,9 @@ app.get('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res
     let stepCacheKey = null;
 
     stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-    if (doc.exists) {
-      let entry = doc.data();
-      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    let doc = await getCacheDoc(stepCacheKey);
+    if (doc) {
+      let entry = doc;
       if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
         cachedEntry = entry;
       }
@@ -5627,10 +5787,9 @@ app.get('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, res
 
     if (!cachedEntry) {
       stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      if (doc.exists) {
-        let entry = doc.data();
-        entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      doc = await getCacheDoc(stepCacheKey);
+      if (doc) {
+        let entry = doc;
         if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
           cachedEntry = entry;
         }
@@ -5683,7 +5842,7 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
   let cachedEntry = null;
 
   stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-  let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  let doc = await getCacheDoc(stepCacheKey);
   if (doc.exists) {
     let entry = doc.data();
     entry = await resolveStepCacheEntry(stepCacheKey, entry);
@@ -5693,10 +5852,9 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
   }
   if (!cachedEntry) {
     stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-    doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-    if (doc.exists) {
-      let entry = doc.data();
-      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    doc = await getCacheDoc(stepCacheKey);
+    if (doc) {
+      let entry = doc;
       if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
         cachedEntry = entry;
       }
@@ -5714,9 +5872,9 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
   let stepData = dataToReconstruct;
 
   if (isNormalized && tractCacheKey) {
-    const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-    if (!stateTractDoc.exists) throw new Error(`State tract cache not found for ${state}`);
-    const stateTractData = stateTractDoc.data();
+    const stateTractDoc = await getCacheDoc(tractCacheKey);
+    if (!stateTractDoc) throw new Error(`State tract cache not found for ${state}`);
+    const stateTractData = stateTractDoc;
     if (stateTractData.algorithmVersion !== currentVersion ||
         (stateTractData.timestamp && stateTractData.ttl && isCacheExpired(stateTractData.timestamp, stateTractData.ttl))) {
       throw new Error('State tract cache expired or version mismatch');
@@ -5726,10 +5884,10 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
       const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
       if (cloudStorageResult && cloudStorageResult.data) tractMap = cloudStorageResult.data;
     } else if (stateTractData.chunked && stateTractData.chunkKeys) {
-      const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get()));
+      const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(key => getCacheDoc(key)));
       const allTracts = [];
       for (const chunkDoc of chunkDocs) {
-        if (chunkDoc.exists && chunkDoc.data().data) allTracts.push(...chunkDoc.data().data);
+        if (chunkDoc && chunkDoc.data) allTracts.push(...chunkDoc.data);
       }
       tractMap = allTracts;
     } else if (stateTractData.data) {
@@ -5785,7 +5943,7 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
 async function getStepCacheEntry(state, stepNum, maxIterations) {
   const currentVersion = ALGORITHM_VERSION;
   let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-  let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  let doc = await getCacheDoc(stepCacheKey);
   if (doc.exists) {
     let entry = doc.data();
     entry = await resolveStepCacheEntry(stepCacheKey, entry);
@@ -5794,7 +5952,7 @@ async function getStepCacheEntry(state, stepNum, maxIterations) {
     }
   }
   stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-  doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+  doc = await getCacheDoc(stepCacheKey);
   if (doc.exists) {
     let entry = doc.data();
     entry = await resolveStepCacheEntry(stepCacheKey, entry);
@@ -5950,21 +6108,19 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygons', async (req, re
     }
 
     let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+    let doc = await getCacheDoc(stepCacheKey);
     let cachedEntry = null;
-    if (doc.exists) {
-      let entry = doc.data();
-      entry = await resolveStepCacheEntry(stepCacheKey, entry);
+    if (doc) {
+      let entry = doc;
       if (entry && (!entry.timestamp || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
         cachedEntry = entry;
       }
     }
     if (!cachedEntry) {
       stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      if (doc.exists) {
-        let entry = doc.data();
-        entry = await resolveStepCacheEntry(stepCacheKey, entry);
+      doc = await getCacheDoc(stepCacheKey);
+      if (doc) {
+        let entry = doc;
         if (entry && (!entry.timestamp || !entry.ttl || !isCacheExpired(entry.timestamp, entry.ttl)) && entry.algorithmVersion === currentVersion) {
           cachedEntry = entry;
         }
@@ -6106,9 +6262,8 @@ const DEFAULT_VEST_YEAR = 2020;
 async function loadDistrictPartyForStep(state, stepNumber, maxIterations) {
   const key = `district_party_${state}_${stepNumber}_${maxIterations}`;
   try {
-    const doc = await firestore.collection('census_cache').doc(key).get();
-    if (!doc.exists) return null;
-    const data = doc.data();
+    const data = await getCacheDoc(key);
+    if (!data) return null;
     if (data.districts && typeof data.districts === 'object') return data.districts;
     return null;
   } catch (err) {
@@ -6163,7 +6318,7 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
       districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
     }
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
-    await firestore.collection('census_cache').doc(key).set({
+    await setCacheDoc(key, {
       districts,
       state,
       step: finalStepNumber,
@@ -6286,12 +6441,10 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
     const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
-    const docRef = firestore.collection('census_cache').doc(key);
-    const existing = await docRef.get();
-    const prev = existing.exists ? existing.data() : {};
+    const prev = await getCacheDoc(key) || {};
     const districts = prev.districts && typeof prev.districts === 'object' ? { ...prev.districts } : {};
     districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
-    await docRef.set({
+    await setCacheDoc(key, {
       districts,
       state,
       step: finalStepNumber,
@@ -6301,7 +6454,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
       ttl: null,
       version: CACHE_VERSION,
       source: 'district-party-job'
-    }, { merge: true });
+    });
     return res.json({ ok: true, groupKey, pctDem, pctRep, votesDem, votesRep, totalVotes });
   } catch (error) {
     console.error('❌ POST district-party-for-group error:', error);
@@ -6325,14 +6478,12 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygon-for-group', async
     }
     const currentVersion = ALGORITHM_VERSION;
     let stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
-    let doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-    let cachedEntry = doc.exists ? doc.data() : null;
-    if (cachedEntry) cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
+    let doc = await getCacheDoc(stepCacheKey);
+    let cachedEntry = doc || null;
     if (!cachedEntry || cachedEntry.algorithmVersion !== currentVersion) {
       stepCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
-      doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      cachedEntry = doc.exists ? doc.data() : null;
-      if (cachedEntry) cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
+      doc = await getCacheDoc(stepCacheKey);
+      cachedEntry = doc || null;
     }
     if (!cachedEntry || !cachedEntry.stepData?.districtGroups?.length && !cachedEntry.districtGroups?.length) {
       return res.status(404).json({ error: 'Step not found or has no district groups' });
@@ -6343,17 +6494,17 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygon-for-group', async
     let stepData = dataToReconstruct;
     const isNormalized = cachedEntry.normalized;
     if (isNormalized && tractCacheKey) {
-      const stateTractDoc = await firestore.collection('census_cache').doc(tractCacheKey).get();
-      if (!stateTractDoc.exists) {
+      const stateTractDoc = await getCacheDoc(tractCacheKey);
+      if (!stateTractDoc) {
         return res.status(500).json({ error: 'State tract cache not found for reconstruction' });
       }
-      const stateTractData = stateTractDoc.data();
+      const stateTractData = stateTractDoc;
       let tractMap = null;
       if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
         const cloud = await cloudStorageCache.get(tractCacheKey);
         if (cloud && cloud.data) tractMap = cloud.data;
       } else if (stateTractData.chunked && stateTractData.chunkKeys) {
-        const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => firestore.collection('census_cache').doc(k).get()));
+        const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => getCacheDoc(k)));
         tractMap = [];
         for (const c of chunkDocs) {
           if (c.exists && c.data().data) tractMap.push(...c.data().data);
@@ -6405,9 +6556,9 @@ async function rehydrateAlgorithmStateFromStep0(state, maxIterations) {
   const step0CacheKey = `algorithm_step_${state}_${maxIterations}_0`;
   const { getTractId } = require('./services/geodistrict-algorithm');
   try {
-    const doc = await firestore.collection('census_cache').doc(step0CacheKey).get();
-    if (!doc.exists) return null;
-    const cachedEntry = doc.data();
+    const doc = await getCacheDoc(step0CacheKey);
+    if (!doc) return null;
+    const cachedEntry = doc;
     if (isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) return null;
     if (cachedEntry.algorithmVersion !== ALGORITHM_VERSION) return null;
 
@@ -6562,11 +6713,10 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     // Check cache first (unless forceInvalidate is true)
     if (!forceInvalidate) {
       try {
-        const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
+        const doc = await getCacheDoc(stepCacheKey);
         
-        if (doc.exists) {
-          let cachedEntry = doc.data();
-          cachedEntry = await resolveStepCacheEntry(stepCacheKey, cachedEntry);
+        if (doc) {
+          let cachedEntry = doc;
           
           // Check if expired
           if (cachedEntry && !isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
@@ -6590,10 +6740,10 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                 try {
                   // Fetch state-level tract cache
                   let stateTractCache;
-                  const stateTractDoc = await firestore.collection('census_cache').doc(cachedEntry.tractCacheKey).get();
+                  const stateTractDoc = await getCacheDoc(cachedEntry.tractCacheKey);
                   
-                  if (stateTractDoc.exists) {
-                    const stateTractData = stateTractDoc.data();
+                  if (stateTractDoc) {
+                    const stateTractData = stateTractDoc;
                     // Check if state tract cache version matches current algorithm version
                     const stateTractVersion = stateTractData.algorithmVersion;
                     if (stateTractVersion !== ALGORITHM_VERSION) {
@@ -6626,14 +6776,14 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                   else if (stateTractCache && stateTractCache.chunked && stateTractCache.chunkKeys) {
                     console.log(`📦 Fetching ${stateTractCache.totalChunks} tract cache chunks...`);
                     const chunkPromises = stateTractCache.chunkKeys.map(chunkKey => 
-                      firestore.collection('census_cache').doc(chunkKey).get()
+                      getCacheDoc(chunkKey)
                     );
                     const chunkDocs = await Promise.all(chunkPromises);
                     
                     const allTracts = [];
                     for (const chunkDoc of chunkDocs) {
-                      if (chunkDoc.exists) {
-                        const chunkData = chunkDoc.data();
+                      if (chunkDoc) {
+                        const chunkData = chunkDoc;
                         if (chunkData.data && Array.isArray(chunkData.data)) {
                           allTracts.push(...chunkData.data);
                         }
@@ -6704,11 +6854,11 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
               });
             } else {
               console.log(`🔄 STEP CACHE VERSION MISMATCH: Cached version ${cachedVersion} != current ${currentVersion}, invalidating`);
-              await firestore.collection('census_cache').doc(stepCacheKey).delete();
+              await deleteCacheDoc(stepCacheKey);
             }
           } else {
             console.log(`⏰ STEP CACHE EXPIRED: Cache expired for step ${nextStepNumber}, deleting`);
-            await firestore.collection('census_cache').doc(stepCacheKey).delete();
+            await deleteCacheDoc(stepCacheKey);
           }
         }
       } catch (cacheError) {
@@ -6860,52 +7010,13 @@ async function resolveStepCacheEntry(stepCacheKey, firestoreData) {
 }
 
 /**
- * Write step cache: try Firestore first; on "too many index entries" store in Cloud Storage and write metadata-only to Firestore.
+ * Write step cache. Uses setCacheDoc (local file when USE_LOCAL_CACHE, else Firestore/Cloud Storage).
  * @param {string} stepCacheKey - Document ID
  * @param {object} cacheData - Full step cache payload (stepData, unionPolygonsCached, etc.)
  * @returns {Promise<void>}
  */
 async function setStepCache(stepCacheKey, cacheData) {
-  const FIRESTORE_INDEX_ERROR = 'too many index entries';
-  const sizeBytes = JSON.stringify(cacheData).length;
-  const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
-  try {
-    await firestore.collection('census_cache').doc(stepCacheKey).set(cacheData);
-    return;
-  } catch (err) {
-    const isIndexError = err.message && err.message.includes(FIRESTORE_INDEX_ERROR);
-    const isInvalidArg = err.code === 3 || (err.message && err.message.includes('INVALID_ARGUMENT'));
-    if (!isIndexError && !isInvalidArg) {
-      throw err;
-    }
-  }
-  console.log(`📦 CLOUD STORAGE: Step cache too large for Firestore (${sizeMB} MB), storing in Cloud Storage`);
-  try {
-    const cloudStoragePath = await cloudStorageCache.set(stepCacheKey, cacheData, {
-      source: 'algorithm-step-cache',
-      state: cacheData.state,
-      step: String(cacheData.step)
-    });
-    const metadataEntry = {
-      cloudStoragePath,
-      cloudStorage: true,
-      timestamp: cacheData.timestamp,
-      ttl: cacheData.ttl,
-      algorithmVersion: cacheData.algorithmVersion,
-      source: 'algorithm-step-cache-metadata',
-      normalized: cacheData.normalized,
-      tractCacheKey: cacheData.tractCacheKey,
-      state: cacheData.state,
-      step: cacheData.step,
-      isComplete: cacheData.isComplete,
-      unionPolygonsCached: cacheData.unionPolygonsCached
-    };
-    await firestore.collection('census_cache').doc(stepCacheKey).set(metadataEntry);
-    console.log(`💾 CLOUD STORAGE: Stored step cache for ${stepCacheKey} at ${cloudStoragePath}`);
-  } catch (cloudErr) {
-    console.error(`❌ Failed to store step cache in Cloud Storage: ${cloudErr.message}`);
-    throw cloudErr;
-  }
+  await setCacheDoc(stepCacheKey, cacheData);
 }
 
 /**
@@ -6978,7 +7089,7 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
           sizeMB: parseFloat(unionSizeMB)
         };
 
-        await firestore.collection('census_cache').doc(unionCacheKey).set(metadataEntry);
+        await setCacheDoc(unionCacheKey, metadataEntry);
         unionPolygonCacheKeys[i] = unionCacheKey;
 
         const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
@@ -7035,12 +7146,12 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
     
     try {
       // Check metadata first to determine if this is TIGER-based or tract-based
-      const unionCacheDoc = await firestore.collection('census_cache').doc(unionCacheKey).get();
+      const unionCacheDoc = await getCacheDoc(unionCacheKey);
       let isTigerBased = false;
       let polygonType = 'unknown';
       
-      if (unionCacheDoc.exists) {
-        const metadata = unionCacheDoc.data();
+      if (unionCacheDoc) {
+        const metadata = unionCacheDoc;
         isTigerBased = metadata.tigerBased === true || metadata.source === 'tiger-state-boundary';
         polygonType = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
       } else {
@@ -7055,7 +7166,7 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
           // Delete old union polygon from Cloud Storage
           await cloudStorageCache.delete(unionCacheKey);
           // Delete metadata from Firestore
-          await firestore.collection('census_cache').doc(unionCacheKey).delete();
+          await deleteCacheDoc(unionCacheKey);
           console.log(`🗑️ STEP 0: Deleted old ${polygonType} cache`);
         } catch (deleteError) {
           console.warn(`⚠️ STEP 0: Failed to delete old union polygon cache: ${deleteError.message}`);
@@ -7091,7 +7202,7 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
           // Log with clear indication of source
           const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
           const sourceLabel = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
-          const sizeMB = unionCacheDoc.exists ? (unionCacheDoc.data().sizeMB || 'unknown') : 'unknown';
+          const sizeMB = unionCacheDoc ? (unionCacheDoc.sizeMB || 'unknown') : 'unknown';
           console.log(`✅ CLOUD STORAGE: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB)`);
         } else {
           console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
@@ -7286,13 +7397,28 @@ function normalizeStepData(step, tractCacheKey) {
  * This is used when forceInvalidate is true to ensure a fresh start
  */
 async function invalidateAllStepCaches(state, maxIterations) {
+  const currentVersion = ALGORITHM_VERSION;
+  let deletedCount = 0;
+
+  if (USE_LOCAL_CACHE) {
+    for (let stepNum = 0; stepNum <= 100; stepNum++) {
+      try {
+        const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
+        const doc = await getCacheDoc(stepCacheKey);
+        if (doc) { await deleteCacheDoc(stepCacheKey); deletedCount++; }
+      } catch (e) { /* continue */ }
+      try {
+        const runAllCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
+        const doc = await getCacheDoc(runAllCacheKey);
+        if (doc) { await deleteCacheDoc(runAllCacheKey); deletedCount++; }
+      } catch (e) { /* continue */ }
+    }
+    console.log(`🗑️ Invalidated ${deletedCount} step cache(s) (all steps) for ${state}`);
+    return;
+  }
+
   try {
-    const currentVersion = ALGORITHM_VERSION;
-    let deletedCount = 0;
-    
-    // Query for all step caches for this state/algorithm (both source types)
-    // Query by state to find all step caches
-    const stepCacheQuery = firestore.collection('census_cache')
+    const stepCacheQuery = getFirestore().collection('census_cache')
       .where('state', '==', state);
     
     const stepCacheSnapshot = await stepCacheQuery.get();
@@ -7309,10 +7435,10 @@ async function invalidateAllStepCaches(state, maxIterations) {
           const runAllStepMatch = cacheKey.match(/step_(\w+)_(\d+)_(.+)/);
           
           if (algorithmStepMatch && algorithmStepMatch[1] === state && parseInt(algorithmStepMatch[2]) === maxIterations) {
-            await doc.ref.delete();
+            await deleteCacheDoc(doc.id);
             deletedCount++;
           } else if (runAllStepMatch && runAllStepMatch[1] === state) {
-            await doc.ref.delete();
+            await deleteCacheDoc(doc.id);
             deletedCount++;
           }
         }
@@ -7324,9 +7450,9 @@ async function invalidateAllStepCaches(state, maxIterations) {
     for (let stepNum = 0; stepNum <= 100; stepNum++) {
       const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
       try {
-        const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-        if (doc.exists) {
-          await doc.ref.delete();
+        const doc = await getCacheDoc(stepCacheKey);
+        if (doc) {
+          await deleteCacheDoc(stepCacheKey);
           deletedCount++;
         }
       } catch (deleteError) {
@@ -7336,9 +7462,9 @@ async function invalidateAllStepCaches(state, maxIterations) {
       // Delete step_ format (Run All Steps) - try current version
       const runAllCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
       try {
-        const doc = await firestore.collection('census_cache').doc(runAllCacheKey).get();
-        if (doc.exists) {
-          await doc.ref.delete();
+        const doc = await getCacheDoc(runAllCacheKey);
+        if (doc) {
+          await deleteCacheDoc(runAllCacheKey);
           deletedCount++;
         }
       } catch (deleteError) {
@@ -7356,9 +7482,9 @@ async function invalidateAllStepCaches(state, maxIterations) {
       // Delete algorithm_step format
       const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
       try {
-        const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-        if (doc.exists) {
-          await doc.ref.delete();
+        const doc = await getCacheDoc(stepCacheKey);
+        if (doc) {
+          await deleteCacheDoc(stepCacheKey);
           deletedCount++;
         }
       } catch (deleteError) {
@@ -7368,9 +7494,9 @@ async function invalidateAllStepCaches(state, maxIterations) {
       // Delete step_ format (Run All Steps)
       const runAllCacheKey = `step_${state}_${stepNum}_${currentVersion}`;
       try {
-        const doc = await firestore.collection('census_cache').doc(runAllCacheKey).get();
-        if (doc.exists) {
-          await doc.ref.delete();
+        const doc = await getCacheDoc(runAllCacheKey);
+        if (doc) {
+          await deleteCacheDoc(runAllCacheKey);
           deletedCount++;
         }
       } catch (deleteError) {
@@ -7386,9 +7512,21 @@ async function invalidateAllStepCaches(state, maxIterations) {
  * Uses Firestore query to find and delete all step caches for the state/algorithm
  */
 async function invalidateSubsequentStepCaches(state, maxIterations, step) {
+  if (USE_LOCAL_CACHE) {
+    let deletedCount = 0;
+    for (let nextStep = step + 1; nextStep <= 100; nextStep++) {
+      try {
+        const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
+        const doc = await getCacheDoc(nextStepCacheKey);
+        if (doc) { await deleteCacheDoc(nextStepCacheKey); deletedCount++; }
+      } catch (e) { /* continue */ }
+    }
+    console.log(`🗑️ Invalidated ${deletedCount} subsequent step cache(s) (steps ${step + 1}+) for ${state}`);
+    return;
+  }
+
   try {
-    // Query for all step caches for this state/algorithm
-    const stepCacheQuery = firestore.collection('census_cache')
+    const stepCacheQuery = getFirestore().collection('census_cache')
       .where('source', '==', 'algorithm-step-cache');
     
     const stepCacheSnapshot = await stepCacheQuery.get();
@@ -7401,7 +7539,7 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
       if (stepMatch && stepMatch[1] === state && parseInt(stepMatch[2]) === maxIterations) {
         const stepNum = parseInt(stepMatch[3]);
         if (stepNum > step) {
-          await doc.ref.delete();
+          await deleteCacheDoc(doc.id);
           deletedCount++;
         }
       }
@@ -7414,7 +7552,7 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
     for (let nextStep = step + 1; nextStep <= 100; nextStep++) {
       const nextStepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStep}`;
       try {
-        await firestore.collection('census_cache').doc(nextStepCacheKey).delete();
+        await deleteCacheDoc(nextStepCacheKey);
         deletedCount++;
       } catch (deleteError) {
         // Continue with other steps even if one fails
@@ -7438,17 +7576,17 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
   for (let stepNum = 0; stepNum <= 100; stepNum++) {
     const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
     try {
-      const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      if (doc.exists) {
-        await doc.ref.delete();
+      const doc = await getCacheDoc(stepCacheKey);
+      if (doc) {
+        await deleteCacheDoc(stepCacheKey);
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
     const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
     try {
-      const doc = await firestore.collection('census_cache').doc(runAllKey).get();
-      if (doc.exists) {
-        await doc.ref.delete();
+      const doc = await getCacheDoc(runAllKey);
+      if (doc) {
+        await deleteCacheDoc(runAllKey);
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
@@ -7458,16 +7596,23 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
   await deleteCachedAlgorithmState(stateKey);
   firestoreDeleted++; // count as one logical delete
 
-  // 3. List union polygon keys from Cloud Storage, delete Firestore docs for each, then delete Cloud files
+  // 3. List union polygon keys, delete cache docs and (when not local) Cloud Storage files
+  if (USE_LOCAL_CACHE) {
+    const allKeys = await listCacheDocIds(`union_polygon_${state}_`);
+    for (const key of allKeys) {
+      try {
+        const doc = await getCacheDoc(key);
+        if (doc) { await deleteCacheDoc(key); firestoreDeleted++; }
+      } catch (e) { /* continue */ }
+    }
+    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${state}: ${firestoreDeleted} local doc(s)`);
+    return { firestoreDeleted, cloudDeleted: 0 };
+  }
   const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 0);
   for (const key of unionKeys) {
     try {
-      const ref = firestore.collection('census_cache').doc(key);
-      const d = await ref.get();
-      if (d.exists) {
-        await ref.delete();
-        firestoreDeleted++;
-      }
+      const d = await getCacheDoc(key);
+      if (d) { await deleteCacheDoc(key); firestoreDeleted++; }
     } catch (e) { /* continue */ }
   }
   const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 0);
@@ -7488,17 +7633,17 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
   for (let stepNum = 1; stepNum <= 100; stepNum++) {
     const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${stepNum}`;
     try {
-      const doc = await firestore.collection('census_cache').doc(stepCacheKey).get();
-      if (doc.exists) {
-        await doc.ref.delete();
+      const doc = await getCacheDoc(stepCacheKey);
+      if (doc) {
+        await deleteCacheDoc(stepCacheKey);
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
     const runAllKey = `step_${state}_${stepNum}_${currentVersion}`;
     try {
-      const doc = await firestore.collection('census_cache').doc(runAllKey).get();
-      if (doc.exists) {
-        await doc.ref.delete();
+      const doc = await getCacheDoc(runAllKey);
+      if (doc) {
+        await deleteCacheDoc(runAllKey);
         firestoreDeleted++;
       }
     } catch (e) { /* continue */ }
@@ -7508,16 +7653,26 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
   await deleteCachedAlgorithmState(stateKey);
   firestoreDeleted++;
 
-  // 3. List union polygon keys from Cloud Storage (step >= 1), delete Firestore docs, then delete Cloud files
+  // 3. List union polygon keys (step >= 1), delete cache docs and (when not local) Cloud files
+  if (USE_LOCAL_CACHE) {
+    const allKeys = await listCacheDocIds(`union_polygon_${state}_`);
+    for (const key of allKeys) {
+      const stepMatch = key.match(/union_polygon_\w+_(\d+)_/);
+      if (stepMatch && parseInt(stepMatch[1], 10) >= 1) {
+        try {
+          const d = await getCacheDoc(key);
+          if (d) { await deleteCacheDoc(key); firestoreDeleted++; }
+        } catch (e) { /* continue */ }
+      }
+    }
+    console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${state}: ${firestoreDeleted} local doc(s)`);
+    return { firestoreDeleted, cloudDeleted: 0 };
+  }
   const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(state, 1);
   for (const key of unionKeys) {
     try {
-      const ref = firestore.collection('census_cache').doc(key);
-      const d = await ref.get();
-      if (d.exists) {
-        await ref.delete();
-        firestoreDeleted++;
-      }
+      const d = await getCacheDoc(key);
+      if (d) { await deleteCacheDoc(key); firestoreDeleted++; }
     } catch (e) { /* continue */ }
   }
   const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(state, 1);
@@ -7837,9 +7992,9 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
           for (const group of reconstructed.districtGroups) {
             if (group.unionPolygonCacheKey) {
               try {
-                const unionCacheDoc = await firestore.collection('census_cache').doc(group.unionPolygonCacheKey).get();
-                if (unionCacheDoc.exists) {
-                  const metadata = unionCacheDoc.data();
+                const unionCacheDoc = await getCacheDoc(group.unionPolygonCacheKey);
+                if (unionCacheDoc) {
+                  const metadata = unionCacheDoc;
                   if (metadata.tigerBased === true || metadata.source === 'tiger-state-boundary') {
                     tigerCount++;
                   } else {
@@ -8220,7 +8375,7 @@ app.post('/api/algorithm/move-bridge-tracts', async (req, res) => {
         // Invalidate cached step so subsequent steps use the updated data
         const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
         try {
-          await firestore.collection('census_cache').doc(stepCacheKey).delete();
+          await deleteCacheDoc(stepCacheKey);
           console.log(`🗑️ Invalidated cached step ${step} for ${state} after moving bridge tracts`);
         } catch (deleteError) {
           console.warn(`⚠️ Failed to invalidate cached step ${step}: ${deleteError.message}`);
@@ -8332,7 +8487,7 @@ app.post('/api/algorithm/move-isolated-tracts', async (req, res) => {
         // Invalidate cached step so subsequent steps use the updated data
         const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
         try {
-          await firestore.collection('census_cache').doc(stepCacheKey).delete();
+          await deleteCacheDoc(stepCacheKey);
           console.log(`🗑️ Invalidated cached step ${step} for ${state} after moving isolated tracts`);
         } catch (deleteError) {
           console.warn(`⚠️ Failed to invalidate cached step ${step}: ${deleteError.message}`);
@@ -8606,8 +8761,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       
       // Try both step cache key formats (same as get-step): algorithm_step_ first, then step_
       const algoStepKey = `algorithm_step_${state}_${maxIterations}_${step}`;
-      let stepDoc = await firestore.collection('census_cache').doc(algoStepKey).get();
-      let cachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKey, stepDoc.data()) : null;
+      let stepDoc = await getCacheDoc(algoStepKey);
+      let cachedEntry = stepDoc || null;
 
       if (cachedEntry) {
         if (cachedEntry.timestamp && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
@@ -8618,9 +8773,9 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
 
       if (!cachedEntry) {
-        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
-        if (stepDoc.exists) {
-          cachedEntry = stepDoc.data();
+        stepDoc = await getCacheDoc(`step_${state}_${step}_${currentVersion}`);
+        if (stepDoc) {
+          cachedEntry = stepDoc;
           if (cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) {
             cachedEntry = null;
           } else if (cachedEntry.algorithmVersion !== currentVersion) {
@@ -8651,8 +8806,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       let stateTractDoc = null;
       let tractCacheKey = null;
       for (const key of tractCacheKeysToTry) {
-        const doc = await firestore.collection('census_cache').doc(key).get();
-        if (doc.exists) {
+        const doc = await getCacheDoc(key);
+        if (doc) {
           stateTractDoc = doc;
           tractCacheKey = key;
           break;
@@ -8663,7 +8818,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         return res.status(404).json({ error: `State tract cache not found. Please initialize the algorithm first.` });
       }
 
-      const stateTractData = stateTractDoc.data();
+      const stateTractData = stateTractDoc;
       let tractMap = null;
       
       // Get tract map from Cloud Storage or Firestore
@@ -8674,12 +8829,12 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         }
       } else if (stateTractData.chunked && stateTractData.chunkKeys) {
         const chunkDocs = await Promise.all(
-          stateTractData.chunkKeys.map(key => firestore.collection('census_cache').doc(key).get())
+          stateTractData.chunkKeys.map(key => getCacheDoc(key))
         );
         const allTracts = [];
         for (const chunkDoc of chunkDocs) {
-          if (chunkDoc.exists && chunkDoc.data().data) {
-            allTracts.push(...chunkDoc.data().data);
+          if (chunkDoc && chunkDoc.data) {
+            allTracts.push(...chunkDoc.data);
           }
         }
         tractMap = allTracts;
@@ -8761,15 +8916,15 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     if (needsReconstruct) {
       console.log(`⚠️ Step ${step} has normalized groups (no censusTracts), reconstructing from step cache...`);
       const algoStepKeyReconstruct = `algorithm_step_${state}_${maxIterations}_${step}`;
-      let stepDoc = await firestore.collection('census_cache').doc(algoStepKeyReconstruct).get();
-      let cachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKeyReconstruct, stepDoc.data()) : null;
+      let stepDoc = await getCacheDoc(algoStepKeyReconstruct);
+      let cachedEntry = stepDoc || null;
       if (cachedEntry && cachedEntry.timestamp && !isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl) && cachedEntry.algorithmVersion === currentVersion) {
         // use as-is
       } else {
         cachedEntry = null;
-        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
-        if (stepDoc.exists) {
-          cachedEntry = stepDoc.data();
+        stepDoc = await getCacheDoc(`step_${state}_${step}_${currentVersion}`);
+        if (stepDoc) {
+          cachedEntry = stepDoc;
           if (cachedEntry && ((cachedEntry.timestamp && cachedEntry.ttl && isCacheExpired(cachedEntry.timestamp, cachedEntry.ttl)) || cachedEntry.algorithmVersion !== currentVersion)) {
             cachedEntry = null;
           }
@@ -8782,17 +8937,17 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         const tractCacheKeysToTry = [`state_tracts_${state}`, `state_tracts_${state.toLowerCase()}`, `state_tracts_${state.toUpperCase()}`];
         let tractMap = null;
         for (const key of tractCacheKeysToTry) {
-          const stateTractDoc = await firestore.collection('census_cache').doc(key).get();
+          const stateTractDoc = await getCacheDoc(key);
           if (!stateTractDoc.exists) continue;
-          const stateTractData = stateTractDoc.data();
+          const stateTractData = stateTractDoc;
           if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
             const cloudStorageResult = await cloudStorageCache.get(key);
             if (cloudStorageResult && cloudStorageResult.data) tractMap = cloudStorageResult.data;
           } else if (stateTractData.chunked && stateTractData.chunkKeys) {
-            const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => firestore.collection('census_cache').doc(k).get()));
+            const chunkDocs = await Promise.all(stateTractData.chunkKeys.map(k => getCacheDoc(k)));
             tractMap = [];
             for (const chunkDoc of chunkDocs) {
-              if (chunkDoc.exists && chunkDoc.data().data) tractMap.push(...chunkDoc.data().data);
+              if (chunkDoc && chunkDoc.data) tractMap.push(...chunkDoc.data);
             }
           } else if (stateTractData.data) {
             tractMap = stateTractData.data;
@@ -8883,8 +9038,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     // Prefer step cache doc (written when step was created) over in-memory state / dgAdjacent so we use the correct cached list
     if (Object.keys(isolatedTractsByGroup).length === 0 && step > 0) {
       const algoStepKey = `algorithm_step_${state}_${maxIterations}_${step}`;
-      let stepDoc = await firestore.collection('census_cache').doc(algoStepKey).get();
-      let stepCachedEntry = stepDoc.exists ? await resolveStepCacheEntry(algoStepKey, stepDoc.data()) : null;
+      let stepDoc = await getCacheDoc(algoStepKey);
+      let stepCachedEntry = stepDoc || null;
       if (stepCachedEntry && stepCachedEntry.algorithmVersion === currentVersion && stepCachedEntry.stepData && stepCachedEntry.stepData.isolatedTractsData) {
         const cachedByGroup = stepCachedEntry.stepData.isolatedTractsData.isolatedTractsByGroup;
         if (cachedByGroup && typeof cachedByGroup === 'object' && isReasonableIsolatedList(cachedByGroup)) {
@@ -8898,8 +9053,8 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
         }
       }
       if (Object.keys(isolatedTractsByGroup).length === 0) {
-        stepDoc = await firestore.collection('census_cache').doc(`step_${state}_${step}_${currentVersion}`).get();
-        stepCachedEntry = stepDoc.exists ? stepDoc.data() : null;
+        stepDoc = await getCacheDoc(`step_${state}_${step}_${currentVersion}`);
+        stepCachedEntry = stepDoc || null;
         const dataToUse = stepCachedEntry?.stepData !== undefined ? stepCachedEntry.stepData : stepCachedEntry;
         if (dataToUse?.isolatedTractsData?.isolatedTractsByGroup && isReasonableIsolatedList(dataToUse.isolatedTractsData.isolatedTractsByGroup)) {
           isolatedTractsByGroup = dataToUse.isolatedTractsData.isolatedTractsByGroup;
@@ -9112,7 +9267,7 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
     // Invalidate cached step and all subsequent steps
     const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${step}`;
     try {
-      await firestore.collection('census_cache').doc(stepCacheKey).delete();
+      await deleteCacheDoc(stepCacheKey);
       console.log(`🗑️ Invalidated cached step ${step} for ${state} after moving isolated tracts`);
     } catch (deleteError) {
       console.warn(`⚠️ Failed to invalidate cached step ${step}: ${deleteError.message}`);
@@ -9536,7 +9691,7 @@ app.delete('/api/voter-registration/:state', async (req, res) => {
 
     // Delete from Firestore
     try {
-      await firestore.collection('census_cache').doc(cacheKey).delete();
+      await deleteCacheDoc(cacheKey);
     } catch (e) {
       // Ignore if doesn't exist
     }
@@ -10014,6 +10169,64 @@ app.post('/api/poligeo/vest-data/download', async (req, res) => {
     console.error('Error downloading VEST data:', error);
     res.status(500).json({
       error: 'Failed to download VEST data',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/vest/bulk-download-persist
+ * Download all VEST data for a year and persist tract party data for all states
+ *
+ * Request body:
+ * {
+ *   "year": 2020 (optional, defaults to 2020),
+ *   "apiBaseUrl": "http://localhost:3000" (optional, for county allocation)
+ * }
+ */
+app.post('/api/vest/bulk-download-persist', async (req, res) => {
+  try {
+    const year = parseInt(req.body.year || 2020, 10);
+    const apiBaseUrl = req.body.apiBaseUrl;
+
+    if (![2016, 2020, 2024].includes(year)) {
+      return res.status(400).json({
+        error: 'Invalid year',
+        message: 'Year must be 2016, 2020, or 2024'
+      });
+    }
+
+    console.log(`🚀 Starting bulk VEST ${year} download and persistence via API...`);
+
+    // Import the bulk persistence service
+    const vestBulkPersistence = require('./services/vest-bulk-persistence');
+
+    // Start the async job (don't await, return 202 immediately)
+    vestBulkPersistence.downloadAndPersistAll(year, { apiBaseUrl }).then(results => {
+      console.log(`✅ Bulk VEST ${year} download complete:`, {
+        statesProcessed: results.statesProcessed?.length || 0,
+        totalTracts: results.totalTracts || 0,
+        duration: results.endTime ? ((results.endTime - results.startTime) / 1000).toFixed(1) + 's' : 'unknown'
+      });
+
+      if (results.error) {
+        console.error(`❌ Bulk VEST ${year} download failed:`, results.error);
+      }
+    }).catch(error => {
+      console.error(`❌ Bulk VEST ${year} download error:`, error);
+    });
+
+    res.status(202).json({
+      message: `Bulk download and persistence started for VEST ${year}`,
+      status: 'running',
+      year,
+      note: 'This process may take 30+ minutes. Check server logs for progress.'
+    });
+
+  } catch (error) {
+    console.error('Error starting bulk download:', error);
+    res.status(500).json({
+      error: 'Failed to start bulk download',
       message: error.message
     });
   }

@@ -6,12 +6,26 @@
  * - 2016: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/NH5S2I
  * - 2020: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ
  * - 2024: Auto-detect when available
+ *
+ * Local files: Place downloaded VEST files (tract or county CSVs) in backend/data/vest/dataverse_files/.
+ * Downloads from the API are also saved there.
  */
 
+const path = require('path');
 const axios = require('axios');
 const { parse } = require('csv-parse/sync');
 const cloudStorageCache = require('./cloud-storage-cache');
 const localCache = require('../local-cache');
+
+const USE_LOCAL_CACHE = process.env.NODE_ENV !== 'production' || process.env.USE_LOCAL_CACHE === 'true';
+
+/** Canonical VEST data directory: backend/data/vest/dataverse_files (downloaded files go here). */
+function getVestDataDir() {
+  return path.join(__dirname, '..', 'data', 'vest');
+}
+function getDataverseFilesDir() {
+  return path.join(getVestDataDir(), 'dataverse_files');
+}
 
 /**
  * VEST Dataset Configuration
@@ -329,19 +343,17 @@ class VESTDataLoader {
    */
   async ensureDataDirectory() {
     const fs = require('fs').promises;
-    const path = require('path');
-    const dataDir = path.join(__dirname, '..', 'data', 'vest');
-    
+    const vestDir = getVestDataDir();
+    const dataverseDir = getDataverseFilesDir();
     try {
-      await fs.mkdir(dataDir, { recursive: true });
+      await fs.mkdir(vestDir, { recursive: true });
+      await fs.mkdir(dataverseDir, { recursive: true });
     } catch (error) {
-      // Directory might already exist, that's OK
       if (error.code !== 'EEXIST') {
-        console.warn(`⚠️ Could not create data directory: ${error.message}`);
+        console.warn(`⚠️ Could not create VEST data directory: ${error.message}`);
       }
     }
-    
-    return dataDir;
+    return dataverseDir;
   }
 
   /**
@@ -526,11 +538,8 @@ class VESTDataLoader {
     const fs = require('fs').promises;
     const path = require('path');
     
-    // __dirname is backend/services, so we need to go up one level to backend, then into data/vest
-    const vestDataDir = path.join(__dirname, '..', 'data', 'vest');
-    const dataverseFilesDir = path.join(vestDataDir, 'dataverse_files');
-    
-    // Debug: Log the paths being checked
+    const vestDataDir = getVestDataDir();
+    const dataverseFilesDir = getDataverseFilesDir();
     console.log(`🔍 Checking for VEST data files for year ${year}`);
     console.log(`   Vest data dir: ${vestDataDir}`);
     console.log(`   Dataverse files dir: ${dataverseFilesDir}`);
@@ -793,20 +802,26 @@ class VESTDataLoader {
     const cacheKey = this.getCacheKey(year);
     if (!forceRefresh) {
       try {
-        // Try cloud storage first
-        const cloudData = await cloudStorageCache.get(cacheKey);
-        if (cloudData && cloudData.data) {
-          console.log(`✅ VEST data for ${year} found in cloud storage cache`);
-          this.dataCache.set(year, cloudData.data);
-          return cloudData.data;
-        }
-
-        // Try local cache
-        const localData = await localCache.getFromCache(cacheKey);
-        if (localData) {
-          console.log(`✅ VEST data for ${year} found in local cache`);
-          this.dataCache.set(year, localData);
-          return localData;
+        if (USE_LOCAL_CACHE) {
+          const localData = await localCache.getFromCache(cacheKey);
+          if (localData) {
+            console.log(`✅ VEST data for ${year} found in local cache`);
+            this.dataCache.set(year, localData);
+            return localData;
+          }
+        } else {
+          const cloudData = await cloudStorageCache.get(cacheKey);
+          if (cloudData && cloudData.data) {
+            console.log(`✅ VEST data for ${year} found in cloud storage cache`);
+            this.dataCache.set(year, cloudData.data);
+            return cloudData.data;
+          }
+          const localData = await localCache.getFromCache(cacheKey);
+          if (localData) {
+            console.log(`✅ VEST data for ${year} found in local cache`);
+            this.dataCache.set(year, localData);
+            return localData;
+          }
         }
       } catch (error) {
         console.warn(`⚠️ Error checking cache for ${year}:`, error.message);
@@ -838,12 +853,11 @@ class VESTDataLoader {
           rawData = await this.downloadVESTData(year);
           console.log(`✅ Successfully downloaded VEST data from Dataverse for ${year}`);
           
-          // Save to local file for future use
+          // Save to dataverse_files for future use
           try {
             const fs = require('fs').promises;
-            const path = require('path');
-            await this.ensureDataDirectory();
-            const filePath = path.join(__dirname, '..', '..', 'data', 'vest', `tract_${year}.csv`);
+            const dataverseDir = await this.ensureDataDirectory();
+            const filePath = path.join(dataverseDir, `tract_${year}.csv`);
             await fs.writeFile(filePath, rawData, 'utf8');
             console.log(`💾 Saved downloaded data to ${filePath} for future use`);
           } catch (saveError) {
@@ -879,18 +893,20 @@ class VESTDataLoader {
       // Cache the processed data
       this.dataCache.set(year, processed);
 
-      // Store in persistent cache (use cloud storage for large files)
-      const dataSize = JSON.stringify(processed).length;
-      if (dataSize > 1024 * 1024) {
-        // Large file - use cloud storage
-        await cloudStorageCache.set(cacheKey, processed, {
-          year,
-          type: 'vest_tract_data',
-          source: 'harvard_dataverse',
-        });
+      // Store in persistent cache (local only when USE_LOCAL_CACHE; otherwise cloud for large files)
+      if (USE_LOCAL_CACHE) {
+        await localCache.setCache(cacheKey, processed, null);
       } else {
-        // Small file - use local cache
-        await localCache.setCache(cacheKey, processed, null); // No expiration for VEST data
+        const dataSize = JSON.stringify(processed).length;
+        if (dataSize > 1024 * 1024) {
+          await cloudStorageCache.set(cacheKey, processed, {
+            year,
+            type: 'vest_tract_data',
+            source: 'harvard_dataverse',
+          });
+        } else {
+          await localCache.setCache(cacheKey, processed, null);
+        }
       }
 
       console.log(`✅ Successfully loaded and cached VEST data for ${year}`);
@@ -1324,14 +1340,16 @@ class VESTDataLoader {
     for (const year of [2016, 2020, 2024]) {
       try {
         const cacheKey = this.getCacheKey(year);
-        
-        // Check if data exists in cache
-        const cloudData = await cloudStorageCache.get(cacheKey);
-        const localData = cloudData ? null : await localCache.getFromCache(cacheKey);
-        
-        if (cloudData || localData) {
+        let data = null;
+        if (USE_LOCAL_CACHE) {
+          data = await localCache.getFromCache(cacheKey);
+        } else {
+          const cloudData = await cloudStorageCache.get(cacheKey);
+          if (cloudData?.data) data = cloudData.data;
+          else data = await localCache.getFromCache(cacheKey);
+        }
+        if (data) {
           status.availableYears.push(year);
-          const data = cloudData?.data || localData;
           if (data?.metadata?.processedAt) {
             const processedAt = new Date(data.metadata.processedAt);
             if (!status.lastUpdated || processedAt > status.lastUpdated) {
