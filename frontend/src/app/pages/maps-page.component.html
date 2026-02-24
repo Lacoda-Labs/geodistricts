@@ -213,22 +213,23 @@
             </div>
 
             <div class="dg-header">
-              <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0">
+              <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
                 Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
               </span>
               <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
             </div>
 
-            <!-- Final step: Move isolated tracts, then Balance once isolation is resolved -->
+            <!-- Final step: Move isolated tracts, then Balance once isolation is resolved (only show Balance when still possible) -->
             <div class="final-step-actions" *ngIf="isFinalStepActive">
               <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
                 *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
                 {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || (!isFinalStepActive && !(currentStep.divisionLines?.length)) || finalStepBalancingComplete"
+                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep?.divisionLines?.length ?? 0) > 0"
+                [disabled]="isBalancingDistricts"
                 class="balance-districts-btn"
-                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : ((!isFinalStepActive && !(currentStep.divisionLines?.length)) ? 'No division lines' : (finalStepBalancingComplete ? 'Balance complete' : 'Balance population across districts'))">
+                matTooltip="Balance population across districts">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
               </button>
             </div>
@@ -276,23 +277,13 @@
               </mat-expansion-panel>
             </div>
 
-            <div class="district-status-summary" *ngIf="currentStep?.districtGroups?.length && isDevMode">
-              <div class="status-summary-item">
-                <span class="status-label">Union polygons:</span>
-                <span class="status-value">{{ unionPolygonStatusText }}</span>
-              </div>
-              <div class="status-summary-item">
-                <span class="status-label">Party %:</span>
-                <span class="status-value">{{ districtPartyStatusText }}</span>
-              </div>
-              <div class="status-summary-item">
-                <button mat-button (click)="togglePartyColor()" type="button">
-                  {{ showPartyColor ? 'District colors' : 'Color by party %' }}
-                </button>
-                <span class="party-data-unavailable" *ngIf="partyDataUnavailableMessage" [matTooltip]="partyDataUnavailableMessage">
-                  Party data not loaded
-                </span>
-              </div>
+            <div class="district-status-summary" *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
+              <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button" [disabled]="!!triggeringForGroupKey">
+                {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
+              </button>
+              <button mat-button *ngIf="needsCalcParty()" (click)="triggerDistrictPartyIfNeeded()" type="button" [disabled]="districtPartyJobTriggered">
+                {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
+              </button>
             </div>
             <div class="district-groups-container">
               <div class="district-groups-list">
@@ -302,8 +293,7 @@
                       <th>District</th>
                       <th>Variance</th>
                       <th *ngIf="!isFinalStepActive">Next</th>
-                      <th *ngIf="isDevMode" class="col-polygon" title="Union polygon cached">Polygon</th>
-                      <th *ngIf="isDevMode" class="col-party" title="Party % calculated">Party</th>
+                      <th *ngIf="isDevMode" class="col-party" title="Party %">Party</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -325,21 +315,11 @@
                         <mat-icon *ngIf="getNextDivisionIcon(group) as icon" [fontIcon]="icon" class="next-division-icon"></mat-icon>
                         <span>{{ getNextDivisionLabel(group) }}</span>
                       </td>
-                      <td *ngIf="isDevMode" class="col-polygon">
-                        <span *ngIf="getGroupStatusForIndex(i) as st"
-                          [matTooltip]="isTriggeringPolygonForGroup(group) ? 'Building...' : (st.polygon === 'done' ? 'Union polygon cached' : (st.polygon === 'missing' ? 'Click to build union polygon' : st.polygon))"
-                          (click)="(st.polygon === 'missing' || st.polygon === 'fail') && !triggeringForGroupKey && triggerPolygonForGroup(group, $event)">
-                          <mat-icon *ngIf="st.polygon === 'done' && !isTriggeringPolygonForGroup(group)" class="status-icon done">check_circle</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'in_progress' || isTriggeringPolygonForGroup(group)" class="status-icon in-progress">hourglass_empty</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'fail' && !isTriggeringPolygonForGroup(group)" class="status-icon fail">error</mat-icon>
-                          <mat-icon *ngIf="st.polygon === 'missing' && !isTriggeringPolygonForGroup(group)" class="status-icon missing">warning</mat-icon>
-                        </span>
-                      </td>
                       <td *ngIf="isDevMode" class="col-party">
                         <span *ngIf="getGroupStatusForIndex(i) as st"
                           [matTooltip]="getGroupPartyTooltip(group, st)"
                           (click)="(st.party === 'missing' || st.party === 'fail') && triggerPartyForGroup(group, $event)">
-                          <mat-icon *ngIf="st.party === 'done'" class="status-icon done">check_circle</mat-icon>
+                          <span *ngIf="st.party === 'done'" class="party-tooltip-text">{{ getGroupPartyTooltip(group, st) }}</span>
                           <mat-icon *ngIf="st.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
                           <mat-icon *ngIf="st.party === 'fail'" class="status-icon fail">error</mat-icon>
                           <mat-icon *ngIf="st.party === 'missing'" class="status-icon missing">warning</mat-icon>

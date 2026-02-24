@@ -186,8 +186,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Loading state for single-DG polygon or party trigger (groupKey or null). */
   triggeringForGroupKey: string | null = null;
 
-  /** When true, color tracts by VEST party % (red = R, blue = D, light = 50%). */
-  showPartyColor: boolean = false;
+  /** When true, color tracts by VEST party % (red = R, blue = D, light = 50%). Default on for final step. */
+  showPartyColor: boolean = true;
   /** Tract GEOID -> { pctDem } from GET tract-party (for party coloring). */
   tractPartyByGeoid: Record<string, { pctDem: number }> | null = null;
   /** District groupKey -> party data from GET district-party (for map coloring and tooltips). */
@@ -3459,7 +3459,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
         ? this.colorToGrayscale(baseColor) 
         : baseColor;
-      const fillOpacity = isStep0StateOutline ? this.getStatePartyOpacity(this.selectedState) : this.polygonFillOpacity;
+      const groupKeyForOpacity = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+      const districtPartyForOpacity = this.showPartyColor ? this.districtPartyByGroupKey?.[groupKeyForOpacity] : undefined;
+      const fillOpacity = isStep0StateOutline
+        ? this.getStatePartyOpacity(this.selectedState)
+        : (districtPartyForOpacity != null ? this.getPartyFillOpacity(districtPartyForOpacity.pctDem) : this.polygonFillOpacity);
 
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
@@ -3542,14 +3546,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
             const partyData = this.tractPartyByGeoid;
-            const usePartyColor = (this.showTractBoundaries || this.showPartyColor) && partyData;
-            if (usePartyColor && partyData) {
+            const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+            const useDistrictPartyColor = this.showPartyColor && this.districtPartyByGroupKey?.[groupKey];
+            // When coloring by party, prefer one color per district; only use tract-level party when district data is missing
+            let pctDemForOpacity: number | null = null;
+            const useTractPartyColor = (this.showTractBoundaries || this.showPartyColor) && partyData && !useDistrictPartyColor;
+            if (useTractPartyColor && partyData) {
               const geoid = this.normalizeTractPartyGeoid(tractId);
               const row = partyData[geoid];
               if (row != null) {
                 tractColor = this.getTractColorByParty(row.pctDem);
+                pctDemForOpacity = row.pctDem;
               }
+            } else if (useDistrictPartyColor) {
+              pctDemForOpacity = this.districtPartyByGroupKey![groupKey].pctDem;
             }
+            const tractFillOpacity = pctDemForOpacity != null ? this.getPartyFillOpacity(pctDemForOpacity) : this.polygonFillOpacity;
 
             // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
             // When boundaries hidden, border uses same color and opacity as fill so it blends (not removed).
@@ -3559,7 +3571,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               borderWeight = 3;
               borderColor = '#ffffff';
             }
-            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : this.polygonFillOpacity);
+            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : tractFillOpacity);
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
@@ -3567,7 +3579,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 color: borderColor,
                 weight: borderWeight,
                 opacity: borderOpacityVal,
-                fillOpacity: this.polygonFillOpacity,
+                fillOpacity: tractFillOpacity,
                 fillColor: tractColor
               }
             }).bindPopup(`
@@ -5169,6 +5181,44 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** True when any district group still needs union polygon built (final step, dev mode). */
+  needsBuildPolygons(): boolean {
+    if (!this.currentStep?.districtGroups?.length || !this.perGroupStatus?.length) return false;
+    return this.perGroupStatus.some(s => s.polygon === 'missing' || s.polygon === 'fail');
+  }
+
+  /** True when any district group still needs party % calculated (final step, dev mode). */
+  needsCalcParty(): boolean {
+    if (!this.currentStep?.districtGroups?.length || !this.perGroupStatus?.length) return false;
+    return this.perGroupStatus.some(s => s.party === 'missing' || s.party === 'fail');
+  }
+
+  /** Trigger union polygon build for the first group that needs it (Build Polygons button). */
+  triggerPolygonsForAllMissing(): void {
+    if (!this.currentStep?.districtGroups?.length || !this.perGroupStatus?.length || this.triggeringForGroupKey) return;
+    const idx = this.perGroupStatus.findIndex(s => s.polygon === 'missing' || s.polygon === 'fail');
+    if (idx < 0) return;
+    const group = this.currentStep.districtGroups[idx];
+    this.triggerPolygonForGroup(group, { stopPropagation: () => {} } as Event);
+  }
+
+  /** Trigger district party job for the whole state (Calc Party % button). */
+  triggerDistrictPartyIfNeeded(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || this.finalStepNumber == null || this.districtPartyJobTriggered) return;
+    this.districtPartyJobTriggered = true;
+    const maxIter = this.finalStepMaxIterations ?? 100;
+    this.geodistrictService.triggerDistrictPartyJob(this.selectedState, this.finalStepNumber, maxIter).subscribe({
+      next: () => {
+        this.cdr.markForCheck();
+        setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
+      },
+      error: () => {
+        this.districtPartyJobTriggered = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   /** Trigger union polygon for one DG (dev/maps). */
   triggerPolygonForGroup(group: DistrictGroup, e: Event): void {
     e.stopPropagation();
@@ -5256,6 +5306,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.showPartyColor && !this.showTractBoundaries) return null;
     if (this.tractPartyByGeoid != null && Object.keys(this.tractPartyByGeoid).length > 0) return null;
     return 'Party data not loaded for this state. Run tract party persistence (POST /api/algorithm/tract-party-persistence).';
+  }
+
+  /** Fill opacity when coloring by party: minimum 70%, scaling to 100% as share moves away from 50%. */
+  getPartyFillOpacity(pctDem: number): number {
+    const t = Math.max(0, Math.min(1, pctDem));
+    const minOpacity = 0.7;
+    const range = 1 - minOpacity;
+    const distanceFrom50 = 2 * Math.abs(t - 0.5);
+    return minOpacity + range * distanceFrom50;
   }
 
   /** Interpolate color by party: pctDem 0 = red (R), 0.5 = light gray, 1 = blue (D). */
