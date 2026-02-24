@@ -337,7 +337,7 @@
                       </td>
                       <td *ngIf="isDevMode" class="col-party">
                         <span *ngIf="getGroupStatusForIndex(i) as st"
-                          [matTooltip]="st.party === 'done' ? 'Party % calculated' : (st.party === 'missing' ? 'Click to calculate party %' : st.party)"
+                          [matTooltip]="getGroupPartyTooltip(group, st)"
                           (click)="(st.party === 'missing' || st.party === 'fail') && triggerPartyForGroup(group, $event)">
                           <mat-icon *ngIf="st.party === 'done'" class="status-icon done">check_circle</mat-icon>
                           <mat-icon *ngIf="st.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>

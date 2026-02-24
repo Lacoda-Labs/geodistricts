@@ -505,6 +505,17 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Get district-level party percentages for a state and step (for map coloring and tooltips).
+   */
+  getDistrictParty(state: string, stepNumber: number, maxIterations: number = 100): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}`;
+    return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }>(url, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /**
    * Trigger district-level party % job for final step (async, 202).
    */
   triggerDistrictPartyJob(state: string, finalStepNumber: number, maxIterations: number = 100): Observable<unknown> {

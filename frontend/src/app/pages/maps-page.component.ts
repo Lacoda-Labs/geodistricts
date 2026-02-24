@@ -190,6 +190,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   showPartyColor: boolean = false;
   /** Tract GEOID -> { pctDem } from GET tract-party (for party coloring). */
   tractPartyByGeoid: Record<string, { pctDem: number }> | null = null;
+  /** District groupKey -> party data from GET district-party (for map coloring and tooltips). */
+  districtPartyByGroupKey: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> | null = null;
 
   // US States with their congressional district counts
   states = [
@@ -1137,6 +1139,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStep = null;
     this.totalSteps = 0;
     this.finalStepNumber = null;
+    this.districtPartyByGroupKey = null;
 
     const options: GeodistrictOptions = {
       state: this.selectedState,
@@ -1273,6 +1276,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentStepIndex = 0;
     this.totalSteps = 0;
     this.finalStepNumber = null;
+    this.districtPartyByGroupKey = null;
     const sub = this.geodistrictService.getFinalStep(stateRequested).subscribe({
       next: (resp: FinalStepResponse) => {
         const { step: stepIndex, data, isComplete } = resp;
@@ -1302,6 +1306,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
         this.perGroupStatus = resp.perGroupStatus ?? [];
         this.finalStepMaxIterations = resp.maxIterations ?? 100;
+        if (resp.districtPartyPercentagesCalculated === true && this.selectedState === stateRequested && this.finalStepNumber != null) {
+          this.fetchDistrictPartyForCurrentStep();
+        } else {
+          this.districtPartyByGroupKey = null;
+        }
         this.isLoading = false;
         this.isLoadingSteps = false;
         if (data.isolatedTractsData) {
@@ -1382,6 +1391,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStep = null;
         this.totalSteps = 0;
         this.finalStepNumber = null;
+        this.districtPartyByGroupKey = null;
         this.isolatedTractIds.clear();
     this.isolatedTractsData = null;
     this.bridgeTractIds.clear();
@@ -1636,6 +1646,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStep = null;
         this.totalSteps = 0;
         this.finalStepNumber = null;
+        this.districtPartyByGroupKey = null;
         this.isolatedTractIds.clear();
     this.isolatedTractsData = null;
     this.bridgeTractIds.clear();
@@ -3432,10 +3443,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Render final districts (all steps calculated)
     const isStep0StateOutline = this.currentStepIndex === 0 && districtsToRender.length === 1;
     districtsToRender.forEach((district, index) => {
-      // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index color
-      const baseColor = isStep0StateOutline
-        ? this.getStatePartyColor(this.selectedState)
-        : this.getDistrictColor(index, districtsToRender.length);
+      // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index or district party color
+      let baseColor: string;
+      if (isStep0StateOutline) {
+        baseColor = this.getStatePartyColor(this.selectedState);
+      } else if (this.showPartyColor && this.districtPartyByGroupKey) {
+        const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+        const partyData = this.districtPartyByGroupKey[groupKey];
+        baseColor = partyData != null ? this.getTractColorByParty(partyData.pctDem) : this.getDistrictColor(index, districtsToRender.length);
+      } else {
+        baseColor = this.getDistrictColor(index, districtsToRender.length);
+      }
       const isSelected = this.selectedDistrictGroupIndex === index;
       // Only apply grayscale if a district is selected AND this one is not selected
       const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
@@ -5105,6 +5123,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.triggeringForGroupKey === `${group.startDistrictNumber}-${group.endDistrictNumber}`;
   }
 
+  /** Fetch district-level party data for current state/step; used for map coloring and tooltips. */
+  private fetchDistrictPartyForCurrentStep(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || this.finalStepNumber == null) {
+      this.districtPartyByGroupKey = null;
+      return;
+    }
+    const maxIter = this.finalStepMaxIterations ?? 100;
+    this.geodistrictService.getDistrictParty(this.selectedState, this.finalStepNumber, maxIter).subscribe({
+      next: (res) => {
+        this.districtPartyByGroupKey = res.districts ?? null;
+        this.renderFinalDistricts();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.districtPartyByGroupKey = null;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   /** Refetch final step to update status (e.g. after district party job or union polygon build). */
   refetchFinalStepForStatus(state: string): void {
     this.geodistrictService.getFinalStep(state).subscribe({
@@ -5113,6 +5151,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.unionPolygonsCached = resp.unionPolygonsCached === true;
         this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
         this.perGroupStatus = resp.perGroupStatus ?? [];
+        if (resp.districtPartyPercentagesCalculated === true && this.finalStepNumber != null) {
+          this.fetchDistrictPartyForCurrentStep();
+        } else {
+          this.districtPartyByGroupKey = null;
+        }
         // Merge step data so map and table show new union polygons / party data
         if (resp.data?.districtGroups?.length && this.currentStepIndex === resp.step) {
           this.currentStep = resp.data;
@@ -5192,6 +5235,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${done} of ${n} calculated`;
   }
 
+  /** Tooltip for district row Party icon: show D/R % and vote count when party data is loaded. */
+  getGroupPartyTooltip(group: DistrictGroup, status: PerGroupStatus | null): string {
+    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    if (status?.party === 'done' && this.districtPartyByGroupKey?.[groupKey]) {
+      const d = this.districtPartyByGroupKey[groupKey];
+      const pctDem = (d.pctDem * 100).toFixed(1);
+      const pctRep = (d.pctRep * 100).toFixed(1);
+      const votes = (d.totalVotes ?? 0).toLocaleString();
+      return `D ${pctDem}% · R ${pctRep}% · ${votes} votes`;
+    }
+    if (status?.party === 'done') return 'Party % calculated';
+    if (status?.party === 'missing') return 'Click to calculate party %';
+    return status?.party ?? '';
+  }
+
   /** Message when party coloring is on but tract party data is not loaded for this state. */
   get partyDataUnavailableMessage(): string | null {
     if (!this.selectedState || this.selectedState === 'ALL') return null;
@@ -5238,6 +5296,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         }
       });
+      if (this.districtPartyPercentagesCalculated && this.finalStepNumber != null) {
+        this.fetchDistrictPartyForCurrentStep();
+      }
     } else if (!this.showPartyColor) {
       this.tractPartyByGeoid = null;
       this.renderFinalDistricts();
