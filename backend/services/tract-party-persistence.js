@@ -49,6 +49,8 @@ const STATE_FIPS_TO_CODE = {
 async function loadTractPartyForState(state, year) {
   const key = `tract_party_${state.toUpperCase()}_${year}`;
   try {
+    console.log('🔍 loadTractPartyForState:', key);
+    console.log('🔍 USE_LOCAL_CACHE:', USE_LOCAL_CACHE);
     if (USE_LOCAL_CACHE) {
       const data = await localCache.getFromCache(key);
       if (!data) return null;
@@ -88,6 +90,7 @@ async function runTractPartyPersistenceJob(year, options = {}) {
   const statesSkipped = [];
   const { apiBaseUrl } = options;
   try {
+    console.log('🔍 runTractPartyPersistenceJob:', year);
     let vestData = await vestDataLoader.loadVESTData(year);
     if (!vestData.data || typeof vestData.data !== 'object' || Object.keys(vestData.data).length === 0) {
       if (vestData.countyData && Object.keys(vestData.countyData).length > 0) {

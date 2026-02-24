@@ -21,7 +21,7 @@ process.chdir(path.join(__dirname, '..'));
 const tractPartyPersistence = require('../services/tract-party-persistence');
 
 const yearArg = process.argv[2];
-const YEAR = yearArg ? parseInt(yearArg, 10) : parseInt(process.env.VEST_YEAR || '2020', 10);
+const YEAR = yearArg ? parseInt(yearArg, 10) : parseInt(process.env.VEST_YEAR || '2024', 10);
 
 if (isNaN(YEAR) || YEAR < 2016) {
   console.error('Usage: node scripts/run-tract-party-persistence.js [year]');

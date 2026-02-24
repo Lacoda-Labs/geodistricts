@@ -57,7 +57,7 @@ class SpatialAnalyzer {
         
         const params = new URLSearchParams({
           where: `STATE_FIPS='${stateFips}'`,
-          outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,GEOID',
+          outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,FIPS',
           f: 'geojson',
           outSR: '4326',
           resultRecordCount: '2000'
@@ -66,10 +66,26 @@ class SpatialAnalyzer {
         const response = await axios.get(`${serviceUrl}?${params.toString()}`, {
           timeout: 60000,
         });
+        let features = response.data?.features ?? [];
+        const pageSize = 2000;
+        while (features.length >= pageSize) {
+          const nextParams = new URLSearchParams({
+            where: `STATE_FIPS='${stateFips}'`,
+            outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,FIPS',
+            f: 'geojson',
+            outSR: '4326',
+            resultRecordCount: String(pageSize),
+            resultOffset: String(features.length),
+          });
+          const nextRes = await axios.get(`${serviceUrl}?${nextParams.toString()}`, { timeout: 60000 });
+          const nextFeatures = nextRes.data?.features ?? [];
+          if (nextFeatures.length === 0) break;
+          features = features.concat(nextFeatures);
+        }
         
         boundaries = {
           type: 'FeatureCollection',
-          features: response.data.features || []
+          features
         };
       }
 
@@ -84,14 +100,21 @@ class SpatialAnalyzer {
   }
 
   /**
-   * Extract GEOID from a tract feature
+   * Extract GEOID (11-digit tract id) from a tract feature.
+   * Esri USA_Census_Tracts uses FIPS; other sources use GEOID or state+county+tract.
    */
   getTractGeoid(feature) {
-    return feature.properties?.GEOID || 
-           feature.properties?.geoid ||
-           (feature.properties?.STATE_FIPS && feature.properties?.COUNTY_FIPS && feature.properties?.TRACT_FIPS
-             ? `${feature.properties.STATE_FIPS}${feature.properties.COUNTY_FIPS}${feature.properties.TRACT_FIPS}`
-             : null);
+    const p = feature?.properties;
+    if (!p) return null;
+    const fromFips = p.FIPS ?? p.GEOID ?? p.geoid;
+    if (fromFips != null && fromFips !== '') return String(fromFips).padStart(11, '0').substring(0, 11);
+    if (p.STATE_FIPS != null && p.COUNTY_FIPS != null && p.TRACT_FIPS != null) {
+      const s = String(p.STATE_FIPS).padStart(2, '0');
+      const c = String(p.COUNTY_FIPS).padStart(3, '0');
+      const t = String(p.TRACT_FIPS).replace(/\.\d+$/, '').padStart(6, '0').substring(0, 6);
+      return `${s}${c}${t}`;
+    }
+    return null;
   }
 
   /**
