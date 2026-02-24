@@ -14,6 +14,10 @@ export interface StateRowData {
   geodistrictsDChange?: number;
   geodistrictsRChange?: number;
   swing: number;
+  /** State-level D % (0–1) when party % is calculated for completed geodistricts (All view). */
+  geodistrictsPctDem?: number;
+  /** State-level R % (0–1) when party % is calculated for completed geodistricts (All view). */
+  geodistrictsPctRep?: number;
 }
 
 @Component({
@@ -85,6 +89,23 @@ export class StateRowComponent {
   get geodistrictsRPct(): number {
     const t = this.data.geodistrictsD + this.data.geodistrictsR;
     return t ? this.data.geodistrictsR / t : 0;
+  }
+
+  /** True when state-level party % is available (All view, party % calculated). */
+  get hasGeodistrictsPartyPct(): boolean {
+    return this.data.geodistrictsPctDem != null && this.data.geodistrictsPctRep != null;
+  }
+
+  /** Formatted D % for GeoDistricts column when hasGeodistrictsPartyPct. */
+  get geodistrictsDemPctFormatted(): string {
+    if (this.data.geodistrictsPctDem == null) return '';
+    return (this.data.geodistrictsPctDem * 100).toFixed(1) + '%';
+  }
+
+  /** Formatted R % for GeoDistricts column when hasGeodistrictsPartyPct. */
+  get geodistrictsRepPctFormatted(): string {
+    if (this.data.geodistrictsPctRep == null) return '';
+    return (this.data.geodistrictsPctRep * 100).toFixed(1) + '%';
   }
 }
 

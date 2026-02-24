@@ -27,6 +27,7 @@ import { StepBtnBarComponent } from '../components/step-btn-bar.component';
 import { environment } from '../../environments/environment';
 
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
+const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
 
 /** Fill opacity for district/tract polygons: 1 = solid, 0.5 = 50%. Toggled by map overlay button. */
 const POLYGON_OPACITY_SOLID = 1;
@@ -164,6 +165,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** State comparison (119th vs GeoDistricts) for state list; loaded from GET /api/maps/state-comparison */
   stateComparison: { us: { congressD: number; congressR: number; geodistrictsD: number; geodistrictsR: number; swing: number }; states: Record<string, { congressD: number; congressR: number; geodistrictsD: number; geodistrictsR: number; swing: number }> } | null = null;
+  /** Per-state party summaries (D/R % and swing) when district party % is calculated; from GET /api/maps/state-party-summaries. Used when All selected. */
+  statePartySummaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> | null = null;
 
   /** Map-only view: polygons from GET map-polygons (no algorithm run). Null when in step mode or ALL view. */
   mapPolygons: MapPolygonsResponse | null = null;
@@ -302,6 +305,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.selectedState === 'ALL' && this.cachedUSMapStepDataByState?.length && this.map && this.tractLayer) {
         this.renderUSMapDistricts(this.cachedUSMapStepDataByState);
       }
+      this.cdr.markForCheck();
+    });
+
+    // Load state party summaries (for All view: show D/R % and swing when district party % is calculated)
+    this.http.get<{ summaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> }>(STATE_PARTY_SUMMARIES_URL).pipe(
+      catchError(() => of({ summaries: {} }))
+    ).subscribe(res => {
+      this.statePartySummaries = res.summaries && Object.keys(res.summaries).length > 0 ? res.summaries : null;
       this.cdr.markForCheck();
     });
   }
@@ -5389,13 +5400,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Get state data for display in state rows (from state-comparison API when loaded).
+   * Get state data for display in state rows (from state-comparison API; when All selected and party % available, use state-party-summaries for geodistricts and swing).
    */
   getStateData(stateCode: string, source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
+    if (source === '119th') {
+      const s = this.stateComparison?.states?.[stateCode];
+      if (s) return type === 'D' ? String(s.congressD) : String(s.congressR);
+      return '0';
+    }
+    const partySummary = this.statePartySummaries?.[stateCode];
+    if (partySummary && (source === 'geodistricts' || source === 'swing')) {
+      if (source === 'swing') return String(partySummary.swing);
+      if (source === 'geodistricts') return type === 'D' ? String(partySummary.geodistrictsD) : String(partySummary.geodistrictsR);
+    }
     const s = this.stateComparison?.states?.[stateCode];
     if (s) {
       if (source === 'swing') return String(s.swing);
-      if (source === '119th') return type === 'D' ? String(s.congressD) : String(s.congressR);
       if (source === 'geodistricts') return type === 'D' ? String(s.geodistrictsD) : String(s.geodistrictsR);
     }
     return '0';
@@ -5489,7 +5509,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Get state row data for StateRowComponent
+   * Get state row data for StateRowComponent.
+   * When All selected and state has party % calculated, includes geodistrictsPctDem/geodistrictsPctRep for display.
    */
   getStateRowData(stateCode: string) {
     const state = this.states.find((s: { code: string }) => s.code === stateCode);
@@ -5501,6 +5522,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
+    const partySummary = this.statePartySummaries?.[stateCode];
     return {
       stateCode: stateCode,
       stateName: state?.name,
@@ -5513,7 +5535,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       geodistrictsR,
       geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
       geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
-      swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0
+      swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0,
+      geodistrictsPctDem: partySummary != null ? partySummary.pctDem : undefined,
+      geodistrictsPctRep: partySummary != null ? partySummary.pctRep : undefined
     };
   }
 }

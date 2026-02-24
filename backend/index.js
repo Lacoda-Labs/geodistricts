@@ -1194,6 +1194,68 @@ app.get('/api/maps/state-comparison', (req, res) => {
 });
 
 /**
+ * GET /api/maps/state-party-summaries
+ * Returns per-state party summaries for states that have district party % calculated.
+ * Used by maps page when "All" is selected to show state-level D/R % and swing from party data.
+ * Payload: { summaries: { stateCode: { pctDem, pctRep, geodistrictsD, geodistrictsR, swing } } }
+ */
+app.get('/api/maps/state-party-summaries', async (req, res) => {
+  try {
+    const ids = await listCacheDocIds('district_party_');
+    const congressSummary = congress119Party.getPartySummary();
+    const summaries = {};
+
+    for (const id of ids) {
+      const parts = id.split('_');
+      if (parts.length < 4) continue;
+      const stateCode = (parts[2] || '').toUpperCase();
+      if (stateCode.length !== 2) continue;
+
+      const data = await getCacheDoc(id);
+      if (!data || !data.districts || typeof data.districts !== 'object') continue;
+
+      const districts = data.districts;
+      let totalVotesDem = 0;
+      let totalVotesRep = 0;
+      let geodistrictsD = 0;
+      let geodistrictsR = 0;
+      for (const d of Object.values(districts)) {
+        const vd = d.votesDem || 0;
+        const vr = d.votesRep || 0;
+        totalVotesDem += vd;
+        totalVotesRep += vr;
+        if ((d.pctDem || 0) >= 0.5) geodistrictsD++;
+        else geodistrictsR++;
+      }
+      const totalVotes = totalVotesDem + totalVotesRep;
+      const pctDem = totalVotes > 0 ? totalVotesDem / totalVotes : 0;
+      const pctRep = totalVotes > 0 ? totalVotesRep / totalVotes : 0;
+      const congress = congressSummary.states[stateCode] || { D: 0, R: 0 };
+      const congressD = congress.D || 0;
+      const swing = geodistrictsD - congressD;
+
+      const stepNum = parseInt(parts[3], 10) || 0;
+      const existing = summaries[stateCode];
+      if (!existing || stepNum > (existing._step ?? -1)) {
+        summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum };
+      }
+    }
+    for (const stateCode of Object.keys(summaries)) {
+      const s = summaries[stateCode];
+      delete s._step;
+    }
+
+    return res.json({ summaries });
+  } catch (error) {
+    console.error('❌ GET /api/maps/state-party-summaries error:', error);
+    res.status(500).json({
+      error: 'State party summaries failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * POST /api/admin/maps-comparison/refresh
  * Recomputes 119th vs GeoDistricts comparison and persists to data/maps-state-comparison.json.
  * Requires final-step states and VEST data. May take several minutes for all states.
