@@ -78,6 +78,7 @@ class VESTDataLoader {
   constructor() {
     this.loadingYears = new Set(); // Track years currently being loaded
     this.dataCache = new Map(); // In-memory cache for processed data
+    this.countyBoundariesCache = new Map(); // state -> FeatureCollection (avoids repeated ArcGIS calls per tract)
   }
 
   /**
@@ -924,6 +925,10 @@ class VESTDataLoader {
    * Load county boundaries for a state from Census TIGER
    */
   async loadCountyBoundaries(state, apiBaseUrl = null) {
+    const cacheKey = `county_${state}`;
+    if (this.countyBoundariesCache.has(cacheKey)) {
+      return this.countyBoundariesCache.get(cacheKey);
+    }
     const axios = require('axios');
     const stateFipsMap = {
       'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
@@ -942,9 +947,10 @@ class VESTDataLoader {
     const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
     const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Counties/FeatureServer/0/query';
 
+    // USA_Counties layer uses CNTY_FIPS, NAME, FIPS (5-char); not COUNTY_FIPS/COUNTY_NAME/GEOID (requesting those causes 400)
     const params = new URLSearchParams({
       where: `STATE_FIPS='${stateFips}'`,
-      outFields: 'STATE_FIPS,COUNTY_FIPS,COUNTY_NAME,GEOID',
+      outFields: 'STATE_FIPS,CNTY_FIPS,NAME,FIPS',
       f: 'geojson',
       outSR: '4326',
       resultRecordCount: '5000'
@@ -956,10 +962,31 @@ class VESTDataLoader {
         timeout: 60000,
       });
 
-      return {
+      const rawFeatures = response.data?.features ?? [];
+      const features = rawFeatures.map((f) => {
+        const p = f.properties || {};
+        const stateF = String(p.STATE_FIPS ?? p.FIPS?.substring(0, 2) ?? '').padStart(2, '0');
+        const cntyF = String(p.CNTY_FIPS ?? p.FIPS?.substring(2, 5) ?? '').padStart(3, '0');
+        const fips5 = p.FIPS ?? (stateF + cntyF);
+        return {
+          ...f,
+          properties: {
+            ...p,
+            STATE_FIPS: stateF,
+            COUNTY_FIPS: cntyF,
+            CNTY_FIPS: cntyF,
+            COUNTY_NAME: p.NAME ?? p.COUNTY_NAME ?? '',
+            GEOID: String(fips5).padStart(5, '0').substring(0, 5),
+          },
+        };
+      });
+
+      const result = {
         type: 'FeatureCollection',
-        features: response.data.features || []
+        features,
       };
+      this.countyBoundariesCache.set(cacheKey, result);
+      return result;
     } catch (error) {
       console.error(`Error loading county boundaries for ${state}:`, error.message);
       throw new Error(`Failed to load county boundaries: ${error.message}`);
@@ -1096,8 +1123,9 @@ class VESTDataLoader {
             const intersectionArea = turf.area(intersection);
             const intersectionRatio = tractArea > 0 ? intersectionArea / tractArea : 0;
 
-            // Get county FIPS
-            const countyFipsFromFeature = countyFeature.properties?.COUNTY_FIPS || 
+            // Get county FIPS (USA_Counties uses CNTY_FIPS; we normalize to COUNTY_FIPS in loadCountyBoundaries)
+            const countyFipsFromFeature = countyFeature.properties?.COUNTY_FIPS ||
+                                         countyFeature.properties?.CNTY_FIPS ||
                                          countyFeature.properties?.county_fips ||
                                          countyFeature.properties?.GEOID?.substring(2, 5);
             
@@ -1198,7 +1226,7 @@ class VESTDataLoader {
    * Get VEST data for specific tracts by GEOID
    * Handles both tract-level and county-level data (with on-demand allocation)
    */
-  async getTractData(geoids, year = 2020, apiBaseUrl = null) {
+  async getTractData(geoids, year = 2024, apiBaseUrl = null) {
     const vestData = await this.loadVESTData(year);
     const results = {};
 

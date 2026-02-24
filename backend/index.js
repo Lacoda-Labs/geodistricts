@@ -1205,7 +1205,7 @@ app.post('/api/admin/maps-comparison/refresh', async (req, res) => {
     poligeoAnalyst.setApiBaseUrl(baseUrl);
 
     const payload = await mapsComparison.buildStateComparisonPayload({
-      vestYear: parseInt(req.query.vestYear || req.body?.vestYear || '2020', 10),
+      vestYear: parseInt(req.query.vestYear || req.body?.vestYear || '2024', 10),
       getFinalStepStates: async () => {
         const { data } = await axios.get(`${baseUrl}/api/algorithm/final-step-states`);
         return data.stateCodes || [];
@@ -6248,7 +6248,7 @@ app.post('/api/algorithm/build-all-union-polygons/:state', async (req, res) => {
  */
 app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
   try {
-    const year = parseInt(req.body?.year || req.query?.year || '2020', 10);
+    const year = parseInt(req.body?.year || req.query?.year || '2024', 10);
     if (isNaN(year) || year < 2016) {
       return res.status(400).json({ error: 'Valid year (2016 or later) is required' });
     }
@@ -6290,7 +6290,7 @@ app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
 });
 
 /** Default VEST year for district party aggregation */
-const DEFAULT_VEST_YEAR = 2020;
+const DEFAULT_VEST_YEAR = 2024;
 
 /**
  * Load district-level party percentages for a state/step (from Firestore).
@@ -6317,7 +6317,7 @@ async function loadDistrictPartyForStep(state, stepNumber, maxIterations) {
  * @param {string} state - State code
  * @param {number} finalStepNumber - Final step number
  * @param {number} maxIterations - Max iterations (for cache keys)
- * @param {number} [vestYear] - VEST year (default 2020)
+ * @param {number} [vestYear] - VEST year (default 2024)
  * @returns {Promise<{ success: boolean, districtsWritten: number, error?: string }>}
  */
 async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear = DEFAULT_VEST_YEAR) {
@@ -6379,7 +6379,7 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
 
 /**
  * POST /api/algorithm/district-party/:state
- * Trigger district-level party % job for final step. Query: finalStepNumber, maxIterations (optional), vestYear (optional).
+ * Trigger district-level party % job for final step. Query: finalStepNumber, maxIterations (optional), vestYear (optional, default 2024).
  * Returns 202 when accepted (job runs async).
  */
 app.post('/api/algorithm/district-party/:state', async (req, res) => {
@@ -9776,7 +9776,7 @@ app.delete('/api/voter-registration/:state', async (req, res) => {
  */
 app.get('/api/poligeo/state-summary', async (req, res) => {
   try {
-    const { state, year = 2020 } = req.query;
+    const { state, year = 2024 } = req.query;
 
     if (!state) {
       return res.status(400).json({
@@ -10228,13 +10228,13 @@ app.post('/api/poligeo/vest-data/download', async (req, res) => {
  *
  * Request body:
  * {
- *   "year": 2020 (optional, defaults to 2020),
+ *   "year": 2024 (optional, defaults to 2024),
  *   "apiBaseUrl": "http://localhost:3000" (optional, for county allocation)
  * }
  */
 app.post('/api/vest/bulk-download-persist', async (req, res) => {
   try {
-    const year = parseInt(req.body.year || 2020, 10);
+    const year = parseInt(req.body.year || 2024, 10);
     const apiBaseUrl = req.body.apiBaseUrl;
 
     if (![2016, 2020, 2024].includes(year)) {

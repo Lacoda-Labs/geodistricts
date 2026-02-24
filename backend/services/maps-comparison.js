@@ -11,7 +11,7 @@ const poligeoAnalyst = require('./poligeo-analyst');
 const { getTractId } = require('./geodistrict-algorithm');
 const { CONGRESSIONAL_DISTRICTS_BY_STATE } = require('./geodistrict-algorithm');
 
-const VEST_YEAR_DEFAULT = 2020;
+const VEST_YEAR_DEFAULT = 2024;
 const COMPARISON_FILENAME = 'maps-state-comparison.json';
 
 function getComparisonDataPath() {
@@ -99,7 +99,7 @@ function assignPartyFromAnalysis(analysisResult, vestYear) {
  * @param {Object} options
  * @param {() => Promise<string[]>} options.getFinalStepStates - returns state codes that have a final step
  * @param {(state: string) => Promise<{ data?: { districtGroups?: Array } }>} options.getFinalStep - returns final step for state
- * @param {number} [options.vestYear=2020]
+ * @param {number} [options.vestYear=2024]
  * @returns {Promise<{ us: Object, states: Object, meta: Object }>}
  */
 async function buildStateComparisonPayload(options = {}) {

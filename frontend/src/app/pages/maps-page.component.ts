@@ -545,7 +545,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           updateButtonStates();
           // When turning tracts on, load tract party data so party colors can be used
           if (component.showTractBoundaries && component.selectedState && component.selectedState !== 'ALL' && !component.tractPartyByGeoid) {
-            component.geodistrictService.getTractParty(component.selectedState, 2020).subscribe({
+            component.geodistrictService.getTractParty(component.selectedState, 2024).subscribe({
               next: (res) => {
                 component.tractPartyByGeoid = res.geoids || {};
                 component.updateMapLayers();
@@ -5226,7 +5226,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showPartyColor = !this.showPartyColor;
     if (this.showPartyColor && this.selectedState && this.selectedState !== 'ALL') {
       this.tractPartyByGeoid = null;
-      this.geodistrictService.getTractParty(this.selectedState, 2020).subscribe({
+      this.geodistrictService.getTractParty(this.selectedState, 2024).subscribe({
         next: (res) => {
           this.tractPartyByGeoid = res.geoids || {};
           this.renderFinalDistricts();

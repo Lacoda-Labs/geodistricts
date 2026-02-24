@@ -5,9 +5,13 @@
  * Builds tract_party_{state}_{year} data (from VEST) so district-party and
  * district-party-for-group endpoints have data to aggregate.
  *
+ * Tract party calculation is intended to be run from local dev. Output is always
+ * written to the local filesystem (backend/data/census-cache/). GCP (Firestore/GCS)
+ * is not used when running this script.
+ *
  * Usage: node scripts/run-tract-party-persistence.js [year]
  *        cd backend && npm run tract-party
- * Example: node scripts/run-tract-party-persistence.js 2020
+ * Example: node scripts/run-tract-party-persistence.js 2024
  *
  * Prerequisite: VEST data for the year (e.g. run ./scripts/run-vest-download.sh first,
  * or let vest-data-loader download on first run).
@@ -18,6 +22,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 process.chdir(path.join(__dirname, '..'));
 
+// Always use local cache for tract party when run via this script (dev pipeline).
+process.env.USE_LOCAL_CACHE = 'true';
+
 const tractPartyPersistence = require('../services/tract-party-persistence');
 
 const yearArg = process.argv[2];
@@ -25,7 +32,7 @@ const YEAR = yearArg ? parseInt(yearArg, 10) : parseInt(process.env.VEST_YEAR ||
 
 if (isNaN(YEAR) || YEAR < 2016) {
   console.error('Usage: node scripts/run-tract-party-persistence.js [year]');
-  console.error('  year: 2016 or later (default: 2020 or VEST_YEAR)');
+  console.error('  year: 2016 or later (default: 2024 or VEST_YEAR)');
   process.exit(1);
 }
 

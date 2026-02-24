@@ -49,6 +49,13 @@ When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE
 
 The server can start **without GCP credentials** in this mode. Firestore and Cloud Storage are not initialized until a code path that requires them runs (i.e. when `USE_LOCAL_CACHE` is false).
 
+### Tract party calculation (local-only workflow)
+
+Tract party calculation is intended to be run from local dev (e.g. `cd backend && npm run tract-party`). For this workflow:
+
+- Tract party data is stored under **`backend/data/census-cache/`** (keys `tract_party_{state}_{year}`). It is local only; GCP (Firestore/GCS) is not used for tract party when using the local dev pipeline.
+- The script `run-tract-party-persistence.js` forces `USE_LOCAL_CACHE='true'` so that output always goes to the local filesystem regardless of `NODE_ENV`.
+
 ### Risks and considerations
 
 - **Disk space**: Local cache can grow with state tracts, step data, and VEST data. Clear `backend/data/census-cache/` (and optionally `backend/data/vest/`) if needed.
