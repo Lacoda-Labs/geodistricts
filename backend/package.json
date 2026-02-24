@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "tract-party": "node scripts/run-tract-party-persistence.js",
     "test": "npm run test:isolation && npm run test:vest",
     "test:isolation": "node services/geodistrict-algorithm-isolation.test.js",
     "test:vest": "node services/vest-party.test.js"
