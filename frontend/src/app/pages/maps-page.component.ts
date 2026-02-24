@@ -5492,6 +5492,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
+    const hasGeodistrictsPartyData = this.statePartySummaries != null && Object.keys(this.statePartySummaries).length > 0;
     return {
       stateCode: 'US',
       stateName: 'United States',
@@ -5504,7 +5505,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       geodistrictsR,
       geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
       geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
-      swing: parseInt(this.getUSData('swing', 'value'), 10) || 0
+      swing: parseInt(this.getUSData('swing', 'value'), 10) || 0,
+      hasGeodistrictsPartyData
     };
   }
 
@@ -5520,8 +5522,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const geodistrictsR = parseInt(this.getStateData(stateCode, 'geodistricts', 'R'), 10) || 0;
     const congressMarginD = congressD - congressR;
     const congressMarginR = congressR - congressD;
-    const deltaD = geodistrictsD - congressD;
-    const deltaR = geodistrictsR - congressR;
+    const hasGeodistrictsPartyData = !!(this.statePartySummaries && this.statePartySummaries[stateCode]);
     return {
       stateCode: stateCode,
       stateName: state?.name,
@@ -5535,8 +5536,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       geodistrictsDChange: undefined,
       geodistrictsRChange: undefined,
       swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0,
-      geodistrictsDDeltaFromCongress: deltaD !== 0 ? deltaD : undefined,
-      geodistrictsRDeltaFromCongress: deltaR !== 0 ? deltaR : undefined
+      hasGeodistrictsPartyData
     };
   }
 }

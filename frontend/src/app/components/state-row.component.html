@@ -22,18 +22,18 @@
     </div>
   </div>
   <div class="data-column geodistricts-column">
-    <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
-      <span>D: {{ data.geodistrictsD }}</span>
-      <span class="change-indicator" *ngIf="showGeodistrictsDDeltaFromCongress">{{ formatDeltaFromCongress('D', data.geodistrictsDDeltaFromCongress) }}</span>
-    </div>
-    <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
-      <span>R: {{ data.geodistrictsR }}</span>
-      <span class="change-indicator" *ngIf="showGeodistrictsRDeltaFromCongress">{{ formatDeltaFromCongress('R', data.geodistrictsRDeltaFromCongress) }}</span>
-    </div>
+    <ng-container *ngIf="data.hasGeodistrictsPartyData !== false">
+      <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
+        <span>D: {{ data.geodistrictsD }}</span>
+      </div>
+      <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
+        <span>R: {{ data.geodistrictsR }}</span>
+      </div>
+    </ng-container>
   </div>
   <div class="data-column swing-column">
-    <div class="data-badge republican swing">
-      <span>{{ data.swing >= 0 ? '+' : '' }}{{ data.swing }}</span>
+    <div class="data-badge" *ngIf="data.hasGeodistrictsPartyData !== false" [class.democratic]="data.swing > 0" [class.republican]="data.swing <= 0" [class.dimmed]="true">
+      <span>{{ swingColumnText }}</span>
     </div>
   </div>
 </div>

@@ -14,10 +14,8 @@ export interface StateRowData {
   geodistrictsDChange?: number;
   geodistrictsRChange?: number;
   swing: number;
-  /** Delta from 119th Congress to GeoDistricts: D seats gained (show D:+N in blue when > 0). */
-  geodistrictsDDeltaFromCongress?: number;
-  /** Delta from 119th Congress to GeoDistricts: R seats gained (show R:+N in red when > 0). */
-  geodistrictsRDeltaFromCongress?: number;
+  /** When false, GeoDistricts and Swing columns show no values (no party data for geodistricts). */
+  hasGeodistrictsPartyData?: boolean;
 }
 
 @Component({
@@ -47,10 +45,12 @@ export class StateRowComponent {
     return `(+${Math.abs(change)})`;
   }
 
-  /** Format district-level delta from Congress for GeoDistricts column: e.g. D:+1 or R:+1 (always +N). */
-  formatDeltaFromCongress(party: 'D' | 'R', delta: number | undefined): string {
-    if (delta == null || delta <= 0) return '';
-    return `${party}:+${delta}`;
+  /** Swing column text: D:+N (blue) when D gains, R:+N (red) when R gains, +0 when even. */
+  get swingColumnText(): string {
+    const s = this.data.swing;
+    if (s > 0) return `D:+${s}`;
+    if (s < 0) return `R:+${-s}`;
+    return '+0';
   }
 
   /** True if D has majority in 119th Congress column (show D delta). Tie: D. */
@@ -63,15 +63,6 @@ export class StateRowComponent {
     return (this.data.congressR > this.data.congressD) && this.data.congressRChange !== undefined && this.data.congressRChange !== null;
   }
 
-  /** True when GeoDistricts has more D seats than 119th Congress (show D:+N in blue). */
-  get showGeodistrictsDDeltaFromCongress(): boolean {
-    return (this.data.geodistrictsDDeltaFromCongress ?? 0) > 0;
-  }
-
-  /** True when GeoDistricts has more R seats than 119th Congress (show R:+N in red). */
-  get showGeodistrictsRDeltaFromCongress(): boolean {
-    return (this.data.geodistrictsRDeltaFromCongress ?? 0) > 0;
-  }
 
   /** Share of Congress column that is D (0–1). Used for shade intensity. */
   get congressDPct(): number {
