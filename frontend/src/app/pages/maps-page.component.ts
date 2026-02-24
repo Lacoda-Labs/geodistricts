@@ -5510,7 +5510,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Get state row data for StateRowComponent.
-   * When All selected and state has party % calculated, includes geodistrictsPctDem/geodistrictsPctRep for display.
+   * GeoDistricts column shows district-level delta from 119th Congress (D:+N in blue, R:+N in red when > 0).
    */
   getStateRowData(stateCode: string) {
     const state = this.states.find((s: { code: string }) => s.code === stateCode);
@@ -5520,9 +5520,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const geodistrictsR = parseInt(this.getStateData(stateCode, 'geodistricts', 'R'), 10) || 0;
     const congressMarginD = congressD - congressR;
     const congressMarginR = congressR - congressD;
-    const geodistrictsMarginD = geodistrictsD - geodistrictsR;
-    const geodistrictsMarginR = geodistrictsR - geodistrictsD;
-    const partySummary = this.statePartySummaries?.[stateCode];
+    const deltaD = geodistrictsD - congressD;
+    const deltaR = geodistrictsR - congressR;
     return {
       stateCode: stateCode,
       stateName: state?.name,
@@ -5533,11 +5532,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       congressRChange: congressMarginR > 0 ? congressMarginR : undefined,
       geodistrictsD,
       geodistrictsR,
-      geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
-      geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
+      geodistrictsDChange: undefined,
+      geodistrictsRChange: undefined,
       swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0,
-      geodistrictsPctDem: partySummary != null ? partySummary.pctDem : undefined,
-      geodistrictsPctRep: partySummary != null ? partySummary.pctRep : undefined
+      geodistrictsDDeltaFromCongress: deltaD !== 0 ? deltaD : undefined,
+      geodistrictsRDeltaFromCongress: deltaR !== 0 ? deltaR : undefined
     };
   }
 }

@@ -23,12 +23,12 @@
   </div>
   <div class="data-column geodistricts-column">
     <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
-      <span>D: {{ data.geodistrictsD }}<ng-container *ngIf="hasGeodistrictsPartyPct"> ({{ geodistrictsDemPctFormatted }})</ng-container></span>
-      <span class="change-indicator" *ngIf="showGeodistrictsDDelta">{{ formatDelta(data.geodistrictsDChange) }}</span>
+      <span>D: {{ data.geodistrictsD }}</span>
+      <span class="change-indicator" *ngIf="showGeodistrictsDDeltaFromCongress">{{ formatDeltaFromCongress('D', data.geodistrictsDDeltaFromCongress) }}</span>
     </div>
     <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
-      <span>R: {{ data.geodistrictsR }}<ng-container *ngIf="hasGeodistrictsPartyPct"> ({{ geodistrictsRepPctFormatted }})</ng-container></span>
-      <span class="change-indicator" *ngIf="showGeodistrictsRDelta">{{ formatDelta(data.geodistrictsRChange) }}</span>
+      <span>R: {{ data.geodistrictsR }}</span>
+      <span class="change-indicator" *ngIf="showGeodistrictsRDeltaFromCongress">{{ formatDeltaFromCongress('R', data.geodistrictsRDeltaFromCongress) }}</span>
     </div>
   </div>
   <div class="data-column swing-column">

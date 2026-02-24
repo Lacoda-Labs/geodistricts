@@ -14,10 +14,10 @@ export interface StateRowData {
   geodistrictsDChange?: number;
   geodistrictsRChange?: number;
   swing: number;
-  /** State-level D % (0–1) when party % is calculated for completed geodistricts (All view). */
-  geodistrictsPctDem?: number;
-  /** State-level R % (0–1) when party % is calculated for completed geodistricts (All view). */
-  geodistrictsPctRep?: number;
+  /** Delta from 119th Congress to GeoDistricts: D seats gained (show D:+N in blue when > 0). */
+  geodistrictsDDeltaFromCongress?: number;
+  /** Delta from 119th Congress to GeoDistricts: R seats gained (show R:+N in red when > 0). */
+  geodistrictsRDeltaFromCongress?: number;
 }
 
 @Component({
@@ -47,6 +47,12 @@ export class StateRowComponent {
     return `(+${Math.abs(change)})`;
   }
 
+  /** Format district-level delta from Congress for GeoDistricts column: e.g. D:+1 or R:+1 (always +N). */
+  formatDeltaFromCongress(party: 'D' | 'R', delta: number | undefined): string {
+    if (delta == null || delta <= 0) return '';
+    return `${party}:+${delta}`;
+  }
+
   /** True if D has majority in 119th Congress column (show D delta). Tie: D. */
   get showCongressDDelta(): boolean {
     return (this.data.congressD >= this.data.congressR) && this.data.congressDChange !== undefined && this.data.congressDChange !== null;
@@ -57,14 +63,14 @@ export class StateRowComponent {
     return (this.data.congressR > this.data.congressD) && this.data.congressRChange !== undefined && this.data.congressRChange !== null;
   }
 
-  /** True if D has majority in GeoDistricts column (show D delta). Tie: D. */
-  get showGeodistrictsDDelta(): boolean {
-    return (this.data.geodistrictsD >= this.data.geodistrictsR) && this.data.geodistrictsDChange !== undefined && this.data.geodistrictsDChange !== null;
+  /** True when GeoDistricts has more D seats than 119th Congress (show D:+N in blue). */
+  get showGeodistrictsDDeltaFromCongress(): boolean {
+    return (this.data.geodistrictsDDeltaFromCongress ?? 0) > 0;
   }
 
-  /** True if R has majority in GeoDistricts column (show R delta). Tie: D wins so no R. */
-  get showGeodistrictsRDelta(): boolean {
-    return (this.data.geodistrictsR > this.data.geodistrictsD) && this.data.geodistrictsRChange !== undefined && this.data.geodistrictsRChange !== null;
+  /** True when GeoDistricts has more R seats than 119th Congress (show R:+N in red). */
+  get showGeodistrictsRDeltaFromCongress(): boolean {
+    return (this.data.geodistrictsRDeltaFromCongress ?? 0) > 0;
   }
 
   /** Share of Congress column that is D (0–1). Used for shade intensity. */
@@ -89,23 +95,6 @@ export class StateRowComponent {
   get geodistrictsRPct(): number {
     const t = this.data.geodistrictsD + this.data.geodistrictsR;
     return t ? this.data.geodistrictsR / t : 0;
-  }
-
-  /** True when state-level party % is available (All view, party % calculated). */
-  get hasGeodistrictsPartyPct(): boolean {
-    return this.data.geodistrictsPctDem != null && this.data.geodistrictsPctRep != null;
-  }
-
-  /** Formatted D % for GeoDistricts column when hasGeodistrictsPartyPct. */
-  get geodistrictsDemPctFormatted(): string {
-    if (this.data.geodistrictsPctDem == null) return '';
-    return (this.data.geodistrictsPctDem * 100).toFixed(1) + '%';
-  }
-
-  /** Formatted R % for GeoDistricts column when hasGeodistrictsPartyPct. */
-  get geodistrictsRepPctFormatted(): string {
-    if (this.data.geodistrictsPctRep == null) return '';
-    return (this.data.geodistrictsPctRep * 100).toFixed(1) + '%';
   }
 }
 
