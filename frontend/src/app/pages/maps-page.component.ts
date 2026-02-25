@@ -411,6 +411,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.map) {
         console.log(`🔍 Map zoom changed - New zoom level: ${this.map.getZoom()}`);
         this.updateSliderTrackLength();
+        this.updateUSMapPolygonWeights();
       }
     });
     this.map.on('moveend', () => {
@@ -775,6 +776,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     [49.5, -66] as [number, number]
   );
 
+  /** Line weight for All-states district polygons: thinner when zoomed out, slightly thicker when zoomed in. */
+  private getUSMapPolygonWeight(): number {
+    if (!this.map || this.selectedState !== 'ALL') return 0.4;
+    const z = this.map.getZoom();
+    if (z <= 4) return 0.25;
+    if (z >= 7) return 0.5;
+    return 0.25 + ((z - 4) / 3) * 0.25;
+  }
+
+  /** Line weight for All-states state outlines (fixed, thin so they don’t dominate when zoomed out). */
+  private static readonly US_MAP_STATE_OUTLINE_WEIGHT = 0.5;
+
   private updateMapView(): void {
     if (!this.map || !this.selectedState) return;
 
@@ -803,7 +816,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const geoJson = L.geoJSON(item.stateOutline, {
           style: {
             color: '#333',
-            weight: 1,
+            weight: MapsPageComponent.US_MAP_STATE_OUTLINE_WEIGHT,
             opacity: 0.9,
             fillOpacity: 0.08,
             fillColor: '#888'
@@ -833,13 +846,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       <strong>Tracts:</strong> ${district.censusTracts?.length ?? 0}<br>
       <em>Click to view ${stateName}</em>`;
 
+    const strokeWeight = this.getUSMapPolygonWeight();
     for (const unionPolygon of polygonsToRender) {
       if (!unionPolygon?.geometry) continue;
       try {
         const geoJson = L.geoJSON(unionPolygon, {
           style: {
             color: '#000000',
-            weight: 1.5,
+            weight: strokeWeight,
             opacity: 1,
             fillOpacity,
             fillColor: fillColor
@@ -1085,13 +1099,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           <strong>Tracts:</strong> ${district.censusTracts?.length ?? 0}<br>
           <em>Click to view ${stateName}</em>`;
 
+        const strokeWeight = this.getUSMapPolygonWeight();
         for (const unionPolygon of polygonsToRender) {
           if (!unionPolygon?.geometry) continue;
           try {
             const geoJson = L.geoJSON(unionPolygon, {
               style: {
                 color: '#000000',
-                weight: 1.5,
+                weight: strokeWeight,
                 opacity: 1,
                 fillOpacity,
                 fillColor
@@ -1109,6 +1124,25 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     }
+  }
+
+  /** Update stroke weight on all All-states district layers (call on zoomend so borders thin when zoomed out). */
+  private updateUSMapPolygonWeights(): void {
+    if (this.selectedState !== 'ALL' || !this.map || this.tractGeoJsonLayers.size === 0) return;
+    const w = this.getUSMapPolygonWeight();
+    const style: { color: string; weight: number; opacity: number; fillOpacity: number; fillColor: string } = {
+      color: '#000000',
+      weight: w,
+      opacity: 1,
+      fillOpacity: this.polygonFillOpacity,
+      fillColor: '#888'
+    };
+    this.tractGeoJsonLayers.forEach((fillColor, layer) => {
+      style.fillColor = fillColor;
+      (layer as L.LayerGroup).eachLayer((child: L.Layer) => {
+        if ('setStyle' in child) (child as L.Path).setStyle(style);
+      });
+    });
   }
 
   /**
