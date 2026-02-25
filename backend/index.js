@@ -4197,11 +4197,10 @@ async function getMapPolygonsForState(stateCode) {
       }
       if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
     }
-    const cacheResults = USE_LOCAL_CACHE
-      ? await Promise.all(unionCacheKeys.map(key => getCacheDoc(key)))
-      : await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
+    // Union polygon payload is stored in Cloud Storage; fetch from there so All-states view gets final districts (local cache only stores metadata).
+    const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
     for (const cacheResult of cacheResults) {
-      const unionData = USE_LOCAL_CACHE ? (cacheResult && (cacheResult.data != null ? cacheResult.data : cacheResult)) : (cacheResult && cacheResult.data);
+      const unionData = cacheResult && cacheResult.data;
       if (unionData) {
         const features = Array.isArray(unionData) ? unionData : [unionData];
         for (const f of features) {
@@ -4215,7 +4214,8 @@ async function getMapPolygonsForState(stateCode) {
   return {
     statePolygon,
     finalDistrictPolygons: hasFinalStep ? finalDistrictPolygons : undefined,
-    hasFinalStep
+    hasFinalStep,
+    finalStepNumber: hasFinalStep && cachedEntry && typeof cachedEntry.step === 'number' ? cachedEntry.step : undefined
   };
 }
 
@@ -4234,7 +4234,8 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     return res.json({
       statePolygon: result.statePolygon,
       finalDistrictPolygons: result.finalDistrictPolygons,
-      hasFinalStep: result.hasFinalStep
+      hasFinalStep: result.hasFinalStep,
+      finalStepNumber: result.finalStepNumber
     });
   } catch (error) {
     console.error('❌ GET /api/algorithm/map-polygons error:', error);
@@ -4269,8 +4270,8 @@ app.get('/api/algorithm/map-polygons-all', async (req, res) => {
 
     const results = await Promise.all(
       stateCodes.map(async (stateCode) => {
-        const { statePolygon, finalDistrictPolygons, hasFinalStep } = await getMapPolygonsForState(stateCode);
-        return { stateCode, statePolygon, finalDistrictPolygons, hasFinalStep };
+        const { statePolygon, finalDistrictPolygons, hasFinalStep, finalStepNumber } = await getMapPolygonsForState(stateCode);
+        return { stateCode, statePolygon, finalDistrictPolygons, hasFinalStep, finalStepNumber };
       })
     );
 

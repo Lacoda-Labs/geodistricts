@@ -116,6 +116,7 @@ export interface MapPolygonsResponse {
   statePolygon: GeoJsonFeature;
   finalDistrictPolygons?: GeoJsonFeature[];
   hasFinalStep: boolean;
+  finalStepNumber?: number;
 }
 
 /** Response from GET /api/algorithm/map-polygons-all - step0 (state boundary) and optional final-step polygons for all states in order */
@@ -125,6 +126,7 @@ export interface MapPolygonsAllResponse {
     statePolygon: GeoJsonFeature;
     finalDistrictPolygons?: GeoJsonFeature[];
     hasFinalStep?: boolean;
+    finalStepNumber?: number;
   }>;
 }
 
