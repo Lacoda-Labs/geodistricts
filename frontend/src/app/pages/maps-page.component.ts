@@ -305,9 +305,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       })
     ).subscribe(payload => {
       this.stateComparison = payload || null;
-      if (this.selectedState === 'ALL' && this.cachedUSMapStepDataByState?.length && this.map && this.tractLayer) {
-        this.renderUSMapDistricts(this.cachedUSMapStepDataByState);
-      }
+      this.rerenderUSMapIfAllView();
       this.cdr.markForCheck();
     });
 
@@ -316,6 +314,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       catchError(() => of({ summaries: {} }))
     ).subscribe(res => {
       this.statePartySummaries = res.summaries && Object.keys(res.summaries).length > 0 ? res.summaries : null;
+      this.rerenderUSMapIfAllView();
       this.cdr.markForCheck();
     });
   }
@@ -1067,6 +1066,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       totalDistricts: 0,
       divisionDirection: 'latitude'
     };
+  }
+
+  /**
+   * Re-render the US map when in ALL view if we have district data (cached or current).
+   * Called when stateComparison or statePartySummaries loads so district colors update after async data arrives.
+   */
+  private rerenderUSMapIfAllView(): void {
+    if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    const data = this.cachedUSMapStepDataByState?.length
+      ? this.cachedUSMapStepDataByState
+      : this.usMapStepDataByState;
+    if (data?.length) {
+      this.renderUSMapDistricts(data);
+    }
   }
 
   /**
