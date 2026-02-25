@@ -5535,19 +5535,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return stops[index].hex;
   }
 
-  /** Party color: pctDem 0.51–1 → Democratic scale (100–500), 0–0.49 → Republican scale; use exact scale hex only. 0.49–0.51 = tie. */
+  /** Party color: majority party gets scale 100–500; use lowest scale (100) when majority is slim (e.g. 50.4% D). No tie band: D >= 0.5 → Democratic scale, D < 0.5 → Republican scale. */
   getTractColorByParty(pctDem: number): string {
     const t = Math.max(0, Math.min(1, pctDem));
-    if (t > 0.51) {
-      const value = 100 + ((t - 0.51) / 0.49) * 400;
+    if (t >= 0.5) {
+      const value = 100 + ((t - 0.5) / 0.5) * 400;
       return MapsPageComponent.colorFromStops(value, MapsPageComponent.DEMOCRATIC_STOPS);
     }
-    if (t < 0.49) {
-      const pctRep = 1 - t;
-      const value = 100 + ((pctRep - 0.51) / 0.49) * 400;
-      return MapsPageComponent.colorFromStops(value, MapsPageComponent.REPUBLICAN_STOPS);
-    }
-    return '#E0E0E0'; // tie
+    const pctRep = 1 - t;
+    const value = 100 + ((pctRep - 0.5) / 0.5) * 400;
+    return MapsPageComponent.colorFromStops(value, MapsPageComponent.REPUBLICAN_STOPS);
   }
 
   /** Toggle party coloring and fetch tract party data if enabling. */
