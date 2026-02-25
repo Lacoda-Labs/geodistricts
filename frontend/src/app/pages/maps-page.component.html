@@ -219,7 +219,8 @@
               <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
             </div>
 
-            <!-- Final step: Move isolated tracts, then Balance once isolation is resolved (only show Balance when still possible) -->
+            <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
+            <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
             <div class="final-step-actions" *ngIf="isFinalStepActive">
               <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
                 *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
@@ -291,7 +292,7 @@
                   <thead>
                     <tr>
                       <th>District</th>
-                      <th>Variance</th>
+                      <th matTooltip="DG population / Target DG population">Variance</th>
                       <th *ngIf="!isFinalStepActive">Next</th>
                       <th *ngIf="isDevMode" class="col-party" title="Party %">Party</th>
                     </tr>

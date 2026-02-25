@@ -786,6 +786,14 @@
   }
 }
 
+.final-step-phase-label {
+  margin-bottom: 8px;
+  padding: 0 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--mat-sys-primary, #1976d2);
+}
+
 .final-step-actions {
   display: flex;
   align-items: center;

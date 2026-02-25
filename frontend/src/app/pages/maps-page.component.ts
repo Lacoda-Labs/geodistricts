@@ -1827,6 +1827,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.currentStep.districtGroups.every(g => g.totalDistricts === 1);
   }
 
+  /** True when we're at the final step structure (all single-district groups). Used for play-to-completion flow regardless of dev mode. */
+  private get atFinalStepForPlay(): boolean {
+    return !!(this.currentStep?.districtGroups?.length && this.currentStep.districtGroups.every((g: any) => g.totalDistricts === 1));
+  }
+
   /** True when there are isolated tracts to resolve (for Move button at final step). */
   get hasUnresolvedIsolation(): boolean {
     return !!(this.isolatedTractsData?.isolatedTractIds?.length);
@@ -1834,6 +1839,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** True when balance can no longer improve variances (or final step was loaded as complete). Hides Balance button. */
   finalStepBalancingComplete: boolean = false;
+  /** Label for play-at-final-step phase: Move isolated tracts, Balance tracts, or State geodistricting complete. */
+  finalStepPhaseLabel: string = '';
 
   /** Sync component isolation state from currentStep so final-step Move/Balance buttons reflect this step. */
   private syncIsolationFromCurrentStep(): void {
@@ -2199,10 +2206,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           // Always run isolation detection at each step (step > 0); do not use cached isolation data
           this.isolatedTractIds.clear();
           this.isolatedTractsData = null;
-          if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
-            this.detectIsolatedTracts();
-          }
-          
           this.bridgeTractIds.clear();
           this.bridgeTractsData = null;
           this.isLoadingSteps = false;
@@ -2215,11 +2218,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.algorithmResult.finalDistricts = (stepToUse as any).districtGroups;
           }
 
-          // Render the step on map
-          setTimeout(() => {
-            this.renderFinalDistricts();
-            this.onStepDisplayComplete();
-          }, 100);
+          const isFinalStep = isComplete && (stepToUse as any).districtGroups?.every((g: any) => g.totalDistricts === 1);
+          if (isFinalStep && (stepToUse as any).districtGroups?.length) {
+            this.finalStepNumber = stepIndex;
+            this.detectIsolatedTracts(() => {
+              this.renderFinalDistricts();
+              this.onStepDisplayComplete();
+            });
+          } else {
+            if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
+              this.detectIsolatedTracts();
+            }
+            setTimeout(() => {
+              this.renderFinalDistricts();
+              this.onStepDisplayComplete();
+            }, 100);
+          }
 
           // If complete, update total steps
           if (isComplete) {
@@ -2388,11 +2402,91 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.isPlaying = true;
+    if (this.atFinalStepForPlay) {
+      this.runFinalStepToCompletion();
+      return;
+    }
     this.nextStep();
+  }
+
+  /**
+   * At final step: run move isolated until none left, then balance until no more, then trigger union polygons and party % jobs.
+   * Called when play is started at final step; uses finalStepPhaseLabel for phase labels.
+   */
+  private runFinalStepToCompletion(): void {
+    if (!this.isPlaying) {
+      return;
+    }
+    if (this.hasUnresolvedIsolation) {
+      this.finalStepPhaseLabel = 'Move isolated tracts';
+      this.loadingMessage = 'Move isolated tracts';
+      this.cdr.markForCheck();
+      this.moveIsolatedTracts(
+        (result) => {
+          const totalIsolated = result?.isolationResult?.totalIsolated ?? 0;
+          if (totalIsolated === 0) {
+            setTimeout(() => this.runFinalStepToCompletion(), 0);
+          } else {
+            setTimeout(() => this.runFinalStepToCompletion(), 0);
+          }
+        },
+        () => {
+          this.pauseSteps();
+          this.finalStepPhaseLabel = '';
+          this.cdr.markForCheck();
+        }
+      );
+      return;
+    }
+    if (!this.finalStepBalancingComplete) {
+      this.finalStepPhaseLabel = 'Balance tracts';
+      this.loadingMessage = 'Balance tracts';
+      this.cdr.markForCheck();
+      this.balanceDistrictsAfterIsolated(
+        (result) => {
+          const noMore = (result as { noMoreBalancingPossible?: boolean })?.noMoreBalancingPossible === true;
+          if (noMore) {
+            this.finalStepPhaseLabel = 'State geodistricting complete';
+            this.loadingMessage = 'State geodistricting complete';
+            this.triggerPolygonsForAllMissing();
+            this.triggerDistrictPartyIfNeeded();
+            this.pauseSteps();
+            this.isLoading = false;
+            this.loadingMessage = '';
+            this.cdr.markForCheck();
+            setTimeout(() => {
+              this.finalStepPhaseLabel = '';
+              this.cdr.markForCheck();
+            }, 5000);
+          } else {
+            setTimeout(() => this.runFinalStepToCompletion(), 0);
+          }
+        },
+        () => {
+          this.pauseSteps();
+          this.finalStepPhaseLabel = '';
+          this.cdr.markForCheck();
+        }
+      );
+      return;
+    }
+    this.finalStepPhaseLabel = 'State geodistricting complete';
+    this.loadingMessage = 'State geodistricting complete';
+    this.triggerPolygonsForAllMissing();
+    this.triggerDistrictPartyIfNeeded();
+    this.pauseSteps();
+    this.isLoading = false;
+    this.loadingMessage = '';
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.finalStepPhaseLabel = '';
+      this.cdr.markForCheck();
+    }, 5000);
   }
 
   pauseSteps(): void {
     this.isPlaying = false;
+    this.finalStepPhaseLabel = '';
   }
 
   /**
@@ -2402,7 +2496,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private onStepDisplayComplete(): void {
     if (!this.isPlaying) return;
     if (!this.canGoToNextStep()) {
-      this.pauseSteps();
+      if (this.atFinalStepForPlay) {
+        this.runFinalStepToCompletion();
+      } else {
+        this.pauseSteps();
+      }
       return;
     }
     this.nextStep();
@@ -4340,22 +4438,25 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Detect isolated tracts in the current step's district groups
+   * Detect isolated tracts in the current step's district groups.
+   * Optional onComplete() is called when detection finishes (success or error); use when advancing to final step so play can continue after detection.
    */
-  detectIsolatedTracts(): void {
+  detectIsolatedTracts(onComplete?: () => void): void {
     if (!this.currentStep || !this.algorithmResult) {
       console.warn('No current step or algorithm result available');
+      onComplete?.();
       return;
     }
 
     // Collect all tracts from all district groups
     const allTracts: GeoJsonFeature[] = [];
     for (const group of this.currentStep.districtGroups) {
-      allTracts.push(...group.censusTracts);
+      allTracts.push(...(group.censusTracts || []));
     }
 
     if (allTracts.length === 0) {
       console.warn('No tracts available for isolation detection');
+      onComplete?.();
       return;
     }
 
@@ -4385,13 +4486,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         if (result.isolatedTractIds?.length) {
           this.finalStepBalancingComplete = false;
         }
+        // Persist on current step so move has step data
+        if (this.currentStep) {
+          this.currentStep.isolatedTractsData = {
+            isolatedTractsByGroup: result.isolatedTractsByGroup,
+            isolatedTractIds: result.isolatedTractIds,
+            totalIsolated: result.totalIsolated ?? result.isolatedTractIds?.length ?? 0,
+            groupsWithIsolation: result.groupsWithIsolation ?? 0
+          };
+        }
         // Clear bridge tracts when new isolation is detected
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
         
         // Debug: Check if we can match any tract IDs
         if (this.currentStep && this.currentStep.districtGroups.length > 0) {
-          const sampleTract = this.currentStep.districtGroups[0].censusTracts[0];
+          const sampleTract = this.currentStep.districtGroups[0].censusTracts?.[0];
           if (sampleTract) {
             const sampleId = this.getTractId(sampleTract);
             console.log(`🔍 Sample tract ID format:`, sampleId);
@@ -4404,11 +4514,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.renderFinalDistricts();
         
         this.isDetectingIsolation = false;
+        onComplete?.();
       },
       error: (error) => {
         console.error('Error detecting isolated tracts:', error);
         this.errorMessage = error.message || 'Failed to detect isolated tracts';
         this.isDetectingIsolation = false;
+        onComplete?.();
       }
     });
 
@@ -4551,11 +4663,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Move isolated tracts to opposite groups and re-run isolation detection
+   * Move isolated tracts to opposite groups and re-run isolation detection.
+   * Optional onSuccess(result) is called on success (e.g. for play flow chaining); onError(error) on failure.
    */
-  moveIsolatedTracts(): void {
+  moveIsolatedTracts(onSuccess?: (result: any) => void, onError?: (error: any) => void): void {
     if (!this.currentStep) {
       console.warn('Cannot move isolated tracts: missing current step');
+      onError?.(new Error('Missing current step'));
       return;
     }
 
@@ -4570,6 +4684,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (!hasStepData && !hasComponentData) {
       console.warn('No isolated tracts to move - please detect isolated tracts first');
+      onSuccess?.({ isolationResult: { totalIsolated: 0 } });
       return;
     }
 
@@ -4663,10 +4778,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Re-render map with updated groups
         this.renderFinalDistricts();
         this.cdr.detectChanges();
+        onSuccess?.(result);
       },
       error: (error) => {
         console.error('Error moving isolated tracts:', error);
         this.errorMessage = error?.message || error.error?.message || error.message || 'Failed to move isolated tracts';
+        onError?.(error);
       }
     });
   }
@@ -4674,8 +4791,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Run balance on the backend. At final step uses variance-based balance (no division lines required);
    * otherwise uses balanceSiblingPairsAfterIsolatedMoves (division lines required).
+   * Optional onSuccess(result) and onError(error) for play flow chaining.
    */
-  balanceDistrictsAfterIsolated(): void {
+  balanceDistrictsAfterIsolated(onSuccess?: (result: any) => void, onError?: (error: any) => void): void {
     if (!this.currentStep?.districtGroups?.length) return;
     if (!this.isFinalStepActive && !(this.currentStep?.divisionLines?.length)) return;
     this.isBalancingDistricts = true;
@@ -4710,10 +4828,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.renderFinalDistricts();
         this.cdr.detectChanges();
+        onSuccess?.(result);
       },
       error: (error) => {
         console.error('Error balancing districts:', error);
         this.errorMessage = error?.message || error?.message || 'Failed to balance districts';
+        onError?.(error);
       }
     });
   }
