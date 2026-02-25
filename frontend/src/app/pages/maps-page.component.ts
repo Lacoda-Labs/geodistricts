@@ -29,9 +29,9 @@ import { environment } from '../../environments/environment';
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
 
-/** Fill opacity for district/tract polygons: 1 = solid, 0.5 = 50%. Toggled by map overlay button. */
+/** Fill opacity for district/tract polygons: 1 = solid when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
 const POLYGON_OPACITY_SOLID = 1;
-const POLYGON_OPACITY_HALF = 0.5;
+const POLYGON_OPACITY_HALF = 0.8;
 
 declare global {
   interface Window {
@@ -63,7 +63,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedState: string = '';
   showTractBoundaries: boolean = false;
   showDivisionLines: boolean = false;
-  /** Polygon fill opacity: 1 = solid, 0.5 = 50%. Toggled by map overlay button. */
+  /** Polygon fill opacity: 1 when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
   polygonFillOpacity: number = POLYGON_OPACITY_SOLID;
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -497,10 +497,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         divisionIcon.style.fontSize = '18px';
         divisionIcon.style.lineHeight = '1';
 
-        // Polygon opacity toggle button (50% vs solid)
+        // Polygon opacity toggle button (80% vs solid)
         const opacityButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
         opacityButton.href = '#';
-        opacityButton.title = 'Toggle polygon opacity (50% / solid)';
+        opacityButton.title = 'Toggle polygon opacity (80% / solid)';
         opacityButton.style.width = '30px';
         opacityButton.style.height = '30px';
         opacityButton.style.display = 'flex';
@@ -579,7 +579,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           updateButtonStates();
         });
 
-        // Polygon opacity button click handler (50% vs solid)
+        // Polygon opacity button click handler (80% vs solid)
         L.DomEvent.on(opacityButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
@@ -732,12 +732,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Re-render to show either individual tracts or union polygons
       this.renderFinalDistricts();
     } else if (this.tractGeoJsonLayers.size > 0) {
-      // Fallback: update existing layer styles if no algorithm result. When boundaries hidden, border same color/opacity as fill.
+      // Fallback: update existing layer styles if no algorithm result. Border always black.
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
         layer.setStyle({
-          color: this.showTractBoundaries ? '#000000' : districtColor,
+          color: '#000000',
           weight: this.showTractBoundaries ? 0.5 : 0.3,
-          opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+          opacity: 0.8,
           fillOpacity: this.polygonFillOpacity,
           fillColor: districtColor
         });
@@ -2871,15 +2871,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private clearSliderHighlight(): void {
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
-    const normalColor = this.showTractBoundaries ? '#000000' : undefined;
     this.lastSliderHighlightedTractIds.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
       const tractColor = this.tractGeoJsonLayers.get(layer) ?? '#888';
       (layer as any).setStyle({
         weight: normalWeight,
-        color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+        color: '#000000',
+        opacity: 0.8,
         fillOpacity: this.polygonFillOpacity,
         fillColor: tractColor
       });
@@ -2902,15 +2901,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lastSliderHighlightedTractIds.forEach(id => toHighlight.delete(id));
 
     const normalWeight = this.showTractBoundaries ? 0.5 : 0.3;
-    const normalColor = this.showTractBoundaries ? '#000000' : undefined;
     toUnhighlight.forEach(tractId => {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
       const tractColor = this.tractGeoJsonLayers.get(layer) ?? '#888';
       (layer as any).setStyle({
         weight: normalWeight,
-        color: normalColor ?? tractColor,
-        opacity: this.showTractBoundaries ? 0.8 : this.polygonFillOpacity,
+        color: '#000000',
+        opacity: 0.8,
         fillOpacity: this.polygonFillOpacity,
         fillColor: tractColor
       });
@@ -3474,7 +3472,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const districtPartyForOpacity = this.showPartyColor ? this.districtPartyByGroupKey?.[groupKeyForOpacity] : undefined;
       const fillOpacity = isStep0StateOutline
         ? this.getStatePartyOpacity(this.selectedState)
-        : (districtPartyForOpacity != null ? this.getPartyFillOpacity(districtPartyForOpacity.pctDem) : this.polygonFillOpacity);
+        : this.polygonFillOpacity;
 
       if (!district.censusTracts || district.censusTracts.length === 0) {
         console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
@@ -3501,9 +3499,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             try {
               const geoJson = L.geoJSON(unionPolygon, {
                 style: {
-                  color,
+                  color: '#000000',
                   weight: 0.3,
-                  opacity: fillOpacity,
+                  opacity: 0.8,
                   fillOpacity,
                   fillColor: color
                 }
@@ -3572,17 +3570,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             } else if (useDistrictPartyColor) {
               pctDemForOpacity = this.districtPartyByGroupKey![groupKey].pctDem;
             }
-            const tractFillOpacity = pctDemForOpacity != null ? this.getPartyFillOpacity(pctDemForOpacity) : this.polygonFillOpacity;
+            const tractFillOpacity = this.polygonFillOpacity;
 
-            // Determine border weight and color: bridge tracts get white 3px border. Slider highlight applied later via setStyle.
-            // When boundaries hidden, border uses same color and opacity as fill so it blends (not removed).
+            // Determine border weight and color: border always black; bridge tracts get white 3px border.
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
-            let borderColor = this.showTractBoundaries ? '#000000' : tractColor;
+            let borderColor = '#000000';
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
             }
-            const borderOpacityVal = this.showTractBoundaries ? 0.8 : (isBridge ? 1.0 : tractFillOpacity);
+            const borderOpacityVal = isBridge ? 1.0 : 0.8;
 
             // Tracts should be GeoJSON Features - pass directly to L.geoJSON
             const geoJson = L.geoJSON(tract, {
@@ -5319,34 +5316,45 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'Party data not loaded for this state. Run tract party persistence (POST /api/algorithm/tract-party-persistence).';
   }
 
-  /** Fill opacity when coloring by party: minimum 70%, scaling to 100% as share moves away from 50%. */
+  /** Fill opacity when coloring by party: 80%–100% so polygons are visible; scaled by opacity toggle. */
   getPartyFillOpacity(pctDem: number): number {
     const t = Math.max(0, Math.min(1, pctDem));
-    const minOpacity = 0.7;
+    const minOpacity = 0.8;
     const range = 1 - minOpacity;
     const distanceFrom50 = 2 * Math.abs(t - 0.5);
     return minOpacity + range * distanceFrom50;
   }
 
-  /** Interpolate color by party: pctDem 0 = red (R), 0.5 = light gray, 1 = blue (D). */
+  /** Party color scale: 100 = 51%, 500 = 100%. Stops for interpolation. */
+  private static readonly REPUBLICAN_STOPS: { v: number; hex: string }[] = [
+    { v: 100, hex: '#FFCDD2' }, { v: 200, hex: '#EF9A9A' }, { v: 300, hex: '#E57373' },
+    { v: 400, hex: '#EF5350' }, { v: 500, hex: '#F44336' }
+  ];
+  private static readonly DEMOCRATIC_STOPS: { v: number; hex: string }[] = [
+    { v: 100, hex: '#BBDEFB' }, { v: 200, hex: '#90CAF9' }, { v: 300, hex: '#64B5F6' },
+    { v: 400, hex: '#42A5F5' }, { v: 500, hex: '#2196F3' }
+  ];
+
+  /** Quantize value to nearest stop (100, 200, 300, 400, 500) and return that stop's exact hex. */
+  private static colorFromStops(value: number, stops: { v: number; hex: string }[]): string {
+    const v = Math.max(100, Math.min(500, value));
+    const index = Math.min(4, Math.max(0, Math.round((v - 100) / 100)));
+    return stops[index].hex;
+  }
+
+  /** Party color: pctDem 0.51–1 → Democratic scale (100–500), 0–0.49 → Republican scale; use exact scale hex only. 0.49–0.51 = tie. */
   getTractColorByParty(pctDem: number): string {
     const t = Math.max(0, Math.min(1, pctDem));
-    const gray = 224;
-    let r: number;
-    let g: number;
-    let b: number;
-    if (t <= 0.5) {
-      const s = t * 2;
-      r = Math.round(255 * (1 - s) + gray * s);
-      g = Math.round(gray * s);
-      b = Math.round(gray * s);
-    } else {
-      const s = (t - 0.5) * 2;
-      r = Math.round(gray * (1 - s));
-      g = Math.round(gray * (1 - s));
-      b = Math.round(gray + (255 - gray) * s);
+    if (t > 0.51) {
+      const value = 100 + ((t - 0.51) / 0.49) * 400;
+      return MapsPageComponent.colorFromStops(value, MapsPageComponent.DEMOCRATIC_STOPS);
     }
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    if (t < 0.49) {
+      const pctRep = 1 - t;
+      const value = 100 + ((pctRep - 0.51) / 0.49) * 400;
+      return MapsPageComponent.colorFromStops(value, MapsPageComponent.REPUBLICAN_STOPS);
+    }
+    return '#E0E0E0'; // tie
   }
 
   /** Toggle party coloring and fetch tract party data if enabling. */
