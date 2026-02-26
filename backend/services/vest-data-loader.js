@@ -66,7 +66,8 @@ const VEST_DATASETS = {
     datasetUrl: null,
     tractFilePatterns: ['tract_2024.csv', '*tract*2024*.csv', 'vest_2024_tract.csv'],
     columnMappings: {
-      // Will be determined when 2024 data is available
+      'G24PREDBID': 'votes_dem_pres_2024',
+      'G24PRERTRU': 'votes_rep_pres_2024',
     }
   }
 };
@@ -997,8 +998,10 @@ class VESTDataLoader {
    * Allocate county votes to a specific tract using spatial intersection
    * For tracts fully enclosed in a county: use county data directly
    * For tracts spanning multiple counties: calculate weighted average based on intersection area
+   * When using county fallback (no geometry), votes are divided by tract count in county if countyTractCounts is provided.
+   * @param {Object} [countyTractCounts] - Optional. Map of 5-digit county FIPS -> number of tracts; used to allocate proportionally in fallback so sum over county = county total once.
    */
-  async allocateCountyVotesToTract(geoid, year, vestData, tractFeature = null, apiBaseUrl = null) {
+  async allocateCountyVotesToTract(geoid, year, vestData, tractFeature = null, apiBaseUrl = null, countyTractCounts = null) {
     if (!vestData.countyData) {
       // Not county-level data, return null to use direct lookup
       return null;
@@ -1011,6 +1014,7 @@ class VESTDataLoader {
     const stateFips = normalizedGeoid.substring(0, 2);
     const countyFips = normalizedGeoid.substring(2, 5);
     const countyFips5 = stateFips + countyFips;
+    const divisor = (countyTractCounts && countyTractCounts[countyFips5] > 0) ? countyTractCounts[countyFips5] : 1;
 
     // Get state code from FIPS
     const stateFipsMap = {
@@ -1040,19 +1044,22 @@ class VESTDataLoader {
         if (tract) {
           tractGeometry = tract;
         } else {
-          // Tract not found - use simple county assignment
+          // Tract not found - use simple county assignment (proportional if countyTractCounts provided)
           const countyVotes = vestData.countyData[countyFips5];
           if (countyVotes) {
+            const dem = Math.round(countyVotes.votes_dem_pres / divisor);
+            const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+            const total = Math.round(countyVotes.total_votes_pres / divisor);
             return {
               GEOID: normalizedGeoid,
               state_fips: stateFips,
               county_fips: countyFips,
-              votes_dem_pres: countyVotes.votes_dem_pres,
-              votes_rep_pres: countyVotes.votes_rep_pres,
-              total_votes_pres: countyVotes.total_votes_pres,
+              votes_dem_pres: dem,
+              votes_rep_pres: rep,
+              total_votes_pres: total,
               pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
               pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-              allocationMethod: 'county_fallback',
+              allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
             };
           }
           return null;
@@ -1061,16 +1068,19 @@ class VESTDataLoader {
         console.warn(`⚠️ Could not load tract geometry for ${geoid}: ${error.message}, using county fallback`);
         const countyVotes = vestData.countyData[countyFips5];
         if (countyVotes) {
+          const dem = Math.round(countyVotes.votes_dem_pres / divisor);
+          const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+          const total = Math.round(countyVotes.total_votes_pres / divisor);
           return {
             GEOID: normalizedGeoid,
             state_fips: stateFips,
             county_fips: countyFips,
-            votes_dem_pres: countyVotes.votes_dem_pres,
-            votes_rep_pres: countyVotes.votes_rep_pres,
-            total_votes_pres: countyVotes.total_votes_pres,
+            votes_dem_pres: dem,
+            votes_rep_pres: rep,
+            total_votes_pres: total,
             pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
             pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-            allocationMethod: 'county_fallback',
+            allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
           };
         }
         return null;
@@ -1095,16 +1105,19 @@ class VESTDataLoader {
       console.warn(`⚠️ Could not load county boundaries: ${error.message}, using county fallback`);
       const countyVotes = vestData.countyData[countyFips5];
       if (countyVotes) {
+        const dem = Math.round(countyVotes.votes_dem_pres / divisor);
+        const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+        const total = Math.round(countyVotes.total_votes_pres / divisor);
         return {
           GEOID: normalizedGeoid,
           state_fips: stateFips,
           county_fips: countyFips,
-          votes_dem_pres: countyVotes.votes_dem_pres,
-          votes_rep_pres: countyVotes.votes_rep_pres,
-          total_votes_pres: countyVotes.total_votes_pres,
+          votes_dem_pres: dem,
+          votes_rep_pres: rep,
+          total_votes_pres: total,
           pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
           pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-          allocationMethod: 'county_fallback',
+          allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
         };
       }
       return null;
@@ -1152,19 +1165,22 @@ class VESTDataLoader {
     }
 
     if (countyIntersections.length === 0) {
-      // No intersections found - use primary county as fallback
+      // No intersections found - use primary county as fallback (proportional if countyTractCounts provided)
       const countyVotes = vestData.countyData[countyFips5];
       if (countyVotes) {
+        const dem = Math.round(countyVotes.votes_dem_pres / divisor);
+        const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+        const total = Math.round(countyVotes.total_votes_pres / divisor);
         return {
           GEOID: normalizedGeoid,
           state_fips: stateFips,
           county_fips: countyFips,
-          votes_dem_pres: countyVotes.votes_dem_pres,
-          votes_rep_pres: countyVotes.votes_rep_pres,
-          total_votes_pres: countyVotes.total_votes_pres,
+          votes_dem_pres: dem,
+          votes_rep_pres: rep,
+          total_votes_pres: total,
           pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
           pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-          allocationMethod: 'county_fallback_no_intersection',
+          allocationMethod: divisor > 1 ? 'county_fallback_no_intersection_proportional' : 'county_fallback_no_intersection',
         };
       }
       return null;
@@ -1242,7 +1258,12 @@ class VESTDataLoader {
     } else if (vestData.countyData) {
       // County-level data - allocate on-demand using spatial intersection
       console.log(`🔄 Allocating county votes to ${geoids.length} tracts using spatial intersection...`);
-      
+      // Tract count per county (5-digit FIPS) so fallback allocates proportionally: sum over county = county total once
+      const countyTractCounts = {};
+      for (const g of geoids) {
+        const c5 = String(g).padStart(11, '0').substring(0, 5);
+        countyTractCounts[c5] = (countyTractCounts[c5] || 0) + 1;
+      }
       // Load tract boundaries once for all tracts (more efficient)
       const stateFips = String(geoids[0]).padStart(11, '0').substring(0, 2);
       const stateFipsMap = {
@@ -1281,7 +1302,7 @@ class VESTDataLoader {
           });
         }
 
-        const allocated = await this.allocateCountyVotesToTract(normalizedGeoid, year, vestData, tractFeature, apiBaseUrl);
+        const allocated = await this.allocateCountyVotesToTract(normalizedGeoid, year, vestData, tractFeature, apiBaseUrl, countyTractCounts);
         if (allocated) {
           results[normalizedGeoid] = allocated;
         }

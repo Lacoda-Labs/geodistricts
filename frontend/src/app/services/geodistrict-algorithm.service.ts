@@ -508,11 +508,17 @@ export class GeodistrictAlgorithmService {
 
   /**
    * Get district-level party percentages for a state and step (for map coloring and tooltips).
+   * @param vestYear - VEST year (default 2024). Response includes vestYear so UI can confirm data year.
    */
-  getDistrictParty(state: string, stepNumber: number, maxIterations: number = 100): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }> {
+  getDistrictParty(
+    state: string,
+    stepNumber: number,
+    maxIterations: number = 100,
+    vestYear: number = 2024
+  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}`;
-    return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }>(url, {
+    const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}&vestYear=${vestYear}`;
+    return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
   }

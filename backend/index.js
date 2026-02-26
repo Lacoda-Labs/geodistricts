@@ -4666,7 +4666,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                     }
 
                     // Per-DG status for union polygon and party % (for dev/maps table)
-                    const districtPartyDataRecon = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+                    const loadedRecon = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+                    const districtPartyDataRecon = loadedRecon && loadedRecon.districts ? loadedRecon.districts : null;
                     const perGroupStatusRecon = (stepData.districtGroups || []).map(g => {
                       const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
                       return {
@@ -4830,7 +4831,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
         }
 
         // Per-DG status for union polygon and party % (for dev/maps table)
-        const districtPartyData = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+        const loaded = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
+        const districtPartyData = loaded && loaded.districts ? loaded.districts : null;
         const perGroupStatus = (stepData.districtGroups || []).map(g => {
           const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
           return {
@@ -6356,19 +6358,23 @@ app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
 const DEFAULT_VEST_YEAR = 2024;
 
 /**
- * Load district-level party percentages for a state/step (from Firestore).
+ * Load district-level party percentages for a state/step (from cache).
  * @param {string} state - State code
  * @param {number} stepNumber - Final step number
  * @param {number} maxIterations - Max iterations (for cache key)
- * @returns {Promise<{ [groupKey: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
+ * @param {number|null} [vestYear] - VEST year for cache key (default 2024). If null, uses legacy key only.
+ * @returns {Promise<{ districts: object, vestYear?: number } | null>}
  */
-async function loadDistrictPartyForStep(state, stepNumber, maxIterations) {
-  const key = `district_party_${state}_${stepNumber}_${maxIterations}`;
+async function loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYear = 2024) {
+  const keyWithYear = `district_party_${state}_${stepNumber}_${maxIterations}_${vestYear}`;
+  const legacyKey = `district_party_${state}_${stepNumber}_${maxIterations}`;
   try {
-    const data = await getCacheDoc(key);
-    if (!data) return null;
-    if (data.districts && typeof data.districts === 'object') return data.districts;
-    return null;
+    let data = await getCacheDoc(vestYear != null ? keyWithYear : legacyKey);
+    if (!data && vestYear === 2024) {
+      data = await getCacheDoc(legacyKey);
+    }
+    if (!data || !data.districts || typeof data.districts !== 'object') return null;
+    return { districts: data.districts, vestYear: data.vestYear ?? vestYear };
   } catch (err) {
     console.warn(`⚠️ loadDistrictPartyForStep(${state}, ${stepNumber}): ${err.message}`);
     return null;
@@ -6420,7 +6426,7 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
       const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
       districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
     }
-    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
+    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
     await setCacheDoc(key, {
       districts,
       state,
@@ -6479,21 +6485,22 @@ app.post('/api/algorithm/district-party/:state', async (req, res) => {
 
 /**
  * GET /api/algorithm/district-party/:state/:stepNumber
- * Return district-level party percentages for a state and final step. Query: maxIterations (optional).
+ * Return district-level party percentages for a state and final step. Query: maxIterations (optional), vestYear (optional, default 2024).
  */
 app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => {
   try {
     const state = (req.params.state || '').toUpperCase();
     const stepNumber = parseInt(req.params.stepNumber, 10);
     const maxIterations = parseInt(req.query.maxIterations || '100', 10);
+    const vestYear = req.query.vestYear !== undefined && req.query.vestYear !== '' ? parseInt(req.query.vestYear, 10) : 2024;
     if (!state || state.length !== 2 || isNaN(stepNumber)) {
       return res.status(400).json({ error: 'Invalid state or step number' });
     }
-    const districts = await loadDistrictPartyForStep(state, stepNumber, maxIterations);
-    if (districts == null) {
+    const loaded = await loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
+    if (loaded == null) {
       return res.status(404).json({ error: 'District party data not found. Run POST /api/algorithm/district-party/:state first.' });
     }
-    return res.json({ state, step: stepNumber, maxIterations, districts });
+    return res.json({ state, step: stepNumber, maxIterations, districts: loaded.districts, vestYear: loaded.vestYear });
   } catch (error) {
     console.error('❌ GET district-party error:', error);
     res.status(500).json({ error: 'Failed to load district party data', message: error.message });
@@ -6543,8 +6550,13 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     }
     const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
     const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
-    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}`;
-    const prev = await getCacheDoc(key) || {};
+    const vestYear = DEFAULT_VEST_YEAR;
+    const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
+    let prev = await getCacheDoc(key) || {};
+    if (!prev.districts && vestYear === 2024) {
+      const legacy = await getCacheDoc(`district_party_${state}_${finalStepNumber}_${maxIterations}`) || {};
+      if (legacy.districts) prev = legacy;
+    }
     const districts = prev.districts && typeof prev.districts === 'object' ? { ...prev.districts } : {};
     districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
     await setCacheDoc(key, {
@@ -6552,7 +6564,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
       state,
       step: finalStepNumber,
       maxIterations,
-      vestYear: DEFAULT_VEST_YEAR,
+      vestYear,
       timestamp: Date.now(),
       ttl: null,
       version: CACHE_VERSION,
