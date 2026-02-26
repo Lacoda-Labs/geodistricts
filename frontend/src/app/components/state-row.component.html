@@ -25,9 +25,11 @@
     <ng-container *ngIf="data.hasGeodistrictsPartyData !== false">
       <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
         <span>D: {{ data.geodistrictsD }}</span>
+        <span class="change-indicator" *ngIf="showGeodistrictsDDelta">{{ formatDelta(data.geodistrictsDChange) }}</span>
       </div>
       <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
         <span>R: {{ data.geodistrictsR }}</span>
+        <span class="change-indicator" *ngIf="showGeodistrictsRDelta">{{ formatDelta(data.geodistrictsRChange) }}</span>
       </div>
     </ng-container>
   </div>

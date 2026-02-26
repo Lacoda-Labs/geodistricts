@@ -126,12 +126,12 @@
   &.democratic {
     // no-bkg variant; shade by party % (--party-pct 0–1)
     background-color: transparent;
-    color: #2F59FF;
+    color: var(--party-democratic, #2F59FF);
     opacity: calc(0.4 + 0.6 * var(--party-pct, 1));
 
     &.dimmed {
       background-color: transparent;
-      color: #2F59FF;
+      color: var(--party-democratic, #2F59FF);
       opacity: calc(0.3 + 0.5 * var(--party-pct, 1));
     }
   }
@@ -165,10 +165,10 @@
 :host-context(.us-data-section) {
   .data-badge {
     &.democratic {
-      color: #2F59FF;
+      color: var(--party-democratic, #2F59FF);
 
       &.dimmed {
-        color: #2F59FF;
+        color: var(--party-democratic, #2F59FF);
         opacity: 0.7;
       }
     }

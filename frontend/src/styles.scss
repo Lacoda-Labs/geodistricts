@@ -65,6 +65,9 @@
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --radius: 0.625rem;
+
+  // Party colors (contrast-tuned for light/dark)
+  --party-democratic: #1565C0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -117,6 +120,8 @@
     --destructive-foreground: var(--mat-sys-on-error);
     --border: var(--mat-sys-outline-variant);
     --input-background: var(--mat-sys-surface-container-low);
+
+    --party-democratic: #64B5F6;
   }
 }
 

@@ -592,11 +592,11 @@
 
   &.democratic {
     background-color: transparent;
-    color: #2F59FF;
+    color: var(--party-democratic, #2F59FF);
 
     &.dimmed {
       background-color: transparent;
-      color: #2F59FF;
+      color: var(--party-democratic, #2F59FF);
       opacity: 0.7;
     }
   }
@@ -1307,11 +1307,11 @@
 
   &.democratic {
     background-color: transparent;
-    color: #2F59FF;
+    color: var(--party-democratic, #2F59FF);
 
     &.dimmed {
       background-color: transparent;
-      color: #2F59FF;
+      color: var(--party-democratic, #2F59FF);
       opacity: 0.7;
     }
   }

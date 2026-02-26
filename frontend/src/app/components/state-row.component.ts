@@ -63,6 +63,15 @@ export class StateRowComponent {
     return (this.data.congressR > this.data.congressD) && this.data.congressRChange !== undefined && this.data.congressRChange !== null;
   }
 
+  /** True if D has majority in GeoDistricts column (show D delta). Tie: D. */
+  get showGeodistrictsDDelta(): boolean {
+    return (this.data.geodistrictsD >= this.data.geodistrictsR) && this.data.geodistrictsDChange !== undefined && this.data.geodistrictsDChange !== null;
+  }
+
+  /** True if R has majority in GeoDistricts column (show R delta). Tie: D wins so no R. */
+  get showGeodistrictsRDelta(): boolean {
+    return (this.data.geodistrictsR > this.data.geodistrictsD) && this.data.geodistrictsRChange !== undefined && this.data.geodistrictsRChange !== null;
+  }
 
   /** Share of Congress column that is D (0–1). Used for shade intensity. */
   get congressDPct(): number {
