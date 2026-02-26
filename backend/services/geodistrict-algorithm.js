@@ -2881,6 +2881,31 @@ class GeodistrictAlgorithmService {
         siblingDG = `DG${n - 1}-${n - 1}`;
         console.log(`   Fallback: using adjacent single-district sibling ${siblingDG} for bridge move`);
       }
+      if (!siblingDG) {
+        const other = districtGroups.find(g =>
+          g.startDistrictNumber === g.endDistrictNumber &&
+          (g.startDistrictNumber !== isolatedGroup.startDistrictNumber || g.endDistrictNumber !== isolatedGroup.endDistrictNumber)
+        );
+        if (other) {
+          siblingDG = `DG${other.startDistrictNumber}-${other.endDistrictNumber}`;
+          console.log(`   Fallback: using any single-district sibling ${siblingDG} for bridge move`);
+        }
+      }
+    }
+
+    // Fallback for range groups when divisionLines don't contain this group
+    if (!siblingDG && isolatedGroup.startDistrictNumber < isolatedGroup.endDistrictNumber) {
+      const low = isolatedGroup.startDistrictNumber;
+      const high = isolatedGroup.endDistrictNumber;
+      const adjacentBefore = districtGroups.find(g => g.endDistrictNumber === low - 1);
+      const adjacentAfter = districtGroups.find(g => g.startDistrictNumber === high + 1);
+      if (adjacentBefore) {
+        siblingDG = `DG${adjacentBefore.startDistrictNumber}-${adjacentBefore.endDistrictNumber}`;
+        console.log(`   Fallback: using adjacent range sibling ${siblingDG} (before) for bridge move`);
+      } else if (adjacentAfter) {
+        siblingDG = `DG${adjacentAfter.startDistrictNumber}-${adjacentAfter.endDistrictNumber}`;
+        console.log(`   Fallback: using adjacent range sibling ${siblingDG} (after) for bridge move`);
+      }
     }
     
     // Find group index matching sibling_DG
@@ -3289,6 +3314,32 @@ class GeodistrictAlgorithmService {
           siblingDG = `DG${n - 1}-${n - 1}`;
           console.log(`   Fallback: using adjacent single-district sibling ${siblingDG} for ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}`);
         }
+      }
+      // Last resort: use any other single-district group as sibling (e.g. when divisionLines incomplete)
+      if (!siblingDG) {
+        const other = districtGroups.find(g =>
+          g.startDistrictNumber === g.endDistrictNumber &&
+          (g.startDistrictNumber !== isolatedGroup.startDistrictNumber || g.endDistrictNumber !== isolatedGroup.endDistrictNumber)
+        );
+        if (other) {
+          siblingDG = `DG${other.startDistrictNumber}-${other.endDistrictNumber}`;
+          console.log(`   Fallback: using any single-district sibling ${siblingDG} for ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}`);
+        }
+      }
+    }
+
+    // Fallback for range groups (e.g. 8-14) when divisionLines don't contain this group - use adjacent range by district number
+    if (!siblingDG && isolatedGroup.startDistrictNumber < isolatedGroup.endDistrictNumber) {
+      const low = isolatedGroup.startDistrictNumber;
+      const high = isolatedGroup.endDistrictNumber;
+      const adjacentBefore = districtGroups.find(g => g.endDistrictNumber === low - 1);
+      const adjacentAfter = districtGroups.find(g => g.startDistrictNumber === high + 1);
+      if (adjacentBefore) {
+        siblingDG = `DG${adjacentBefore.startDistrictNumber}-${adjacentBefore.endDistrictNumber}`;
+        console.log(`   Fallback: using adjacent range sibling ${siblingDG} (before) for ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}`);
+      } else if (adjacentAfter) {
+        siblingDG = `DG${adjacentAfter.startDistrictNumber}-${adjacentAfter.endDistrictNumber}`;
+        console.log(`   Fallback: using adjacent range sibling ${siblingDG} (after) for ${isolatedGroup.startDistrictNumber}-${isolatedGroup.endDistrictNumber}`);
       }
     }
     

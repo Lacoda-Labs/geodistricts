@@ -35,13 +35,24 @@ async function getFinalStepStates() {
 async function runState(state) {
   const stateUpper = state.toUpperCase();
 
-  // 0. Prime state tract cache (and step 0) so move-all-isolated can reconstruct steps after clear.
-  // step-by-step creates state_tracts_*; clear-cache does not delete it.
+  // 0. Prime state tract cache (and step 0). step-by-step writes state_tracts_* in async cacheStep0(); wait until step 0 is loadable.
   await axios.post(
     `${baseUrl}/api/algorithm/execute/step-by-step`,
     { state: stateUpper, maxIterations, options: {} },
     { timeout: executeTimeout, headers: { 'Content-Type': 'application/json' } }
   );
+  await new Promise((r) => setTimeout(r, 15000)); // give cacheStep0() time to write state_tracts_*
+  const step0Url = `${baseUrl}/api/algorithm/step/${stateUpper}/0?maxIterations=${maxIterations}`;
+  const poll0MaxMs = 120000;
+  const poll0IntervalMs = 2000;
+  const poll0Start = Date.now();
+  while (Date.now() - poll0Start < poll0MaxMs) {
+    try {
+      const r0 = await axios.get(step0Url, { timeout: requestTimeout, validateStatus: () => true });
+      if (r0.status === 200) break;
+    } catch (_) { /* ignore */ }
+    await new Promise((r) => setTimeout(r, poll0IntervalMs));
+  }
 
   // 1. Clear cache (removes steps and algorithm state; keeps state_tracts_*)
   await axios.post(`${baseUrl}/api/algorithm/clear-cache`, { state: stateUpper, maxIterations }, {
@@ -61,11 +72,12 @@ async function runState(state) {
   }
   const finalStepNumber = result.steps.length - 1;
 
-  // For multi-district, wait until final step is loadable (backend writes state tract cache and step async after execute).
+  // For multi-district, wait until final step is loadable (backend writes state tract cache async in cacheAlgorithmResult after execute).
   if (finalStepNumber >= 1) {
+    await new Promise((r) => setTimeout(r, 15000)); // give cacheAlgorithmResult a head start
     const stepUrl = `${baseUrl}/api/algorithm/step/${stateUpper}/${finalStepNumber}?maxIterations=${maxIterations}`;
-    const pollMaxMs = 60000;
-    const pollIntervalMs = 2000;
+    const pollMaxMs = 300000;
+    const pollIntervalMs = 3000;
     const pollStart = Date.now();
     while (Date.now() - pollStart < pollMaxMs) {
       try {
