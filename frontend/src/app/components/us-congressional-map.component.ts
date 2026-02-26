@@ -166,12 +166,16 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   /** Load raster image immediately and precomputed path JSON for hero (119th CONUS only). */
   private loadStaticHero(): void {
     this.useStaticHero = true;
-    this.isLoading = false;
     this.errorMessage = null;
     this.byState = null;
     this.svgPathD = [];
     this.heroAnimatedPaths = [];
-    this.cdr.markForCheck();
+    // Defer clearing isLoading to next tick to avoid NG0100: expression changed after check
+    // (line 29 *ngIf depends on isLoading; updating it here runs in same CD as ngAfterViewInit)
+    queueMicrotask(() => {
+      this.isLoading = false;
+      this.cdr.markForCheck();
+    });
 
     this.staticHeroSubscription?.unsubscribe();
     this.staticHeroSubscription = this.http
