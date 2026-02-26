@@ -126,6 +126,12 @@ async function runTractPartyPersistenceJob(year, options = {}) {
           await localCache.setCache(key, payload, null);
           statesWritten.push(stateCode);
           console.log(`💾 Tract party: wrote ${stateCode} ${year} (${tractCount} tracts) to local cache`);
+          try {
+            await cloudStorageCache.set(key, payload, { state: stateCode, year: String(year), tractCount: String(tractCount) });
+            console.log(`💾 Tract party: also wrote ${stateCode} ${year} to cloud storage`);
+          } catch (cloudErr) {
+            console.warn(`⚠️ Tract party: cloud write skipped for ${stateCode} ${year}:`, cloudErr.message);
+          }
         } catch (writeErr) {
           console.error(`❌ Tract party write failed for ${stateCode}:`, writeErr.message);
           statesSkipped.push(stateCode);

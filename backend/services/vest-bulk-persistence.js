@@ -330,6 +330,16 @@ class VESTBulkPersistence {
 
     if (USE_LOCAL_CACHE) {
       await localCache.setCache(key, payload, null);
+      try {
+        await cloudStorageCache.set(key, payload, {
+          state,
+          year: String(year),
+          tractCount: String(tractCount)
+        });
+        console.log(`💾 Tract party: also wrote ${state} ${year} to cloud storage`);
+      } catch (cloudErr) {
+        console.warn(`⚠️ Tract party: cloud write skipped for ${state} ${year}:`, cloudErr.message);
+      }
       return tractCount;
     }
 

@@ -6427,7 +6427,7 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
       districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
     }
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
-    await setCacheDoc(key, {
+    const districtPartyDoc = {
       districts,
       state,
       step: finalStepNumber,
@@ -6437,7 +6437,19 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
       ttl: null,
       version: CACHE_VERSION,
       source: 'district-party-job'
-    });
+    };
+    await setCacheDoc(key, districtPartyDoc);
+    try {
+      await cloudStorageCache.set(key, districtPartyDoc, {
+        state,
+        step: String(finalStepNumber),
+        maxIterations: String(maxIterations),
+        vestYear: String(vestYear)
+      });
+      console.log(`💾 District party: also wrote ${state} step ${finalStepNumber} to cloud storage`);
+    } catch (cloudErr) {
+      console.warn(`⚠️ District party: cloud write skipped for ${state}:`, cloudErr.message);
+    }
     console.log(`💾 District party: wrote ${state} step ${finalStepNumber} (${Object.keys(districts).length} districts)`);
     return { success: true, districtsWritten: Object.keys(districts).length };
   } catch (err) {
@@ -6559,7 +6571,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     }
     const districts = prev.districts && typeof prev.districts === 'object' ? { ...prev.districts } : {};
     districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
-    await setCacheDoc(key, {
+    const districtPartyDoc = {
       districts,
       state,
       step: finalStepNumber,
@@ -6569,7 +6581,19 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
       ttl: null,
       version: CACHE_VERSION,
       source: 'district-party-job'
-    });
+    };
+    await setCacheDoc(key, districtPartyDoc);
+    try {
+      await cloudStorageCache.set(key, districtPartyDoc, {
+        state,
+        step: String(finalStepNumber),
+        maxIterations: String(maxIterations),
+        vestYear: String(vestYear)
+      });
+      console.log(`💾 District party: also wrote ${state} step ${finalStepNumber} to cloud storage`);
+    } catch (cloudErr) {
+      console.warn(`⚠️ District party: cloud write skipped for ${state}:`, cloudErr.message);
+    }
     return res.json({ ok: true, groupKey, pctDem, pctRep, votesDem, votesRep, totalVotes });
   } catch (error) {
     console.error('❌ POST district-party-for-group error:', error);
@@ -7204,7 +7228,11 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
           sizeMB: parseFloat(unionSizeMB)
         };
 
-        await setCacheDoc(unionCacheKey, metadataEntry);
+        if (USE_LOCAL_CACHE) {
+          await localCache.setCache(unionCacheKey, { ...metadataEntry, data: unionData }, null);
+        } else {
+          await setCacheDoc(unionCacheKey, metadataEntry);
+        }
         unionPolygonCacheKeys[i] = unionCacheKey;
 
         const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
@@ -7295,13 +7323,17 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
         continue;
       }
       
-      // Load from Cloud Storage
+      // Load: prefer local blob (doc.data) when present, else Cloud Storage
       if (unionCacheKey) {
-        const cacheResult = await cloudStorageCache.get(unionCacheKey);
-        
-        if (cacheResult && cacheResult.data) {
-          const unionData = cacheResult.data;
-          
+        let unionData = null;
+        if (unionCacheDoc && unionCacheDoc.data !== undefined) {
+          unionData = unionCacheDoc.data;
+        } else {
+          const cacheResult = await cloudStorageCache.get(unionCacheKey);
+          if (cacheResult && cacheResult.data) unionData = cacheResult.data;
+        }
+
+        if (unionData) {
           // Handle both single polygon and array of polygons
           if (Array.isArray(unionData)) {
             group.unionPolygons = unionData;
@@ -7310,15 +7342,16 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
             group.unionPolygon = unionData;
             group.unionPolygons = [unionData];
           }
-          
+
           // Store the cache key for future reference
           group.unionPolygonCacheKey = unionCacheKey;
-          
+
           // Log with clear indication of source
           const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
           const sourceLabel = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
           const sizeMB = unionCacheDoc ? (unionCacheDoc.sizeMB || 'unknown') : 'unknown';
-          console.log(`✅ CLOUD STORAGE: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB)`);
+          const source = unionCacheDoc && unionCacheDoc.data !== undefined ? 'LOCAL CACHE' : 'CLOUD STORAGE';
+          console.log(`✅ ${source}: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB)`);
         } else {
           console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
         }

@@ -42,9 +42,11 @@ The architecture separates data storage from algorithm results, uses normalizati
 ```
 
 **Storage Strategy:**
-- **Cloud Storage**: Large static files (> 1MB) — state tract cache, algorithm state when large, union polygons, tract boundaries, voter registration, etc.
+- **Cloud Storage**: Large static files (> 1MB) — state tract cache, algorithm state when large, union polygons, tract boundaries, voter registration, tract-party and district-party data, etc.
 - **Firestore**: Small files (< 1MB), algorithm results, and metadata documents that reference Cloud Storage paths.
 - **Local files** (development only): When `USE_LOCAL_CACHE=true` or `NODE_ENV !== 'production'`, census data is stored under `data/census-cache/`. See [backend/LOCAL_CACHE_CONFIG.md](../../backend/LOCAL_CACHE_CONFIG.md) for configuration.
+
+**Dual-write (local + cloud):** Union polygons and party data (tract-level and district-level) are written to both local cache and Cloud Storage when calculated, so that dev and production can use either source. If GCP credentials are not configured (e.g. in dev), the cloud write is skipped and a warning is logged; local write still succeeds.
 
 ---
 

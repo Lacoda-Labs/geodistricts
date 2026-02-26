@@ -39,21 +39,21 @@ The system automatically selects the cache mode based on:
 
 ## Local-Only Data (dev/maps on localhost)
 
-When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE_LOCAL_CACHE=true`), **all** backend cache data uses only the local filesystem. No Firestore or Cloud Storage is used for:
+When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE_LOCAL_CACHE=true`), primary reads and writes use the local filesystem. The following are also written to **both** local and cloud when possible:
 
-- Census API cache (tract boundaries, tract data, counties)
-- VEST processed data (vest-data-loader)
-- Algorithm step cache and state tract cache (algorithm_step_*, state_tracts_*, etc.)
-- Tract-party persistence and district-party cache
-- Union polygon cache keys stored in census_cache
+- **Union polygons**: Full geometry is stored locally (with metadata) and in Cloud Storage. On read, the local blob is used when present; otherwise Cloud Storage is used.
+- **Tract-level party data** (`tract_party_{state}_{year}`): Written to local cache and to Cloud Storage. If GCP credentials are not configured (e.g. in dev), the cloud write is skipped and a warning is logged; local write still succeeds.
+- **District-level party data** (`district_party_{state}_{step}_{maxIterations}_{vestYear}`): Written to local (or Firestore when not using local cache) and to Cloud Storage. Cloud write is skipped with a warning if credentials are unavailable.
 
-The server can start **without GCP credentials** in this mode. Firestore and Cloud Storage are not initialized until a code path that requires them runs (i.e. when `USE_LOCAL_CACHE` is false).
+Other cache data (Census API cache, VEST processed data, algorithm step cache, state tract cache) remains local-only when `USE_LOCAL_CACHE` is true.
 
-### Tract party calculation (local-only workflow)
+The server can start **without GCP credentials** in this mode. When credentials are missing, cloud writes for union polygons and party data are skipped; Firestore and Cloud Storage are not initialized until a code path that requires them runs (i.e. when `USE_LOCAL_CACHE` is false).
+
+### Tract party calculation (local workflow)
 
 Tract party calculation is intended to be run from local dev (e.g. `cd backend && npm run tract-party`). For this workflow:
 
-- Tract party data is stored under **`backend/data/census-cache/`** (keys `tract_party_{state}_{year}`). It is local only; GCP (Firestore/GCS) is not used for tract party when using the local dev pipeline.
+- Tract party data is stored under **`backend/data/census-cache/`** (keys `tract_party_{state}_{year}`) and is also written to Cloud Storage when GCP credentials are available.
 - The script `run-tract-party-persistence.js` forces `USE_LOCAL_CACHE='true'` so that output always goes to the local filesystem regardless of `NODE_ENV`.
 
 ### Risks and considerations

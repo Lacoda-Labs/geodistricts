@@ -97,6 +97,15 @@ class CloudStorageCache {
       const congress = rest.substring(0, firstUnderscore);
       const stateName = rest.substring(firstUnderscore + 1);
       return `congressional-boundaries/${congress}/${stateName}.json`;
+    } else if (cacheKey.startsWith('district_party_')) {
+      // district_party_{state}_{step}_{maxIterations}_{vestYear} -> district-party/{state}/{step}_{maxIterations}_{vestYear}.json
+      const rest = cacheKey.replace('district_party_', '');
+      const parts = rest.split('_');
+      const state = (parts[0] || 'unknown').toUpperCase();
+      const step = parts[1] || 'unknown';
+      const maxIterations = parts[2] || 'unknown';
+      const vestYear = parts[3] || 'unknown';
+      return `district-party/${state}/${step}_${maxIterations}_${vestYear}.json`;
     } else if (cacheKey.startsWith('tract_party_')) {
       // tract_party_{state}_{year} -> tract-party/{state}/{year}.json
       const rest = cacheKey.replace('tract_party_', '');
