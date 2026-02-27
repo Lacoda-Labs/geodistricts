@@ -5539,10 +5539,37 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${done} of ${n} calculated`;
   }
 
+  /** True when Party column should show status icon (in_progress/fail/missing) instead of percentage in dev mode. */
+  showPartyStatusIcon(i: number): boolean {
+    if (!this.isDevMode) return false;
+    const st = this.getGroupStatusForIndex(i);
+    return st != null && (st.party === 'in_progress' || st.party === 'fail' || st.party === 'missing');
+  }
+
+  /** Short display text for Party column: "D xx% · R yy%" when data exists, "–" otherwise. Works for both public and dev. */
+  getGroupPartyDisplayText(group: DistrictGroup): string {
+    if (!this.isFinalStepActive) return '–';
+    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    const d = this.districtPartyByGroupKey?.[groupKey];
+    if (d && typeof d.pctDem === 'number') {
+      const pctDem = (d.pctDem * 100).toFixed(1);
+      const pctRep = (d.pctRep * 100).toFixed(1);
+      return `D ${pctDem}% · R ${pctRep}%`;
+    }
+    return '–';
+  }
+
   /** Tooltip for district row Party icon: show D/R % and vote count when party data is loaded. */
   getGroupPartyTooltip(group: DistrictGroup, status: PerGroupStatus | null): string {
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
     if (status?.party === 'done' && this.districtPartyByGroupKey?.[groupKey]) {
+      const d = this.districtPartyByGroupKey[groupKey];
+      const pctDem = (d.pctDem * 100).toFixed(1);
+      const pctRep = (d.pctRep * 100).toFixed(1);
+      const votes = (d.totalVotes ?? 0).toLocaleString();
+      return `D ${pctDem}% · R ${pctRep}% · ${votes} votes`;
+    }
+    if (this.districtPartyByGroupKey?.[groupKey]) {
       const d = this.districtPartyByGroupKey[groupKey];
       const pctDem = (d.pctDem * 100).toFixed(1);
       const pctRep = (d.pctRep * 100).toFixed(1);
@@ -5652,6 +5679,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Get state data for display in state rows (from state-comparison API; when All selected and party % available, use state-party-summaries for geodistricts and swing).
+   * When state-party-summaries and state-comparison lack geodistricts data, derives from allStatesDistrictPartyByState (same data used for map coloring).
    */
   getStateData(stateCode: string, source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
     if (source === '119th') {
@@ -5668,6 +5696,23 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (s) {
       if (source === 'swing') return String(s.swing);
       if (source === 'geodistricts') return type === 'D' ? String(s.geodistrictsD) : String(s.geodistrictsR);
+    }
+    // Fallback: derive from allStatesDistrictPartyByState (populated after map-polygons-all + district-party fetches)
+    const districts = this.allStatesDistrictPartyByState[stateCode];
+    if (districts && typeof districts === 'object' && (source === 'geodistricts' || source === 'swing')) {
+      let geodistrictsD = 0;
+      let geodistrictsR = 0;
+      for (const d of Object.values(districts)) {
+        if (d && typeof d.pctDem === 'number') {
+          if (d.pctDem >= 0.5) geodistrictsD++;
+          else geodistrictsR++;
+        }
+      }
+      if (source === 'swing') {
+        const congressD = parseInt(this.getStateData(stateCode, '119th', 'D'), 10) || 0;
+        return String(geodistrictsD - congressD);
+      }
+      if (source === 'geodistricts') return type === 'D' ? String(geodistrictsD) : String(geodistrictsR);
     }
     return '0';
   }
@@ -5743,7 +5788,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
-    const hasGeodistrictsPartyData = this.statePartySummaries != null && Object.keys(this.statePartySummaries).length > 0;
+    const hasGeodistrictsPartyData =
+      (this.statePartySummaries != null && Object.keys(this.statePartySummaries).length > 0) ||
+      (this.allStatesDistrictPartyByState != null && Object.keys(this.allStatesDistrictPartyByState).some(
+        (code) => this.allStatesDistrictPartyByState[code] && Object.keys(this.allStatesDistrictPartyByState[code]).length > 0
+      ));
     return {
       stateCode: 'US',
       stateName: 'United States',
@@ -5775,7 +5824,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
-    const hasGeodistrictsPartyData = !!(this.statePartySummaries && this.statePartySummaries[stateCode]);
+    const hasGeodistrictsPartyData =
+      !!(this.statePartySummaries && this.statePartySummaries[stateCode]) ||
+      !!(this.allStatesDistrictPartyByState[stateCode] && Object.keys(this.allStatesDistrictPartyByState[stateCode]).length > 0);
     return {
       stateCode: stateCode,
       stateName: state?.name,

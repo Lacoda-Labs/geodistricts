@@ -293,8 +293,7 @@
                     <tr>
                       <th>District</th>
                       <th matTooltip="DG population / Target DG population">Variance</th>
-                      <th *ngIf="!isFinalStepActive">Next</th>
-                      <th *ngIf="isDevMode" class="col-party" title="Party %">Party</th>
+                      <th class="col-party" title="Party %">Party</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -312,19 +311,15 @@
                         [matTooltip]="getGroupVarianceTooltip(group)">
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
-                      <td *ngIf="!isFinalStepActive" class="next-division-cell">
-                        <mat-icon *ngIf="getNextDivisionIcon(group) as icon" [fontIcon]="icon" class="next-division-icon"></mat-icon>
-                        <span>{{ getNextDivisionLabel(group) }}</span>
-                      </td>
-                      <td *ngIf="isDevMode" class="col-party">
-                        <span *ngIf="getGroupStatusForIndex(i) as st"
-                          [matTooltip]="getGroupPartyTooltip(group, st)"
-                          (click)="(st.party === 'missing' || st.party === 'fail') && triggerPartyForGroup(group, $event)">
-                          <span *ngIf="st.party === 'done'" class="party-tooltip-text">{{ getGroupPartyTooltip(group, st) }}</span>
-                          <mat-icon *ngIf="st.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
-                          <mat-icon *ngIf="st.party === 'fail'" class="status-icon fail">error</mat-icon>
-                          <mat-icon *ngIf="st.party === 'missing'" class="status-icon missing">warning</mat-icon>
-                        </span>
+                      <td class="col-party"
+                        [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))"
+                        (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
+                        <ng-container *ngIf="showPartyStatusIcon(i)">
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'" class="status-icon fail">error</mat-icon>
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'" class="status-icon missing">warning</mat-icon>
+                        </ng-container>
+                        <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{ getGroupPartyDisplayText(group) }}</span>
                       </td>
                     </tr>
                   </tbody>
