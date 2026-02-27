@@ -26,6 +26,10 @@ function getVestDataDir() {
 function getDataverseFilesDir() {
   return path.join(getVestDataDir(), 'dataverse_files');
 }
+/** Project-root data/dataverse_files (VEST files can be placed here). */
+function getProjectDataverseFilesDir() {
+  return path.join(__dirname, '..', '..', 'data', 'dataverse_files');
+}
 
 /**
  * VEST Dataset Configuration
@@ -542,36 +546,50 @@ class VESTDataLoader {
     
     const vestDataDir = getVestDataDir();
     const dataverseFilesDir = getDataverseFilesDir();
+    const projectDataverseFilesDir = getProjectDataverseFilesDir();
     console.log(`🔍 Checking for VEST data files for year ${year}`);
     console.log(`   Vest data dir: ${vestDataDir}`);
     console.log(`   Dataverse files dir: ${dataverseFilesDir}`);
+    console.log(`   Project dataverse files dir: ${projectDataverseFilesDir}`);
     
     // Check if directories exist
-    try {
-      await fs.access(dataverseFilesDir);
-      console.log(`✅ Dataverse files directory exists`);
-    } catch (error) {
-      console.warn(`⚠️ Dataverse files directory does not exist: ${dataverseFilesDir}`);
+    for (const dir of [dataverseFilesDir, projectDataverseFilesDir]) {
+      try {
+        await fs.access(dir);
+        console.log(`✅ Directory exists: ${dir}`);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          console.warn(`⚠️ Directory does not exist: ${dir}`);
+        }
+      }
     }
     
-    // Possible file locations and names
+    // Possible file locations and names (vest dir, backend dataverse_files, project data/dataverse_files)
     const possibleFiles = [
       // Direct in vest directory
       path.join(vestDataDir, `tract_${year}.csv`),
       path.join(vestDataDir, `tract_${year}.tab`),
       path.join(vestDataDir, `tract_${year}.tsv`),
-      // In dataverse_files subdirectory
+      // In backend dataverse_files subdirectory
       path.join(dataverseFilesDir, `tract_${year}.csv`),
       path.join(dataverseFilesDir, `tract_${year}.tab`),
       path.join(dataverseFilesDir, `tract_${year}.tsv`),
-      // Alternative naming patterns
       path.join(dataverseFilesDir, `vest_${year}_tract.csv`),
       path.join(dataverseFilesDir, `vest_${year}_tract.tab`),
       path.join(dataverseFilesDir, `tract${year}.csv`),
       path.join(dataverseFilesDir, `tract${year}.tab`),
-      // County-level files (will be allocated to tracts)
       path.join(dataverseFilesDir, `countypres_2000-2024.csv`),
       path.join(dataverseFilesDir, `countypres_2000-2024.tab`),
+      // In project-root data/dataverse_files
+      path.join(projectDataverseFilesDir, `tract_${year}.csv`),
+      path.join(projectDataverseFilesDir, `tract_${year}.tab`),
+      path.join(projectDataverseFilesDir, `tract_${year}.tsv`),
+      path.join(projectDataverseFilesDir, `vest_${year}_tract.csv`),
+      path.join(projectDataverseFilesDir, `vest_${year}_tract.tab`),
+      path.join(projectDataverseFilesDir, `tract${year}.csv`),
+      path.join(projectDataverseFilesDir, `tract${year}.tab`),
+      path.join(projectDataverseFilesDir, `countypres_2000-2024.csv`),
+      path.join(projectDataverseFilesDir, `countypres_2000-2024.tab`),
     ];
     
     // Try each possible file location
@@ -597,65 +615,59 @@ class VESTDataLoader {
     }
     
     // Now check for county-level files (after checking for tract-level files)
-    // This includes multi-year files like countypres_2000-2024.csv
-    
-    // If no tract file found, check for county-level files that can be allocated
-    try {
-      const files = await fs.readdir(dataverseFilesDir);
-      const countyFiles = files.filter(f => 
-        (f.endsWith('.csv') || f.endsWith('.tab') || f.endsWith('.tsv')) &&
-        (f.includes('county') || f.includes('pres')) &&
-        !f.endsWith('.md') &&
-        !f.endsWith('.xml') &&
-        !f.includes('sources') // Exclude sources file
-      );
-      
-      if (countyFiles.length > 0) {
-        console.log(`📊 Found county-level file(s): ${countyFiles.join(', ')}`);
-        console.log(`💡 Will process county-level data and allocate to tracts using spatial methods.`);
-        
-        // Try to load county-level file (prefer files that contain the year or are multi-year)
-        // Sort to prefer files that might contain the year
-        const sortedFiles = countyFiles.sort((a, b) => {
-          const aHasYear = a.includes(year.toString());
-          const bHasYear = b.includes(year.toString());
-          if (aHasYear && !bHasYear) return -1;
-          if (!aHasYear && bHasYear) return 1;
-          // Prefer files with date ranges (like countypres_2000-2024)
-          const aHasRange = /\d{4}-\d{4}/.test(a);
-          const bHasRange = /\d{4}-\d{4}/.test(b);
-          if (aHasRange && !bHasRange) return -1;
-          if (!aHasRange && bHasRange) return 1;
-          return 0;
-        });
-        
-        for (const countyFile of sortedFiles) {
-          try {
-            const filePath = path.join(dataverseFilesDir, countyFile);
-            const fileContent = await fs.readFile(filePath, 'utf8');
-            if (fileContent && fileContent.length > 0) {
-              console.log(`✅ Found county-level VEST data file: ${countyFile}`);
-              // Mark as county-level for processing
-              return { content: fileContent, isCountyLevel: true };
+    // This includes multi-year files like countypres_2000-2024.csv in both dataverse dirs
+    for (const searchDir of [dataverseFilesDir, projectDataverseFilesDir]) {
+      try {
+        const files = await fs.readdir(searchDir);
+        const countyFiles = files.filter(f =>
+          (f.endsWith('.csv') || f.endsWith('.tab') || f.endsWith('.tsv')) &&
+          (f.includes('county') || f.includes('pres')) &&
+          !f.endsWith('.md') &&
+          !f.endsWith('.xml') &&
+          !f.includes('sources') // Exclude sources file
+        );
+
+        if (countyFiles.length > 0) {
+          console.log(`📊 Found county-level file(s) in ${searchDir}: ${countyFiles.join(', ')}`);
+          console.log(`💡 Will process county-level data and allocate to tracts using spatial methods.`);
+
+          const sortedFiles = countyFiles.sort((a, b) => {
+            const aHasYear = a.includes(year.toString());
+            const bHasYear = b.includes(year.toString());
+            if (aHasYear && !bHasYear) return -1;
+            if (!aHasYear && bHasYear) return 1;
+            const aHasRange = /\d{4}-\d{4}/.test(a);
+            const bHasRange = /\d{4}-\d{4}/.test(b);
+            if (aHasRange && !bHasRange) return -1;
+            if (!aHasRange && bHasRange) return 1;
+            return 0;
+          });
+
+          for (const countyFile of sortedFiles) {
+            try {
+              const filePath = path.join(searchDir, countyFile);
+              const fileContent = await fs.readFile(filePath, 'utf8');
+              if (fileContent && fileContent.length > 0) {
+                console.log(`✅ Found county-level VEST data file: ${countyFile}`);
+                return { content: fileContent, isCountyLevel: true };
+              }
+            } catch (error) {
+              console.warn(`⚠️ Error reading county file ${countyFile}: ${error.message}`);
+              continue;
             }
-          } catch (error) {
-            console.warn(`⚠️ Error reading county file ${countyFile}: ${error.message}`);
-            continue;
           }
         }
-      }
-    } catch (error) {
-      // Directory doesn't exist or can't be read - log but don't fail yet
-      if (error.code !== 'ENOENT') {
-        console.warn(`⚠️ Error reading dataverse_files directory: ${error.message}`);
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.warn(`⚠️ Error reading directory ${searchDir}: ${error.message}`);
+        }
       }
     }
-    
+
     throw new Error(
       `VEST data file not found for ${year}. ` +
-      `Checked locations: ${possibleFiles.slice(0, 3).join(', ')}... ` +
-      `Also checked dataverse_files directory for county-level files. ` +
-      `Please ensure VEST data files (tract-level or county-level) are in data/vest/ or data/vest/dataverse_files/`
+      `Checked: ${vestDataDir}, ${dataverseFilesDir}, ${projectDataverseFilesDir}. ` +
+      `Place tract-level or county-level VEST files in one of these directories.`
     );
   }
 
@@ -849,26 +861,15 @@ class VESTDataLoader {
           console.log(`✅ Loaded VEST data from local file for ${year}`);
         }
       } catch (error) {
-        // If local file not found, try to download from Dataverse
-        console.log(`⚠️ Local file not found, attempting download from Harvard Dataverse...`);
-        try {
-          rawData = await this.downloadVESTData(year);
-          console.log(`✅ Successfully downloaded VEST data from Dataverse for ${year}`);
-          
-          // Save to dataverse_files for future use
-          try {
-            const fs = require('fs').promises;
-            const dataverseDir = await this.ensureDataDirectory();
-            const filePath = path.join(dataverseDir, `tract_${year}.csv`);
-            await fs.writeFile(filePath, rawData, 'utf8');
-            console.log(`💾 Saved downloaded data to ${filePath} for future use`);
-          } catch (saveError) {
-            console.warn(`⚠️ Could not save downloaded data to local file: ${saveError.message}`);
-            // Continue anyway - we have the data in memory
-          }
-        } catch (downloadError) {
-          throw new Error(`Could not load VEST data for ${year}. Local file error: ${error.message}. Download error: ${downloadError.message}`);
-        }
+        // VEST data is loaded from local files only; no external Dataverse fetch.
+        const vestDir = getVestDataDir();
+        const dataverseDir = getDataverseFilesDir();
+        const projectDataverseDir = getProjectDataverseFilesDir();
+        throw new Error(
+          `VEST data for ${year} not found. VEST data is loaded from local files only. ` +
+          `Place tract-level or county-level files (e.g. tract_${year}.csv or countypres_2000-2024.csv) in one of: ${vestDir}, ${dataverseDir}, ${projectDataverseDir}. ` +
+          `Original error: ${error.message}`
+        );
       }
 
       // Process the data - check if it's county-level or tract-level
@@ -928,7 +929,12 @@ class VESTDataLoader {
   async loadCountyBoundaries(state, apiBaseUrl = null) {
     const cacheKey = `county_${state}`;
     if (this.countyBoundariesCache.has(cacheKey)) {
-      return this.countyBoundariesCache.get(cacheKey);
+      const cached = this.countyBoundariesCache.get(cacheKey);
+      if (cached && typeof cached === 'object' && cached.failed === true) {
+        console.warn(`⚠️ Using cached county-boundary failure for ${state}`);
+        throw new Error(`Failed to load county boundaries: ${cached.message}`);
+      }
+      return cached;
     }
     const axios = require('axios');
     const stateFipsMap = {
@@ -946,19 +952,19 @@ class VESTDataLoader {
     };
 
     const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-    const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Counties/FeatureServer/0/query';
+    // Census TIGERweb State_County MapServer layer 1 = Counties (STATE, COUNTY, GEOID 5-char, NAME)
+    const serviceUrl = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query';
 
-    // USA_Counties layer uses CNTY_FIPS, NAME, FIPS (5-char); not COUNTY_FIPS/COUNTY_NAME/GEOID (requesting those causes 400)
     const params = new URLSearchParams({
-      where: `STATE_FIPS='${stateFips}'`,
-      outFields: 'STATE_FIPS,CNTY_FIPS,NAME,FIPS',
+      where: `STATE='${stateFips}'`,
+      outFields: 'STATE,COUNTY,GEOID,NAME',
       f: 'geojson',
       outSR: '4326',
       resultRecordCount: '5000'
     });
 
     try {
-      console.log(`>>> EXTERNAL FETCH | ArcGIS | county boundaries for state (VEST) | state=${state}`);
+      console.log(`>>> EXTERNAL FETCH | Census TIGERweb | county boundaries for state (VEST) | state=${state}`);
       const response = await axios.get(`${serviceUrl}?${params.toString()}`, {
         timeout: 60000,
       });
@@ -966,9 +972,9 @@ class VESTDataLoader {
       const rawFeatures = response.data?.features ?? [];
       const features = rawFeatures.map((f) => {
         const p = f.properties || {};
-        const stateF = String(p.STATE_FIPS ?? p.FIPS?.substring(0, 2) ?? '').padStart(2, '0');
-        const cntyF = String(p.CNTY_FIPS ?? p.FIPS?.substring(2, 5) ?? '').padStart(3, '0');
-        const fips5 = p.FIPS ?? (stateF + cntyF);
+        const stateF = String(p.STATE ?? '').padStart(2, '0');
+        const cntyF = String(p.COUNTY ?? p.GEOID?.substring(2, 5) ?? '').padStart(3, '0');
+        const fips5 = p.GEOID ?? (stateF + cntyF);
         return {
           ...f,
           properties: {
@@ -989,26 +995,21 @@ class VESTDataLoader {
       this.countyBoundariesCache.set(cacheKey, result);
       return result;
     } catch (error) {
+      this.countyBoundariesCache.set(cacheKey, { failed: true, message: error.message });
       console.error(`Error loading county boundaries for ${state}:`, error.message);
       throw new Error(`Failed to load county boundaries: ${error.message}`);
     }
   }
 
   /**
-   * Allocate county votes to a specific tract using spatial intersection
-   * For tracts fully enclosed in a county: use county data directly
-   * For tracts spanning multiple counties: calculate weighted average based on intersection area
-   * When using county fallback (no geometry), votes are divided by tract count in county if countyTractCounts is provided.
-   * @param {Object} [countyTractCounts] - Optional. Map of 5-digit county FIPS -> number of tracts; used to allocate proportionally in fallback so sum over county = county total once.
+   * Allocate county votes to a specific tract using GEOID-based county assignment.
+   * Census tract GEOIDs encode county (first 5 digits = state + county); no tract or county polygons are loaded.
+   * @param {Object} [countyTractCounts] - Optional. Map of 5-digit county FIPS -> number of tracts; used to allocate proportionally so sum over county = county total.
    */
   async allocateCountyVotesToTract(geoid, year, vestData, tractFeature = null, apiBaseUrl = null, countyTractCounts = null) {
     if (!vestData.countyData) {
-      // Not county-level data, return null to use direct lookup
       return null;
     }
-
-    const turf = require('@turf/turf');
-    const spatialAnalyzer = require('./spatial-analyzer');
 
     const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
     const stateFips = normalizedGeoid.substring(0, 2);
@@ -1016,225 +1017,27 @@ class VESTDataLoader {
     const countyFips5 = stateFips + countyFips;
     const divisor = (countyTractCounts && countyTractCounts[countyFips5] > 0) ? countyTractCounts[countyFips5] : 1;
 
-    // Get state code from FIPS
-    const stateFipsMap = {
-      '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
-      '08': 'CO', '09': 'CT', '10': 'DE', '12': 'FL', '13': 'GA',
-      '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
-      '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
-      '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
-      '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
-      '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
-      '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
-      '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
-      '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY',
-      '11': 'DC'
-    };
-    const stateCode = stateFipsMap[stateFips] || stateFips;
-
-    // Load tract feature if not provided
-    let tractGeometry = tractFeature;
-    if (!tractGeometry) {
-      try {
-        const tractBoundaries = await spatialAnalyzer.loadTractBoundaries(stateCode, apiBaseUrl);
-        const tract = tractBoundaries.features.find(f => {
-          const tractGeoid = spatialAnalyzer.getTractGeoid(f);
-          return tractGeoid === normalizedGeoid;
-        });
-        if (tract) {
-          tractGeometry = tract;
-        } else {
-          // Tract not found - use simple county assignment (proportional if countyTractCounts provided)
-          const countyVotes = vestData.countyData[countyFips5];
-          if (countyVotes) {
-            const dem = Math.round(countyVotes.votes_dem_pres / divisor);
-            const rep = Math.round(countyVotes.votes_rep_pres / divisor);
-            const total = Math.round(countyVotes.total_votes_pres / divisor);
-            return {
-              GEOID: normalizedGeoid,
-              state_fips: stateFips,
-              county_fips: countyFips,
-              votes_dem_pres: dem,
-              votes_rep_pres: rep,
-              total_votes_pres: total,
-              pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
-              pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-              allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
-            };
-          }
-          return null;
-        }
-      } catch (error) {
-        console.warn(`⚠️ Could not load tract geometry for ${geoid}: ${error.message}, using county fallback`);
-        const countyVotes = vestData.countyData[countyFips5];
-        if (countyVotes) {
-          const dem = Math.round(countyVotes.votes_dem_pres / divisor);
-          const rep = Math.round(countyVotes.votes_rep_pres / divisor);
-          const total = Math.round(countyVotes.total_votes_pres / divisor);
-          return {
-            GEOID: normalizedGeoid,
-            state_fips: stateFips,
-            county_fips: countyFips,
-            votes_dem_pres: dem,
-            votes_rep_pres: rep,
-            total_votes_pres: total,
-            pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
-            pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-            allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
-          };
-        }
-        return null;
-      }
-    }
-
-    // Convert tract to GeoJSON feature if needed
-    let tractFeatureGeoJson;
-    if (tractGeometry.geometry) {
-      tractFeatureGeoJson = tractGeometry;
-    } else if (tractGeometry.type === 'Feature') {
-      tractFeatureGeoJson = tractGeometry;
-    } else {
-      tractFeatureGeoJson = turf.feature(tractGeometry);
-    }
-
-    // Load county boundaries
-    let countyBoundaries;
-    try {
-      countyBoundaries = await this.loadCountyBoundaries(stateCode, apiBaseUrl);
-    } catch (error) {
-      console.warn(`⚠️ Could not load county boundaries: ${error.message}, using county fallback`);
-      const countyVotes = vestData.countyData[countyFips5];
-      if (countyVotes) {
-        const dem = Math.round(countyVotes.votes_dem_pres / divisor);
-        const rep = Math.round(countyVotes.votes_rep_pres / divisor);
-        const total = Math.round(countyVotes.total_votes_pres / divisor);
-        return {
-          GEOID: normalizedGeoid,
-          state_fips: stateFips,
-          county_fips: countyFips,
-          votes_dem_pres: dem,
-          votes_rep_pres: rep,
-          total_votes_pres: total,
-          pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
-          pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-          allocationMethod: divisor > 1 ? 'county_fallback_proportional' : 'county_fallback',
-        };
-      }
+    const countyVotes = vestData.countyData[countyFips5];
+    if (!countyVotes) {
       return null;
     }
 
-    // Find intersecting counties and calculate intersection areas
-    const tractArea = turf.area(tractFeatureGeoJson); // Area in square meters
-    const countyIntersections = [];
-
-    for (const countyFeature of countyBoundaries.features) {
-      try {
-        // Check if tract intersects with county
-        if (turf.intersect(tractFeatureGeoJson, countyFeature)) {
-          const intersection = turf.intersect(tractFeatureGeoJson, countyFeature);
-          if (intersection) {
-            const intersectionArea = turf.area(intersection);
-            const intersectionRatio = tractArea > 0 ? intersectionArea / tractArea : 0;
-
-            // Get county FIPS (USA_Counties uses CNTY_FIPS; we normalize to COUNTY_FIPS in loadCountyBoundaries)
-            const countyFipsFromFeature = countyFeature.properties?.COUNTY_FIPS ||
-                                         countyFeature.properties?.CNTY_FIPS ||
-                                         countyFeature.properties?.county_fips ||
-                                         countyFeature.properties?.GEOID?.substring(2, 5);
-            
-            if (countyFipsFromFeature) {
-              const stateFipsFromFeature = countyFeature.properties?.STATE_FIPS || 
-                                          countyFeature.properties?.state_fips ||
-                                          countyFeature.properties?.GEOID?.substring(0, 2);
-              const countyFips5FromFeature = String(stateFipsFromFeature).padStart(2, '0') + 
-                                             String(countyFipsFromFeature).padStart(3, '0');
-
-              countyIntersections.push({
-                countyFips5: countyFips5FromFeature,
-                intersectionArea,
-                intersectionRatio,
-                countyFeature,
-              });
-            }
-          }
-        }
-      } catch (error) {
-        // Skip counties that cause errors
-        continue;
-      }
-    }
-
-    if (countyIntersections.length === 0) {
-      // No intersections found - use primary county as fallback (proportional if countyTractCounts provided)
-      const countyVotes = vestData.countyData[countyFips5];
-      if (countyVotes) {
-        const dem = Math.round(countyVotes.votes_dem_pres / divisor);
-        const rep = Math.round(countyVotes.votes_rep_pres / divisor);
-        const total = Math.round(countyVotes.total_votes_pres / divisor);
-        return {
-          GEOID: normalizedGeoid,
-          state_fips: stateFips,
-          county_fips: countyFips,
-          votes_dem_pres: dem,
-          votes_rep_pres: rep,
-          total_votes_pres: total,
-          pct_dem_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0,
-          pct_rep_pres: countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0,
-          allocationMethod: divisor > 1 ? 'county_fallback_no_intersection_proportional' : 'county_fallback_no_intersection',
-        };
-      }
-      return null;
-    }
-
-    // Normalize intersection ratios (should sum to 1.0)
-    const totalRatio = countyIntersections.reduce((sum, ci) => sum + ci.intersectionRatio, 0);
-    if (totalRatio > 0) {
-      countyIntersections.forEach(ci => {
-        ci.intersectionRatio = ci.intersectionRatio / totalRatio;
-      });
-    }
-
-    // Allocate votes based on intersection ratios
-    let totalDemVotes = 0;
-    let totalRepVotes = 0;
-    let totalVotes = 0;
-    const allocationDetails = [];
-
-    for (const intersection of countyIntersections) {
-      const countyVotes = vestData.countyData[intersection.countyFips5];
-      if (countyVotes) {
-        const demVotes = countyVotes.votes_dem_pres * intersection.intersectionRatio;
-        const repVotes = countyVotes.votes_rep_pres * intersection.intersectionRatio;
-        const countyTotalVotes = countyVotes.total_votes_pres * intersection.intersectionRatio;
-
-        totalDemVotes += demVotes;
-        totalRepVotes += repVotes;
-        totalVotes += countyTotalVotes;
-
-        allocationDetails.push({
-          countyFips5: intersection.countyFips5,
-          ratio: intersection.intersectionRatio,
-          demVotes: demVotes,
-          repVotes: repVotes,
-        });
-      }
-    }
-
-    const pctDem = totalVotes > 0 ? totalDemVotes / totalVotes : 0;
-    const pctRep = totalVotes > 0 ? totalRepVotes / totalVotes : 0;
+    const dem = Math.round(countyVotes.votes_dem_pres / divisor);
+    const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+    const total = Math.round(countyVotes.total_votes_pres / divisor);
+    const pctDem = countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0;
+    const pctRep = countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0;
 
     return {
       GEOID: normalizedGeoid,
       state_fips: stateFips,
       county_fips: countyFips,
-      votes_dem_pres: Math.round(totalDemVotes),
-      votes_rep_pres: Math.round(totalRepVotes),
-      total_votes_pres: Math.round(totalVotes),
-      pct_dem_pres: parseFloat(pctDem.toFixed(6)),
-      pct_rep_pres: parseFloat(pctRep.toFixed(6)),
-      allocationMethod: countyIntersections.length === 1 ? 'fully_enclosed' : 'weighted_average',
-      allocationDetails: countyIntersections.length > 1 ? allocationDetails : undefined,
-      intersectingCounties: countyIntersections.length,
+      votes_dem_pres: dem,
+      votes_rep_pres: rep,
+      total_votes_pres: total,
+      pct_dem_pres: pctDem,
+      pct_rep_pres: pctRep,
+      allocationMethod: divisor > 1 ? 'geoid_county_proportional' : 'geoid_county',
     };
   }
 
@@ -1256,53 +1059,17 @@ class VESTDataLoader {
         }
       }
     } else if (vestData.countyData) {
-      // County-level data - allocate on-demand using spatial intersection
-      console.log(`🔄 Allocating county votes to ${geoids.length} tracts using spatial intersection...`);
-      // Tract count per county (5-digit FIPS) so fallback allocates proportionally: sum over county = county total once
+      // County-level data - allocate using GEOID-based county assignment (no tract/county polygons)
+      console.log(`🔄 Allocating county votes to ${geoids.length} tracts using GEOID-based county assignment...`);
       const countyTractCounts = {};
       for (const g of geoids) {
         const c5 = String(g).padStart(11, '0').substring(0, 5);
         countyTractCounts[c5] = (countyTractCounts[c5] || 0) + 1;
       }
-      // Load tract boundaries once for all tracts (more efficient)
-      const stateFips = String(geoids[0]).padStart(11, '0').substring(0, 2);
-      const stateFipsMap = {
-        '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
-        '08': 'CO', '09': 'CT', '10': 'DE', '12': 'FL', '13': 'GA',
-        '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN', '19': 'IA',
-        '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME', '24': 'MD',
-        '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS', '29': 'MO',
-        '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH', '34': 'NJ',
-        '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND', '39': 'OH',
-        '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI', '45': 'SC',
-        '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
-        '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY',
-        '11': 'DC'
-      };
-      const stateCode = stateFipsMap[stateFips] || stateFips;
-      
-      const spatialAnalyzer = require('./spatial-analyzer');
-      let tractBoundaries = null;
-      try {
-        tractBoundaries = await spatialAnalyzer.loadTractBoundaries(stateCode, apiBaseUrl);
-      } catch (error) {
-        console.warn(`⚠️ Could not load tract boundaries: ${error.message}`);
-      }
 
-      // Allocate votes for each tract
       for (const geoid of geoids) {
         const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
-        
-        // Find tract feature if boundaries are loaded
-        let tractFeature = null;
-        if (tractBoundaries) {
-          tractFeature = tractBoundaries.features.find(f => {
-            const tractGeoid = spatialAnalyzer.getTractGeoid(f);
-            return tractGeoid === normalizedGeoid;
-          });
-        }
-
-        const allocated = await this.allocateCountyVotesToTract(normalizedGeoid, year, vestData, tractFeature, apiBaseUrl, countyTractCounts);
+        const allocated = await this.allocateCountyVotesToTract(normalizedGeoid, year, vestData, null, apiBaseUrl, countyTractCounts);
         if (allocated) {
           results[normalizedGeoid] = allocated;
         }
@@ -1351,8 +1118,7 @@ class VESTDataLoader {
       const stateCode = stateFipsMap[stateFips];
       if (!stateCode) continue;
       try {
-        const boundaries = await spatialAnalyzer.loadTractBoundaries(stateCode, apiBaseUrl);
-        const geoids = (boundaries.features || []).map(f => spatialAnalyzer.getTractGeoid(f)).filter(Boolean);
+        const geoids = await spatialAnalyzer.loadTractGeoids(stateCode, apiBaseUrl);
         if (geoids.length === 0) continue;
         const tractResults = await this.getTractData(geoids, year, apiBaseUrl);
         for (const [geoid, row] of Object.entries(tractResults)) {

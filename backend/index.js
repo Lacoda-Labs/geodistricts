@@ -102,7 +102,11 @@ const CENSUS_API_KEY_SECRET_NAME = 'census-api-key-v2';
 // Census API Configuration
 const CENSUS_API_BASE = 'https://api.census.gov/data';
 const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
-const ALTERNATIVE_TIGERWEB = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0';
+// Boundary data: tract, county, and state boundaries are fetched from Census TIGERweb (not ArcGIS/Esri).
+// Census TIGERweb Tracts_Blocks layer 10 = Census 2020 Tracts (replaces Esri USA_Census_Tracts)
+const TIGERWEB_TRACT_LAYER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/10';
+// Census TIGERweb State_County layer 0 = States (STATE, GEOID, NAME, STUSAB)
+const TIGERWEB_STATE_LAYER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0';
 const ACS_YEAR = '2022';
 const ACS_DATASET = 'acs/acs5';
 
@@ -1709,20 +1713,20 @@ async function getTractCount(state, county) {
   };
   
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-  
-  const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-  let whereClause = `STATE_FIPS='${stateFips}'`;
+
+  const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
+  let whereClause = `STATE='${stateFips}'`;
   if (county) {
-    whereClause += ` AND COUNTY_FIPS='${county}'`;
+    whereClause += ` AND COUNTY='${county}'`;
   }
-  
+
   const countParams = new URLSearchParams({
     where: whereClause,
-    outFields: 'STATE_FIPS',
+    outFields: 'STATE',
     f: 'geojson',
     returnCountOnly: 'true'
   });
-  
+
   logExternalFetch('TIGERweb', 'tract count for boundaries query', county ? `state=${state} county=${county}` : `state=${state}`);
   const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`);
   return countResponse.data.properties?.count || 0;
@@ -1749,49 +1753,55 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
   
   // Use FIPS code if state is already a 2-digit code, otherwise convert
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-  
-  const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-  let whereClause = `STATE_FIPS='${stateFips}'`;
+
+  const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
+  let whereClause = `STATE='${stateFips}'`;
   if (county) {
-    whereClause += ` AND COUNTY_FIPS='${county}'`;
+    whereClause += ` AND COUNTY='${county}'`;
   }
-  
+
   console.log(`🔍 Streaming TIGERweb query: state="${state}" -> FIPS="${stateFips}", where="${whereClause}"`);
-  
+
   // Set up streaming response
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Transfer-Encoding', 'chunked');
   res.write('{"type":"FeatureCollection","features":[');
-  
+
   const batchSize = 500;
   const totalBatches = Math.ceil(totalCount / batchSize);
   let isFirstBatch = true;
   let totalFeaturesStreamed = 0;
-  
+
+  // Normalize TIGERweb feature to expected property names (STATE_FIPS, COUNTY_FIPS, TRACT_FIPS, POPULATION)
+  function normalizeTractFeature(f) {
+    const p = f.properties || {};
+    return { ...f, properties: { ...p, STATE_FIPS: p.STATE, COUNTY_FIPS: p.COUNTY, TRACT_FIPS: p.TRACT, FIPS: p.GEOID, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+  }
+
   try {
     for (let i = 0; i < totalBatches; i++) {
       const offset = i * batchSize;
       const batchParams = new URLSearchParams({
         where: whereClause,
-        outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
+        outFields: 'STATE,COUNTY,TRACT,GEOID,POP100',
         f: 'geojson',
         outSR: '4326',
         resultRecordCount: batchSize.toString(),
         resultOffset: offset.toString()
       });
-      
+
       console.log(`Streaming batch ${i + 1}/${totalBatches} (offset: ${offset})`);
       logExternalFetch('TIGERweb', 'tract boundaries batch (streaming)', `state=${state} batch=${i + 1}/${totalBatches}`);
       const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
-      const batchFeatures = batchResponse.data.features || [];
-      
+      const batchFeatures = (batchResponse.data.features || []).map(normalizeTractFeature);
+
       // Stream this batch to client
       if (batchFeatures.length > 0) {
         if (!isFirstBatch) {
           res.write(',');
         }
         isFirstBatch = false;
-        
+
         // Send features as JSON array
         const featuresJson = batchFeatures.map(feature => JSON.stringify(feature)).join(',');
         res.write(featuresJson);
@@ -1872,30 +1882,35 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
     
     // Use FIPS code if state is already a 2-digit code, otherwise convert
     const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-    
-    const serviceUrl = `${ALTERNATIVE_TIGERWEB}/query`;
-    let whereClause = `STATE_FIPS='${stateFips}'`;
+
+    const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
+    let whereClause = `STATE='${stateFips}'`;
     if (county) {
-      whereClause += ` AND COUNTY_FIPS='${county}'`;
+      whereClause += ` AND COUNTY='${county}'`;
     }
-    
+
     console.log(`🔍 TIGERweb query: state="${state}" -> FIPS="${stateFips}", where="${whereClause}"`);
-    
+
     // For smaller datasets, use single request
     const params = new URLSearchParams({
       where: whereClause,
-      outFields: 'STATE_FIPS,COUNTY_FIPS,TRACT_FIPS,POPULATION',
+      outFields: 'STATE,COUNTY,TRACT,GEOID,POP100',
       f: 'geojson',
       outSR: '4326',
       resultRecordCount: '2000'
     });
-    
+
     console.log(`Fetching tract boundaries for state ${state} (small dataset)`);
     logExternalFetch('TIGERweb', 'tract boundaries for state/county', county ? `state=${state} county=${county}` : `state=${state}`);
     const response = await axios.get(`${serviceUrl}?${params.toString()}`);
+    const rawFeatures = response.data.features || [];
+    const normalizeTractFeature = (f) => {
+      const p = f.properties || {};
+      return { ...f, properties: { ...p, STATE_FIPS: p.STATE, COUNTY_FIPS: p.COUNTY, TRACT_FIPS: p.TRACT, FIPS: p.GEOID, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+    };
     const geojsonResponse = {
       type: 'FeatureCollection',
-      features: response.data.features || []
+      features: rawFeatures.map(normalizeTractFeature)
     };
     
     // Cache the response (never expires - census boundaries are static)
@@ -1915,6 +1930,59 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       error: 'Failed to fetch tract boundaries',
       message: error.message 
     });
+  }
+});
+
+/**
+ * Get tract GEOIDs only for a state (no geometry). Used by county→tract party allocation.
+ */
+app.get('/api/census/tract-geoids', async (req, res) => {
+  try {
+    const { state } = req.query;
+    if (!state) {
+      return res.status(400).json({ error: 'State parameter is required' });
+    }
+    const stateFipsMap = {
+      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+      'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+      'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+      'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+      'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+      'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+      'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+      'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+      'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+      'DC': '11'
+    };
+    const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+    const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
+    const pageSize = 2000;
+    const geoids = [];
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const params = new URLSearchParams({
+        where: `STATE='${stateFips}'`,
+        outFields: 'GEOID',
+        f: 'json',
+        returnGeometry: 'false',
+        resultRecordCount: String(pageSize),
+        resultOffset: String(offset),
+      });
+      const response = await axios.get(`${serviceUrl}?${params.toString()}`, { timeout: 60000 });
+      const features = response.data?.features ?? [];
+      for (const f of features) {
+        const g = f?.properties?.GEOID;
+        if (g) geoids.push(String(g).padStart(11, '0').substring(0, 11));
+      }
+      offset += features.length;
+      hasMore = features.length >= pageSize;
+    }
+    res.json({ geoids });
+  } catch (error) {
+    console.error('Error fetching tract GEOIDs:', error);
+    res.status(500).json({ error: 'Failed to fetch tract GEOIDs', message: error.message });
   }
 });
 
@@ -1963,25 +2031,29 @@ app.get('/api/census/state-boundaries', async (req, res) => {
     
     // Use FIPS code if state is already a 2-digit code, otherwise convert
     const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-    
-    // Use USA_States_Generalized_Boundaries service from same organization as census tracts
-    // This ensures consistency with TIGER data
-    const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_States_Generalized_Boundaries/FeatureServer/0/query';
-    
+
+    // Census TIGERweb State_County layer 0 (state boundaries)
+    const serviceUrl = `${TIGERWEB_STATE_LAYER}/query`;
+
     const params = new URLSearchParams({
-      where: `STATE_FIPS='${stateFips}'`,
-      outFields: 'STATE_FIPS,STATE_NAME,STATE_ABBR',
+      where: `STATE='${stateFips}'`,
+      outFields: 'STATE,GEOID,NAME,STUSAB',
       f: 'geojson',
       outSR: '4326'
     });
-    
+
     console.log(`🔍 TIGERweb state boundaries query: state="${state}" -> FIPS="${stateFips}"`);
-    
+
     logExternalFetch('TIGERweb', 'state boundary polygon', `state=${state}`);
     const response = await axios.get(`${serviceUrl}?${params.toString()}`);
+    const rawFeatures = response.data.features || [];
+    const normalizeStateFeature = (f) => {
+      const p = f.properties || {};
+      return { ...f, properties: { ...p, STATE_FIPS: p.STATE ?? p.GEOID, STATE_NAME: p.NAME, STATE_ABBR: p.STUSAB } };
+    };
     const geojsonResponse = {
       type: 'FeatureCollection',
-      features: response.data.features || []
+      features: rawFeatures.map(normalizeStateFeature)
     };
     
     // Cache the response (never expires - census boundaries are static)
@@ -4093,17 +4165,22 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
     'DC': '11'
   };
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-  const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_States_Generalized_Boundaries/FeatureServer/0/query';
+  const serviceUrl = `${TIGERWEB_STATE_LAYER}/query`;
   const params = new URLSearchParams({
-    where: `STATE_FIPS='${stateFips}'`,
-    outFields: 'STATE_FIPS,STATE_NAME,STATE_ABBR',
+    where: `STATE='${stateFips}'`,
+    outFields: 'STATE,GEOID,NAME,STUSAB',
     f: 'geojson',
     outSR: '4326'
   });
 
   logExternalFetch('TIGERweb', 'state boundary for cache', `state=${state}`);
   const response = await axios.get(`${serviceUrl}?${params.toString()}`);
-  const features = response.data.features || [];
+  const rawFeatures = response.data.features || [];
+  const normalizeStateFeature = (f) => {
+    const p = f.properties || {};
+    return { ...f, properties: { ...p, STATE_FIPS: p.STATE ?? p.GEOID, STATE_NAME: p.NAME, STATE_ABBR: p.STUSAB } };
+  };
+  const features = rawFeatures.map(normalizeStateFeature);
   if (features.length === 0) {
     throw new Error(`No state boundary features returned for state: ${state}`);
   }
@@ -6370,7 +6447,8 @@ async function loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYe
   const legacyKey = `district_party_${state}_${stepNumber}_${maxIterations}`;
   try {
     let data = await getCacheDoc(vestYear != null ? keyWithYear : legacyKey);
-    if (!data && vestYear === 2024) {
+    // Do not fall back to legacy key when vestYear === 2024; pre-fix legacy cache has inflated vote totals.
+    if (!data && vestYear !== 2024) {
       data = await getCacheDoc(legacyKey);
     }
     if (!data || !data.districts || typeof data.districts !== 'object') return null;

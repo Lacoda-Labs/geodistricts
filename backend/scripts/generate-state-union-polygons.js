@@ -1,6 +1,6 @@
 /**
  * Generate state boundary (union) polygons for all states and save to Cloud Storage.
- * Fetches TIGER state boundaries from ArcGIS and overwrites existing cache entries.
+ * Fetches state boundaries from Census TIGERweb (State_County layer 0) and overwrites existing cache entries.
  * Usage: node scripts/generate-state-union-polygons.js [STATE]
  *   With no arg: process all states. With STATE (e.g. CA): process that state only.
  */
@@ -31,14 +31,15 @@ const stateFipsMap = {
   'DC': '11'
 };
 
-const serviceUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_States_Generalized_Boundaries/FeatureServer/0/query';
+// Census TIGERweb State_County layer 0 = States (STATE, GEOID, NAME, STUSAB)
+const serviceUrl = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query';
 
 async function generateStateBoundary(state) {
   const stateBoundaryKey = `state_boundary_polygon_${state.toUpperCase()}`;
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
   const params = new URLSearchParams({
-    where: `STATE_FIPS='${stateFips}'`,
-    outFields: 'STATE_FIPS,STATE_NAME,STATE_ABBR',
+    where: `STATE='${stateFips}'`,
+    outFields: 'STATE,GEOID,NAME,STUSAB',
     f: 'geojson',
     outSR: '4326'
   });
