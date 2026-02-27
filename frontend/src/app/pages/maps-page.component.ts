@@ -2527,9 +2527,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (result) => {
           const totalIsolated = result?.isolationResult?.totalIsolated ?? 0;
           if (totalIsolated === 0) {
+            // Proceed to balance phase
             setTimeout(() => this.runFinalStepToCompletion(), 0);
           } else {
-            setTimeout(() => this.runFinalStepToCompletion(), 0);
+            // Still isolated tracts (e.g. unmovable); stop play to avoid infinite loop
+            this.pauseSteps();
+            this.isLoading = false;
+            this.loadingMessage = '';
+            this.finalStepPhaseLabel = 'Move isolated tracts (some remaining)';
+            this.cdr.markForCheck();
           }
         },
         () => {
