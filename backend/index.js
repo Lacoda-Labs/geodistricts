@@ -6460,6 +6460,25 @@ async function loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYe
 }
 
 /**
+ * Return unique 11-digit tract GEOIDs from a list of tract IDs (avoids double-counting when censusTractIds has duplicates).
+ * @param {string[]|number[]} tractIds - Raw tract IDs from a district group
+ * @returns {string[]}
+ */
+function uniqueTractGeoids(tractIds) {
+  if (!Array.isArray(tractIds) || tractIds.length === 0) return [];
+  const seen = new Set();
+  const out = [];
+  for (const id of tractIds) {
+    const geoid = String(id).padStart(11, '0').substring(0, 11);
+    if (geoid.length === 11 && !seen.has(geoid)) {
+      seen.add(geoid);
+      out.push(geoid);
+    }
+  }
+  return out;
+}
+
+/**
  * Run district-level party % job for final step: aggregate tract party data by DG and persist.
  * @param {string} state - State code
  * @param {number} finalStepNumber - Final step number
@@ -6487,11 +6506,11 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
       const tractIds = group.censusTractIds && group.censusTractIds.length > 0
         ? group.censusTractIds
         : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+      const uniqueGeoids = uniqueTractGeoids(tractIds);
       let votesDem = 0;
       let votesRep = 0;
       let totalVotes = 0;
-      for (const id of tractIds) {
-        const geoid = String(id).padStart(11, '0').substring(0, 11);
+      for (const geoid of uniqueGeoids) {
         const row = tractParty[geoid];
         if (row) {
           votesDem += row.votesDem || 0;
@@ -6628,9 +6647,9 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     const tractIds = group.censusTractIds && group.censusTractIds.length > 0
       ? group.censusTractIds
       : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+    const uniqueGeoids = uniqueTractGeoids(tractIds);
     let votesDem = 0, votesRep = 0, totalVotes = 0;
-    for (const id of tractIds) {
-      const geoid = String(id).padStart(11, '0').substring(0, 11);
+    for (const geoid of uniqueGeoids) {
       const row = tractParty[geoid];
       if (row) {
         votesDem += row.votesDem || 0;
