@@ -150,6 +150,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
   private mapToggleControl: L.Control | null = null; // Custom toggle control
   isPlaying: boolean = false; // Track if auto-playing steps
+  /** Guard to avoid re-entering runFinalStepToCompletion while move/balance is in flight (prevents play bouncing). */
+  private _runningFinalStepCompletion = false;
 
   /** US map view: states with completed final step and their step data (finalStepNumber for fetching district party). */
   usMapStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep; finalStepNumber?: number }> = [];
@@ -687,9 +689,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               s.finalStepNumber != null && s.finalStepNumber >= 0
             );
             if (statesWithFinalStep.length > 0) {
+              const vestYear = 2024;
               forkJoin(
                 statesWithFinalStep.map((s) =>
-                  this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100).pipe(
+                  this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
                     catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
                   )
                 )
@@ -948,9 +951,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           s.finalStepNumber != null && s.finalStepNumber >= 0
         );
         if (statesWithFinalStep.length > 0) {
+          const vestYear = 2024;
           forkJoin(
             statesWithFinalStep.map((s) =>
-              this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100).pipe(
+              this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
                 catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
               )
             )
@@ -2164,6 +2168,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractEntries = [];
     this.cachedNorthPrefixSum = [];
     this.cachedSortedTractEntriesByDg.clear();
+      this.isLoading = false;
+      this.isLoadingSteps = false;
       this.renderFinalDistricts();
       setTimeout(() => this.onStepDisplayComplete(), 0);
     } else if (this.isVisualizationOnly) {
@@ -2180,14 +2186,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.isLoading = false;
             return;
           }
-          const { step: newStep, stepIndex: loadedIndex, isComplete } = stepData;
+          const { step: newStep, isComplete } = stepData;
           if (!newStep?.districtGroups?.length) {
             this.isLoadingSteps = false;
             this.isLoading = false;
             return;
           }
-          this.loadedSteps[loadedIndex] = newStep;
-          this.currentStepIndex = loadedIndex;
+          // Store at requested index so play doesn't overwrite wrong slot if API returns different stepIndex
+          this.loadedSteps[nextIndex] = newStep;
+          this.currentStepIndex = nextIndex;
           this.currentStep = newStep;
           this.selectedDistrictGroupIndex = null;
           this.sortSliderValue = 0;
@@ -2516,9 +2523,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Called when play is started at final step; uses finalStepPhaseLabel for phase labels.
    */
   private runFinalStepToCompletion(): void {
-    if (!this.isPlaying) {
-      return;
-    }
+    if (!this.isPlaying) return;
+    if (this._runningFinalStepCompletion) return;
+    this._runningFinalStepCompletion = true;
     if (this.hasUnresolvedIsolation) {
       this.finalStepPhaseLabel = 'Move isolated tracts';
       this.loadingMessage = 'Move isolated tracts';
@@ -2527,10 +2534,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (result) => {
           const totalIsolated = result?.isolationResult?.totalIsolated ?? 0;
           if (totalIsolated === 0) {
-            // Proceed to balance phase
+            this._runningFinalStepCompletion = false;
             setTimeout(() => this.runFinalStepToCompletion(), 0);
           } else {
-            // Still isolated tracts (e.g. unmovable); stop play to avoid infinite loop
+            this._runningFinalStepCompletion = false;
             this.pauseSteps();
             this.isLoading = false;
             this.loadingMessage = '';
@@ -2539,6 +2546,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         },
         () => {
+          this._runningFinalStepCompletion = false;
           this.pauseSteps();
           this.finalStepPhaseLabel = '';
           this.cdr.markForCheck();
@@ -2554,6 +2562,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (result) => {
           const noMore = (result as { noMoreBalancingPossible?: boolean })?.noMoreBalancingPossible === true;
           if (noMore) {
+            this._runningFinalStepCompletion = false;
             this.finalStepPhaseLabel = 'State geodistricting complete';
             this.loadingMessage = 'State geodistricting complete';
             this.triggerPolygonsForAllMissing();
@@ -2567,10 +2576,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.cdr.markForCheck();
             }, 5000);
           } else {
+            this._runningFinalStepCompletion = false;
             setTimeout(() => this.runFinalStepToCompletion(), 0);
           }
         },
         () => {
+          this._runningFinalStepCompletion = false;
           this.pauseSteps();
           this.finalStepPhaseLabel = '';
           this.cdr.markForCheck();
@@ -2578,6 +2589,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       );
       return;
     }
+    this._runningFinalStepCompletion = false;
     this.finalStepPhaseLabel = 'State geodistricting complete';
     this.loadingMessage = 'State geodistricting complete';
     this.triggerPolygonsForAllMissing();
@@ -2594,6 +2606,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   pauseSteps(): void {
     this.isPlaying = false;
+    this._runningFinalStepCompletion = false;
     this.finalStepPhaseLabel = '';
   }
 
@@ -5396,7 +5409,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const maxIter = this.finalStepMaxIterations ?? 100;
-    this.geodistrictService.getDistrictParty(this.selectedState, this.finalStepNumber, maxIter).subscribe({
+    const vestYear = 2024;
+    this.geodistrictService.getDistrictParty(this.selectedState, this.finalStepNumber, maxIter, vestYear).subscribe({
       next: (res) => {
         this.districtPartyByGroupKey = res.districts ?? null;
         this.renderFinalDistricts();
