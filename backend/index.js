@@ -1733,6 +1733,61 @@ async function getTractCount(state, county) {
 }
 
 /**
+ * Fetch full tract boundaries for a state (or state+county) in batches.
+ * Used when building the canonical tract model so large states get all features
+ * without relying on streamed HTTP self-call or 2000-feature cache.
+ * @param {string} state - State code (e.g. 'NY')
+ * @param {string} [county] - Optional county FIPS
+ * @returns {Promise<{ type: string, features: Array }>} GeoJSON FeatureCollection
+ */
+async function fetchTractBoundariesForState(state, county) {
+  const stateFipsMap = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+    'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
+    'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
+    'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
+    'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29',
+    'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+    'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+    'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45',
+    'SD': '46', 'TN': '47', 'TX': '48', 'UT': '49', 'VT': '50',
+    'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56',
+    'DC': '11'
+  };
+  const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+  const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
+  let whereClause = `STATE='${stateFips}'`;
+  if (county) {
+    whereClause += ` AND COUNTY='${county}'`;
+  }
+  const totalCount = await getTractCount(state, county);
+  function normalizeTractFeature(f) {
+    const p = f.properties || {};
+    return { ...f, properties: { ...p, STATE_FIPS: p.STATE, COUNTY_FIPS: p.COUNTY, TRACT_FIPS: p.TRACT, FIPS: p.GEOID, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+  }
+  const allFeatures = [];
+  const batchSize = 500;
+  const totalBatches = Math.ceil(totalCount / batchSize);
+  for (let i = 0; i < totalBatches; i++) {
+    const offset = i * batchSize;
+    const batchParams = new URLSearchParams({
+      where: whereClause,
+      outFields: 'STATE,COUNTY,TRACT,GEOID,POP100',
+      f: 'geojson',
+      outSR: '4326',
+      resultRecordCount: batchSize.toString(),
+      resultOffset: offset.toString()
+    });
+    logExternalFetch('TIGERweb', 'tract boundaries batch (internal)', `state=${state} batch=${i + 1}/${totalBatches}`);
+    const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
+    const batchFeatures = (batchResponse.data.features || []).map(normalizeTractFeature);
+    allFeatures.push(...batchFeatures);
+  }
+  console.log(`📦 Fetched ${allFeatures.length} tract boundaries for state ${state} (internal, ${totalBatches} batch(es))`);
+  return { type: 'FeatureCollection', features: allFeatures };
+}
+
+/**
  * Handle streaming response for large datasets
  */
 async function handleStreamingResponse(req, res, state, county, cacheKey, totalCount) {
@@ -3214,32 +3269,30 @@ app.post('/api/algorithm/execute', async (req, res) => {
     // Extract forceInvalidate option
     const forceInvalidate = options.forceInvalidate || false;
 
-    // Get tract data from census proxy
-    // First, get boundaries - use forceInvalidate option, or force if cache is empty
-    let boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
-    if (forceInvalidate) {
-      boundariesUrl += '&forceInvalidate=true';
+    // Get tract boundaries: for large states use internal batch fetch so we get full feature set
+    let boundaries;
+    const totalTractCount = await getTractCount(state);
+    if (totalTractCount > 2000) {
+      console.log(`📡 Fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
+      boundaries = await fetchTractBoundariesForState(state);
+    } else {
+      let boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
+      if (forceInvalidate) {
+        boundariesUrl += '&forceInvalidate=true';
+      }
+      console.log(`📡 Fetching boundaries from: ${boundariesUrl}`);
+      let boundariesResponse = await axios.get(boundariesUrl);
+      if (!forceInvalidate && (!boundariesResponse.data?.features?.length)) {
+        console.warn(`⚠️ Cached boundaries are empty, forcing fresh fetch...`);
+        boundariesResponse = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
+      }
+      if (!boundariesResponse.data?.features?.length) {
+        console.error(`❌ No tract boundaries found for state: ${state}`);
+        return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
+      }
+      boundaries = boundariesResponse.data;
     }
-    console.log(`📡 Fetching boundaries from: ${boundariesUrl}`);
-    let boundariesResponse = await axios.get(boundariesUrl);
-    
-    console.log(`📦 Boundaries response status: ${boundariesResponse.status}`);
-    console.log(`📦 Boundaries response data type: ${typeof boundariesResponse.data}`);
-    console.log(`📦 Boundaries response has features: ${!!boundariesResponse.data?.features}`);
-    console.log(`📦 Boundaries features count: ${boundariesResponse.data?.features?.length || 0}`);
-    
-    // If cached data is empty, force invalidate and fetch fresh (unless already forced)
-    if (!forceInvalidate && (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0)) {
-      console.warn(`⚠️ Cached boundaries are empty, forcing fresh fetch...`);
-      boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`;
-      boundariesResponse = await axios.get(boundariesUrl);
-      console.log(`📦 Fresh boundaries features count: ${boundariesResponse.data?.features?.length || 0}`);
-    }
-    
-    if (!boundariesResponse.data || !boundariesResponse.data.features || boundariesResponse.data.features.length === 0) {
-      console.error(`❌ No tract boundaries found after fresh fetch - data:`, JSON.stringify(boundariesResponse.data).substring(0, 200));
-      return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
-    }
+    console.log(`📦 Boundaries features count: ${boundaries.features?.length || 0}`);
 
     // Get demographic data - need to fetch for all counties in the state
     // First, get all counties for the state
@@ -3272,7 +3325,6 @@ app.post('/api/algorithm/execute', async (req, res) => {
     const demographicData = demographicDataArrays.flat();
     
     console.log(`📊 Demographic data count: ${demographicData.length} tracts across ${counties.length} counties`);
-    const boundaries = boundariesResponse.data;
 
     // Load S4 adjacency data BEFORE creating canonical tract model (needed for attachment)
     const s4DataLoader = require('./services/s4-data-loader');
@@ -5099,16 +5151,24 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
 
     // Get tract data from census proxy when not loaded from state tract cache
     if (tracts.length === 0) {
-      const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}` + (forceInvalidate ? '&forceInvalidate=true' : '');
-      const boundariesResponse = await axios.get(boundariesUrl);
-      if (!boundariesResponse.data?.features?.length) {
-        if (!forceInvalidate) {
-          const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
-          if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
-        }
+      let boundaries;
+      const totalTractCount = await getTractCount(state);
+      if (totalTractCount > 2000) {
+        console.log(`📡 Step-by-step: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
+        boundaries = await fetchTractBoundariesForState(state);
+      } else {
+        const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}` + (forceInvalidate ? '&forceInvalidate=true' : '');
+        const boundariesResponse = await axios.get(boundariesUrl);
         if (!boundariesResponse.data?.features?.length) {
-          return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
+          if (!forceInvalidate) {
+            const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
+            if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
+          }
+          if (!boundariesResponse.data?.features?.length) {
+            return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
+          }
         }
+        boundaries = boundariesResponse.data;
       }
       const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
       const countiesResponse = await axios.get(countiesUrl);
@@ -5120,7 +5180,6 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
         forceInvalidate
       });
       const demographicData = bulkResponse.data.data || [];
-      const boundaries = boundariesResponse.data;
       const s4DataLoader = require('./services/s4-data-loader');
       try { await s4DataLoader.loadS4AdjacencyData(state); } catch (e) { console.warn(`⚠️ S4 load: ${e.message}`); }
       const { createCanonicalTractMap } = require('./services/canonical-tract-loader');
@@ -5548,28 +5607,27 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
             // Otherwise fall back to creating map from geoJsonFeatures
             let tractMap;
             if (canonicalResult && canonicalResult.tractMap) {
-              // Convert canonical Map to array of [id, tract] pairs
-              // The canonical tract has: tractId, censusData, geometry, s4Adjacency, properties
-              tractMap = Array.from(canonicalResult.tractMap.entries()).map(([tractId, canonicalTract]) => {
-                // Convert canonical tract to GeoJSON feature format for compatibility
-                // But preserve all canonical data including S4 adjacency
-                const geoJsonFeature = {
-                  type: 'Feature',
-                  geometry: canonicalTract.geometry,
-                  properties: {
-                    ...canonicalTract.properties,
-                    // Preserve canonical structure metadata
-                    _canonicalTractId: canonicalTract.tractId,
-                    _hasCensusData: !!canonicalTract.censusData,
-                    _hasS4Adjacency: !!canonicalTract.s4Adjacency,
-                    // Preserve S4 adjacency data if available
-                    _s4Adjacency: canonicalTract.s4Adjacency || null
-                  }
-                };
-                return [tractId, geoJsonFeature];
-              }).filter(([id]) => id); // Filter out tracts without IDs
+              // Convert canonical Map to array of [id, tract] pairs (only tracts with geometry)
+              // Cache must contain only tracts with geometry so final-step and map-polygons validation passes
+              tractMap = Array.from(canonicalResult.tractMap.entries())
+                .filter(([, canonicalTract]) => canonicalTract && canonicalTract.geometry)
+                .map(([tractId, canonicalTract]) => {
+                  const geoJsonFeature = {
+                    type: 'Feature',
+                    geometry: canonicalTract.geometry,
+                    properties: {
+                      ...canonicalTract.properties,
+                      _canonicalTractId: canonicalTract.tractId,
+                      _hasCensusData: !!canonicalTract.censusData,
+                      _hasS4Adjacency: !!canonicalTract.s4Adjacency,
+                      _s4Adjacency: canonicalTract.s4Adjacency || null
+                    }
+                  };
+                  return [tractId, geoJsonFeature];
+                })
+                .filter(([id]) => id);
               
-              console.log(`📊 Created tract map from canonical model: ${tractMap.length} tracts (canonical structure preserved)`);
+              console.log(`📊 Created tract map from canonical model: ${tractMap.length} tracts with geometry (canonical structure preserved)`);
             } else {
               // Fallback: create map from geoJsonFeatures (legacy behavior)
               tractMap = tracts.map(tract => {
@@ -5684,8 +5742,8 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
           console.warn(`⚠️ STEP 0 CACHE STORE ERROR: ${cacheError.message}`);
         }
       };
-      
-      cacheStep0();
+
+      await cacheStep0();
 
       // Log what we're returning to frontend
       if (step.districtGroups && step.districtGroups.length > 0) {
@@ -5901,6 +5959,18 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
       } catch (reconstructError) {
         console.warn(`⚠️ Failed to reconstruct step ${stepNum}: ${reconstructError.message}`);
         return res.status(500).json({ error: `Failed to reconstruct step ${stepNum}` });
+      }
+    }
+
+    // Step 0: ensure the single district group contains ALL tracts from state cache (not only cached censusTractIds).
+    // Cached step 0 may have been stored when fewer tracts existed (e.g. before TIGER attach or old island-only set).
+    if (stepNum === 0 && stepData?.districtGroups?.[0] && uniqueTractsForExclusion.length > 0) {
+      const cachedCount = stepData.districtGroups[0].censusTracts?.length ?? 0;
+      if (cachedCount < uniqueTractsForExclusion.length) {
+        console.log(`🔄 STEP 0: Replacing ${cachedCount} cached tracts with ${uniqueTractsForExclusion.length} tracts from state cache`);
+        stepData.districtGroups[0].censusTracts = uniqueTractsForExclusion;
+        stepData.districtGroups[0].totalPopulation = uniqueTractsForExclusion.reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+        console.log(`✅ STEP 0: GET step/0 now has ${stepData.districtGroups[0].censusTracts.length} tracts`);
       }
     }
 

@@ -3671,32 +3671,32 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Render final districts (all steps calculated)
     const isStep0StateOutline = this.currentStepIndex === 0 && districtsToRender.length === 1;
     districtsToRender.forEach((district, index) => {
-      // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index or district party color
-      let baseColor: string;
-      if (isStep0StateOutline) {
-        baseColor = this.getStatePartyColor(this.selectedState);
-      } else if (this.showPartyColor && this.districtPartyByGroupKey) {
-        const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
-        const partyData = this.districtPartyByGroupKey[groupKey];
-        baseColor = partyData != null ? this.getTractColorByParty(partyData.pctDem) : this.getDistrictColor(index, districtsToRender.length);
-      } else {
-        baseColor = this.getDistrictColor(index, districtsToRender.length);
-      }
-      const isSelected = this.selectedDistrictGroupIndex === index;
-      // Only apply grayscale if a district is selected AND this one is not selected
-      const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
-        ? this.colorToGrayscale(baseColor) 
-        : baseColor;
-      const groupKeyForOpacity = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
-      const districtPartyForOpacity = this.showPartyColor ? this.districtPartyByGroupKey?.[groupKeyForOpacity] : undefined;
-      const fillOpacity = isStep0StateOutline
-        ? this.getStatePartyOpacity(this.selectedState)
-        : this.polygonFillOpacity;
+        // Step 0 with one group = state boundary: shade by 119th party share; otherwise use district index or district party color
+        let baseColor: string;
+        if (isStep0StateOutline) {
+          baseColor = this.getStatePartyColor(this.selectedState);
+        } else if (this.showPartyColor && this.districtPartyByGroupKey) {
+          const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+          const partyData = this.districtPartyByGroupKey[groupKey];
+          baseColor = partyData != null ? this.getTractColorByParty(partyData.pctDem) : this.getDistrictColor(index, districtsToRender.length);
+        } else {
+          baseColor = this.getDistrictColor(index, districtsToRender.length);
+        }
+        const isSelected = this.selectedDistrictGroupIndex === index;
+        // Only apply grayscale if a district is selected AND this one is not selected
+        const color = (this.selectedDistrictGroupIndex !== null && !isSelected) 
+          ? this.colorToGrayscale(baseColor) 
+          : baseColor;
+        const groupKeyForOpacity = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+        const districtPartyForOpacity = this.showPartyColor ? this.districtPartyByGroupKey?.[groupKeyForOpacity] : undefined;
+        const fillOpacity = isStep0StateOutline
+          ? this.getStatePartyOpacity(this.selectedState)
+          : this.polygonFillOpacity;
 
-      if (!district.censusTracts || district.censusTracts.length === 0) {
-        console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
-        return;
-      }
+        if (!district.censusTracts || district.censusTracts.length === 0) {
+          console.warn(`⚠️ District ${district.startDistrictNumber}-${district.endDistrictNumber} has no tracts`);
+          return;
+        }
 
       // When tract boundaries are hidden, use union polygon(s) if available (e.g. step complete, isolated resolved)
       if (!this.showTractBoundaries) {

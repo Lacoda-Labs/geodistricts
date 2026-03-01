@@ -51,10 +51,11 @@ function getCanonicalTractId(censusData) {
 }
 
 /**
- * Get tract ID from TIGER polygon feature (for matching)
+ * Get tract ID from TIGER polygon feature (for matching).
+ * Prefer 11-digit GEOID/FIPS so direct match works; fall back to 6-digit TRACT_FIPS.
  */
 function getTigerTractId(feature) {
-  return feature.properties?.TRACT_FIPS || feature.properties?.GEOID;
+  return feature.properties?.GEOID || feature.properties?.FIPS || feature.properties?.TRACT_FIPS;
 }
 
 /**
@@ -211,20 +212,25 @@ function createCanonicalTractMap(censusData, tigerBoundaries, state) {
   }
   
   // Step 4: Convert to GeoJSON features array (for compatibility with existing code)
+  const tractsWithoutGeometry = [];
   const geoJsonFeatures = Array.from(tractMap.values()).map(canonicalTract => {
-    // Only include tracts that have geometry (from TIGER)
     if (!canonicalTract.geometry) {
-      console.warn(`⚠️ Canonical tract ${canonicalTract.tractId} has no geometry`);
+      tractsWithoutGeometry.push(canonicalTract.tractId);
       return null;
     }
-    
     return {
       type: 'Feature',
       geometry: canonicalTract.geometry,
       properties: canonicalTract.properties
     };
   }).filter(Boolean);
-  
+
+  if (tractsWithoutGeometry.length > 0) {
+    const sample = tractsWithoutGeometry.slice(0, 5).join(', ');
+    const suffix = tractsWithoutGeometry.length > 5 ? ` (sample: ${sample}...)` : ` (${sample})`;
+    console.warn(`⚠️ ${tractsWithoutGeometry.length} canonical tract(s) have no geometry${suffix}`);
+  }
+
   console.log(`✅ Converted ${geoJsonFeatures.length} canonical tracts to GeoJSON features`);
   
   return {
