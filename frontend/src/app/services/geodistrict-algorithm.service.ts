@@ -677,6 +677,22 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Get census tract data for a state (for dev/maps tract list). Separate from step 0.
+   * GET /api/algorithm/census-tracts/:state
+   */
+  getCensusTracts(state: string): Observable<{ tracts: GeoJsonFeature[]; islandTractsData?: unknown }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/census-tracts/${state}`;
+    return this.http.get<{ tracts: GeoJsonFeature[]; islandTractsData?: unknown }>(url).pipe(
+      map(body => ({ tracts: body.tracts || [], islandTractsData: body.islandTractsData })),
+      catchError(error => {
+        console.error(`❌ Get census tracts for ${state} failed:`, error);
+        return this.handleError(error);
+      })
+    );
+  }
+
+  /**
    * Get union polygons for a step's district groups. Returns 200 body or null on 404.
    */
   getStepUnionPolygons(

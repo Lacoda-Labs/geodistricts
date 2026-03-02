@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { GeodistrictAlgorithmService } from './geodistrict-algorithm.service';
 import { CensusService } from './census.service';
+import { environment } from '../../environments/environment';
 
 // Define GeoJsonFeature interface locally for testing
 interface GeoJsonFeature {
@@ -294,6 +295,74 @@ describe('GeodistrictAlgorithmService - Enclosed Tract Detection', () => {
       );
       
       expect(hasTargetTracts).toBeTruthy();
+    });
+  });
+
+  describe('getStep (step 0 for tract list)', () => {
+    let httpTestingController: HttpTestingController;
+    const backendUrl = environment.censusProxyUrl || (environment.apiUrl || '').replace('/api', '') || 'http://localhost:8080';
+
+    beforeEach(() => {
+      httpTestingController = TestBed.inject(HttpTestingController);
+    });
+
+    afterEach(() => {
+      httpTestingController.verify();
+    });
+
+    it('should request step 0 without polygonsOnly so response includes censusTracts for tract list', (done) => {
+      const step0Tracts = [
+        createTestTract('18001000100', [[-86.1, 40.0], [-86.0, 40.0], [-86.0, 40.1], [-86.1, 40.1], [-86.1, 40.0]]),
+        createTestTract('18003000200', [[-86.2, 39.9], [-86.1, 39.9], [-86.1, 40.0], [-86.2, 40.0], [-86.2, 39.9]])
+      ];
+      const step0Data = {
+        step: 0,
+        level: 0,
+        districtGroups: [{
+          startDistrictNumber: 1,
+          endDistrictNumber: 9,
+          censusTracts: step0Tracts,
+          totalDistricts: 9,
+          totalPopulation: step0Tracts.reduce((s, t) => s + (t.properties?.POPULATION ?? 0), 0),
+          bounds: { north: 41.7, south: 37.8, east: -84.8, west: -88.1 },
+          centroid: { lat: 39.8, lng: -86.4 }
+        }],
+        description: 'Initial state: All tracts in single group',
+        totalGroups: 1,
+        totalDistricts: 9,
+        divisionDirection: 'latitude' as const
+      };
+
+      service.getStep('IN', 0, 100, undefined).subscribe({
+        next: (result) => {
+          expect(result.stepIndex).toBe(0);
+          expect(result.step).toBeDefined();
+          expect(result.step.districtGroups?.length).toBe(1);
+          const censusTracts = result.step.districtGroups?.[0]?.censusTracts;
+          expect(censusTracts).toBeDefined();
+          expect(Array.isArray(censusTracts)).toBe(true);
+          expect(censusTracts!.length).toBe(2);
+          expect(censusTracts!.every(t => t.properties?.['GEOID'] && t.properties?.['POPULATION'] != null)).toBe(true);
+          done();
+        },
+        error: done.fail
+      });
+
+      const req = httpTestingController.expectOne(
+        (r) => r.url.startsWith(`${backendUrl}/api/algorithm/step/IN/0`) && !r.url.includes('polygonsOnly=true')
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ step: 0, data: step0Data, isComplete: false });
+    });
+
+    it('should include polygonsOnly=true in URL when options.polygonsOnly is true', () => {
+      service.getStep('IN', 0, 100, { polygonsOnly: true }).subscribe();
+
+      const req = httpTestingController.expectOne(
+        (r) => r.url.includes('/api/algorithm/step/IN/0') && r.url.includes('polygonsOnly=true')
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ step: 0, data: { districtGroups: [], description: '', totalGroups: 0, totalDistricts: 0, divisionDirection: 'latitude', step: 0, level: 0 }, isComplete: false });
     });
   });
 });

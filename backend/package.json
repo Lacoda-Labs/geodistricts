@@ -7,7 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "tract-party": "node scripts/run-tract-party-persistence.js",
-    "test": "npm run test:isolation && npm run test:vest",
+    "test": "npm run test:isolation && npm run test:vest && node test-census-tracts-api.js",
     "test:isolation": "node services/geodistrict-algorithm-isolation.test.js",
     "test:vest": "node services/vest-party.test.js"
   },
@@ -27,7 +27,8 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "supertest": "^7.2.2"
   },
   "engines": {
     "node": ">=18.0.0"

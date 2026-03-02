@@ -5804,6 +5804,214 @@ app.get('/api/algorithm/union-polygon-keys/:state', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/algorithm/census-tracts/:state
+ * Return census tract data for a state (for dev/maps tract list). Uses state tract cache when available;
+ * on cache miss fetches from census/TIGER, runs enclosed detection, writes state tract cache, returns tracts.
+ */
+app.get('/api/algorithm/census-tracts/:state', async (req, res) => {
+  try {
+    const state = (req.params.state || '').toUpperCase();
+    if (!state || state.length !== 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    const totalDistricts = getDistrictsForState(state);
+    if (!totalDistricts) {
+      return res.status(400).json({ error: `Invalid state: ${state}` });
+    }
+
+    let tracts = [];
+    let canonicalResult = null;
+
+    const fromCache = await loadTractsFromStateTractCache(state);
+    if (fromCache && fromCache.tracts.length > 0) {
+      return res.json({ tracts: fromCache.tracts });
+    }
+
+    // Cache miss: same fetch pipeline as step-by-step
+    let boundaries;
+    const totalTractCount = await getTractCount(state);
+    if (totalTractCount > 2000) {
+      console.log(`📡 Census-tracts: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
+      boundaries = await fetchTractBoundariesForState(state);
+    } else {
+      const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
+      const boundariesResponse = await axios.get(boundariesUrl);
+      if (!boundariesResponse.data?.features?.length) {
+        const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
+        if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
+        if (!boundariesResponse.data?.features?.length) {
+          return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
+        }
+      }
+      boundaries = boundariesResponse.data;
+    }
+    const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
+    const countiesResponse = await axios.get(countiesUrl);
+    const counties = countiesResponse.data || [];
+    const countyFipsCodes = counties.map(c => c.COUNTY || c.county || c.fips);
+    const bulkResponse = await axios.post(`${req.protocol}://${req.get('host')}/api/census/tract-data/bulk`, {
+      state,
+      counties: countyFipsCodes,
+      forceInvalidate: false
+    });
+    const demographicData = bulkResponse.data.data || [];
+    const s4DataLoader = require('./services/s4-data-loader');
+    try { await s4DataLoader.loadS4AdjacencyData(state); } catch (e) { console.warn(`⚠️ S4 load: ${e.message}`); }
+    const { createCanonicalTractMap } = require('./services/canonical-tract-loader');
+    canonicalResult = createCanonicalTractMap(demographicData, boundaries, state);
+    tracts = canonicalResult.geoJsonFeatures;
+    if (tracts.length === 0) {
+      return res.status(404).json({ error: `No tracts found for state: ${state}` });
+    }
+
+    const { detectEnclosedTracts, getTractId } = require('./services/geodistrict-algorithm');
+    const enclosedMap = detectEnclosedTracts(tracts);
+    const tractIdMap = new Map();
+    for (const tract of tracts) {
+      const tractId = getTractId(tract);
+      if (tractId) tractIdMap.set(tractId, tract);
+    }
+    let nextGroupId = 1;
+    const groupIdMap = new Map();
+    for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+      let groupId = groupIdMap.get(enclosedId) || groupIdMap.get(enclosingId);
+      if (!groupId) groupId = `group_${nextGroupId++}`;
+      groupIdMap.set(enclosedId, groupId);
+      groupIdMap.set(enclosingId, groupId);
+    }
+    for (const tract of tracts) {
+      const tractId = getTractId(tract);
+      if (!tractId) continue;
+      if (enclosedMap.has(tractId)) tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
+      const enclosedByThis = [];
+      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+        if (enclosingId === tractId) enclosedByThis.push(enclosedId);
+      }
+      if (enclosedByThis.length > 0) tract.properties.ENCLOSES = enclosedByThis;
+      if (groupIdMap.has(tractId)) tract.properties.TRACT_GROUP_ID = groupIdMap.get(tractId);
+    }
+
+    const tractCacheKey = `state_tracts_${state}`;
+    const existingTractCache = await getCacheDoc(tractCacheKey);
+    const existingVersion = existingTractCache ? existingTractCache.algorithmVersion : null;
+    let shouldRegenerateCache = !existingTractCache || existingVersion !== ALGORITHM_VERSION;
+    const GEOMETRY_COVERAGE_THRESHOLD = 0.95;
+    if (!shouldRegenerateCache && existingTractCache) {
+      let existingTractMap = null;
+      const existingData = existingTractCache;
+      if (existingData?.cloudStorage && existingData?.cloudStoragePath) {
+        try {
+          const cloudResult = await cloudStorageCache.get(tractCacheKey);
+          if (cloudResult?.data) existingTractMap = cloudResult.data;
+          else shouldRegenerateCache = true;
+        } catch (e) {
+          shouldRegenerateCache = true;
+        }
+      } else if (existingData?.data && Array.isArray(existingData.data)) {
+        existingTractMap = existingData.data;
+      }
+      if (!shouldRegenerateCache && existingTractMap && existingTractMap.length > 0) {
+        const sampleSize = Math.min(500, existingTractMap.length);
+        const step = Math.max(1, Math.floor(existingTractMap.length / sampleSize));
+        let withGeometry = 0, sampled = 0;
+        for (let i = 0; i < existingTractMap.length && sampled < sampleSize; i += step) {
+          const entry = existingTractMap[i];
+          const t = Array.isArray(entry) && entry.length === 2 ? entry[1] : entry;
+          if (t && (t.geometry || (t.type === 'Feature' && t.geometry))) withGeometry++;
+          sampled++;
+        }
+        if (sampled > 0 && withGeometry / sampled < GEOMETRY_COVERAGE_THRESHOLD) shouldRegenerateCache = true;
+      }
+    }
+
+    if (shouldRegenerateCache) {
+      let tractMap;
+      if (canonicalResult && canonicalResult.tractMap) {
+        tractMap = Array.from(canonicalResult.tractMap.entries())
+          .filter(([, canonicalTract]) => canonicalTract && canonicalTract.geometry)
+          .map(([id, canonicalTract]) => {
+            const geoJsonFeature = {
+              type: 'Feature',
+              geometry: canonicalTract.geometry,
+              properties: {
+                ...canonicalTract.properties,
+                _canonicalTractId: canonicalTract.tractId,
+                _hasCensusData: !!canonicalTract.censusData,
+                _hasS4Adjacency: !!canonicalTract.s4Adjacency,
+                _s4Adjacency: canonicalTract.s4Adjacency || null
+              }
+            };
+            return [id, geoJsonFeature];
+          })
+          .filter(([id]) => id);
+      } else {
+        tractMap = tracts.map(tract => {
+          const tractId = getTractId(tract);
+          return [tractId, tract];
+        }).filter(([id]) => id);
+      }
+      const tractCacheSize = JSON.stringify(tractMap).length;
+      const tractCacheSizeMB = (tractCacheSize / (1024 * 1024)).toFixed(2);
+      const FIRESTORE_MAX_SIZE = 1024 * 1024;
+      const useCloudStorage = tractCacheSize > FIRESTORE_MAX_SIZE;
+      if (useCloudStorage) {
+        try {
+          const cloudStoragePath = await cloudStorageCache.set(tractCacheKey, tractMap, {
+            state,
+            tractCount: tractMap.length.toString(),
+            source: 'state-tract-cache'
+          });
+          const metadataEntry = {
+            cloudStoragePath,
+            timestamp: Date.now(),
+            ttl: null,
+            version: CACHE_VERSION,
+            algorithmVersion: ALGORITHM_VERSION,
+            source: 'state-tract-cache-metadata',
+            attribution: `Tract geometries metadata for state ${state}`,
+            chunked: false,
+            cloudStorage: true,
+            totalChunks: 0,
+            tractCount: tractMap.length,
+            state,
+            size: tractCacheSize,
+            sizeMB: parseFloat(tractCacheSizeMB)
+          };
+          await setCacheDoc(tractCacheKey, metadataEntry);
+        } catch (error) {
+          console.warn(`⚠️ Failed to store state tract cache in Cloud Storage: ${error.message}`);
+        }
+      } else {
+        const metadataEntry = {
+          data: tractMap,
+          timestamp: Date.now(),
+          ttl: null,
+          version: CACHE_VERSION,
+          algorithmVersion: ALGORITHM_VERSION,
+          source: 'state-tract-cache',
+          attribution: `Tract geometries for state ${state}`,
+          chunked: false,
+          cloudStorage: false,
+          tractCount: tractMap.length,
+          state,
+          size: tractCacheSize,
+          sizeMB: parseFloat(tractCacheSizeMB)
+        };
+        await setCacheDoc(tractCacheKey, metadataEntry);
+      }
+    }
+
+    return res.json({ tracts });
+  } catch (error) {
+    console.error('❌ Census-tracts endpoint error:', error);
+    res.status(500).json({
+      error: 'Failed to get census tracts',
+      message: error.message
+    });
+  }
+});
+
 app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
   try {
     const { state, stepNumber } = req.params;

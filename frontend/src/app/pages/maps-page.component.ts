@@ -99,6 +99,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   finalStepIsolatedSectionExpanded: boolean = true;
   hasShownSorting: boolean = false; // Track if sorting visualization has been shown for current step 0
   isSortingVisualization: boolean = false; // Track if we're currently showing sorting visualization
+  /** Census tract list from GET /api/algorithm/census-tracts (dev/maps only). Populated separately from step 0. */
+  devTractList: GeoJsonFeature[] | null = null;
+  devIslandTractsData: unknown | null = null;
+  /** State code for which devTractList is loaded; cleared when selectedState changes. */
+  devTractListState: string | null = null;
+  isLoadingDevTracts: boolean = false;
   /** Raw slider position 0..sliderMax. Mapped to tract range: when positions < tracts each step = range of tracts; when positions > tracts multiple steps = same tract. */
   sortSliderValue: number = 0;
   readonly sliderMax: number = 1000;
@@ -647,6 +653,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractGeoJsonLayers.clear();
       this.tractIdToLayer.clear();
       this.clearDivisionLines();
+      // Clear dev tract list so it is refetched for the new state
+      this.devTractList = null;
+      this.devIslandTractsData = null;
+      this.devTractListState = null;
 
       if (this.selectedState !== 'ALL') {
         // Save All-states data to cache before clearing so we can restore when switching back
@@ -1611,6 +1621,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts?.length || 0} tracts`);
         console.log(`🔍 ${stepLabel} districtGroups:`, step.districtGroups);
         console.log(`🔍 First district group tracts:`, step.districtGroups[0]?.censusTracts?.slice(0, 3));
+
+        // Dev/maps at step 0: populate tract list from dedicated census-tracts endpoint
+        if (this.isDevMode && stepIndex === 0) {
+          this.ensureDevTractListLoaded();
+        }
         
         // Render the step on map - wait a bit longer to ensure map is ready
         setTimeout(() => {
@@ -2434,13 +2449,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.bridgeTractIds.clear();
       this.bridgeTractsData = null;
       this.renderFinalDistricts();
+      // Dev: ensure tract list is populated from census-tracts endpoint if not yet loaded for this state
+      if (this.isDevMode && this.selectedState && this.selectedState !== 'ALL' && (this.devTractListState !== this.selectedState || this.devTractList === null)) {
+        this.ensureDevTractListLoaded();
+      }
     } else if (this.isDevMode) {
-      // Dev mode: fetch step 0 with full data (censusTracts) for tract list; avoid full reset
+      // Dev mode: fetch step 0 with polygonsOnly (light) for map; tract list from GET census-tracts
       const stateRequested = this.selectedState;
       this.isLoadingSteps = true;
       this.isLoading = true;
       this.loadingMessage = 'Loading step 0...';
-      const sub = this.geodistrictService.getStep(stateRequested, 0, 100, undefined).subscribe({
+      const stepOptions = { polygonsOnly: true };
+      const sub = this.geodistrictService.getStep(stateRequested, 0, 100, stepOptions).subscribe({
         next: (stepData) => {
           if (this.selectedState !== stateRequested) { this.isLoadingSteps = false; this.isLoading = false; return; }
           const { step: newStep, stepIndex } = stepData;
@@ -2472,10 +2492,63 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
       this.subscriptions.push(sub);
+      // Populate tract list from dedicated census-tracts endpoint (separate from step 0)
+      this.isLoadingDevTracts = true;
+      const tractSub = this.geodistrictService.getCensusTracts(stateRequested).subscribe({
+        next: (data) => {
+          if (this.selectedState !== stateRequested) { this.isLoadingDevTracts = false; return; }
+          this.devTractList = data.tracts ?? [];
+          this.devIslandTractsData = data.islandTractsData ?? null;
+          this.devTractListState = stateRequested;
+          this.isLoadingDevTracts = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (this.selectedState === stateRequested) {
+            this.devTractList = null;
+            this.devIslandTractsData = null;
+            this.devTractListState = null;
+            this.isLoadingDevTracts = false;
+            this.cdr.markForCheck();
+          }
+        }
+      });
+      this.subscriptions.push(tractSub);
     } else {
       // Step 0 not loaded, reset to start
       this.resetToStart();
     }
+  }
+
+  /**
+   * Fetch census tract list from GET /api/algorithm/census-tracts for current state (dev/maps only).
+   * No-op if not dev, no state, or already loaded for this state.
+   */
+  private ensureDevTractListLoaded(): void {
+    if (!this.isDevMode || !this.selectedState || this.selectedState === 'ALL' || this.isLoadingDevTracts) return;
+    if (this.devTractListState === this.selectedState && this.devTractList != null) return;
+    const stateRequested = this.selectedState;
+    this.isLoadingDevTracts = true;
+    const sub = this.geodistrictService.getCensusTracts(stateRequested).subscribe({
+      next: (data) => {
+        if (this.selectedState !== stateRequested) { this.isLoadingDevTracts = false; return; }
+        this.devTractList = data.tracts ?? [];
+        this.devIslandTractsData = data.islandTractsData ?? null;
+        this.devTractListState = stateRequested;
+        this.isLoadingDevTracts = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.selectedState === stateRequested) {
+          this.devTractList = null;
+          this.devIslandTractsData = null;
+          this.devTractListState = null;
+          this.isLoadingDevTracts = false;
+          this.cdr.markForCheck();
+        }
+      }
+    });
+    this.subscriptions.push(sub);
   }
 
   goToLastStep(): void {
@@ -5814,20 +5887,35 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Tracts grouped by county FIPS, chunked every 100, for step-0 tract list (dev/maps). Empty when not step 0.
+   * In dev mode uses devTractList from GET census-tracts when set; otherwise from currentStep.districtGroups.
    * County FIPS normalized to 3 digits so numeric COUNTY_FIPS (e.g. IN) group correctly.
    */
   get tractsByCountyForList(): Array<{ countyFips: string; countyName?: string; countyPopulation: number; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> {
-    if (!this.currentStep || this.currentStepIndex !== 0 || !this.currentStep.districtGroups?.length) return [];
-    const allTracts = this.currentStep.districtGroups.flatMap(g => g.censusTracts || []);
+    if (this.currentStepIndex !== 0) return [];
+    let tracts: GeoJsonFeature[];
+    if (this.isDevMode && this.devTractList != null && this.devTractListState === this.selectedState) {
+      tracts = this.devTractList;
+    } else if (this.currentStep?.districtGroups?.length) {
+      const allTracts = this.currentStep.districtGroups.flatMap(g => g.censusTracts || []);
+      const byId = new Map<string, GeoJsonFeature>();
+      for (const t of allTracts) {
+        const id = this.getTractId(t);
+        if (id && !byId.has(id)) byId.set(id, t);
+      }
+      tracts = Array.from(byId.values());
+    } else {
+      return [];
+    }
+    if (tracts.length === 0) return [];
     const byId = new Map<string, GeoJsonFeature>();
-    for (const t of allTracts) {
+    for (const t of tracts) {
       const id = this.getTractId(t);
       if (id && !byId.has(id)) byId.set(id, t);
     }
-    const tracts = Array.from(byId.values());
-    if (tracts.length === 0) return [];
+    const tractsDeduped = Array.from(byId.values());
+    if (tractsDeduped.length === 0) return [];
     const byCounty = new Map<string, GeoJsonFeature[]>();
-    for (const t of tracts) {
+    for (const t of tractsDeduped) {
       const raw = t.properties?.['COUNTY_FIPS'] ?? (t.properties?.['GEOID'] != null ? String(t.properties['GEOID']).substring(2, 5) : '');
       const countyFips = String(raw).replace(/\D/g, '').padStart(3, '0');
       if (!byCounty.has(countyFips)) byCounty.set(countyFips, []);
