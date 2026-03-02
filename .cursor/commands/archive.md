@@ -4,7 +4,7 @@ When the user asks to archive this chat (e.g. "/archive this chat" or "/archive 
 
 1. **Read** `.cursor/archive/ARCHIVE_ENTRY_TEMPLATE.md` and follow its structure exactly.
 
-2. **Target file:** Create or append to `.cursor/archive/YYYY-MM/YYMMDD-<topic>.md`. Use a **brief chat topic** in the filename: lowercase, hyphenated, a few words (e.g. `260209-home-page-sections.md`, `260207-slider-sort-and-perf.md`). If the user supplied a topic after "archive this chat", use that; otherwise infer a short topic from the conversation. For a brand-new session with no clear topic, use plain `YYMMDD.md`.
+2. **Target file:** Create or append to `.cursor/archive/YYYY-MM/YYYY-MM-DD/YYMMDD-<topic>.md`. Use a **brief chat topic** in the filename: lowercase, hyphenated, a few words (e.g. `260209-home-page-sections.md`, `260207-slider-sort-and-perf.md`). If the user supplied a topic after "archive this chat", use that; otherwise infer a short topic from the conversation. For a brand-new session with no clear topic, use plain `YYMMDD.md`.
 
 3. **Add one session entry:**
    - Section: `## HHMM` using current 24-hour time with no colon (e.g. `2130`).
@@ -14,10 +14,10 @@ When the user asks to archive this chat (e.g. "/archive this chat" or "/archive 
    - In **Response / actions**: what was done (summary, bullets, ✅ **IMPLEMENTED** / **RESOLVED** / **FIXED** as appropriate).
    - If a plan file in the workspace (`.cursor/plans/*.plan.md`) is associated with this chat, add a link to it in the archive entry (e.g. at the start of **Response / actions** or as a **Plan** line).
 
-4. **Create folder** `.cursor/archive/YYYY-MM/` if it does not exist.
+4. **Create folders** `.cursor/archive/YYYY-MM/` and `.cursor/archive/YYYY-MM/YYYY-MM-DD/` if they do not exist (e.g. `2026-02/` and `2026-02/2026-02-09/`).
 
 5. **If the file is new:** start with line `# YYMMDD` then the session entry. **If appending:** add only the new `## HHMM` section. (First line of the file is always `# YYMMDD`; the topic appears only in the filename.)
 
 6. **Do not** include sensitive information; redact API keys, tokens, passwords, or internal URLs in the prompt (e.g. replace with `[REDACTED]`); do not summarize the prompt itself.
 
-After writing the entry, reply briefly that the chat was archived and give the path to the file (e.g. `.cursor/archive/2026-02/260209-home-page-sections.md`). Optionally add: to publish to GitHub Pages, run `./scripts/sync-archive-to-docs.sh` and commit `docs/archive/`.
+After writing the entry, reply briefly that the chat was archived and give the path to the file (e.g. `.cursor/archive/2026-02/2026-02-09/260209-home-page-sections.md`). Optionally add: to publish to GitHub Pages, run `./scripts/sync-archive-to-docs.sh` and commit `docs/archive/`.

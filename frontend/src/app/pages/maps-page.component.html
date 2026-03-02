@@ -144,12 +144,12 @@
                 <p class="tract-list-message">{{ isLoadingDevTracts ? 'Loading tract list...' : 'No tract data. Click Run or First to load state, or wait a moment.' }}</p>
               </div>
               <div class="tract-list-dev" *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
-                <mat-expansion-panel *ngFor="let county of tractsByCountyForList" class="tract-list-county-panel">
+                <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips" class="tract-list-county-panel">
                   <mat-expansion-panel-header>
                     <mat-panel-title>County FIPS: {{ county.countyFips }}{{ county.countyName ? ' — ' + county.countyName : '' }} (pop. {{ county.countyPopulation | number }})</mat-panel-title>
                   </mat-expansion-panel-header>
                   <div class="tract-list-county-content">
-                    <mat-expansion-panel *ngFor="let chunk of county.chunks" class="tract-list-chunk-panel">
+                    <mat-expansion-panel *ngFor="let chunk of county.chunks; trackBy: trackByChunkStart" class="tract-list-chunk-panel" [style.display]="(chunk.tracts.length) > 0 ? '' : 'none'">
                       <mat-expansion-panel-header>
                         <mat-panel-title>Tracts {{ chunk.start }}–{{ chunk.end }}</mat-panel-title>
                       </mat-expansion-panel-header>
@@ -164,7 +164,7 @@
                             </tr>
                           </thead>
                           <tbody>
-                            <tr *ngFor="let tract of chunk.tracts" (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
+                            <tr *ngFor="let tract of (chunk.tracts || []); trackBy: trackByTractId" (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
                               <td class="tract-list-id">{{ getTractId(tract) }}</td>
                               <td>{{ (tract.properties && tract.properties.POPULATION != null ? tract.properties.POPULATION : 0) | number }}</td>
                               <td>

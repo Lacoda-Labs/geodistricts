@@ -5927,22 +5927,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Tracts grouped by county FIPS, chunked every 100, for step-0 tract list (dev/maps). Empty when not step 0.
-   * In dev mode uses devTractList from GET census-tracts when set; otherwise from currentStep.districtGroups.
+   * Prefers currentStep.districtGroups (same source as map/popup) when present; falls back to devTractList only when step has no tracts.
    * County FIPS normalized to 3 digits so numeric COUNTY_FIPS (e.g. IN) group correctly.
    */
   get tractsByCountyForList(): Array<{ countyFips: string; countyName?: string; countyPopulation: number; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> {
     if (this.currentStepIndex !== 0) return [];
     let tracts: GeoJsonFeature[];
-    if (this.isDevMode && this.devTractList != null && this.devTractListState === this.selectedState) {
-      tracts = this.devTractList;
-    } else if (this.currentStep?.districtGroups?.length) {
-      const allTracts = this.currentStep.districtGroups.flatMap(g => g.censusTracts || []);
+    const hasStepTracts = this.currentStep?.districtGroups?.length &&
+      this.currentStep.districtGroups.some(g => (g.censusTracts?.length ?? 0) > 0);
+    if (hasStepTracts) {
+      const allTracts = this.currentStep!.districtGroups!.flatMap(g => g.censusTracts || []);
       const byId = new Map<string, GeoJsonFeature>();
       for (const t of allTracts) {
         const id = this.getTractId(t);
         if (id && !byId.has(id)) byId.set(id, t);
       }
       tracts = Array.from(byId.values());
+    } else if (this.isDevMode && (this.devTractList?.length ?? 0) > 0 && this.devTractListState === this.selectedState) {
+      tracts = this.devTractList!;
     } else {
       return [];
     }
@@ -5977,6 +5979,21 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     return result;
   }
+
+  /** trackBy for county panels in tract list (by county FIPS). */
+  trackByCountyFips(_index: number, county: { countyFips: string }): string {
+    return county.countyFips;
+  }
+
+  /** trackBy for chunk panels in tract list (by chunk start index). */
+  trackByChunkStart(_index: number, chunk: { start: number }): number {
+    return chunk.start;
+  }
+
+  /** trackBy for tract rows in tract list (by tract ID). Arrow so ngFor invokes it with correct this. */
+  trackByTractId = (_index: number, tract: GeoJsonFeature): string => {
+    return this.getTractId(tract) ?? '';
+  };
 
   /**
    * Icon name for tract list polygon column: check_circle (ok), error (missing), info (island), my_location (enclosed).

@@ -1,14 +1,14 @@
 # Archive entry template
 
 Use this structure when appending a session to the daily archive file  
-`.cursor/archive/YYYY-MM/YYMMDD.md`. Create the file and folder if needed.
+`.cursor/archive/YYYY-MM/YYYY-MM-DD/YYMMDD.md`. Create the file and day folder if needed.
 
 ---
 
 ## Daily file (create once per day)
 
-- **Path:** `.cursor/archive/YYYY-MM/YYMMDD.md`  
-  Example: `.cursor/archive/2026-02/260205.md` for 2026-02-05.
+- **Path:** `.cursor/archive/YYYY-MM/YYYY-MM-DD/YYMMDD.md`  
+  Example: `.cursor/archive/2026-02/2026-02-05/260205.md` for 2026-02-05.
 - **First line:** `# YYMMDD`  
   Example: `# 260205`
 
