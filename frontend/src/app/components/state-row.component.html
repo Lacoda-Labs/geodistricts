@@ -11,25 +11,40 @@
     <span class="state-abbr">{{ data.stateCode }}</span>
     <span class="state-districts">({{ data.districts }})</span>
   </div>
-  <div class="data-column congress-column">
+  <div class="data-column congress-d">
     <div class="data-badge democratic" [class.dimmed]="false" [style.--party-pct]="congressDPct">
       <span>D: {{ data.congressD }}</span>
-      <span class="change-indicator" *ngIf="showCongressDDelta">{{ formatDelta(data.congressDChange) }}</span>
-    </div>
-    <div class="data-badge republican" [class.dimmed]="false" [style.--party-pct]="congressRPct">
-      <span>R: {{ data.congressR }}</span>
-      <span class="change-indicator" *ngIf="showCongressRDelta">{{ formatDelta(data.congressRChange) }}</span>
     </div>
   </div>
-  <div class="data-column geodistricts-column">
+  <div class="data-column congress-r">
+    <div class="data-badge republican" [class.dimmed]="false" [style.--party-pct]="congressRPct">
+      <span>R: {{ data.congressR }}</span>
+    </div>
+  </div>
+  <div class="data-column congress-delta">
+    <div class="data-badge" [class.democratic]="showCongressDDelta" [class.republican]="showCongressRDelta"
+         *ngIf="showCongressDDelta || showCongressRDelta">
+      <span>{{ showCongressDDelta ? formatDelta(data.congressDChange) : formatDelta(data.congressRChange) }}</span>
+    </div>
+  </div>
+  <div class="data-column geodistricts-d">
     <ng-container *ngIf="data.hasGeodistrictsPartyData !== false">
       <div class="data-badge democratic dimmed" [style.--party-pct]="geodistrictsDPct">
         <span>D: {{ data.geodistrictsD }}</span>
-        <span class="change-indicator" *ngIf="showGeodistrictsDDelta">{{ formatDelta(data.geodistrictsDChange) }}</span>
       </div>
+    </ng-container>
+  </div>
+  <div class="data-column geodistricts-r">
+    <ng-container *ngIf="data.hasGeodistrictsPartyData !== false">
       <div class="data-badge republican dimmed" [style.--party-pct]="geodistrictsRPct">
         <span>R: {{ data.geodistrictsR }}</span>
-        <span class="change-indicator" *ngIf="showGeodistrictsRDelta">{{ formatDelta(data.geodistrictsRChange) }}</span>
+      </div>
+    </ng-container>
+  </div>
+  <div class="data-column geodistricts-delta">
+    <ng-container *ngIf="data.hasGeodistrictsPartyData !== false && (showGeodistrictsDDelta || showGeodistrictsRDelta)">
+      <div class="data-badge" [class.democratic]="showGeodistrictsDDelta" [class.republican]="showGeodistrictsRDelta">
+        <span>{{ showGeodistrictsDDelta ? formatDelta(data.geodistrictsDChange) : formatDelta(data.geodistrictsRChange) }}</span>
       </div>
     </ng-container>
   </div>

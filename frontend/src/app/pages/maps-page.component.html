@@ -26,12 +26,24 @@
           section="us-data">
         </app-state-row>
 
-        <!-- Table Header -->
-        <div class="table-header-row">
-          <div class="table-header-cell">Map</div>
-          <div class="table-header-cell">119th Congress</div>
-          <div class="table-header-cell">GeoDistricts</div>
-          <div class="table-header-cell">Swing</div>
+        <!-- Table Header: two rows for D, R, Δ sub-columns -->
+        <div class="table-header-rows">
+          <div class="table-header-row table-header-row-1">
+            <div class="table-header-cell table-header-cell-map">Map</div>
+            <div class="table-header-cell table-header-cell-span3">119th Congress</div>
+            <div class="table-header-cell table-header-cell-span3">GeoDistricts</div>
+            <div class="table-header-cell table-header-cell-swing">Swing</div>
+          </div>
+          <div class="table-header-row table-header-row-2">
+            <div class="table-header-cell table-header-cell-map"></div>
+            <div class="table-header-cell table-header-cell-d">D</div>
+            <div class="table-header-cell table-header-cell-r">R</div>
+            <div class="table-header-cell table-header-cell-delta">Δ</div>
+            <div class="table-header-cell table-header-cell-d">D</div>
+            <div class="table-header-cell table-header-cell-r">R</div>
+            <div class="table-header-cell table-header-cell-delta">Δ</div>
+            <div class="table-header-cell table-header-cell-swing"></div>
+          </div>
         </div>
 
         <!-- State Rows (single-district states shown but not selectable) -->

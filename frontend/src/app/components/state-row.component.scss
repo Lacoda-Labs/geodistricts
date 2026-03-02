@@ -85,19 +85,24 @@
   gap: 4px;
   padding: 0 4px;
   box-sizing: border-box;
-  justify-content: space-between;
+  justify-content: flex-start;
 
-  &.congress-column {
-    width: 132px;
+  &.congress-d,
+  &.congress-r,
+  &.geodistricts-d,
+  &.geodistricts-r {
+    width: 40px;
     padding-left: 2px;
-    padding-right: 4px;
-    justify-content: space-between;
+    padding-right: 2px;
+    justify-content: center;
   }
 
-  &.geodistricts-column {
-    width: 132px;
+  &.congress-delta,
+  &.geodistricts-delta {
+    width: 36px;
     padding-left: 2px;
-    padding-right: 4px;
+    padding-right: 2px;
+    justify-content: center;
   }
 
   &.swing-column {

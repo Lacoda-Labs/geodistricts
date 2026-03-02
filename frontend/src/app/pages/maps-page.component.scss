@@ -1197,7 +1197,7 @@
 }
 
 .us-summary-row,
-.table-header-row,
+.table-header-rows .table-header-row,
 .state-row {
   display: flex;
   align-items: center;
@@ -1216,13 +1216,21 @@
   }
 }
 
-.table-header-row {
-  background-color: transparent;
-  border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
-  border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
-  padding: 5px 2px;
-  display: flex;
-  align-items: center;
+.table-header-rows {
+  .table-header-row {
+    background-color: transparent;
+    padding: 5px 2px;
+    display: flex;
+    align-items: center;
+
+    &.table-header-row-1 {
+      border-top: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+    }
+
+    &.table-header-row-2 {
+      border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+    }
+  }
 }
 
 .table-header-cell {
@@ -1234,31 +1242,46 @@
   letter-spacing: 0.5px;
   padding: 0;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
 
-  &:first-child {
+  &.table-header-cell-map {
     width: 96px;
     padding-left: 21px;
     padding-right: 0;
   }
 
-  &:nth-child(2) {
-    width: 132px;
+  &.table-header-cell-span3 {
+    width: 116px; // 40 + 40 + 36 for D, R, Δ
     padding-left: 6px;
     padding-right: 0;
   }
 
-  &:nth-child(3) {
-    width: 132px;
-    padding-left: 6px;
-    padding-right: 0;
-  }
-
-  &:last-child {
+  &.table-header-cell-swing {
     width: 34px;
     font-size: 11px;
-    display: flex;
     justify-content: center;
-    align-items: center;
+  }
+
+  &.table-header-cell-d {
+    width: 40px;
+    padding-left: 2px;
+    padding-right: 0;
+    justify-content: center;
+  }
+
+  &.table-header-cell-r {
+    width: 40px;
+    padding-left: 2px;
+    padding-right: 0;
+    justify-content: center;
+  }
+
+  &.table-header-cell-delta {
+    width: 36px;
+    padding-left: 2px;
+    padding-right: 0;
+    justify-content: center;
   }
 }
 
@@ -1333,6 +1356,12 @@
   }
 }
 
+.us-data-section .state-identity {
+  width: 96px;
+  min-width: 96px;
+  flex-shrink: 0;
+}
+
 .us-data-section .data-column {
   display: flex;
   align-items: center;
@@ -1340,16 +1369,22 @@
   padding: 0 4px;
   box-sizing: border-box;
 
-  &.congress-column {
-    width: 132px;
+  &.congress-d,
+  &.congress-r,
+  &.geodistricts-d,
+  &.geodistricts-r {
+    width: 40px;
     padding-left: 2px;
-    padding-right: 4px;
+    padding-right: 2px;
+    justify-content: center;
   }
 
-  &.geodistricts-column {
-    width: 132px;
+  &.congress-delta,
+  &.geodistricts-delta {
+    width: 36px;
     padding-left: 2px;
-    padding-right: 4px;
+    padding-right: 2px;
+    justify-content: center;
   }
 
   &.swing-column {
