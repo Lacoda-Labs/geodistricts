@@ -12,7 +12,7 @@ import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from '
 import { concatMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
-import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, MapPolygonsAllResponse, PerGroupStatus, FinalStepResponse } from '../services/geodistrict-algorithm.service';
+import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, PerGroupStatus, FinalStepResponse } from '../services/geodistrict-algorithm.service';
 
 /** One frame of the US map reveal: state outline or one district. */
 type USMapRevealItem =
@@ -166,7 +166,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** State codes that have a completed final step (for table completion indicator) */
   completedStateCodes: Set<string> = new Set();
 
-  /** Per-state, per-district party data for All view (stateCode -> groupKey -> party). Populated after map-polygons-all + district-party fetches. */
+  /** Per-state, per-district party data for All view (stateCode -> groupKey -> party). Populated after sequential map-polygons fetches + district-party fetches. */
   allStatesDistrictPartyByState: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>> = {};
 
   /** In-memory cache for All-states map data so returning to ALL view does not refetch 51 states */
@@ -897,15 +897,57 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Handle one state's map-polygons response: append stepData, reveal state outline + districts, then allow next state fetch.
+   * Used by loadUSMapDistricts (sequential GET map-polygons/:state per state).
+   */
+  private onStatePolygonsReceived(stateCode: string, response: MapPolygonsResponse): void {
+    const stepData = this.mapPolygonsResponseToStepData(response);
+    const finalStepNumber = response.finalStepNumber;
+    this.usMapStepDataByState.push({ stateCode, stepData, finalStepNumber });
+    this.usMapTotalDistricts += stepData.districtGroups?.length ?? 0;
+    this.completedStateCodes.add(stateCode);
+
+    const statePolygon = response.statePolygon;
+    if (statePolygon?.geometry) {
+      this.addUSMapRevealItem({ type: 'state', stateCode, stateOutline: statePolygon });
+    }
+    const groups = stepData.districtGroups || [];
+    groups.forEach((district, idx) => {
+      this.addUSMapRevealItem({
+        type: 'district',
+        stateCode,
+        district,
+        districtIndex: idx,
+        totalDistricts: groups.length
+      });
+    });
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Finish All-states load after all sequential polygon fetches: optionally fetch district party, then set cache.
+   */
+  private finishUSMapLoad(): void {
+    this.isLoading = false;
+    this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
+    this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
+    this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
+    this.cdr.markForCheck();
+  }
+
+  /**
    * Load district data for US map view.
-   * Fetches step0 (state boundary) and final-step geodistrict polygons per state, then animates: state outline first, then each geodistrict per state.
+   * Fetches step0 (state boundary) and final-step geodistrict polygons per state sequentially via GET map-polygons/:state,
+   * revealing each state (outline + districts) as data arrives, hero-style.
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    this.isLoading = true;
     this.errorMessage = '';
     this.usMapStepDataByState = [];
     this.usMapTotalDistricts = 0;
     this.completedStateCodes = new Set();
+    this.allStatesDistrictPartyByState = {};
     if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
@@ -915,84 +957,41 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
 
     const orderedStateCodes = this.states.map((s) => s.code);
-    const sub = this.geodistrictService.getMapPolygonsAll(orderedStateCodes).subscribe({
-      next: (response: MapPolygonsAllResponse) => {
-        const allStatesData = response.statePolygons.map((entry) => {
-          const stepData = this.mapPolygonsResponseToStepData({
-            statePolygon: entry.statePolygon,
-            finalDistrictPolygons: entry.finalDistrictPolygons,
-            hasFinalStep: entry.hasFinalStep ?? false
-          });
-          return { stateCode: entry.stateCode, stepData, finalStepNumber: entry.finalStepNumber };
-        });
-        this.usMapStepDataByState = allStatesData;
-        this.usMapTotalDistricts = allStatesData.reduce(
-          (sum, { stepData: s }) => sum + (s.districtGroups?.length ?? 0),
-          0
-        );
-        this.completedStateCodes = new Set(orderedStateCodes);
-        this.allStatesDistrictPartyByState = {};
-
-        const revealItems: USMapRevealItem[] = [];
-        for (let i = 0; i < response.statePolygons.length; i++) {
-          const { stateCode, statePolygon } = response.statePolygons[i];
-          const { stepData } = allStatesData[i];
-          if (statePolygon?.geometry) {
-            revealItems.push({ type: 'state', stateCode, stateOutline: statePolygon });
-          }
-          const groups = stepData.districtGroups || [];
-          groups.forEach((district, idx) => {
-            revealItems.push({ type: 'district', stateCode, district, districtIndex: idx, totalDistricts: groups.length });
-          });
-        }
-
-        if (revealItems.length === 0) {
-          this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
-          this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
-          this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
-          this.cdr.markForCheck();
-          return;
-        }
-
-        const startReveal = () => {
-          const totalMs = MapsPageComponent.US_MAP_REVEAL_MS;
-          const revealIntervalMs = Math.max(20, Math.floor(totalMs / revealItems.length));
-          const totalTicks = revealItems.length;
-          const revealSub = timer(0, revealIntervalMs).pipe(take(totalTicks)).subscribe((index) => {
-            this.addUSMapRevealItem(revealItems[index]);
-            this.cdr.markForCheck();
-            if (index === totalTicks - 1) {
-              this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
-              this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
-              this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
-            }
-          });
-          this.subscriptions.push(revealSub);
-        };
-
-        const statesWithFinalStep = allStatesData.filter((s): s is typeof s & { finalStepNumber: number } =>
-          s.finalStepNumber != null && s.finalStepNumber >= 0
+    const sub = from(orderedStateCodes).pipe(
+      concatMap((stateCode) =>
+        this.geodistrictService.getMapPolygons(stateCode).pipe(
+          tap((response) => this.onStatePolygonsReceived(stateCode, response))
+        )
+      )
+    ).subscribe({
+      complete: () => {
+        const statesWithFinalStep = this.usMapStepDataByState.filter(
+          (s): s is typeof s & { finalStepNumber: number } =>
+            s.finalStepNumber != null && s.finalStepNumber >= 0
         );
         if (statesWithFinalStep.length > 0) {
           const vestYear = 2024;
-          forkJoin(
+          const partySub = forkJoin(
             statesWithFinalStep.map((s) =>
               this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
-                catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
+                catchError(() =>
+                  of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> })
+                )
               )
             )
           ).subscribe((results) => {
             results.forEach((r) => {
               this.allStatesDistrictPartyByState[r.state] = r.districts ?? {};
             });
-            this.cdr.markForCheck();
-            startReveal();
+            this.finishUSMapLoad();
           });
+          this.subscriptions.push(partySub);
         } else {
-          startReveal();
+          this.finishUSMapLoad();
         }
       },
       error: (err) => {
+        this.isLoading = false;
         this.errorMessage = err?.message || 'Failed to load US map districts';
         this.cdr.markForCheck();
       }
@@ -5874,7 +5873,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (source === 'swing') return String(s.swing);
       if (source === 'geodistricts') return type === 'D' ? String(s.geodistrictsD) : String(s.geodistrictsR);
     }
-    // Fallback: derive from allStatesDistrictPartyByState (populated after map-polygons-all + district-party fetches)
+    // Fallback: derive from allStatesDistrictPartyByState (populated after sequential map-polygons + district-party fetches)
     const districts = this.allStatesDistrictPartyByState[stateCode];
     if (districts && typeof districts === 'object' && (source === 'geodistricts' || source === 'swing')) {
       let geodistrictsD = 0;

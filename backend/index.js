@@ -4376,45 +4376,6 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
 });
 
 /**
- * Default state code order for map-polygons-all (descending district count, matches frontend states array).
- */
-const DEFAULT_STATE_CODES_ORDER = Object.entries(CONGRESSIONAL_DISTRICTS_BY_STATE)
-  .sort((a, b) => (b[1] - a[1]))
-  .map(([code]) => code);
-
-/**
- * GET /api/algorithm/map-polygons-all
- * Returns step0 (state boundary) and optional final-step district polygons for all states in one response.
- * Query: states=CA,TX,FL,... (optional; if omitted uses default order by district count descending).
- */
-app.get('/api/algorithm/map-polygons-all', async (req, res) => {
-  try {
-    const stateCodes = req.query.states
-      ? req.query.states.split(',').map(s => s.trim()).filter(Boolean)
-      : DEFAULT_STATE_CODES_ORDER;
-
-    if (stateCodes.length === 0) {
-      return res.status(400).json({ error: 'At least one state is required' });
-    }
-
-    const results = await Promise.all(
-      stateCodes.map(async (stateCode) => {
-        const { statePolygon, finalDistrictPolygons, hasFinalStep, finalStepNumber } = await getMapPolygonsForState(stateCode);
-        return { stateCode, statePolygon, finalDistrictPolygons, hasFinalStep, finalStepNumber };
-      })
-    );
-
-    return res.json({ statePolygons: results });
-  } catch (error) {
-    console.error('❌ GET /api/algorithm/map-polygons-all error:', error);
-    res.status(500).json({
-      error: 'Map polygons all failed',
-      message: error.message
-    });
-  }
-});
-
-/**
  * GET /api/algorithm/final-step-states
  * Returns list of state codes that have a completed final step (current algorithm version).
  */
