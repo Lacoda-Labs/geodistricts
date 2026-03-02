@@ -256,6 +256,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     { code: 'WY', name: 'Wyoming', districts: 1 }
   ];
 
+  /** Census 2-digit state FIPS: state code -> FIPS (e.g. CA -> 06). Used for tract list header at step 0. */
+  private static readonly stateCodeToFips: Record<string, string> = {
+    AL: '01', AK: '02', AZ: '04', AR: '05', CA: '06', CO: '08', CT: '09', DE: '10', DC: '11',
+    FL: '12', GA: '13', HI: '15', ID: '16', IL: '17', IN: '18', IA: '19', KS: '20', KY: '21',
+    LA: '22', ME: '23', MD: '24', MA: '25', MI: '26', MN: '27', MS: '28', MO: '29', MT: '30',
+    NE: '31', NV: '32', NH: '33', NJ: '34', NM: '35', NY: '36', NC: '37', ND: '38', OH: '39',
+    OK: '40', OR: '41', PA: '42', RI: '44', SC: '45', SD: '46', TN: '47', TX: '48', UT: '49',
+    VT: '50', VA: '51', WA: '53', WV: '54', WI: '55', WY: '56'
+  };
+
   constructor(
     private geodistrictService: GeodistrictAlgorithmService,
     private geodistrictCacheService: GeodistrictCacheService,
@@ -4675,10 +4685,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Get tract ID from a GeoJSON feature
+   * Get tract ID from a GeoJSON feature (GEOID or fallbacks).
    * IMPORTANT: Must match backend getTractId logic for proper ID matching
    */
-  private getTractId(tract: GeoJsonFeature): string {
+  getTractId(tract: GeoJsonFeature): string {
     // Prefer GEOID as it's the full unique identifier (state+county+tract)
     if (tract.properties?.['GEOID']) {
       return tract.properties['GEOID'];
@@ -5752,6 +5762,72 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   stateName(stateCode: string): string {
     const state = this.states.find(s => s.code === stateCode);
     return state ? state.name : stateCode;
+  }
+
+  /**
+   * Get 2-digit Census state FIPS code for header (dev/maps step 0).
+   */
+  getStateFips(stateCode: string): string {
+    if (!stateCode || stateCode === 'ALL') return '';
+    return MapsPageComponent.stateCodeToFips[stateCode] ?? '';
+  }
+
+  /**
+   * Tracts grouped by county FIPS, chunked every 100, for step-0 tract list (dev/maps). Empty when not step 0.
+   */
+  get tractsByCountyForList(): Array<{ countyFips: string; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> {
+    if (!this.currentStep || this.currentStepIndex !== 0 || !this.currentStep.districtGroups?.length) return [];
+    const allTracts = this.currentStep.districtGroups.flatMap(g => g.censusTracts || []);
+    const byId = new Map<string, GeoJsonFeature>();
+    for (const t of allTracts) {
+      const id = this.getTractId(t);
+      if (id && !byId.has(id)) byId.set(id, t);
+    }
+    const tracts = Array.from(byId.values());
+    if (tracts.length === 0) return [];
+    const byCounty = new Map<string, GeoJsonFeature[]>();
+    for (const t of tracts) {
+      const countyFips = t.properties?.['COUNTY_FIPS'] ?? (t.properties?.['GEOID'] != null ? String(t.properties['GEOID']).substring(2, 5) : '') ?? '';
+      if (!byCounty.has(countyFips)) byCounty.set(countyFips, []);
+      byCounty.get(countyFips)!.push(t);
+    }
+    const sortedCountyFips = Array.from(byCounty.keys()).sort();
+    const result: Array<{ countyFips: string; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> = [];
+    for (const countyFips of sortedCountyFips) {
+      const countyTracts = (byCounty.get(countyFips) ?? []).slice().sort((a, b) => (this.getTractId(a) || '').localeCompare(this.getTractId(b) || ''));
+      const chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> = [];
+      const chunkSize = 100;
+      for (let i = 0; i < countyTracts.length; i += chunkSize) {
+        const slice = countyTracts.slice(i, i + chunkSize);
+        chunks.push({ start: i + 1, end: i + slice.length, tracts: slice });
+      }
+      result.push({ countyFips, chunks });
+    }
+    return result;
+  }
+
+  /**
+   * Icon name for tract list polygon column: check_circle (ok), error (missing), info (island), my_location (enclosed).
+   */
+  getTractPolygonIcon(tract: GeoJsonFeature): 'check_circle' | 'error' | 'info' | 'my_location' {
+    const hasGeometry = !!(tract?.geometry && (tract.geometry.type === 'Polygon' || tract.geometry.type === 'MultiPolygon'));
+    if (!hasGeometry) return 'error';
+    const tractId = this.getTractId(tract);
+    const islandIds = new Set(this.getStep0IslandTractsList().map(i => i.tractId));
+    if (islandIds.has(tractId)) return 'info';
+    if (tract.properties?.['ENCLOSED_BY'] || tract.properties?.['TRACT_GROUP_ID']) return 'my_location';
+    return 'check_circle';
+  }
+
+  /**
+   * Party label for tract list: R, D, or — when missing. Uses tractPartyByGeoid.
+   */
+  getTractPartyLabel(tract: GeoJsonFeature): string {
+    if (!this.tractPartyByGeoid) return '—';
+    const geoid = this.normalizeTractPartyGeoid(this.getTractId(tract));
+    const row = this.tractPartyByGeoid[geoid];
+    if (row == null) return '—';
+    return row.pctDem > 0.5 ? 'D' : 'R';
   }
 
   /**

@@ -732,6 +732,69 @@
   overflow-y: auto;
 }
 
+/* Step 0 layout (no step-info-container class): same scroll/layout as step-info-container */
+.step-0-info-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.info-header-state-fips {
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+  margin-left: 4px;
+}
+
+/* Census tract list (dev/maps step 0): 10px font, compact table */
+.tract-list-dev {
+  font-size: 10px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+
+  .tract-list-county-panel,
+  .tract-list-chunk-panel {
+    font-size: 10px;
+  }
+
+  .tract-list-county-content {
+    padding: 0 8px 8px 8px;
+  }
+
+  .tract-list-chunk-table-wrap {
+    overflow-x: auto;
+    padding: 4px 0;
+  }
+
+  .tract-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+
+    th, td {
+      padding: 2px 6px;
+      text-align: left;
+      border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
+    }
+
+    th {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .tract-list-id {
+      word-break: break-all;
+    }
+
+    .tract-list-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+    }
+  }
+}
+
 .step-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
