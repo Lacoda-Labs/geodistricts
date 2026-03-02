@@ -2390,7 +2390,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const stateRequested = this.selectedState;
         this.isLoadingSteps = true;
         this.isLoading = true;
-        const sub = this.geodistrictService.getStep(stateRequested, 0, 100, { polygonsOnly: true }).subscribe({
+        // In dev mode request full step (no polygonsOnly) so tract list has censusTracts
+        const stepOptions = this.isDevMode ? undefined : { polygonsOnly: true };
+        const sub = this.geodistrictService.getStep(stateRequested, 0, 100, stepOptions).subscribe({
           next: (stepData) => {
             if (this.selectedState !== stateRequested) { this.isLoadingSteps = false; this.isLoading = false; return; }
             const { step: newStep, stepIndex } = stepData;
@@ -2423,7 +2425,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     // Go to step 0
-    const step = this.loadedSteps[0];
+    let step = this.loadedSteps[0];
     if (step) {
       this.currentStepIndex = 0;
       this.currentStep = step;
@@ -2432,6 +2434,44 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.bridgeTractIds.clear();
       this.bridgeTractsData = null;
       this.renderFinalDistricts();
+    } else if (this.isDevMode) {
+      // Dev mode: fetch step 0 with full data (censusTracts) for tract list; avoid full reset
+      const stateRequested = this.selectedState;
+      this.isLoadingSteps = true;
+      this.isLoading = true;
+      this.loadingMessage = 'Loading step 0...';
+      const sub = this.geodistrictService.getStep(stateRequested, 0, 100, undefined).subscribe({
+        next: (stepData) => {
+          if (this.selectedState !== stateRequested) { this.isLoadingSteps = false; this.isLoading = false; return; }
+          const { step: newStep, stepIndex } = stepData;
+          if (newStep?.districtGroups?.length) {
+            this.loadedSteps[stepIndex] = newStep;
+            this.currentStepIndex = 0;
+            this.currentStep = newStep;
+            this.syncIsolationFromCurrentStep();
+            this.selectedDistrictGroupIndex = null;
+            this.bridgeTractIds.clear();
+            this.bridgeTractsData = null;
+            this.renderFinalDistricts();
+          } else {
+            this.resetToStart();
+          }
+          this.isLoadingSteps = false;
+          this.isLoading = false;
+          this.loadingMessage = '';
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (this.selectedState === stateRequested) {
+            this.resetToStart();
+            this.isLoadingSteps = false;
+            this.isLoading = false;
+            this.loadingMessage = '';
+          }
+          this.cdr.markForCheck();
+        }
+      });
+      this.subscriptions.push(sub);
     } else {
       // Step 0 not loaded, reset to start
       this.resetToStart();
@@ -5774,8 +5814,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Tracts grouped by county FIPS, chunked every 100, for step-0 tract list (dev/maps). Empty when not step 0.
+   * County FIPS normalized to 3 digits so numeric COUNTY_FIPS (e.g. IN) group correctly.
    */
-  get tractsByCountyForList(): Array<{ countyFips: string; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> {
+  get tractsByCountyForList(): Array<{ countyFips: string; countyName?: string; countyPopulation: number; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> {
     if (!this.currentStep || this.currentStepIndex !== 0 || !this.currentStep.districtGroups?.length) return [];
     const allTracts = this.currentStep.districtGroups.flatMap(g => g.censusTracts || []);
     const byId = new Map<string, GeoJsonFeature>();
@@ -5787,21 +5828,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (tracts.length === 0) return [];
     const byCounty = new Map<string, GeoJsonFeature[]>();
     for (const t of tracts) {
-      const countyFips = t.properties?.['COUNTY_FIPS'] ?? (t.properties?.['GEOID'] != null ? String(t.properties['GEOID']).substring(2, 5) : '') ?? '';
+      const raw = t.properties?.['COUNTY_FIPS'] ?? (t.properties?.['GEOID'] != null ? String(t.properties['GEOID']).substring(2, 5) : '');
+      const countyFips = String(raw).replace(/\D/g, '').padStart(3, '0');
       if (!byCounty.has(countyFips)) byCounty.set(countyFips, []);
       byCounty.get(countyFips)!.push(t);
     }
     const sortedCountyFips = Array.from(byCounty.keys()).sort();
-    const result: Array<{ countyFips: string; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> = [];
+    const result: Array<{ countyFips: string; countyName?: string; countyPopulation: number; chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> }> = [];
     for (const countyFips of sortedCountyFips) {
       const countyTracts = (byCounty.get(countyFips) ?? []).slice().sort((a, b) => (this.getTractId(a) || '').localeCompare(this.getTractId(b) || ''));
+      const countyPopulation = countyTracts.reduce((sum, t) => sum + (t.properties?.POPULATION ?? 0), 0);
+      const countyName = countyTracts[0]?.properties?.['COUNTY'];
       const chunks: Array<{ start: number; end: number; tracts: GeoJsonFeature[] }> = [];
       const chunkSize = 100;
       for (let i = 0; i < countyTracts.length; i += chunkSize) {
         const slice = countyTracts.slice(i, i + chunkSize);
         chunks.push({ start: i + 1, end: i + slice.length, tracts: slice });
       }
-      result.push({ countyFips, chunks });
+      result.push({ countyFips, countyName, countyPopulation, chunks });
     }
     return result;
   }

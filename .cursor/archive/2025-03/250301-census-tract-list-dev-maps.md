@@ -18,3 +18,25 @@ Plan: [.cursor/plans/census_tract_list_dev_maps_fde33d4f.plan.md](.cursor/plans/
 - **HTML**: State FIPS in `.info-header-state-row` when isDevMode. Step 0: `ng-container` + `.step-0-info-container` (no `step-info-container`), order: `.step-0-isolated-panel` → tract list → rest. Tract list: county accordions (County FIPS: XXX) → chunk accordions (Tracts 1–100, …) → table (Tract ID, Population, Polygon icon, Party). Steps 1+: unchanged `step-info-container` block, no tract list.
 - **SCSS**: `.step-0-info-container` (same layout as step-info-container); `.info-header-state-fips`; `.tract-list-dev` (font-size 10px, compact table).
 - Fixed template strict check (`tractsByCountyForList && tractsByCountyForList.length`) and population binding; build passes.
+
+## 1230 tract list header county name pop IN fix
+
+### Prompt
+
+- make .mat-expansion-panel-header-title font-size: 12px
+- add county name (if available) and county population
+- for IN (FIPS 18) no tract accordian tract list is showing
+
+### Response / actions
+
+✅ **IMPLEMENTED**: SCSS: `.tract-list-dev .mat-expansion-panel-header-title { font-size: 12px }`. TS: `tractsByCountyForList` now returns `countyName` (from first tract `properties.COUNTY`) and `countyPopulation` (sum of tract POPULATION); template shows "County FIPS: XXX — Name (pop. N)". IN fix: normalize county FIPS to 3-digit string (`String(raw).replace(/\D/g, '').padStart(3, '0')`) so numeric COUNTY_FIPS (e.g. Indiana) group correctly.
+
+## 1245 IN tract list still empty step 0 full fetch
+
+### Prompt
+
+still no tracts showing for IN
+
+### Response / actions
+
+✅ **FIXED**: Step 0 was loaded with `polygonsOnly: true`, so backend returned no `censusTracts` and tract list was empty. In dev mode: (1) When loading step 0 via GET (e.g. First in visualization-only), use full step (`getStep(..., undefined)` instead of `polygonsOnly: true`) so response includes censusTracts. (2) When clicking First and `loadedSteps[0]` is missing, fetch step 0 with `getStep(state, 0, 100, undefined)` instead of calling `resetToStart()` so IN (and any state) gets full step 0 with tracts for the list.
