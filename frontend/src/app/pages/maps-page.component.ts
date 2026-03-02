@@ -6020,6 +6020,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Party column for tract list: both R and D with percentages, e.g. "R 44% D 56%", or — when missing.
+   */
+  getTractPartyPercentages(tract: GeoJsonFeature): string {
+    if (!this.tractPartyByGeoid) return '—';
+    const geoid = this.normalizeTractPartyGeoid(this.getTractId(tract));
+    const row = this.tractPartyByGeoid[geoid] as { pctDem: number; pctRep?: number } | undefined;
+    if (row == null || typeof row.pctDem !== 'number') return '—';
+    const pctDem = (row.pctDem * 100).toFixed(0);
+    const pctRep = (typeof row.pctRep === 'number' ? row.pctRep : 1 - row.pctDem) * 100;
+    const pctRepStr = pctRep.toFixed(0);
+    return `R ${pctRepStr}% D ${pctDem}%`;
+  }
+
+  /**
    * Check if a flag image exists (for error handling)
    */
   flagExists(flagCode: string): boolean {

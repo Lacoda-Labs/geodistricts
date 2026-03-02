@@ -746,11 +746,19 @@
   margin-left: 4px;
 }
 
-/* Census tract list (dev/maps step 0): 10px font, compact table */
+/* Census tract list (dev/maps step 0): 10px font, compact table; content fills container, table has no padding */
 .tract-list-dev {
   font-size: 10px;
   margin-top: 8px;
   margin-bottom: 8px;
+  padding: 0;
+
+  /* Remove left/right padding from Material expansion panel body (panel body is inside Material's template) */
+  ::ng-deep .mat-expansion-panel-body,
+  ::ng-deep .mat-mdc-expansion-panel-body {
+    padding-left: 0;
+    padding-right: 0;
+  }
 
   .mat-expansion-panel-header-title {
     font-size: 12px;
@@ -759,15 +767,20 @@
   .tract-list-county-panel,
   .tract-list-chunk-panel {
     font-size: 10px;
+
+    .mat-expansion-panel-body,
+    .mat-mdc-expansion-panel-body {
+      padding: 0;
+    }
   }
 
   .tract-list-county-content {
-    padding: 0 8px 8px 8px;
+    padding: 0;
   }
 
   .tract-list-chunk-table-wrap {
     overflow-x: auto;
-    padding: 4px 0;
+    padding: 0;
   }
 
   .tract-list-table {
@@ -776,7 +789,7 @@
     font-size: 10px;
 
     th, td {
-      padding: 2px 6px;
+      padding: 0;
       text-align: left;
       border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
     }

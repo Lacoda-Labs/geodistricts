@@ -159,7 +159,7 @@
                             <tr>
                               <th>Tract ID</th>
                               <th>Population</th>
-                              <th>Polygon</th>
+                              <th title="Polygon">⬡</th>
                               <th>Party</th>
                             </tr>
                           </thead>
@@ -170,7 +170,7 @@
                               <td>
                                 <mat-icon [fontIcon]="getTractPolygonIcon(tract)" class="tract-list-icon"></mat-icon>
                               </td>
-                              <td>{{ getTractPartyLabel(tract) }}</td>
+                              <td>{{ getTractPartyPercentages(tract) }}</td>
                             </tr>
                           </tbody>
                         </table>

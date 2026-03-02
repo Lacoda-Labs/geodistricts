@@ -26,3 +26,18 @@ can you see the browser window in cursor? … use the browser MCP to open a URL 
 - Fetched console messages: repeated `TypeError: this.getTractId is not a function` (chunk-WUZBTVI7.js) during district/tract rendering; also dev placeholder API key and Angular dev-mode messages.
 - **Root cause:** Template uses `trackBy: trackByTractId` on `*ngFor`. Angular’s NgForOf invokes the trackBy function in the directive’s context, so inside `trackByTractId`, `this` was the directive instance (no `getTractId`).
 - ✅ **FIXED:** Changed `trackByTractId` to an arrow function property in `maps-page.component.ts` so it is bound to the component: `trackByTractId = (_index, tract) => this.getTractId(tract) ?? ''`. Lint clean.
+
+## 2045 tract list styling and party percentages
+
+### Prompt
+
+make content in tract list fill .tract-list-dev container such that the tract list table has no padding. add both R and D with percentages to Party column. replace Polygon header row label with a hexagon symbol to narrow column
+
+(Later:) remove left and right padding [with DOM path to mat-expansion-panel-body]
+
+### Response / actions
+
+- **Fill container, no padding:** In `maps-page.component.scss`, set `.tract-list-dev` and `.tract-list-county-content`, `.tract-list-chunk-table-wrap` to `padding: 0`; set `.tract-list-table th, td` to `padding: 0`; zeroed expansion panel body padding inside county/chunk panels.
+- **Party column:** Added `getTractPartyPercentages(tract)` in `maps-page.component.ts` returning e.g. `"R 44% D 56%"` (or `"—"`); template now uses it instead of `getTractPartyLabel` for the Party cell.
+- **Polygon header:** Replaced `<th>Polygon</th>` with `<th title="Polygon">⬡</th>` (Unicode hexagon U+2B21).
+- **Panel body L/R padding:** Material’s `.mat-expansion-panel-body` is inside a child component, so component styles didn’t apply. Added `::ng-deep .mat-expansion-panel-body` (and `-mdc-` variant) under `.tract-list-dev` with `padding-left: 0; padding-right: 0`.
