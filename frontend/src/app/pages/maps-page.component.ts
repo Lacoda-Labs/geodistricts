@@ -672,6 +672,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
+        this.loadedSteps = [];
         this.mapPolygons = null;
         this.mapPolygonsState = null;
         this.isVisualizationOnly = false;
@@ -863,9 +864,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const fillOpacity = this.polygonFillOpacity;
     const districtLabel = district.startDistrictNumber === district.endDistrictNumber
       ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
+    const allStatesParty = this.allStatesDistrictPartyByState[item.stateCode]?.[groupKey];
     const popupContent = `<strong>${stateName} ${districtLabel}</strong><br>
       <strong>Population:</strong> ${(district.totalPopulation ?? 0).toLocaleString()}<br>
       <strong>Tracts:</strong> ${district.censusTracts?.length ?? 0}<br>
+      ${this.getPopupPartyLine(allStatesParty ?? null)}
       <em>Click to view ${stateName}</em>`;
 
     const strokeWeight = this.getUSMapPolygonWeight();
@@ -1131,9 +1134,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const fillOpacity = this.polygonFillOpacity;
         const districtLabel = district.startDistrictNumber === district.endDistrictNumber
           ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
+        const allStatesParty = this.allStatesDistrictPartyByState[stateCode]?.[groupKey];
         const popupContent = `<strong>${stateName} ${districtLabel}</strong><br>
           <strong>Population:</strong> ${(district.totalPopulation ?? 0).toLocaleString()}<br>
           <strong>Tracts:</strong> ${district.censusTracts?.length ?? 0}<br>
+          ${this.getPopupPartyLine(allStatesParty ?? null)}
           <em>Click to view ${stateName}</em>`;
 
         const strokeWeight = this.getUSMapPolygonWeight();
@@ -2454,6 +2459,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.ensureDevTractListLoaded();
       }
     } else if (this.isDevMode) {
+      // Step 0 not in cache: ensure we request tract list so it appears when census-tracts returns
       // Dev mode: fetch step 0 with polygonsOnly (light) for map; tract list from GET census-tracts
       const stateRequested = this.selectedState;
       this.isLoadingSteps = true;
@@ -2493,6 +2499,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.subscriptions.push(sub);
       // Populate tract list from dedicated census-tracts endpoint (separate from step 0)
+      console.log(`📋 Dev/maps: loading census tract list for ${stateRequested} (goToFirstStep)`);
       this.isLoadingDevTracts = true;
       const tractSub = this.geodistrictService.getCensusTracts(stateRequested).subscribe({
         next: (data) => {
@@ -2501,10 +2508,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.devIslandTractsData = data.islandTractsData ?? null;
           this.devTractListState = stateRequested;
           this.isLoadingDevTracts = false;
+          console.log(`📋 Dev/maps: census tract list loaded for ${stateRequested}: ${this.devTractList.length} tracts`);
           this.cdr.markForCheck();
         },
         error: () => {
           if (this.selectedState === stateRequested) {
+            console.warn(`📋 Dev/maps: failed to load census tract list for ${stateRequested}`);
             this.devTractList = null;
             this.devIslandTractsData = null;
             this.devTractListState = null;
@@ -2521,6 +2530,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Call from template when step 0 tract list block is visible but empty; triggers load so IN (and others) get tracts.
+   * No-op if not dev, already loaded, or already loading. Idempotent. Returns true so *ngIf can show the block.
+   */
+  ensureTractListLoadTrigger(): boolean {
+    this.ensureDevTractListLoaded();
+    return true;
+  }
+
+  /**
    * Fetch census tract list from GET /api/algorithm/census-tracts for current state (dev/maps only).
    * No-op if not dev, no state, or already loaded for this state.
    */
@@ -2528,6 +2546,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isDevMode || !this.selectedState || this.selectedState === 'ALL' || this.isLoadingDevTracts) return;
     if (this.devTractListState === this.selectedState && this.devTractList != null) return;
     const stateRequested = this.selectedState;
+    console.log(`📋 Dev/maps: loading census tract list for state ${stateRequested} from census-tracts endpoint`);
     this.isLoadingDevTracts = true;
     const sub = this.geodistrictService.getCensusTracts(stateRequested).subscribe({
       next: (data) => {
@@ -2536,10 +2555,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.devIslandTractsData = data.islandTractsData ?? null;
         this.devTractListState = stateRequested;
         this.isLoadingDevTracts = false;
+        console.log(`📋 Dev/maps: census tract list loaded for ${stateRequested}: ${this.devTractList.length} tracts`);
         this.cdr.markForCheck();
       },
       error: () => {
         if (this.selectedState === stateRequested) {
+          console.warn(`📋 Dev/maps: failed to load census tract list for ${stateRequested}`);
           this.devTractList = null;
           this.devIslandTractsData = null;
           this.devTractListState = null;
@@ -3832,9 +3853,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           console.log(`🖼️ Rendering union polygon(s) for DG ${district.startDistrictNumber}-${district.endDistrictNumber} (${polygonsToRender.length} part(s)), showTractBoundaries=false`);
           const districtLabel = district.startDistrictNumber === district.endDistrictNumber
             ? `District ${district.startDistrictNumber}` : `Districts ${district.startDistrictNumber}-${district.endDistrictNumber}`;
+          const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+          const districtParty = this.districtPartyByGroupKey?.[groupKey] ?? null;
           const popupContent = `<strong>${districtLabel}</strong><br>
             <strong>Population:</strong> ${(district.totalPopulation ?? 0).toLocaleString()}<br>
-            <strong>Tracts in district:</strong> ${district.censusTracts.length}`;
+            <strong>Tracts in district:</strong> ${district.censusTracts.length}<br>
+            ${this.getPopupPartyLine(districtParty)}`;
 
           for (const unionPolygon of polygonsToRender) {
             if (!unionPolygon?.geometry) continue;
@@ -3938,6 +3962,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
               ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
               <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
+              ${this.getPopupPartyLine(partyData ? partyData[this.normalizeTractPartyGeoid(tractId)] ?? null : null)}
               <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
               <strong>Tracts in District:</strong> ${district.censusTracts.length}<br>
               <strong>Sibling:</strong> ${this.getSiblingDGLabel(tract)}<br>
@@ -5345,12 +5370,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const isIsolated = this.isolatedTractIds.has(tractId);
         const isBridge = this.bridgeTractIds.has(tractId);
         const siblingLabel = this.getSiblingDGLabel(tractFeature);
+        const tractPartyRow = this.tractPartyByGeoid?.[this.normalizeTractPartyGeoid(tractId)] ?? null;
         const popupContent = `
           <strong>${groupLabel}</strong><br>
           <strong>Tract ID:</strong> ${props.TRACT_FIPS ?? props['GEOID'] ?? tractId}<br>
           ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
           ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
           <strong>Population:</strong> ${(props.POPULATION ?? 0).toLocaleString()}<br>
+          ${this.getPopupPartyLine(tractPartyRow)}
           <strong>Sibling:</strong> ${siblingLabel}<br>
           <strong>bbox:</strong> ${this.getTractBboxString(tractFeature)}
         `;
@@ -5716,6 +5743,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (status?.party === 'done') return 'Party % calculated';
     if (status?.party === 'missing') return 'Click to calculate party %';
     return status?.party ?? '';
+  }
+
+  /** Returns HTML line for popup: "Party: D xx% · R yy% (votes)" or "" when no data. */
+  private getPopupPartyLine(party: { pctDem: number; pctRep?: number; votesDem?: number; votesRep?: number; totalVotes?: number } | null): string {
+    if (!party || typeof party.pctDem !== 'number') return '';
+    const pctDem = (party.pctDem * 100).toFixed(1);
+    const pctRep = (typeof party.pctRep === 'number' ? party.pctRep : 1 - party.pctDem) * 100;
+    const pctRepStr = pctRep.toFixed(1);
+    const votes = party.totalVotes != null ? (party.totalVotes as number).toLocaleString() : null;
+    if (votes != null) {
+      return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}% (${votes} votes)<br>`;
+    }
+    return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}%<br>`;
   }
 
   /** Message when party coloring is on but tract party data is not loaded for this state. */

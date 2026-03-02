@@ -683,8 +683,13 @@ export class GeodistrictAlgorithmService {
   getCensusTracts(state: string): Observable<{ tracts: GeoJsonFeature[]; islandTractsData?: unknown }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const url = `${backendUrl}/api/algorithm/census-tracts/${state}`;
+    console.log(`📥 Loading census tract data from endpoint: GET ${url}`);
     return this.http.get<{ tracts: GeoJsonFeature[]; islandTractsData?: unknown }>(url).pipe(
-      map(body => ({ tracts: body.tracts || [], islandTractsData: body.islandTractsData })),
+      map(body => {
+        const tracts = body.tracts || [];
+        console.log(`✅ Census tract endpoint responded for ${state}: ${tracts.length} tracts`);
+        return { tracts, islandTractsData: body.islandTractsData };
+      }),
       catchError(error => {
         console.error(`❌ Get census tracts for ${state} failed:`, error);
         return this.handleError(error);

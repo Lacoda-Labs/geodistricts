@@ -139,7 +139,10 @@
                 </mat-expansion-panel>
               </div>
 
-              <!-- Census tract list (dev/maps step 0 only) -->
+              <!-- Census tract list (dev/maps step 0 only). Trigger load when empty so IN and others get data. -->
+              <div class="tract-list-dev tract-list-loading" *ngIf="isDevMode && currentStepIndex === 0 && selectedState && selectedState !== 'ALL' && (!tractsByCountyForList || tractsByCountyForList.length === 0) && ensureTractListLoadTrigger()">
+                <p class="tract-list-message">{{ isLoadingDevTracts ? 'Loading tract list...' : 'No tract data. Click Run or First to load state, or wait a moment.' }}</p>
+              </div>
               <div class="tract-list-dev" *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
                 <mat-expansion-panel *ngFor="let county of tractsByCountyForList" class="tract-list-county-panel">
                   <mat-expansion-panel-header>
