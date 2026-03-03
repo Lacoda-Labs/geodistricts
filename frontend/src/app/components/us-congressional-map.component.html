@@ -1,4 +1,4 @@
-<div class="us-congressional-map" [class.hero-variant]="variant === 'hero'">
+<div class="us-congressional-map" [class.hero-variant]="variant === 'hero'" [class.geodistricts-variant]="geodistrictStepDataByState?.length">
   <div class="map-container">
     <!-- Hero: raster fallback for instant load (transparent, light gray lines); dimmed after 3 loops -->
     <img
@@ -10,9 +10,25 @@
       width="800"
       height="500"
       fetchpriority="high" />
-    <!-- Default: all paths at once -->
+    <!-- Geodistricts mode (maps page All): paths with per-district fill and click -->
     <svg
-      *ngIf="variant !== 'hero' && svgPathD.length"
+      *ngIf="geodistrictStepDataByState?.length && pathDByDistrict.length"
+      class="boundaries-svg"
+      [attr.viewBox]="viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg">
+      <g class="boundaries-layer">
+        <path
+          *ngFor="let p of pathDByDistrict"
+          [attr.d]="p.d"
+          [attr.fill]="getDistrictFill(p.stateCode, p.groupKey)"
+          (click)="onDistrictClick(p.stateCode)"
+          class="district-path geodistrict-path"/>
+      </g>
+    </svg>
+    <!-- Default: all paths at once (congressional boundaries) -->
+    <svg
+      *ngIf="variant !== 'hero' && !geodistrictStepDataByState?.length && svgPathD.length"
       class="boundaries-svg"
       [attr.viewBox]="viewBox"
       preserveAspectRatio="xMidYMid meet"
@@ -40,7 +56,7 @@
       </g>
     </svg>
   </div>
-  <div *ngIf="isLoading && variant !== 'hero'" class="loading-overlay">
+  <div *ngIf="isLoading && variant !== 'hero' && !geodistrictStepDataByState?.length" class="loading-overlay">
     <div class="loading-spinner-container">
       <div class="loading-spinner"></div>
       <p class="loading-text">Loading district boundaries...</p>

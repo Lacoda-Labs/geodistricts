@@ -205,7 +205,9 @@ class CloudStorageCache {
     try {
       const [exists] = await file.exists();
       if (!exists) {
-        console.log(`❌ CLOUD STORAGE: File not found at ${filePath} for key: ${cacheKey}`);
+        if (!cacheKey.startsWith('map_polygons_')) {
+          console.log(`❌ CLOUD STORAGE: File not found at ${filePath} for key: ${cacheKey}`);
+        }
         return null;
       }
 
@@ -317,6 +319,46 @@ class CloudStorageCache {
   shouldUseCloudStorage(data) {
     const size = JSON.stringify(data).length;
     return size > CLOUD_STORAGE_THRESHOLD;
+  }
+
+  /**
+   * Delete state tract cache file and boundaries file for a state (by path).
+   * Use when invalidating tract/polygon cache so next load refetches from Census/TIGER.
+   * @param {string} state - 2-letter state code (e.g. 'NY')
+   * @returns {Promise<{ stateTracts: boolean, boundaries: boolean }>} Which files were deleted
+   */
+  async deleteStateTractAndBoundariesFiles(state) {
+    await this.initialize();
+    const stateUpper = (state || '').toUpperCase();
+    if (!stateUpper || stateUpper.length < 2) {
+      return { stateTracts: false, boundaries: false };
+    }
+    const stateTractsPath = `state-tracts/${stateUpper}.json`;
+    const boundariesPath = `boundaries/${stateUpper}.json`;
+    const result = { stateTracts: false, boundaries: false };
+    try {
+      const f1 = this.bucket.file(stateTractsPath);
+      const [e1] = await f1.exists();
+      if (e1) {
+        await f1.delete();
+        result.stateTracts = true;
+        console.log(`🗑️ Cloud Storage: Deleted ${stateTractsPath}`);
+      }
+    } catch (err) {
+      if (err.code !== 404) console.warn(`⚠️ Failed to delete ${stateTractsPath}: ${err.message}`);
+    }
+    try {
+      const f2 = this.bucket.file(boundariesPath);
+      const [e2] = await f2.exists();
+      if (e2) {
+        await f2.delete();
+        result.boundaries = true;
+        console.log(`🗑️ Cloud Storage: Deleted ${boundariesPath}`);
+      }
+    } catch (err) {
+      if (err.code !== 404) console.warn(`⚠️ Failed to delete ${boundariesPath}: ${err.message}`);
+    }
+    return result;
   }
 
   /**

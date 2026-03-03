@@ -1,6 +1,8 @@
 import {
   Component,
   Input,
+  Output,
+  EventEmitter,
   OnInit,
   OnChanges,
   SimpleChanges,
@@ -13,7 +15,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { CongressionalBoundariesService, BoundariesByState, GeoJsonFeatureCollection } from '../services/congressional-boundaries.service';
+import { CongressionalBoundariesService, BoundariesByState, GeoJsonFeatureCollection, GeoJsonFeature } from '../services/congressional-boundaries.service';
 import { GeodistrictAlgorithmService, GeodistrictStep } from '../services/geodistrict-algorithm.service';
 import { transformGeoJson, ALASKA_TRANSFORM, HAWAII_TRANSFORM } from '../utils/geo-transform';
 import {
@@ -36,6 +38,26 @@ const HAWAII_INSET_SVG = { x1: 95, y1: 500 - INSET_SIZE, x2: 95 + INSET_SIZE, y2
 
 const DEFAULT_CONGRESS = 119;
 
+/** State code (e.g. AL, AK) to full state name for building BoundariesByState from geodistrict data. */
+const STATE_CODE_TO_NAME: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
+  CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky',
+  LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota',
+  MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire',
+  NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota',
+  OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia',
+  WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming'
+};
+
+/** One path segment for geodistricts mode: path d string plus state/group for fill and click. */
+export interface GeodistrictPathItem {
+  d: string;
+  stateCode: string;
+  groupKey: string;
+}
+
 /** Precomputed hero asset payload (hero-conus-119.json). */
 export interface HeroConusPayload {
   viewBox: string;
@@ -56,11 +78,19 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   @Input() showInsetStates = true;
   /** 'hero' = translucent outline style for background use. */
   @Input() variant: 'default' | 'hero' = 'default';
+  /** When set, use geodistrict polygons instead of congressional boundaries (maps page All view). */
+  @Input() geodistrictStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep }> | null = null;
+  /** Optional fill color per state and groupKey for geodistricts mode (party shading). */
+  @Input() districtFillColorByStateAndGroup: Record<string, Record<string, string>> | null = null;
+  /** Emits stateCode when a district path is clicked (geodistricts mode). */
+  @Output() districtClick = new EventEmitter<string>();
 
   isLoading = true;
   errorMessage: string | null = null;
   byState: BoundariesByState | null = null;
   svgPathD: string[] = [];
+  /** Geodistricts mode: one item per path with stateCode/groupKey for fill and click. */
+  pathDByDistrict: GeodistrictPathItem[] = [];
   /** Hero only: paths revealed one-by-one with fill during state draw, then stroke-only. */
   heroAnimatedPaths: { d: string; stateKey: string; filled: boolean }[] = [];
   viewBox = SVG_VIEWBOX;
@@ -92,6 +122,15 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   ngOnInit(): void {}
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (this.geodistrictStepDataByState != null) {
+      if (changes['geodistrictStepDataByState'] || changes['showInsetStates']) {
+        this.buildFromGeodistrictData();
+      }
+      if (changes['districtFillColorByStateAndGroup']) {
+        this.cdr.markForCheck();
+      }
+      return;
+    }
     if (changes['congress'] && !changes['congress'].firstChange) {
       this.loadBoundaries();
       return;
@@ -103,6 +142,10 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
   }
 
   ngAfterViewInit(): void {
+    if (this.geodistrictStepDataByState != null && this.geodistrictStepDataByState.length > 0) {
+      this.buildFromGeodistrictData();
+      return;
+    }
     this.loadBoundaries();
   }
 
@@ -350,6 +393,101 @@ export class UsCongressionalMapComponent implements OnInit, OnChanges, AfterView
       this.cdr.markForCheck();
     }, totalDistricts * delayMs + UsCongressionalMapComponent.HERO_LOOP_PAUSE_MS);
     this.heroAnimationTimeouts.push(tEnd);
+  }
+
+  /** Build path items from geodistrict step data (maps page All view). */
+  private buildFromGeodistrictData(): void {
+    const data = this.geodistrictStepDataByState;
+    if (!data || data.length === 0) {
+      this.isLoading = false;
+      this.pathDByDistrict = [];
+      this.cdr.markForCheck();
+      return;
+    }
+    this.isLoading = false;
+    this.errorMessage = null;
+    this.pathDByDistrict = [];
+    const ak = data.find(({ stateCode }) => stateCode === 'AK');
+    const hi = data.find(({ stateCode }) => stateCode === 'HI');
+
+    for (const { stateCode, stepData } of data) {
+      if (stateCode === 'AK' || stateCode === 'HI') continue;
+      const groups = stepData.districtGroups || [];
+      for (const group of groups) {
+        const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+        const features = this.getDistrictGroupFeatures(group);
+        if (features.length === 0) continue;
+        const collection: GeoJsonFeatureCollection = { type: 'FeatureCollection', features };
+        const paths = featureCollectionToPathDs(collection, CONUS_BOUNDS);
+        for (const d of paths) {
+          this.pathDByDistrict.push({ d, stateCode, groupKey });
+        }
+      }
+    }
+
+    if (this.showInsetStates) {
+      if (ak?.stepData?.districtGroups?.length) {
+        for (const group of ak.stepData.districtGroups) {
+          const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+          const features = this.getDistrictGroupFeatures(group);
+          if (features.length === 0) continue;
+          const collection: GeoJsonFeatureCollection = { type: 'FeatureCollection', features };
+          const transformed = transformGeoJson(collection, ALASKA_TRANSFORM);
+          const paths = featureCollectionToPathDsWithUniformScale(
+            transformed,
+            ALASKA_INSET_SVG.x1,
+            ALASKA_INSET_SVG.y1,
+            ALASKA_INSET_SVG.x2,
+            ALASKA_INSET_SVG.y2
+          );
+          for (const d of paths) {
+            this.pathDByDistrict.push({ d, stateCode: 'AK', groupKey });
+          }
+        }
+      }
+      if (hi?.stepData?.districtGroups?.length) {
+        for (const group of hi.stepData.districtGroups) {
+          const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+          const features = this.getDistrictGroupFeatures(group);
+          if (features.length === 0) continue;
+          const collection: GeoJsonFeatureCollection = { type: 'FeatureCollection', features };
+          const transformed = transformGeoJson(collection, HAWAII_TRANSFORM);
+          const paths = featureCollectionToPathDsWithUniformScale(
+            transformed,
+            HAWAII_INSET_SVG.x1,
+            HAWAII_INSET_SVG.y1,
+            HAWAII_INSET_SVG.x2,
+            HAWAII_INSET_SVG.y2
+          );
+          for (const d of paths) {
+            this.pathDByDistrict.push({ d, stateCode: 'HI', groupKey });
+          }
+        }
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  private getDistrictGroupFeatures(group: { unionPolygon?: GeoJsonFeature; unionPolygons?: GeoJsonFeature[] }): GeoJsonFeature[] {
+    const unionPolygons = (group as { unionPolygons?: GeoJsonFeature[] }).unionPolygons;
+    const unionPolygon = (group as { unionPolygon?: GeoJsonFeature }).unionPolygon;
+    if (Array.isArray(unionPolygons) && unionPolygons.length > 0) {
+      return unionPolygons.filter((f): f is GeoJsonFeature => f != null && typeof (f as GeoJsonFeature).geometry !== 'undefined');
+    }
+    if (unionPolygon && (unionPolygon as GeoJsonFeature).geometry) {
+      return [unionPolygon as GeoJsonFeature];
+    }
+    return [];
+  }
+
+  getDistrictFill(stateCode: string, groupKey: string): string {
+    const byGroup = this.districtFillColorByStateAndGroup?.[stateCode];
+    if (byGroup?.[groupKey]) return byGroup[groupKey];
+    return 'var(--mat-sys-surface-container-high, #e8e8e8)';
+  }
+
+  onDistrictClick(stateCode: string): void {
+    this.districtClick.emit(stateCode);
   }
 
   /** Build a FeatureCollection from algorithm step 0 first group union polygon(s). */

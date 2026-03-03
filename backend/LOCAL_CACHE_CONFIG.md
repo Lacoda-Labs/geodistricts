@@ -74,14 +74,23 @@ Tract party calculation is intended to be run from local dev (e.g. `cd backend &
 
 ## Cache Directory Structure
 
+When running locally, census tract data and related caches live under the **project root** at:
+
+**`data/census-cache/`**
+
+(i.e. `backend/../data/census-cache` — one level up from the backend folder). Files are `{key}.json` and `{key}.meta.json` where the key is the cache document ID (e.g. `state_tracts_NY`, `census_tract_boundaries_abc123`).
+
 ```
 data/census-cache/
 ├── README.md                    # Documentation
 ├── census_counties_*.json       # County data cache files
-├── census_tract_data_*.json     # Tract demographic data cache files
+├── census_tract_data_*.json     # Tract demographic data cache files (per county)
 ├── census_tract_boundaries_*.json # Tract boundary GeoJSON cache files
+├── state_tracts_*.json          # State tract cache (e.g. state_tracts_NY.json)
 └── *.meta.json                  # Metadata files for each cache entry
 ```
+
+When `USE_LOCAL_CACHE` is true, **Cloud Storage is not read** for algorithm/state tract data; only the local files above are used. To force a refresh from Census/TIGER after changing bucket files or debugging cache, clear the state’s tract and polygon cache (see below).
 
 ## Cache Management
 
@@ -91,9 +100,10 @@ data/census-cache/
 - `GET /api/census/cache-info` - View cache entries and statistics
 - `DELETE /api/census/cache` - Clear cache entries
 - `POST /api/census/cache/cleanup` - Clean up expired entries
+- **`POST /api/census/clear-state-cache`** - Invalidate **local and optionally cloud** tract and polygon cache for one state. Body: `{ "state": "NY", "cloud": true }`. After this, the next load (e.g. dev/maps for that state) refetches from Census API and TIGER. Use when you renamed or updated Cloud Storage files and want to ignore stale local cache.
 
 ### Manual File Management
-Cache files are stored in `/data/census-cache/` and can be:
+Cache files are stored in `data/census-cache/` (project root) and can be:
 - Manually deleted to clear cache
 - Inspected to debug cache contents
 - Backed up for development data preservation

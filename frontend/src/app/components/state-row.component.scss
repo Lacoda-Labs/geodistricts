@@ -41,6 +41,7 @@
   align-items: center;
   gap: 3px;
   height: 20px;
+  min-width: 23px; /* reserve flag width when missing (e.g. DC) */
   padding: 0 4px 0 4px;
   flex-shrink: 0;
   box-sizing: border-box;

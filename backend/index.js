@@ -1209,13 +1209,17 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
     const congressSummary = congress119Party.getPartySummary();
     const summaries = {};
 
-    for (const id of ids) {
+    // Fetch all district_party docs in parallel instead of sequentially
+    const docList = await Promise.all(ids.map((id) => getCacheDoc(id)));
+
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const data = docList[i];
       const parts = id.split('_');
       if (parts.length < 4) continue;
       const stateCode = (parts[2] || '').toUpperCase();
       if (stateCode.length !== 2) continue;
 
-      const data = await getCacheDoc(id);
       if (!data || !data.districts || typeof data.districts !== 'object') continue;
 
       const districts = data.districts;
@@ -1767,9 +1771,10 @@ async function fetchTractBoundariesForState(state, county) {
   }
   const allFeatures = [];
   const batchSize = 500;
-  const totalBatches = Math.ceil(totalCount / batchSize);
-  for (let i = 0; i < totalBatches; i++) {
-    const offset = i * batchSize;
+  // Loop until we get a batch smaller than batchSize so we get all tracts even if getTractCount is capped (e.g. 2000)
+  let offset = 0;
+  let batchIndex = 0;
+  while (true) {
     const batchParams = new URLSearchParams({
       where: whereClause,
       outFields: 'STATE,COUNTY,TRACT,GEOID,POP100',
@@ -1778,12 +1783,15 @@ async function fetchTractBoundariesForState(state, county) {
       resultRecordCount: batchSize.toString(),
       resultOffset: offset.toString()
     });
-    logExternalFetch('TIGERweb', 'tract boundaries batch (internal)', `state=${state} batch=${i + 1}/${totalBatches}`);
+    batchIndex++;
+    logExternalFetch('TIGERweb', 'tract boundaries batch (internal)', `state=${state} batch=${batchIndex}`);
     const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
     const batchFeatures = (batchResponse.data.features || []).map(normalizeTractFeature);
     allFeatures.push(...batchFeatures);
+    if (batchFeatures.length < batchSize) break;
+    offset += batchSize;
   }
-  console.log(`📦 Fetched ${allFeatures.length} tract boundaries for state ${state} (internal, ${totalBatches} batch(es))`);
+  console.log(`📦 Fetched ${allFeatures.length} tract boundaries for state ${state} (internal, ${batchIndex} batch(es))`);
   return { type: 'FeatureCollection', features: allFeatures };
 }
 
@@ -1914,9 +1922,9 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       }
     }
 
-    // For large datasets, use streaming response
+    // For large datasets, use streaming response. Use >= 2000 so we never rely on single-request 2000 cap (TIGER count may be capped at 2000).
     const totalCount = await getTractCount(state, county);
-    if (totalCount > 2000) {
+    if (totalCount >= 2000) {
       return handleStreamingResponse(req, res, state, county, cacheKey, totalCount);
     }
     
@@ -3269,10 +3277,10 @@ app.post('/api/algorithm/execute', async (req, res) => {
     // Extract forceInvalidate option
     const forceInvalidate = options.forceInvalidate || false;
 
-    // Get tract boundaries: for large states use internal batch fetch so we get full feature set
+    // Get tract boundaries: for large states use internal batch fetch so we get full feature set. Use >= 2000 so we never rely on single-request 2000 cap.
     let boundaries;
     const totalTractCount = await getTractCount(state);
-    if (totalTractCount > 2000) {
+    if (totalTractCount >= 2000) {
       console.log(`📡 Fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
       boundaries = await fetchTractBoundariesForState(state);
     } else {
@@ -4261,97 +4269,34 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
 
 /**
  * Get state boundary and optional final-step district polygons for one state.
- * Used by map-polygons/:state and map-polygons-all.
+ * Single read: map_polygons_${state} blob in Cloud Storage (full response). If missing, state boundary only.
+ * No step-doc or N-polygon reads on the request path.
  */
 async function getMapPolygonsForState(stateCode) {
-  const currentVersion = ALGORITHM_VERSION;
-  let hasFinalStep = false;
-  const finalDistrictPolygons = [];
-
-  let statePolygon;
-  let finalStepDoc = null;
-  let cachedEntry = null;
-  let highestStep = -1;
-
-  function considerEntry(id, entry) {
-    if ((entry.source === 'algorithm-step-cache' || entry.source === 'step-cache') &&
-        entry.algorithmVersion === currentVersion &&
-        entry.step !== undefined &&
-        entry.step > highestStep &&
-        entry.unionPolygonsCached === true) {
-      finalStepDoc = { id };
-      cachedEntry = entry;
-      highestStep = entry.step;
-    }
+  const blobKey = `map_polygons_${stateCode}`;
+  const blobResult = await cloudStorageCache.get(blobKey).catch(() => null);
+  const data = blobResult && blobResult.data;
+  if (data && data.statePolygon && (data.statePolygon.type === 'Feature' || data.statePolygon.geometry)) {
+    return {
+      statePolygon: data.statePolygon,
+      finalDistrictPolygons: Array.isArray(data.finalDistrictPolygons) ? data.finalDistrictPolygons : undefined,
+      hasFinalStep: !!data.hasFinalStep && Array.isArray(data.finalDistrictPolygons) && data.finalDistrictPolygons.length > 0,
+      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined
+    };
   }
-
-  if (USE_LOCAL_CACHE) {
-    statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
-    const algoIds = await listCacheDocIds(`algorithm_step_${stateCode}_`);
-    const stepIds = await listCacheDocIds(`step_${stateCode}_`);
-    for (const id of [...algoIds, ...stepIds]) {
-      const entry = await getCacheDoc(id);
-      if (entry) considerEntry(id, entry);
-    }
-  } else {
-    const [statePolygonRes, stepCacheSnapshot, algorithmStepsSnapshot, stepCacheSnapshot2] = await Promise.all([
-      getOrCreateStateBoundaryInCloudStorage(stateCode),
-      getFirestore().collection('census_cache').where('state', '==', stateCode).where('isComplete', '==', true).get(),
-      getFirestore().collection('census_cache').where('state', '==', stateCode).where('source', '==', 'algorithm-step-cache').get(),
-      getFirestore().collection('census_cache').where('state', '==', stateCode).where('source', '==', 'step-cache').get()
-    ]);
-    statePolygon = statePolygonRes;
-    if (!stepCacheSnapshot.empty) {
-      for (const doc of stepCacheSnapshot.docs) considerEntry(doc.id, doc.data());
-    }
-    if (!finalStepDoc && !algorithmStepsSnapshot.empty) {
-      for (const doc of algorithmStepsSnapshot.docs) considerEntry(doc.id, doc.data());
-    }
-    if (!finalStepDoc && !stepCacheSnapshot2.empty) {
-      for (const doc of stepCacheSnapshot2.docs) considerEntry(doc.id, doc.data());
-    }
-  }
-
-  if (finalStepDoc && cachedEntry && cachedEntry.unionPolygonsCached === true) {
-    const groups = cachedEntry.stepData?.districtGroups || cachedEntry.districtGroups || [];
-    const sortedGroups = groups
-      .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
-      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
-
-    const unionCacheKeys = [];
-    for (const group of sortedGroups) {
-      let unionCacheKey = group.unionPolygonCacheKey;
-      if (!unionCacheKey && group.startDistrictNumber != null && group.endDistrictNumber != null) {
-        unionCacheKey = `union_polygon_${stateCode}_${cachedEntry.step}_${group.startDistrictNumber}-${group.endDistrictNumber}`;
-      }
-      if (unionCacheKey) unionCacheKeys.push(unionCacheKey);
-    }
-    // Union polygon payload is stored in Cloud Storage; fetch from there so All-states view gets final districts (local cache only stores metadata).
-    const cacheResults = await Promise.all(unionCacheKeys.map(key => cloudStorageCache.get(key).catch(() => null)));
-    for (const cacheResult of cacheResults) {
-      const unionData = cacheResult && cacheResult.data;
-      if (unionData) {
-        const features = Array.isArray(unionData) ? unionData : [unionData];
-        for (const f of features) {
-          if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
-        }
-      }
-    }
-    hasFinalStep = finalDistrictPolygons.length > 0;
-  }
-
+  const statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
   return {
     statePolygon,
-    finalDistrictPolygons: hasFinalStep ? finalDistrictPolygons : undefined,
-    hasFinalStep,
-    finalStepNumber: hasFinalStep && cachedEntry && typeof cachedEntry.step === 'number' ? cachedEntry.step : undefined
+    finalDistrictPolygons: undefined,
+    hasFinalStep: false,
+    finalStepNumber: undefined
   };
 }
 
 /**
  * GET /api/algorithm/map-polygons/:state
  * Returns only polygon GeoJSON for fast map display: state outline and optional final district polygons.
- * Does not run algorithm or load tract data. All polygons from Cloud Storage.
+ * One Cloud Storage read: map_polygons_${state} blob (written by build-all-union-polygons). If missing, state boundary only.
  */
 app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
   try {
@@ -4989,6 +4934,37 @@ app.post('/api/algorithm/clear-cache', async (req, res) => {
 });
 
 /**
+ * POST /api/census/clear-state-cache
+ * Invalidate local and optionally cloud cache for a state's tract and polygon data.
+ * After this, the next load (e.g. dev/maps for that state) will refetch from Census API and TIGER.
+ * Body: { state: "NY", cloud: true }
+ * - state: required, 2-letter code
+ * - cloud: if true, also delete state-tracts/{state}.json and boundaries/{state}.json from Cloud Storage
+ */
+app.post('/api/census/clear-state-cache', async (req, res) => {
+  try {
+    const { state, cloud = true } = req.body || {};
+    const stateNorm = (state || '').toUpperCase().trim();
+    if (!stateNorm || stateNorm.length !== 2) {
+      return res.status(400).json({ error: 'State is required (2-letter code)' });
+    }
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const result = await deleteTractAndPolygonCacheForState(stateNorm, { deleteCloud: !!cloud, baseUrl });
+    res.json({
+      ok: true,
+      message: `Tract and polygon cache cleared for ${stateNorm}`,
+      ...result
+    });
+  } catch (err) {
+    console.error('Clear state tract cache error:', err);
+    res.status(500).json({
+      error: 'Failed to clear state tract cache',
+      message: err.message
+    });
+  }
+});
+
+/**
  * POST /api/algorithm/restart
  * Delete algorithm cache from step 1 onward and algorithm state; keep step 0.
  * Then loads step 0 from cache and sets algorithm state to iteration 0 so next "Next" runs step 1.
@@ -5114,7 +5090,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
     if (tracts.length === 0) {
       let boundaries;
       const totalTractCount = await getTractCount(state);
-      if (totalTractCount > 2000) {
+      if (totalTractCount >= 2000) {
         console.log(`📡 Step-by-step: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
         boundaries = await fetchTractBoundariesForState(state);
       } else {
@@ -5792,7 +5768,7 @@ app.get('/api/algorithm/census-tracts/:state', async (req, res) => {
     // Cache miss: same fetch pipeline as step-by-step
     let boundaries;
     const totalTractCount = await getTractCount(state);
-    if (totalTractCount > 2000) {
+    if (totalTractCount >= 2000) {
       console.log(`📡 Census-tracts: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
       boundaries = await fetchTractBoundariesForState(state);
     } else {
@@ -6415,6 +6391,40 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
   console.log(`📐 Build-all union polygons: ${state} final step ${finalStepNumber}`);
   await runUnionPolygonGenerationJob(state, finalStepNumber, maxIterations);
   console.log(`📐 Build-all: final step ${finalStepNumber} union polygons cached`);
+
+  // Write single map-polygons blob so GET map-polygons/:state is one Cloud Storage read (milliseconds).
+  const finalStepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
+  if (finalStepResult && finalStepResult.cachedEntry.unionPolygonsCached === true) {
+    const groups = finalStepResult.cachedEntry.stepData?.districtGroups ?? finalStepResult.cachedEntry.districtGroups ?? [];
+    const keys = groups
+      .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
+      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0))
+      .map(g => g.unionPolygonCacheKey || `union_polygon_${state}_${finalStepNumber}_${g.startDistrictNumber}-${g.endDistrictNumber}`);
+    if (keys.length > 0) {
+      const statePolygon = await getOrCreateStateBoundaryInCloudStorage(state);
+      const cacheResults = await Promise.all(keys.map(key => cloudStorageCache.get(key).catch(() => null)));
+      const finalDistrictPolygons = [];
+      for (const cacheResult of cacheResults) {
+        const unionData = cacheResult && cacheResult.data;
+        if (unionData) {
+          const features = Array.isArray(unionData) ? unionData : [unionData];
+          for (const f of features) {
+            if (f && (f.type === 'Feature' || f.geometry)) finalDistrictPolygons.push(f);
+          }
+        }
+      }
+      const blobKey = `map_polygons_${state}`;
+      await cloudStorageCache.set(blobKey, {
+        statePolygon,
+        finalDistrictPolygons,
+        hasFinalStep: finalDistrictPolygons.length > 0,
+        finalStepNumber
+      }, { state, source: 'map-polygons-blob' }).catch(err => {
+        console.warn(`⚠️ Failed to write map_polygons blob for ${state}:`, err.message);
+      });
+      console.log(`✅ Map-polygons blob written for ${state} (${finalDistrictPolygons.length} district polygons)`);
+    }
+  }
 
   for (let stepNum = finalStepNumber - 1; stepNum >= 1; stepNum--) {
     const stepResult = await getStepCacheEntry(state, stepNum, maxIterations);
@@ -8044,6 +8054,75 @@ async function invalidateSubsequentStepCaches(state, maxIterations, step) {
     }
     console.log(`🗑️ Invalidated ${deletedCount} subsequent step cache(s) (steps ${step + 1} to 100) for ${state} using fallback method`);
   }
+}
+
+/**
+ * Delete tract and polygon cache for a state (local and optionally Cloud Storage).
+ * Removes: state_tracts_{state}, tract_boundaries for state, tract_data for each county.
+ * Use before reloading a state so data is refetched from Census/TIGER.
+ * @param {string} state - 2-letter state code
+ * @param {{ deleteCloud?: boolean, baseUrl?: string }} options - baseUrl used to fetch counties list (self-call)
+ * @returns {Promise<{ localDeleted: number, cloud?: { stateTracts: boolean, boundaries: boolean } }>}
+ */
+async function deleteTractAndPolygonCacheForState(state, options = {}) {
+  const { deleteCloud = true, baseUrl } = options;
+  const stateNorm = (state || '').toUpperCase().trim();
+  let localDeleted = 0;
+
+  // 1. Local: state tract cache
+  const tractCacheKey = `state_tracts_${stateNorm}`;
+  try {
+    const doc = await getCacheDoc(tractCacheKey);
+    if (doc) {
+      await deleteCacheDoc(tractCacheKey);
+      localDeleted++;
+    }
+  } catch (e) { /* ignore */ }
+
+  // 2. Local: tract boundaries (key is hashed from { state })
+  const boundariesCacheKey = generateCacheKey('tract_boundaries', { state: stateNorm });
+  try {
+    const doc = await getCacheDoc(boundariesCacheKey);
+    if (doc) {
+      await deleteCacheDoc(boundariesCacheKey);
+      localDeleted++;
+    }
+  } catch (e) { /* ignore */ }
+
+  // 3. Local: tract_data per county (need county list)
+  if (baseUrl) {
+    try {
+      const countiesRes = await axios.get(`${baseUrl}/api/census/counties?state=${stateNorm}`);
+      const counties = countiesRes.data || [];
+      for (const c of counties) {
+        const countyFips = c.fips || c.COUNTY || c.county;
+        if (!countyFips) continue;
+        const tractDataKey = generateCacheKey('tract_data', { state: stateNorm, county: countyFips });
+        try {
+          const doc = await getCacheDoc(tractDataKey);
+          if (doc) {
+            await deleteCacheDoc(tractDataKey);
+            localDeleted++;
+          }
+        } catch (e) { /* ignore */ }
+      }
+    } catch (e) {
+      console.warn(`⚠️ Could not fetch counties for ${stateNorm} to clear tract_data: ${e.message}`);
+    }
+  }
+
+  let cloudResult;
+  if (deleteCloud) {
+    try {
+      cloudResult = await cloudStorageCache.deleteStateTractAndBoundariesFiles(stateNorm);
+    } catch (e) {
+      console.warn(`⚠️ Cloud Storage delete for ${stateNorm}: ${e.message}`);
+      cloudResult = { stateTracts: false, boundaries: false };
+    }
+  }
+
+  console.log(`🗑️ CLEAR-STATE-CACHE: ${stateNorm} local=${localDeleted}${cloudResult ? ` cloud(stateTracts=${cloudResult.stateTracts}, boundaries=${cloudResult.boundaries})` : ''}`);
+  return { localDeleted, ...(cloudResult && { cloud: cloudResult }) };
 }
 
 /**
