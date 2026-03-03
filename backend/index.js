@@ -6730,8 +6730,11 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
           totalVotes += row.totalVotes || 0;
         }
       }
-      const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
-      const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
+      // Use two-party total (D+R) as denominator so percentages are share of two-party vote and sum to 100%.
+      // Tract totalVotes can be total ballots (when from county allocation), so totalVotes may exceed D+R.
+      const twoPartyTotal = votesDem + votesRep;
+      const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
+      const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
       const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
       districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
     }
@@ -6781,8 +6784,8 @@ app.post('/api/algorithm/district-party/:state', async (req, res) => {
     if (!state || state.length !== 2) {
       return res.status(400).json({ error: 'Invalid state code' });
     }
-    if (isNaN(finalStepNumber) || finalStepNumber < 1) {
-      return res.status(400).json({ error: 'finalStepNumber is required and must be >= 1' });
+    if (isNaN(finalStepNumber) || finalStepNumber < 0) {
+      return res.status(400).json({ error: 'finalStepNumber is required and must be >= 0' });
     }
     setImmediate(async () => {
       try {
@@ -6839,8 +6842,8 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     const finalStepNumber = parseInt(req.body?.finalStepNumber || req.query.finalStepNumber, 10);
     const maxIterations = parseInt(req.body?.maxIterations || req.query.maxIterations || '100', 10);
     const groupKey = (req.body?.groupKey || req.query.groupKey || '').trim();
-    if (!state || state.length !== 2 || isNaN(finalStepNumber) || finalStepNumber < 1 || !groupKey) {
-      return res.status(400).json({ error: 'state, finalStepNumber (>=1), and groupKey (e.g. "1-1") are required' });
+    if (!state || state.length !== 2 || isNaN(finalStepNumber) || finalStepNumber < 0 || !groupKey) {
+      return res.status(400).json({ error: 'state, finalStepNumber (>=0), and groupKey (e.g. "1-1" or "1-38") are required' });
     }
     const { getTractId } = require('./services/geodistrict-algorithm');
     const stepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
@@ -6869,8 +6872,10 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
         totalVotes += row.totalVotes || 0;
       }
     }
-    const pctDem = totalVotes > 0 ? votesDem / totalVotes : 0;
-    const pctRep = totalVotes > 0 ? votesRep / totalVotes : 0;
+    // Use two-party total (D+R) as denominator so percentages are share of two-party vote and sum to 100%.
+    const twoPartyTotal = votesDem + votesRep;
+    const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
+    const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
     const vestYear = DEFAULT_VEST_YEAR;
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
     let prev = await getCacheDoc(key) || {};

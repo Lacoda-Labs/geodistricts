@@ -5709,9 +5709,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return st != null && (st.party === 'in_progress' || st.party === 'fail' || st.party === 'missing');
   }
 
-  /** Short display text for Party column: "D xx% · R yy%" when data exists, "–" otherwise. Works for both public and dev. */
+  /** Short display text for Party column: "D xx% · R yy%" when data exists, "–" otherwise. Works for final step and step 0 (single state-wide group). */
   getGroupPartyDisplayText(group: DistrictGroup): string {
-    if (!this.isFinalStepActive) return '–';
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
     const d = this.districtPartyByGroupKey?.[groupKey];
     if (d && typeof d.pctDem === 'number') {

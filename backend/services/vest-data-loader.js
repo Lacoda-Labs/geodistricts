@@ -1024,9 +1024,10 @@ class VESTDataLoader {
 
     const dem = Math.round(countyVotes.votes_dem_pres / divisor);
     const rep = Math.round(countyVotes.votes_rep_pres / divisor);
-    const total = Math.round(countyVotes.total_votes_pres / divisor);
     const pctDem = countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0;
     const pctRep = countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0;
+    // Use two-party total so tract total_votes_pres matches votes_dem_pres + votes_rep_pres (consistent with tract-level VEST).
+    const total = dem + rep;
 
     return {
       GEOID: normalizedGeoid,
