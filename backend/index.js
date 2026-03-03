@@ -3277,30 +3277,16 @@ app.post('/api/algorithm/execute', async (req, res) => {
     // Extract forceInvalidate option
     const forceInvalidate = options.forceInvalidate || false;
 
-    // Get tract boundaries: for large states use internal batch fetch so we get full feature set. Use >= 2000 so we never rely on single-request 2000 cap.
+    // Get tract boundaries: always use internal batch fetch so we get full feature set.
+    // getTractCount can be capped by TIGER (e.g. 2000), so we never use tract-boundaries URL here.
     let boundaries;
-    const totalTractCount = await getTractCount(state);
-    if (totalTractCount >= 2000) {
-      console.log(`📡 Fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
-      boundaries = await fetchTractBoundariesForState(state);
-    } else {
-      let boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
-      if (forceInvalidate) {
-        boundariesUrl += '&forceInvalidate=true';
-      }
-      console.log(`📡 Fetching boundaries from: ${boundariesUrl}`);
-      let boundariesResponse = await axios.get(boundariesUrl);
-      if (!forceInvalidate && (!boundariesResponse.data?.features?.length)) {
-        console.warn(`⚠️ Cached boundaries are empty, forcing fresh fetch...`);
-        boundariesResponse = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
-      }
-      if (!boundariesResponse.data?.features?.length) {
-        console.error(`❌ No tract boundaries found for state: ${state}`);
-        return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
-      }
-      boundaries = boundariesResponse.data;
+    console.log(`📡 Fetching boundaries via internal batch fetch for state: ${state}`);
+    boundaries = await fetchTractBoundariesForState(state);
+    if (!boundaries?.features?.length) {
+      console.error(`❌ No tract boundaries found for state: ${state}`);
+      return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
     }
-    console.log(`📦 Boundaries features count: ${boundaries.features?.length || 0}`);
+    console.log(`📦 Boundaries features count: ${boundaries.features.length}`);
 
     // Get demographic data - need to fetch for all counties in the state
     // First, get all counties for the state
@@ -5089,23 +5075,11 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
     // Get tract data from census proxy when not loaded from state tract cache
     if (tracts.length === 0) {
       let boundaries;
-      const totalTractCount = await getTractCount(state);
-      if (totalTractCount >= 2000) {
-        console.log(`📡 Step-by-step: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
-        boundaries = await fetchTractBoundariesForState(state);
-      } else {
-        const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}` + (forceInvalidate ? '&forceInvalidate=true' : '');
-        const boundariesResponse = await axios.get(boundariesUrl);
-        if (!boundariesResponse.data?.features?.length) {
-          if (!forceInvalidate) {
-            const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
-            if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
-          }
-          if (!boundariesResponse.data?.features?.length) {
-            return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
-          }
-        }
-        boundaries = boundariesResponse.data;
+      // Always use internal batch fetch so we get all tracts (getTractCount can be capped by TIGER).
+      console.log(`📡 Step-by-step: fetching boundaries via internal batch fetch for state: ${state}`);
+      boundaries = await fetchTractBoundariesForState(state);
+      if (!boundaries?.features?.length) {
+        return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
       }
       const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
       const countiesResponse = await axios.get(countiesUrl);
@@ -5765,23 +5739,12 @@ app.get('/api/algorithm/census-tracts/:state', async (req, res) => {
       return res.json({ tracts: fromCache.tracts });
     }
 
-    // Cache miss: same fetch pipeline as step-by-step
+    // Cache miss: same fetch pipeline as step-by-step; always use internal batch fetch for full tract set
     let boundaries;
-    const totalTractCount = await getTractCount(state);
-    if (totalTractCount >= 2000) {
-      console.log(`📡 Census-tracts: fetching boundaries via internal batch fetch (state has ${totalTractCount} tracts)`);
-      boundaries = await fetchTractBoundariesForState(state);
-    } else {
-      const boundariesUrl = `${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}`;
-      const boundariesResponse = await axios.get(boundariesUrl);
-      if (!boundariesResponse.data?.features?.length) {
-        const fresh = await axios.get(`${req.protocol}://${req.get('host')}/api/census/tract-boundaries?state=${state}&forceInvalidate=true`);
-        if (fresh.data?.features?.length) boundariesResponse.data = fresh.data;
-        if (!boundariesResponse.data?.features?.length) {
-          return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
-        }
-      }
-      boundaries = boundariesResponse.data;
+    console.log(`📡 Census-tracts: fetching boundaries via internal batch fetch for state: ${state}`);
+    boundaries = await fetchTractBoundariesForState(state);
+    if (!boundaries?.features?.length) {
+      return res.status(404).json({ error: `No tract boundaries found for state: ${state}` });
     }
     const countiesUrl = `${req.protocol}://${req.get('host')}/api/census/counties?state=${state}`;
     const countiesResponse = await axios.get(countiesUrl);
