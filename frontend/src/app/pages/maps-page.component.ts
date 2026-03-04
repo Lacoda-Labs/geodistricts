@@ -3860,15 +3860,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             ${this.getPopupPartyLine(districtParty)}`;
 
           for (const unionPolygon of polygonsToRender) {
-            if (!unionPolygon?.geometry) continue;
+            // Accept both GeoJSON Feature and raw Geometry (Polygon/MultiPolygon)
+            const geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
+            if (!geometry) continue;
+            const feature: GeoJsonFeature = unionPolygon?.geometry
+              ? (unionPolygon as GeoJsonFeature)
+              : { type: 'Feature', geometry: geometry as any, properties: {} };
             try {
-              const geoJson = L.geoJSON(unionPolygon, {
+              const geoJson = L.geoJSON(feature, {
                 style: {
                   color: '#000000',
                   weight: 0.3,
                   opacity: 0.8,
-                  fillOpacity,
-                  fillColor: color
+                  fillOpacity: fillOpacity ?? this.polygonFillOpacity,
+                  fillColor: color ?? baseColor ?? '#888'
                 }
               }).bindPopup(popupContent);
               this.tractLayer!.addLayer(geoJson);
@@ -5833,14 +5838,30 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private expandedStates: Set<string> = new Set();
 
   /**
-   * Get US data for display in the summary row (from state-comparison API when loaded).
+   * Get US data for display in the summary row.
+   * 119th: from state-comparison API when loaded.
+   * GeoDistricts and swing: sum of all states (completed states contribute their totals, others 0).
    */
   getUSData(source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
     const u = this.stateComparison?.us;
-    if (u) {
-      if (source === 'swing') return String(u.swing);
-      if (source === '119th') return type === 'D' ? String(u.congressD) : String(u.congressR);
-      if (source === 'geodistricts') return type === 'D' ? String(u.geodistrictsD) : String(u.geodistrictsR);
+    if (source === '119th' && u) {
+      return type === 'D' ? String(u.congressD) : String(u.congressR);
+    }
+    if (source === 'swing') {
+      let totalSwing = 0;
+      for (const state of this.states) {
+        totalSwing += parseInt(this.getStateData(state.code, 'swing', 'value'), 10) || 0;
+      }
+      return String(totalSwing);
+    }
+    if (source === 'geodistricts') {
+      let totalD = 0;
+      let totalR = 0;
+      for (const state of this.states) {
+        totalD += parseInt(this.getStateData(state.code, 'geodistricts', 'D'), 10) || 0;
+        totalR += parseInt(this.getStateData(state.code, 'geodistricts', 'R'), 10) || 0;
+      }
+      return type === 'D' ? String(totalD) : String(totalR);
     }
     return '0';
   }
@@ -6074,7 +6095,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressR = parseInt(this.getUSData('119th', 'R'), 10) || 0;
     const geodistrictsD = parseInt(this.getUSData('geodistricts', 'D'), 10) || 0;
     const geodistrictsR = parseInt(this.getUSData('geodistricts', 'R'), 10) || 0;
-    const districtCount = this.selectedState === 'ALL' ? this.usMapTotalDistricts : 435;
+    const districtCount = 435;
     const congressMarginD = congressD - congressR;
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
