@@ -7661,24 +7661,32 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
         }
 
         if (unionData) {
-          // Handle both single polygon and array of polygons
-          if (Array.isArray(unionData)) {
-            group.unionPolygons = unionData;
-            group.unionPolygon = unionData.length > 0 ? unionData[0] : undefined;
-          } else {
-            group.unionPolygon = unionData;
-            group.unionPolygons = [unionData];
+          // Ensure each item is a GeoJSON Feature (cache may contain raw Polygon/MultiPolygon geometry)
+          const toFeature = (item) => {
+            if (!item) return null;
+            if (item.type === 'Feature' && item.geometry) return item;
+            if ((item.type === 'Polygon' || item.type === 'MultiPolygon') && item.coordinates) {
+              return { type: 'Feature', geometry: { type: item.type, coordinates: item.coordinates }, properties: {} };
+            }
+            return item;
+          };
+          const rawList = Array.isArray(unionData) ? unionData : [unionData];
+          const features = rawList.map(toFeature).filter(Boolean);
+          if (features.length > 0) {
+            group.unionPolygons = features;
+            group.unionPolygon = features[0];
           }
 
           // Store the cache key for future reference
           group.unionPolygonCacheKey = unionCacheKey;
 
           // Log with clear indication of source
-          const polygonCount = Array.isArray(unionData) ? unionData.length : 1;
+          const polygonCount = features.length;
           const sourceLabel = isTigerBased ? 'TIGER state boundary' : 'tract-based union polygon';
-          const sizeMB = unionCacheDoc ? (unionCacheDoc.sizeMB || 'unknown') : 'unknown';
+          const sizeMB = unionCacheDoc && unionCacheDoc.sizeMB != null ? unionCacheDoc.sizeMB : 'unknown';
           const source = unionCacheDoc && unionCacheDoc.data !== undefined ? 'LOCAL CACHE' : 'CLOUD STORAGE';
-          console.log(`✅ ${source}: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB)`);
+          const geomType = group.unionPolygon && group.unionPolygon.geometry ? group.unionPolygon.geometry.type : '?';
+          console.log(`✅ ${source}: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB, geometry: ${geomType})`);
         } else {
           console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
         }

@@ -2091,6 +2091,34 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Normalize GeoJSON geometry so type matches coordinate structure.
+   * Backend/cache may return type "Polygon" with MultiPolygon coordinates (or vice versa), which breaks Leaflet.
+   * - Polygon: coordinates = [ ring, ... ], ring = [ [lng,lat], ... ] -> coordinates[0][0][0] is number (lng)
+   * - MultiPolygon: coordinates = [ polygon, ... ], polygon = [ ring, ... ] -> coordinates[0][0][0] is [lng,lat] (array)
+   * When converting MultiPolygon -> Polygon, only unwrap when coords.length === 1 so we never drop parts (e.g. district 33 with main + islands).
+   */
+  private normalizeUnionGeometry(geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Polygon | GeoJSON.MultiPolygon {
+    const g = geometry as { type: string; coordinates: unknown[] };
+    if (!g?.coordinates?.length) return geometry;
+    const coords = g.coordinates;
+    const first = coords[0];
+    if (!Array.isArray(first) || !first.length) return geometry;
+    const firstFirst = first[0];
+    if (!Array.isArray(firstFirst)) return geometry;
+    const depth2 = firstFirst[0];
+    const structureIsMultiPolygon = Array.isArray(depth2) && depth2.length >= 2 && typeof depth2[0] === 'number';
+    const structureIsPolygon = typeof depth2 === 'number';
+    if (g.type === 'Polygon' && structureIsMultiPolygon) {
+      return { type: 'MultiPolygon', coordinates: coords as GeoJSON.Position[][][] };
+    }
+    // Only unwrap to single Polygon when there is exactly one part; otherwise we'd show only the first part (e.g. TX district 33)
+    if (g.type === 'MultiPolygon' && structureIsPolygon && coords.length === 1) {
+      return { type: 'Polygon', coordinates: first as GeoJSON.Position[][] };
+    }
+    return geometry;
+  }
+
+  /**
    * Merge union polygon data from GET union-polygons into current step district groups (match by start/end district number).
    */
   private mergeUnionPolygonsIntoStep(
@@ -3861,21 +3889,27 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
           for (const unionPolygon of polygonsToRender) {
             // Accept both GeoJSON Feature and raw Geometry (Polygon/MultiPolygon)
-            const geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
+            let geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
             if (!geometry) continue;
+            if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+              geometry = this.normalizeUnionGeometry(geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+            }
             const feature: GeoJsonFeature = unionPolygon?.geometry
-              ? (unionPolygon as GeoJsonFeature)
+              ? { type: 'Feature', geometry, properties: (unionPolygon as GeoJsonFeature).properties ?? {} }
               : { type: 'Feature', geometry: geometry as any, properties: {} };
             try {
-              const geoJson = L.geoJSON(feature, {
-                style: {
-                  color: '#000000',
-                  weight: 0.3,
-                  opacity: 0.8,
-                  fillOpacity: fillOpacity ?? this.polygonFillOpacity,
-                  fillColor: color ?? baseColor ?? '#888'
-                }
-              }).bindPopup(popupContent);
+              const pathStyle: L.PathOptions = {
+                color: '#000000',
+                weight: .5,
+                opacity: 0.9,
+                fillOpacity: fillOpacity ?? this.polygonFillOpacity,
+                fillColor: color ?? baseColor ?? '#888'
+              };
+              const geoJson = L.geoJSON(feature, { style: pathStyle }).bindPopup(popupContent);
+              // Ensure style is applied to the actual path layer(s) inside the GeoJSON group (Leaflet can miss it for single Feature)
+              (geoJson as L.LayerGroup).eachLayer((layer: L.Layer) => {
+                if ('setStyle' in layer) (layer as L.Path).setStyle(pathStyle);
+              });
               this.tractLayer!.addLayer(geoJson);
               this.tractGeoJsonLayers.set(geoJson, color);
               const layerBounds = geoJson.getBounds();
