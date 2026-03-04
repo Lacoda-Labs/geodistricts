@@ -1243,14 +1243,27 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
       const swing = geodistrictsD - congressD;
 
       const stepNum = parseInt(parts[3], 10) || 0;
+      const districtCount = geodistrictsD + geodistrictsR;
+      const expectedDistricts = CONGRESSIONAL_DISTRICTS_BY_STATE[stateCode];
+      const isComplete = expectedDistricts != null && districtCount === expectedDistricts;
+
       const existing = summaries[stateCode];
-      if (!existing || stepNum > (existing._step ?? -1)) {
-        summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum };
+      if (!existing) {
+        summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum, _complete: isComplete };
+      } else {
+        // Prefer doc that has the expected number of districts (complete run); otherwise prefer higher step.
+        const preferCandidate =
+          isComplete && !existing._complete ||
+          (isComplete === existing._complete && stepNum > (existing._step ?? -1));
+        if (preferCandidate) {
+          summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum, _complete: isComplete };
+        }
       }
     }
     for (const stateCode of Object.keys(summaries)) {
       const s = summaries[stateCode];
       delete s._step;
+      delete s._complete;
     }
 
     return res.json({ summaries });

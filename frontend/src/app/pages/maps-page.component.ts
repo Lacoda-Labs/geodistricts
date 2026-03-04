@@ -6080,6 +6080,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
     const hasGeodistrictsPartyData =
+      (this.stateComparison?.us != null) ||
       (this.statePartySummaries != null && Object.keys(this.statePartySummaries).length > 0) ||
       (this.allStatesDistrictPartyByState != null && Object.keys(this.allStatesDistrictPartyByState).some(
         (code) => this.allStatesDistrictPartyByState[code] && Object.keys(this.allStatesDistrictPartyByState[code]).length > 0
@@ -6116,6 +6117,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
     const geodistrictsMarginR = geodistrictsR - geodistrictsD;
     const hasGeodistrictsPartyData =
+      (this.stateComparison?.states?.[stateCode] != null) ||
       !!(this.statePartySummaries && this.statePartySummaries[stateCode]) ||
       !!(this.allStatesDistrictPartyByState[stateCode] && Object.keys(this.allStatesDistrictPartyByState[stateCode]).length > 0);
     return {
