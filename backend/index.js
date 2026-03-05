@@ -4699,23 +4699,25 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                       console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
                     }
 
-                    // Per-DG status for union polygon and party % (for dev/maps table)
+                    // Per-DG status: use actual geometry so missing cache shows Build Polygons
                     const loadedRecon = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
                     const districtPartyDataRecon = loadedRecon && loadedRecon.districts ? loadedRecon.districts : null;
+                    const hasUnionGeometryRecon = (g) => !!(g.unionPolygon?.geometry || (Array.isArray(g.unionPolygons) && g.unionPolygons.length > 0));
                     const perGroupStatusRecon = (stepData.districtGroups || []).map(g => {
                       const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
                       return {
                         groupKey,
-                        polygon: g.unionPolygonCacheKey ? 'done' : 'missing',
+                        polygon: hasUnionGeometryRecon(g) ? 'done' : 'missing',
                         party: (districtPartyDataRecon && districtPartyDataRecon[groupKey]) ? 'done' : 'missing'
                       };
                     });
+                    const allPolygonsLoadedRecon = perGroupStatusRecon.every(s => s.polygon === 'done');
 
                     return res.json({
                       step: finalStepNumber,
                       data: stepData,
                       isComplete: true,
-                      unionPolygonsCached: cachedEntry.unionPolygonsCached === true,
+                      unionPolygonsCached: allPolygonsLoadedRecon && cachedEntry.unionPolygonsCached === true,
                       districtPartyPercentagesCalculated: !!(districtPartyDataRecon && Object.keys(districtPartyDataRecon).length > 0),
                       perGroupStatus: perGroupStatusRecon,
                       maxIterations
@@ -4864,24 +4866,26 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
           console.warn(`⚠️ Failed to cache algorithm state from final-step: ${cacheError.message}`);
         }
 
-        // Per-DG status for union polygon and party % (for dev/maps table)
+        // Per-DG status for union polygon and party % (for dev/maps table). Use actual geometry presence so that when GCS/local cache is cleared we show "missing" and Build Polygons button.
         const loaded = await loadDistrictPartyForStep(state, finalStepNumber, maxIterations);
         const districtPartyData = loaded && loaded.districts ? loaded.districts : null;
+        const hasUnionGeometry = (g) => !!(g.unionPolygon?.geometry || (Array.isArray(g.unionPolygons) && g.unionPolygons.length > 0));
         const perGroupStatus = (stepData.districtGroups || []).map(g => {
           const groupKey = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
           return {
             groupKey,
-            polygon: g.unionPolygonCacheKey ? 'done' : 'missing',
+            polygon: hasUnionGeometry(g) ? 'done' : 'missing',
             party: (districtPartyData && districtPartyData[groupKey]) ? 'done' : 'missing'
           };
         });
+        const allPolygonsLoaded = perGroupStatus.every(s => s.polygon === 'done');
 
         // Return step data (from stepData field or directly from entry) with status for dev/maps
         return res.json({
           step: finalStepNumber,
           data: stepData,
           isComplete: true,
-          unionPolygonsCached: cachedEntry.unionPolygonsCached === true,
+          unionPolygonsCached: allPolygonsLoaded && cachedEntry.unionPolygonsCached === true,
           districtPartyPercentagesCalculated: !!(districtPartyData && Object.keys(districtPartyData).length > 0),
           perGroupStatus,
           maxIterations
@@ -7688,7 +7692,11 @@ async function loadUnionPolygonsFromCache(stateCode, stepNumber, districtGroups,
           const geomType = group.unionPolygon && group.unionPolygon.geometry ? group.unionPolygon.geometry.type : '?';
           console.log(`✅ ${source}: Loaded ${polygonCount} ${sourceLabel} from cache for ${stateCode} step ${stepNumber} group ${group.startDistrictNumber}-${group.endDistrictNumber} (${sizeMB} MB, geometry: ${geomType})`);
         } else {
-          console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey}`);
+          // Cache miss (e.g. GCS deleted): clear so UI shows "missing" and Build Polygons button appears
+          console.warn(`⚠️ Union polygon cache not found for key: ${unionCacheKey} - clearing group union data`);
+          group.unionPolygonCacheKey = undefined;
+          group.unionPolygon = undefined;
+          group.unionPolygons = undefined;
         }
       }
     } catch (error) {

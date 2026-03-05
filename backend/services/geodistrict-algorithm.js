@@ -844,7 +844,6 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null, 
       type: 'Feature',
       geometry: simplifiedGeometry,
       properties: {
-        ...tracts[0].properties,
         DISTRICT_START: group.startDistrictNumber,
         DISTRICT_END: group.endDistrictNumber,
         TOTAL_POPULATION: group.totalPopulation,
@@ -1400,14 +1399,15 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
             pointCount = resultFeature.geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
           }
           
-          // Validate result size - for large inputs, we need a reasonable minimum
-          // A union of many tracts should have many points (at least proportional to input)
-          // For very large inputs (>1000 tracts), expect at least 1000 points minimum
-          // For smaller inputs, expect at least 10% of tract count as points
-          const minExpectedPoints = validTracts.length > 1000 ? 1000 : Math.max(100, Math.floor(validTracts.length * 0.1));
+          // Validate result size - a union of N tracts must have many more points than a single tract.
+          // Use a multiplier so a single-tract result (e.g. ~50-200 points) is rejected for multi-tract groups.
+          // Require at least 5 points per tract (with floor 500) so e.g. 179 tracts need 895 points.
+          const minExpectedPoints = validTracts.length > 1000
+            ? 5000
+            : Math.max(500, validTracts.length * 5);
           
           if (pointCount < minExpectedPoints) {
-            console.error(`❌ CRITICAL: Dissolve result is too small: ${pointCount} points for ${validTracts.length} tracts (${flattenedTracts.length} polygons). Expected at least ${minExpectedPoints} points. Dissolve may have failed. Falling back to sequential union.`);
+            console.error(`❌ CRITICAL: Dissolve result is too small: ${pointCount} points for ${validTracts.length} tracts (${flattenedTracts.length} polygons). Expected at least ${minExpectedPoints} points. Dissolve may have failed or returned one tract. Falling back to sequential union.`);
             // Don't return the bad result, fall through to sequential union
           } else {
             // Result looks good, simplify for display and use it
@@ -1415,7 +1415,6 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
               type: 'Feature',
               geometry: simplifyUnionGeometry(resultFeature.geometry),
               properties: {
-                ...group.censusTracts[0].properties,
                 DISTRICT_START: group.startDistrictNumber,
                 DISTRICT_END: group.endDistrictNumber,
                 TOTAL_POPULATION: group.totalPopulation,
@@ -1460,7 +1459,8 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
     
     // For very large collections, dissolve in batches then merge batch results with union (not dissolve).
     // turf.dissolve on many features can return simplified/wrong geometry; merging with turf.union preserves detail.
-    const minExpectedPoints = validTracts.length > 1000 ? 1000 : Math.max(100, Math.floor(validTracts.length * 0.1));
+    // Use same stricter threshold as direct dissolve: at least 5 points per tract so single-tract results are rejected.
+    const minExpectedPoints = validTracts.length > 1000 ? 5000 : Math.max(500, validTracts.length * 5);
     if (flattenedTracts.length > 1000) {
       console.log(`⚠️ Very large collection (${flattenedTracts.length} polygons), using batched dissolve then union-of-batches`);
       try {
@@ -1508,7 +1508,6 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
                 type: 'Feature',
                 geometry: simplifyUnionGeometry(merged.geometry),
                 properties: {
-                  ...group.censusTracts[0].properties,
                   DISTRICT_START: group.startDistrictNumber,
                   DISTRICT_END: group.endDistrictNumber,
                   TOTAL_POPULATION: group.totalPopulation,
@@ -1536,7 +1535,6 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
     // When a tract fails to merge, we push the current union as a part and start a new union with that tract (so result is MultiPolygon / array of features)
     const parts = [];
     const groupProperties = {
-      ...group.censusTracts[0].properties,
       DISTRICT_START: group.startDistrictNumber,
       DISTRICT_END: group.endDistrictNumber,
       TOTAL_POPULATION: group.totalPopulation,

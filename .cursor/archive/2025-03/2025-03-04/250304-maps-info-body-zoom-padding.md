@@ -43,3 +43,18 @@ the two union polygon JSON files referenced above have "properties" in addition 
 - Confirmed the map/popup do **not** use union polygon feature properties: popup uses district group (`district.totalPopulation`, `district.censusTracts.length`, `district.startDistrictNumber`/`endDistrictNumber`, `districtPartyByGroupKey`); union features are used only for geometry.
 - Located all backend sites that set union Feature `properties` in `backend/services/geodistrict-algorithm.js` (createUnionFromTracts, dissolve path, batched-dissolve path, sequential-union groupProperties) — each currently spreads `group.censusTracts[0].properties` or `tracts[0].properties` plus district fields.
 - **Plan created**: Union polygon properties cleanup — backend-only change to set only `DISTRICT_START`, `DISTRICT_END`, `TOTAL_POPULATION`, `TRACT_COUNT` on union features and remove single-tract property spread (no frontend changes). Plan: `.cursor/plans/union_polygon_properties_cleanup_da47481b.plan.md` (if present in workspace).
+
+---
+
+## 1520 union polygon cache and Build Polygons
+
+### Prompt
+
+i deleted union polygons from GCS, hard reload dev/maps page, but map is still showing old union polygons. where is page loading union polygons from? will a button show to Build Polygons if none are detected?
+
+### Response / actions
+
+- **Where union polygons are loaded:** Dev/maps loads the final step via GET `/api/algorithm/final-step/:state`. The backend then calls `loadUnionPolygonsFromCache`, which (1) reads the Firestore (or local file) cache doc for each `union_polygon_*` key; (2) if the doc has a `.data` field (e.g. when USE_LOCAL_CACHE), uses that and does not hit GCS; (3) otherwise loads the blob from GCS. So deleting only from GCS can leave local cache or Firestore metadata intact, and the map can still show polygons from local cache.
+- **Build Polygons button:** It appears when `needsBuildPolygons()` is true, i.e. when any group has `perGroupStatus.polygon === 'missing'`. Previously status was based on `g.unionPolygonCacheKey ? 'done' : 'missing'`, so after a failed GCS load the group still had the key and the button did not show.
+- **Fixes in backend/index.js:** (1) When union polygon cache blob is not found, clear `group.unionPolygonCacheKey`, `group.unionPolygon`, and `group.unionPolygons` so the group is treated as missing. (2) Build perGroupStatus from actual geometry: `polygon: hasUnionGeometry(g) ? 'done' : 'missing'` where `hasUnionGeometry(g)` is true only when `g.unionPolygon?.geometry` or `g.unionPolygons` with length > 0. (3) Set `unionPolygonsCached: true` only when every group has loaded geometry and the step was marked cached. Applied in both the direct final-step path and the reconstruction path.
+- **Earlier in same chat:** Stricter dissolve validation in geodistrict-algorithm.js so TX District 1 (and similar) fall through to sequential union and can produce MultiPolygon: `minExpectedPoints = max(500, validTracts.length * 5)` (e.g. 179 tracts require 895 points) so a single-tract dissolve result is rejected.
