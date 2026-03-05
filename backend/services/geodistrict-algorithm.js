@@ -1159,19 +1159,31 @@ async function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSi
         censusTracts: mainComponent
       };
       const mainPolygon = await createUnionPolygon(mainGroup, stateTotalTractCount, yieldConfig);
-      if (mainPolygon && mainPolygon.geometry) {
-        // Log polygon details for debugging
-        const geomType = mainPolygon.geometry.type;
-        let pointCount = 0;
-        if (geomType === 'Polygon' && mainPolygon.geometry.coordinates && mainPolygon.geometry.coordinates[0]) {
-          pointCount = mainPolygon.geometry.coordinates[0].length;
-        } else if (geomType === 'MultiPolygon' && mainPolygon.geometry.coordinates) {
-          pointCount = mainPolygon.geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
+      if (mainPolygon) {
+        const mainFeatures = Array.isArray(mainPolygon) ? mainPolygon : [mainPolygon];
+        const validMainFeatures = mainFeatures.filter(f => f && f.geometry);
+        if (validMainFeatures.length > 0) {
+          if (validMainFeatures.length > 1) {
+            console.log(`✅ Created main union (${validMainFeatures.length} parts from merge failures) for component with ${mainComponent.length} tracts`);
+          } else {
+            const geomType = validMainFeatures[0].geometry.type;
+            let pointCount = 0;
+            if (geomType === 'Polygon' && validMainFeatures[0].geometry.coordinates && validMainFeatures[0].geometry.coordinates[0]) {
+              pointCount = validMainFeatures[0].geometry.coordinates[0].length;
+            } else if (geomType === 'MultiPolygon' && validMainFeatures[0].geometry.coordinates) {
+              pointCount = validMainFeatures[0].geometry.coordinates.reduce((sum, poly) => sum + (poly[0]?.length || 0), 0);
+            }
+            console.log(`✅ Created main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - type: ${geomType}, points: ${pointCount}`);
+          }
+          unionPolygons.push(...validMainFeatures);
+        } else {
+          console.error(`❌ Failed to create main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - no valid geometry`);
+          if (isStep0) {
+            console.error(`❌ CRITICAL: Main polygon creation failed at Step 0. Will still create island polygons so DG has geometry.`);
+          }
         }
-        console.log(`✅ Created main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - type: ${geomType}, points: ${pointCount}`);
-        unionPolygons.push(mainPolygon);
       } else {
-        console.error(`❌ Failed to create main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - polygon is ${mainPolygon ? 'missing geometry' : 'null'}`);
+        console.error(`❌ Failed to create main union polygon for component with ${mainComponent.length} tracts (${validMainTracts.length} with geometry) - polygon is null`);
         // Still create island polygons so the DG has at least island geometry (multi-polygon)
         if (isStep0) {
           console.error(`❌ CRITICAL: Main polygon creation failed at Step 0. Will still create island polygons so DG has geometry.`);
@@ -1188,11 +1200,17 @@ async function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSi
             censusTracts: islandComponent
           };
           const islandPolygon = await createUnionPolygon(islandGroup, stateTotalTractCount, yieldConfig);
-          if (islandPolygon && islandPolygon.geometry) {
-            unionPolygons.push(islandPolygon);
-            console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts`);
+          if (islandPolygon) {
+            const islandFeatures = Array.isArray(islandPolygon) ? islandPolygon : [islandPolygon];
+            const validIslandFeatures = islandFeatures.filter(f => f && f.geometry);
+            if (validIslandFeatures.length > 0) {
+              unionPolygons.push(...validIslandFeatures);
+              console.log(`🏝️ Created island union polygon ${i + 1}/${islandComponents.length} for component with ${islandComponent.length} tracts${validIslandFeatures.length > 1 ? ` (${validIslandFeatures.length} parts)` : ''}`);
+            } else {
+              console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts - no valid geometry`);
+            }
           } else {
-            console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts - polygon is ${islandPolygon ? 'missing geometry' : 'null'}`);
+            console.warn(`⚠️ Failed to create island union polygon ${i + 1} with ${islandComponent.length} tracts - polygon is null`);
           }
         }
       }
@@ -1227,13 +1245,13 @@ async function createUnionPolygonsForGroup(group, adjacencyGraph = null, forceSi
     }
   }
 
-  // Single component or no adjacency graph - create single union polygon
+  // Single component or no adjacency graph - create single union polygon (or array of parts if merges failed)
   // At Step 0 with single component, return as array for consistency
   const singlePolygon = await createUnionPolygon(group, stateTotalTractCount, yieldConfig);
   if (isStep0 && singlePolygon) {
-    return [singlePolygon]; // Return as array even for single component at Step 0
+    return Array.isArray(singlePolygon) ? singlePolygon : [singlePolygon]; // Return as array even for single component at Step 0
   }
-  return singlePolygon;
+  return singlePolygon; // Single feature or array of features (when sequential union had merge failures)
 }
 
 /**
@@ -1514,6 +1532,16 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
       console.warn(`⚠️ Invalid initial tract geometry for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
       return null;
     }
+
+    // When a tract fails to merge, we push the current union as a part and start a new union with that tract (so result is MultiPolygon / array of features)
+    const parts = [];
+    const groupProperties = {
+      ...group.censusTracts[0].properties,
+      DISTRICT_START: group.startDistrictNumber,
+      DISTRICT_END: group.endDistrictNumber,
+      TOTAL_POPULATION: group.totalPopulation,
+      TRACT_COUNT: group.censusTracts.length
+    };
     
     console.log(`🔨 Creating union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${validTracts.length} tracts, ${flattenedTracts.length} polygons after flattening)`);
 
@@ -1522,6 +1550,7 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
     let processedCount = 1;
     const startTime = Date.now();
     let skippedCount = 0;
+    let mergeFailureCount = 0;
 
     for (let i = 1; i < flattenedTracts.length; i++) {
       // Validate union geometry before attempting union
@@ -1541,12 +1570,15 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
       try {
         const unionResult = turf.union(turf.featureCollection([union, tractFeature]));
         if (!unionResult || !unionResult.geometry) {
-          // Log first few failures to understand why
-          if (skippedCount < 5) {
-            console.warn(`⚠️ Union returned null/invalid for polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}. Union type: ${union.geometry?.type}, tract type: ${tractFeature.geometry?.type}`);
+          // Merge failed: keep current union as a part and start a new part with this tract (do not drop it)
+          if (mergeFailureCount < 5) {
+            console.warn(`⚠️ Union returned null/invalid for polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}. Keeping as separate part. Union type: ${union.geometry?.type}, tract type: ${tractFeature.geometry?.type}`);
           }
-          skippedCount++;
-          continue; // Skip this polygon but continue with others
+          mergeFailureCount++;
+          parts.push(union);
+          union = tractFeature;
+          processedCount++;
+          continue;
         }
         union = unionResult;
         processedCount++;
@@ -1561,18 +1593,22 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
           console.log(`🔨 Union progress: ${processedCount}/${flattenedTracts.length} polygons (${Math.round(processedCount / flattenedTracts.length * 100)}%) - ${elapsed}ms`);
         }
       } catch (error) {
-        // Log first few errors to understand why
-        if (skippedCount < 5) {
-          console.warn(`⚠️ Error unioning polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message);
+        // Merge threw: keep current union as a part and start a new part with this tract (do not drop it)
+        if (mergeFailureCount < 5) {
+          console.warn(`⚠️ Error unioning polygon ${i}/${flattenedTracts.length} in group ${group.startDistrictNumber}-${group.endDistrictNumber}:`, error.message, '- keeping as separate part');
         }
-        skippedCount++;
-        // Skip this polygon and continue with the next one
-        continue;
+        mergeFailureCount++;
+        parts.push(union);
+        union = tractFeature;
+        processedCount++;
       }
     }
     
     if (skippedCount > 0) {
-      console.log(`⚠️ Skipped ${skippedCount} polygon(s) during union for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${Math.round(skippedCount / flattenedTracts.length * 100)}% skipped)`);
+      console.log(`⚠️ Skipped ${skippedCount} polygon(s) (invalid geometry) during union for group ${group.startDistrictNumber}-${group.endDistrictNumber}`);
+    }
+    if (mergeFailureCount > 0) {
+      console.log(`⚠️ ${mergeFailureCount} merge failure(s) for group ${group.startDistrictNumber}-${group.endDistrictNumber} - result has ${parts.length + 1} part(s) (MultiPolygon)`);
     }
 
     const totalTime = Date.now() - startTime;
@@ -1584,22 +1620,25 @@ async function createUnionPolygon(group, stateTotalTractCount = null, yieldConfi
       return null;
     }
 
-    // Simplify geometry for display (reduce precision, remove duplicate points)
-    const simplifiedGeometry = simplifyUnionGeometry(union.geometry);
+    // If we had merge failures, we have multiple parts: return array of Features so caller can build MultiPolygon
+    if (parts.length > 0) {
+      parts.push(union);
+      const features = parts.map(p => ({
+        type: 'Feature',
+        geometry: simplifyUnionGeometry(p.geometry),
+        properties: groupProperties
+      }));
+      console.log(`✅ Successfully created union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (${features.length} parts, MultiPolygon)`);
+      return features;
+    }
 
-    // Create a GeoJSON feature with the union geometry and group properties
+    // Single part: return one Feature as before
+    const simplifiedGeometry = simplifyUnionGeometry(union.geometry);
     const unionFeature = {
       type: 'Feature',
       geometry: simplifiedGeometry,
-      properties: {
-        ...group.censusTracts[0].properties,
-        DISTRICT_START: group.startDistrictNumber,
-        DISTRICT_END: group.endDistrictNumber,
-        TOTAL_POPULATION: group.totalPopulation,
-        TRACT_COUNT: group.censusTracts.length
-      }
+      properties: groupProperties
     };
-
     console.log(`✅ Successfully created union polygon for group ${group.startDistrictNumber}-${group.endDistrictNumber} (geometry type: ${union.geometry.type})`);
     return unionFeature;
   } catch (error) {
