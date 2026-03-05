@@ -4663,6 +4663,58 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractEntriesByDg.clear();
     // Re-render the map with the new highlighting
     this.renderFinalDistricts();
+    // Zoom and center on the selected district when selecting from info-body
+    if (this.selectedDistrictGroupIndex !== null && this.map) {
+      const bounds = this.getBoundsForDistrictGroup(this.selectedDistrictGroupIndex);
+      if (bounds?.isValid()) {
+        const size = this.map.getSize();
+        const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
+        this.map.fitBounds(bounds, { maxZoom: 14, padding });
+      }
+    }
+  }
+
+  /**
+   * Get map bounds for a district group by index (for zoom/center when selecting from info-body).
+   */
+  private getBoundsForDistrictGroup(index: number): L.LatLngBounds | null {
+    const district = this.currentStep?.districtGroups?.[index];
+    if (!district) return null;
+    if (district.bounds) {
+      return L.latLngBounds(
+        [district.bounds.south, district.bounds.west],
+        [district.bounds.north, district.bounds.east]
+      );
+    }
+    const unionPolygons = (district as any).unionPolygons;
+    const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+    const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
+    const polygonsToUse = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
+    if (polygonsToUse.length > 0) {
+      const bounds = L.latLngBounds([]);
+      for (const unionPolygon of polygonsToUse) {
+        const geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
+        if (!geometry) continue;
+        const feature: GeoJsonFeature = unionPolygon?.geometry
+          ? { type: 'Feature', geometry, properties: {} }
+          : { type: 'Feature', geometry: geometry as any, properties: {} };
+        const layer = L.geoJSON(feature);
+        const layerBounds = layer.getBounds?.();
+        if (layerBounds?.isValid()) bounds.extend(layerBounds);
+      }
+      return bounds.isValid() ? bounds : null;
+    }
+    if (district.censusTracts?.length) {
+      const bounds = L.latLngBounds([]);
+      for (const tract of district.censusTracts) {
+        if (!tract?.geometry) continue;
+        const layer = L.geoJSON(tract);
+        const layerBounds = layer.getBounds?.();
+        if (layerBounds?.isValid()) bounds.extend(layerBounds);
+      }
+      return bounds.isValid() ? bounds : null;
+    }
+    return null;
   }
 
   /**
@@ -5386,9 +5438,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (bounds && bounds.isValid()) {
         const center = bounds.getCenter();
         layer.openPopup(center);
-        if (!this.map.getBounds().contains(center)) {
-          this.map.setView(center, Math.max(this.map.getZoom(), 10));
-        }
+        // Zoom and center on the selected tract when selecting from info-body
+        const size = this.map.getSize();
+        const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
+        this.map.fitBounds(bounds, { maxZoom: 14, padding });
       } else {
         layer.openPopup();
       }
@@ -5402,7 +5455,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const bounds = tempLayer.getBounds?.();
       if (bounds && bounds.isValid()) {
         const center = bounds.getCenter();
-        this.map.fitBounds(bounds, { maxZoom: 14, padding: [30, 30] });
+        const size = this.map.getSize();
+        const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
+        this.map.fitBounds(bounds, { maxZoom: 14, padding });
         const props = tractFeature.properties || {};
         const groupLabel = this.getTractGroupLabel(tractFeature);
         const isIsolated = this.isolatedTractIds.has(tractId);
