@@ -7176,6 +7176,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
 
     const nextStepNumber = algorithmState.iteration + 1;
     const forceInvalidate = options.forceInvalidate || false;
+    const moveBalanceAfterStep = options.moveBalanceAfterStep === true;
 
     // Create cache key for this specific step
     const stepCacheKey = `algorithm_step_${state}_${maxIterations}_${nextStepNumber}`;
@@ -7340,7 +7341,123 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     logger.info(`🚀 Executing next step for ${state} (iteration ${nextStepNumber})`);
 
     // Execute next step
-    const { step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState);
+    let step, updatedState, isComplete;
+    ({ step, state: updatedState, isComplete } = await algorithmService.executeNextStep(algorithmState));
+
+    // Optional: resolve isolation and balance after this step (when "Move/balance per step" is checked in UI)
+    if (moveBalanceAfterStep && nextStepNumber > 0) {
+      try {
+        const { getTractId } = require('./services/geodistrict-algorithm');
+        const allTracts = [];
+        for (const g of step.districtGroups || []) {
+          for (const t of g.censusTracts || []) {
+            if (t && getTractId(t)) allTracts.push(t);
+          }
+        }
+        let step0IslandSet = new Set();
+        const step0 = updatedState.steps && updatedState.steps[0] ? updatedState.steps[0] : null;
+        if (step0 && step0.islandTractsData) {
+          const id = step0.islandTractsData;
+          if (id.islandTractsByGroup) {
+            for (const islandGroups of Object.values(id.islandTractsByGroup)) {
+              if (Array.isArray(islandGroups)) {
+                for (const group of islandGroups) {
+                  if (Array.isArray(group)) group.forEach(tid => step0IslandSet.add(tid));
+                  else if (typeof group === 'string') step0IslandSet.add(group);
+                  else if (group && Array.isArray(group.tractIds)) group.tractIds.forEach(tid => step0IslandSet.add(tid));
+                }
+              }
+            }
+          }
+          if (Array.isArray(id.excludedTractIds)) id.excludedTractIds.forEach(tid => step0IslandSet.add(tid));
+        }
+        const step0IslandTractIds = step0IslandSet.size > 0 ? step0IslandSet : null;
+
+        const isFinalStep = step.districtGroups.length > 0 && step.districtGroups.every(g => g.startDistrictNumber === g.endDistrictNumber);
+        let groups = step.districtGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+
+        if (isFinalStep) {
+          try {
+            const s4DataLoader = require('./services/s4-data-loader');
+            const stateForS4 = s4DataLoader.normalizeStateForS4(state);
+            await s4DataLoader.loadS4AdjacencyData(stateForS4);
+          } catch (s4Err) {
+            console.warn(`⚠️ Failed to load S4 adjacency data for ${state}: ${s4Err.message}`);
+          }
+          const resolutionResult = algorithmService.resolveIsolationForFinalStep(groups, allTracts, step0IslandTractIds, nextStepNumber);
+          groups = resolutionResult.districtGroups;
+          const totalPopulation = groups.reduce((sum, g) => sum + (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0), 0);
+          const targetDistrictPopulation = totalPopulation / groups.length;
+          groups = algorithmService.balanceDistrictsByVariance(groups, allTracts, targetDistrictPopulation);
+          const maxAbsVariancePercent = (grps) => {
+            let max = 0;
+            for (const g of grps) {
+              const pop = (g.censusTracts || []).reduce((s, t) => s + (t.properties?.POPULATION || 0), 0);
+              const n = g.totalDistricts != null ? g.totalDistricts : (g.endDistrictNumber - g.startDistrictNumber + 1);
+              const target = targetDistrictPopulation * n;
+              if (target <= 0) continue;
+              const v = Math.abs(((pop - target) / target) * 100);
+              if (v > max) max = v;
+            }
+            return max;
+          };
+          const improvementThresholdPercent = 1.0;
+          const resolveIsolated = () => {
+            for (let isoIter = 0; isoIter < 10; isoIter++) {
+              const isolationResult = algorithmService.detectIsolatedTracts(groups, allTracts, nextStepNumber, step0IslandSet);
+              if (isolationResult.isolatedTractIds.size === 0) return;
+              try {
+                const moveResult = algorithmService.moveIsolatedComponentsByAdjacency(groups, allTracts, isolationResult, step0IslandSet);
+                groups = moveResult.districtGroups;
+                if (moveResult.unmovableTractIds && moveResult.unmovableTractIds.length > 0) {
+                  moveResult.unmovableTractIds.forEach(id => step0IslandSet.add(id));
+                }
+                if (moveResult.movedTractCount === 0) return;
+              } catch (moveErr) {
+                console.warn(`Next-step move/balance: move isolated failed: ${moveErr.message}`);
+                return;
+              }
+            }
+          };
+          resolveIsolated();
+          const worstBeforeSecond = maxAbsVariancePercent(groups);
+          groups = algorithmService.balanceDistrictsByVariance(groups, allTracts, targetDistrictPopulation);
+          const worstAfterSecond = maxAbsVariancePercent(groups);
+          if (worstBeforeSecond - worstAfterSecond >= improvementThresholdPercent) {
+            resolveIsolated();
+            groups = algorithmService.balanceDistrictsByVariance(groups, allTracts, targetDistrictPopulation);
+          }
+          step = { ...step, districtGroups: groups, isolatedTractsData: { isolatedTractsByGroup: {}, isolatedTractIds: [], totalIsolated: 0, groupsWithIsolation: 0 } };
+          isComplete = true;
+          const stepsCopy = [...(updatedState.steps || [])];
+          while (stepsCopy.length <= nextStepNumber) stepsCopy.push(null);
+          stepsCopy[nextStepNumber] = step;
+          updatedState = { ...updatedState, currentGroups: groups, steps: stepsCopy };
+          const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+          const districtPartyUrl = `${baseUrl}/api/algorithm/district-party/${state}?finalStepNumber=${nextStepNumber}&maxIterations=${maxIterations}`;
+          setImmediate(() => {
+            axios.post(districtPartyUrl, {}).then(() => {
+              console.log(`✅ POST district-party accepted (202) for ${state} final step ${nextStepNumber} after next-step move/balance`);
+            }).catch((err) => {
+              console.error(`❌ Failed to trigger district-party job for ${state}:`, err.message);
+            });
+          });
+          console.log(`✅ NEXT-STEP: Move/balance applied at final step ${nextStepNumber} for ${state}`);
+        } else {
+          const resolutionResult = algorithmService.resolveIsolationForStep(groups, allTracts, step.divisionLines || [], step0IslandTractIds, nextStepNumber);
+          groups = resolutionResult.districtGroups;
+          groups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(groups, allTracts, step.divisionLines || []);
+          step = { ...step, districtGroups: groups };
+          const stepsCopy = [...(updatedState.steps || [])];
+          while (stepsCopy.length <= nextStepNumber) stepsCopy.push(null);
+          stepsCopy[nextStepNumber] = step;
+          updatedState = { ...updatedState, currentGroups: groups, steps: stepsCopy };
+          console.log(`✅ NEXT-STEP: Move/balance applied at step ${nextStepNumber} for ${state}`);
+        }
+      } catch (moveBalanceErr) {
+        console.warn(`⚠️ Move/balance after step ${nextStepNumber} failed: ${moveBalanceErr.message}, returning step without move/balance`);
+      }
+    }
 
     // Cache the step result (await so step is durably recorded before response). Union polygons built async via job.
     const cacheStepResult = async () => {
@@ -7518,7 +7635,17 @@ async function cacheUnionPolygons(stateCode, stepNumber, districtGroups) {
     const unionCacheKey = `union_polygon_${stateCode}_${stepNumber}_${groupKey}`;
 
     try {
-      const unionData = group.unionPolygons || (group.unionPolygon ? [group.unionPolygon] : null);
+      let unionData = group.unionPolygons || (group.unionPolygon ? [group.unionPolygon] : null);
+
+      // Normalize single Polygon to MultiPolygon so cached union polygons have consistent geometry type (fixes TX 33 etc.)
+      if (unionData && unionData.length === 1 && unionData[0]?.geometry?.type === 'Polygon') {
+        const f = unionData[0];
+        unionData = [{
+          type: 'Feature',
+          geometry: { type: 'MultiPolygon', coordinates: [f.geometry.coordinates] },
+          properties: f.properties || {}
+        }];
+      }
 
       if (isStep0) {
         const hasArray = Array.isArray(group.unionPolygons);
@@ -8690,8 +8817,19 @@ async function recreateUnionPolygonsForGroups(districtGroups, suppressVerboseLog
             group.unionPolygon = multi || unionResult[0];
             group.unionPolygons = unionResult;
           } else {
-            group.unionPolygon = unionResult;
-            group.unionPolygons = undefined;
+            // Single feature: normalize Polygon to MultiPolygon for consistent type in cache and UI
+            const feat = unionResult;
+            if (feat.geometry?.type === 'Polygon') {
+              group.unionPolygon = {
+                type: 'Feature',
+                geometry: { type: 'MultiPolygon', coordinates: [feat.geometry.coordinates] },
+                properties: feat.properties || {}
+              };
+              group.unionPolygons = [group.unionPolygon];
+            } else {
+              group.unionPolygon = feat;
+              group.unionPolygons = undefined;
+            }
           }
         }
       }

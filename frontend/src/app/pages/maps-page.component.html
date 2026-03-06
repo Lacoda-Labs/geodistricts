@@ -107,6 +107,14 @@
             (restart)="resetToStart()"
             (clearCache)="forceRefreshAndReset()">
           </app-step-btn-bar>
+          <div class="move-balance-per-step-option" *ngIf="isDevMode">
+            <mat-checkbox
+              [checked]="moveBalancePerStep()"
+              (change)="moveBalancePerStep.set($event.checked)"
+              aria-label="Move/balance per step">
+              Move/balance per step
+            </mat-checkbox>
+          </div>
           </div>
         </div>
 

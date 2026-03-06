@@ -834,21 +834,41 @@ function createUnionPolygonsS4Ordered(group, adjacencyGraph, stepNumber = null, 
     let union = turf.feature(flattened[0].geometry);
     if (!union?.geometry) return null;
 
+    // When a polygon fails to merge, keep it as a separate part (do not drop tracts)
+    const parts = [];
     for (let i = 1; i < flattened.length; i++) {
-      const merged = mergePolygonIntoUnion(union, turf.feature(flattened[i].geometry));
-      if (merged) union = merged;
+      const nextFeature = turf.feature(flattened[i].geometry);
+      const merged = mergePolygonIntoUnion(union, nextFeature);
+      if (merged) {
+        union = merged;
+      } else {
+        parts.push(union);
+        union = nextFeature;
+      }
+    }
+
+    const groupProperties = {
+      DISTRICT_START: group.startDistrictNumber,
+      DISTRICT_END: group.endDistrictNumber,
+      TOTAL_POPULATION: group.totalPopulation,
+      TRACT_COUNT: tracts.length
+    };
+
+    if (parts.length > 0) {
+      parts.push(union);
+      const multi = buildMultiPolygonFromFeatures(parts.map(p => ({ type: 'Feature', geometry: p.geometry, properties: {} })));
+      if (multi) {
+        multi.properties = groupProperties;
+        multi.geometry = simplifyUnionGeometry(multi.geometry);
+        return multi;
+      }
     }
 
     const simplifiedGeometry = simplifyUnionGeometry(union.geometry);
     return {
       type: 'Feature',
       geometry: simplifiedGeometry,
-      properties: {
-        DISTRICT_START: group.startDistrictNumber,
-        DISTRICT_END: group.endDistrictNumber,
-        TOTAL_POPULATION: group.totalPopulation,
-        TRACT_COUNT: tracts.length
-      }
+      properties: groupProperties
     };
   }
 

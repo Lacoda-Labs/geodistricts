@@ -109,6 +109,8 @@ export interface GeodistrictOptions {
   useDirectAPI?: boolean;
   forceInvalidate?: boolean;
   maxIterations?: number;
+  /** When true, backend runs move isolated + balance after each division step (used when Play with "Move/balance per step" checked). */
+  moveBalanceAfterStep?: boolean;
 }
 
 /** Response from GET /api/algorithm/map-polygons/:state - polygons only, no algorithm run */
@@ -582,7 +584,7 @@ export class GeodistrictAlgorithmService {
    * Returns an Observable that emits the next step
    */
   executeNextStep(options: GeodistrictOptions): Observable<{ step: GeodistrictStep; stepIndex: number; isComplete: boolean }> {
-    const { state, maxIterations = 100 } = options;
+    const { state, maxIterations = 100, moveBalanceAfterStep } = options;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const executeUrl = `${backendUrl}/api/algorithm/execute/next-step`;
 
@@ -594,7 +596,10 @@ export class GeodistrictAlgorithmService {
       isComplete: boolean;
     }>(executeUrl, {
       state,
-      maxIterations
+      maxIterations,
+      options: {
+        ...(typeof moveBalanceAfterStep === 'boolean' && { moveBalanceAfterStep })
+      }
     }, {
       headers: {
         'Content-Type': 'application/json'

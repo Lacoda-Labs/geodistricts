@@ -117,7 +117,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 
 - **Backward compatibility**: If `isolationStrategy` is omitted and `resolveIsolation === true`, behavior is `perStep`.
 - **Run mode** with `perStep`: Algorithm runs step 0 through final step; isolation resolution runs after each division. Bridge tract detection is automatic in this path.
-- **Step mode** (step-by-step API and UI): The user initiates each step (Detect isolated, Move isolated, Detect bridge, Move bridge). Bridge detection is not automatic. A step is cached when the DG is contiguous or as close as possible.
+- **Step mode** (step-by-step API and UI): The user initiates each step (Detect isolated, Move isolated, Detect bridge, Move bridge). Bridge detection is not automatic. A step is cached when the DG is contiguous or as close as possible. In the dev UI, a **"Move/balance per step"** checkbox can be enabled; when checked and the user clicks Play, each division step is followed by resolve-isolation and balance (sibling-pair for non-final steps, variance-based at final step), matching the per-step strategy of the run-all flow. This uses `POST /api/algorithm/execute/next-step` with `options.moveBalanceAfterStep: true`.
 
 ## 9. Implementation notes
 
@@ -136,6 +136,7 @@ Three strategies control when (or whether) isolation is resolved during a full a
 - `POST /api/algorithm/move-bridge-tracts` — move bridge tracts into isolated group; re-detect isolation after.
 - `POST /api/algorithm/move-all-isolated-tracts` — move all isolated tracts for a step; **fast path** when frontend sends `districtGroups`, `isolatedTractsData`, and `divisionLines` (no cache I/O). When every group is single-district (final step), the backend uses the **adjacency-based** move (whole-component, sibling-first) instead of the sibling-only move.
 - `POST /api/algorithm/balance-after-isolated` — body: `state`, `step`, `districtGroups`; `divisionLines` required only when not at final step. At final step (all single-district groups), runs **variance-based balancing** (`balanceDistrictsByVariance`). Otherwise runs `balanceSiblingPairsAfterIsolatedMoves` (sibling pairs from division lines).
+- `POST /api/algorithm/execute/next-step` — body: `state`, `maxIterations`, optional `options`. When `options.moveBalanceAfterStep === true`, after executing the next division step the backend runs resolve-isolation (ForStep or ForFinalStep) and balance (sibling-pair or variance at final step), then caches and returns the result. Used by the dev UI "Move/balance per step" checkbox when Play is clicked.
 
 ### Frontend
 

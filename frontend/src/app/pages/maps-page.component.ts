@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -156,6 +156,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
   private mapToggleControl: L.Control | null = null; // Custom toggle control
   isPlaying: boolean = false; // Track if auto-playing steps
+  /** When true, Play runs move isolated + balance after each division step (backend option moveBalanceAfterStep). */
+  moveBalancePerStep = signal(false);
   /** Guard to avoid re-entering runFinalStepToCompletion while move/balance is in flight (prevents play bouncing). */
   private _runningFinalStepCompletion = false;
 
@@ -2289,6 +2291,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         useDirectAPI: false,
         forceInvalidate: false,
         maxIterations: 100,
+        moveBalanceAfterStep: this.moveBalancePerStep(),
       };
       this.showIsolationResolutionUI = false;
 
