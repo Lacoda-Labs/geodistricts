@@ -283,6 +283,22 @@
               <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
             </div>
 
+            <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
+            <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
+              <span class="step-move-balance-label">This step:</span>
+              <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts" class="move-link"
+                [matTooltip]="isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts for this step'">
+                {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+              </button>
+              <span class="step-move-balance-sep">·</span>
+              <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                class="balance-link"
+                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : (isBalancingDistricts ? 'Balancing...' : 'Balance districts for this step')">
+                {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+              </button>
+            </div>
+
             <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
             <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
             <div class="final-step-actions" *ngIf="isFinalStepActive">
@@ -476,6 +492,22 @@
                 Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
               </span>
               <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
+            </div>
+
+            <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
+            <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
+              <span class="step-move-balance-label">This step:</span>
+              <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts" class="move-link"
+                [matTooltip]="isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts for this step'">
+                {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+              </button>
+              <span class="step-move-balance-sep">·</span>
+              <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                class="balance-link"
+                [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : (isBalancingDistricts ? 'Balancing...' : 'Balance districts for this step')">
+                {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+              </button>
             </div>
 
             <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->

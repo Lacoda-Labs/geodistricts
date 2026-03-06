@@ -3757,9 +3757,13 @@ class GeodistrictAlgorithmService {
    * @returns {Array} Updated district groups
    */
   balanceSiblingPairsAfterIsolatedMoves(updatedGroups, allTracts, divisionLines) {
-    if (!divisionLines || divisionLines.length === 0) return updatedGroups;
+    if (!divisionLines || divisionLines.length === 0) {
+      logger.debug('balanceSiblingPairsAfterIsolatedMoves: no division lines, skipping');
+      return updatedGroups;
+    }
     const adjacencyGraph = this.buildGeometryAdjacencyGraph(allTracts);
     let groups = updatedGroups.map(g => ({ ...g, censusTracts: [...(g.censusTracts || [])] }));
+    let totalSwaps = 0;
 
     for (const divLine of divisionLines) {
       if (!divLine.siblingGroups || divLine.siblingGroups.length !== 2) continue;
@@ -3866,10 +3870,16 @@ class GeodistrictAlgorithmService {
           });
           moved = true;
           swaps++;
+          totalSwaps++;
           break;
         }
         if (!moved) break;
       }
+    }
+    if (totalSwaps > 0) {
+      console.log(`✅ BALANCE: Sibling-pair balance performed ${totalSwaps} tract swap(s) across ${divisionLines.length} division line(s)`);
+    } else {
+      console.log(`📊 BALANCE: Sibling-pair balance completed with 0 swaps (${divisionLines.length} division lines; pairs within target variance or no valid boundary moves)`);
     }
     return groups;
   }

@@ -871,6 +871,36 @@
   }
 }
 
+.step-move-balance-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+
+  .step-move-balance-label {
+    color: var(--mat-sys-on-surface-variant, #42474E);
+    margin-right: 2px;
+  }
+
+  .move-link,
+  .balance-link {
+    min-width: 0;
+    padding: 0 4px;
+    text-decoration: underline;
+    &:not([disabled]):hover {
+      text-decoration: none;
+    }
+  }
+
+  .step-move-balance-sep {
+    color: var(--mat-sys-outline, #74777a);
+    user-select: none;
+  }
+}
+
 .final-step-phase-label {
   margin-bottom: 8px;
   padding: 0 16px;

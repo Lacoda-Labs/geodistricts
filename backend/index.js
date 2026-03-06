@@ -7446,7 +7446,14 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
         } else {
           const resolutionResult = algorithmService.resolveIsolationForStep(groups, allTracts, step.divisionLines || [], step0IslandTractIds, nextStepNumber);
           groups = resolutionResult.districtGroups;
-          groups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(groups, allTracts, step.divisionLines || []);
+          const divisionLinesForBalance = step.divisionLines || [];
+          console.log(`🔧 NEXT-STEP: Running sibling-pair balance for ${divisionLinesForBalance.length} division lines (step ${nextStepNumber}, ${groups.length} groups)`);
+          try {
+            groups = algorithmService.balanceSiblingPairsAfterIsolatedMoves(groups, allTracts, divisionLinesForBalance);
+            console.log(`✅ NEXT-STEP: Sibling-pair balance complete`);
+          } catch (balanceErr) {
+            console.warn(`⚠️ Sibling-pair balance failed: ${balanceErr.message}, using groups after resolve only`);
+          }
           step = { ...step, districtGroups: groups };
           const stepsCopy = [...(updatedState.steps || [])];
           while (stepsCopy.length <= nextStepNumber) stepsCopy.push(null);
@@ -7456,6 +7463,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
         }
       } catch (moveBalanceErr) {
         console.warn(`⚠️ Move/balance after step ${nextStepNumber} failed: ${moveBalanceErr.message}, returning step without move/balance`);
+        if (moveBalanceErr.stack) console.warn(moveBalanceErr.stack);
       }
     }
 
