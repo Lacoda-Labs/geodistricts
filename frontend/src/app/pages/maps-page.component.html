@@ -19,11 +19,7 @@
     <ng-container *ngIf="selectedState === 'ALL'">
       <section class="us-data-section">
         <!-- US Summary Row -->
-        <app-state-row 
-          [data]="getUSRowData()"
-          [clickable]="false"
-          background="off"
-          section="us-data">
+        <app-state-row [data]="getUSRowData()" [clickable]="false" background="off" section="us-data">
         </app-state-row>
 
         <!-- Table Header: two rows for D, R, Δ sub-columns -->
@@ -47,12 +43,8 @@
         </div>
 
         <!-- State Rows (single-district states shown but not selectable) -->
-        <app-state-row 
-          *ngFor="let state of states"
-          [data]="getStateRowData(state.code)"
-          [clickable]="!isSingleDistrictState(state.code)"
-          background="off"
-          section="us-data"
+        <app-state-row *ngFor="let state of states" [data]="getStateRowData(state.code)"
+          [clickable]="!isSingleDistrictState(state.code)" background="off" section="us-data"
           (rowClick)="selectStateFromTable($event)">
         </app-state-row>
       </section>
@@ -65,15 +57,14 @@
           <!-- Row 1: State title + close -->
           <div class="info-header-state-row">
             <img *ngIf="selectedState && selectedState !== 'ALL'"
-              [src]="'/images/state-flags/23x15/' + selectedState + '.png'"
-              [alt]="stateName(selectedState) + ' Flag'"
-              class="info-header-flag"
-              (error)="$event.target.style.display='none'">
-            <span class="info-header-title">{{ stateName(selectedState) }} {{ getStateDistrictCount(selectedState) }} Districts</span>
-            <span class="info-header-state-fips" *ngIf="isDevMode && selectedState && selectedState !== 'ALL' && getStateFips(selectedState)">State FIPS: {{ getStateFips(selectedState) }}</span>
-            <button class="info-header-close"
-              (click)="selectedState = 'ALL'; onStateChange()"
-              mat-icon-button
+              [src]="'/images/state-flags/23x15/' + selectedState + '.png'" [alt]="stateName(selectedState) + ' Flag'"
+              class="info-header-flag" (error)="$event.target.style.display='none'">
+            <span class="info-header-title">{{ stateName(selectedState) }} {{ getStateDistrictCount(selectedState) }}
+              Districts</span>
+            <span class="info-header-state-fips"
+              *ngIf="isDevMode && selectedState && selectedState !== 'ALL' && getStateFips(selectedState)">State FIPS:
+              {{ getStateFips(selectedState) }}</span>
+            <button class="info-header-close" (click)="selectedState = 'ALL'; onStateChange()" mat-icon-button
               aria-label="Close and return to map">
               <mat-icon fontIcon="close"></mat-icon>
             </button>
@@ -88,33 +79,15 @@
             </span>
           </div>
           <div class="info-header-step-bar">
-          <app-step-btn-bar
-            [variant]="isDevMode ? 'admin' : 'public'"
-            [disabled]="isLoadingSteps || isMovingIsolatedTracts || isBalancingDistricts"
-            [canGoToFirst]="canGoToFirstStep()"
-            [canGoToPrevious]="canGoToPreviousStep()"
-            [canGoToNext]="canGoToNextStep()"
-            [canGoToLast]="canGoToLastStep()"
-            [isPlaying]="isPlaying"
-            [currentStepIndex]="currentStepIndex"
-            [totalSteps]="getTotalSteps()"
-            (firstStep)="goToFirstStep()"
-            (previousStep)="previousStep()"
-            (playPause)="playSteps()"
-            (nextStep)="nextStep()"
-            (lastStep)="goToLastStep()"
-            (toggleTracts)="toggleTractBoundaries()"
-            (restart)="resetToStart()"
-            (clearCache)="forceRefreshAndReset()">
-          </app-step-btn-bar>
-          <div class="move-balance-per-step-option" *ngIf="isDevMode">
-            <mat-checkbox
-              [checked]="moveBalancePerStep()"
-              (change)="moveBalancePerStep.set($event.checked)"
-              aria-label="Move/balance per step">
-              Move/balance per step
-            </mat-checkbox>
-          </div>
+            <app-step-btn-bar [variant]="isDevMode ? 'admin' : 'public'"
+              [disabled]="isLoadingSteps || isMovingIsolatedTracts || isBalancingDistricts"
+              [canGoToFirst]="canGoToFirstStep()" [canGoToPrevious]="canGoToPreviousStep()"
+              [canGoToNext]="canGoToNextStep()" [canGoToLast]="canGoToLastStep()" [isPlaying]="isPlaying"
+              [currentStepIndex]="currentStepIndex" [totalSteps]="getTotalSteps()" (firstStep)="goToFirstStep()"
+              (previousStep)="previousStep()" (playPause)="playSteps()" (nextStep)="nextStep()"
+              (lastStep)="goToLastStep()" (toggleTracts)="toggleTractBoundaries()" (restart)="resetToStart()"
+              (clearCache)="forceRefreshAndReset()">
+            </app-step-btn-bar>
           </div>
         </div>
 
@@ -122,14 +95,24 @@
           <!-- Step 0: no step-info-container; step-0-isolated-panel, tract list, then rest -->
           <ng-container *ngIf="currentStep && currentStepIndex === 0">
             <div class="step-0-info-container">
+              <div class="dg-header">
+                <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
+                  Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                    }}</span>
+                </span>
+                <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
+                  }}</span>
+              </div>
               <!-- Step 0: Island & enclosed tracts (collapsible) -->
-              <div class="step-0-isolated-panel" *ngIf="getStep0IslandTractsList().length > 0 || getStep0EnclosedTractsList().length > 0">
+              <div class="step-0-isolated-panel"
+                *ngIf="getStep0IslandTractsList().length > 0 || getStep0EnclosedTractsList().length > 0">
                 <mat-expansion-panel [(expanded)]="step0IsolatedSectionExpanded">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
                       Isolated tracts at Step 0
                       <span class="step-0-isolated-counts">
-                        ({{ getStep0IslandTractsList().length }} island{{ getStep0IslandTractsList().length !== 1 ? 's' : '' }},
+                        ({{ getStep0IslandTractsList().length }} island{{ getStep0IslandTractsList().length !== 1 ? 's'
+                        : '' }},
                         {{ getStep0EnclosedTractsList().length }} enclosed)
                       </span>
                     </mat-panel-title>
@@ -139,7 +122,8 @@
                       <h5>Island tracts</h5>
                       <p class="step-0-isolated-desc">Geographic islands: tracts not connected to the main landmass.</p>
                       <ul class="step-0-tract-list">
-                        <li *ngFor="let item of getStep0IslandTractsList()" (click)="showTractPopup(item.tractId)" class="tract-row-clickable">
+                        <li *ngFor="let item of getStep0IslandTractsList()" (click)="showTractPopup(item.tractId)"
+                          class="tract-row-clickable">
                           <span class="tract-id">{{ item.tractId }}</span>
                           <span class="tract-meta"> — {{ item.groupLabel }}</span>
                         </li>
@@ -147,9 +131,11 @@
                     </div>
                     <div class="step-0-isolated-subsection" *ngIf="getStep0EnclosedTractsList().length > 0">
                       <h5>Enclosed tracts (merged)</h5>
-                      <p class="step-0-isolated-desc">Enclaves that share TRACT_GROUP_ID with their enclosing tract and move with it.</p>
+                      <p class="step-0-isolated-desc">Enclaves that share TRACT_GROUP_ID with their enclosing tract and
+                        move with it.</p>
                       <ul class="step-0-tract-list">
-                        <li *ngFor="let item of getStep0EnclosedTractsList()" (click)="showTractPopup(item.tractId)" class="tract-row-clickable">
+                        <li *ngFor="let item of getStep0EnclosedTractsList()" (click)="showTractPopup(item.tractId)"
+                          class="tract-row-clickable">
                           <span class="tract-id">{{ item.tractId }}</span>
                           <span class="tract-meta"> — enclosed by {{ item.enclosedBy }}</span>
                         </li>
@@ -160,16 +146,22 @@
               </div>
 
               <!-- Census tract list (dev/maps step 0 only). Trigger load when empty so IN and others get data. -->
-              <div class="tract-list-dev tract-list-loading" *ngIf="isDevMode && currentStepIndex === 0 && selectedState && selectedState !== 'ALL' && (!tractsByCountyForList || tractsByCountyForList.length === 0) && ensureTractListLoadTrigger()">
-                <p class="tract-list-message">{{ isLoadingDevTracts ? 'Loading tract list...' : 'No tract data. Click Run or First to load state, or wait a moment.' }}</p>
+              <div class="tract-list-dev tract-list-loading"
+                *ngIf="isDevMode && currentStepIndex === 0 && selectedState && selectedState !== 'ALL' && (!tractsByCountyForList || tractsByCountyForList.length === 0) && ensureTractListLoadTrigger()">
+                <p class="tract-list-message">{{ isLoadingDevTracts ? 'Loading tract list...' : 'No tract data. Click
+                  Run or First to load state, or wait a moment.' }}</p>
               </div>
-              <div class="tract-list-dev" *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
-                <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips" class="tract-list-county-panel">
+              <div class="tract-list-dev"
+                *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
+                <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips"
+                  class="tract-list-county-panel">
                   <mat-expansion-panel-header>
-                    <mat-panel-title>County FIPS: {{ county.countyFips }}{{ county.countyName ? ' — ' + county.countyName : '' }} (pop. {{ county.countyPopulation | number }})</mat-panel-title>
+                    <mat-panel-title>County FIPS: {{ county.countyFips }}{{ county.countyName ? ' — ' +
+                      county.countyName : '' }} (pop. {{ county.countyPopulation | number }})</mat-panel-title>
                   </mat-expansion-panel-header>
                   <div class="tract-list-county-content">
-                    <mat-expansion-panel *ngFor="let chunk of county.chunks; trackBy: trackByChunkStart" class="tract-list-chunk-panel" [style.display]="(chunk.tracts.length) > 0 ? '' : 'none'">
+                    <mat-expansion-panel *ngFor="let chunk of county.chunks; trackBy: trackByChunkStart"
+                      class="tract-list-chunk-panel" [style.display]="(chunk.tracts.length) > 0 ? '' : 'none'">
                       <mat-expansion-panel-header>
                         <mat-panel-title>Tracts {{ chunk.start }}–{{ chunk.end }}</mat-panel-title>
                       </mat-expansion-panel-header>
@@ -184,9 +176,11 @@
                             </tr>
                           </thead>
                           <tbody>
-                            <tr *ngFor="let tract of (chunk.tracts || []); trackBy: trackByTractId" (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
+                            <tr *ngFor="let tract of (chunk.tracts || []); trackBy: trackByTractId"
+                              (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
                               <td class="tract-list-id">{{ getTractId(tract) }}</td>
-                              <td>{{ (tract.properties && tract.properties.POPULATION != null ? tract.properties.POPULATION : 0) | number }}</td>
+                              <td>{{ (tract.properties && tract.properties.POPULATION != null ?
+                                tract.properties.POPULATION : 0) | number }}</td>
                               <td>
                                 <mat-icon [fontIcon]="getTractPolygonIcon(tract)" class="tract-list-icon"></mat-icon>
                               </td>
@@ -201,90 +195,93 @@
               </div>
 
               <!-- Isolated Tracts Table (only when isolation resolution is enabled for this run) -->
-            <div class="isolated-tracts-container"
-              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
-              <div class="isolated-tracts-error" *ngIf="errorMessage">
-                <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
-              </div>
-              <div class="isolated-tracts-header">
-                <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
-                <div class="header-buttons" *ngIf="isDevMode || !isVisualizationOnly">
-                  <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
-                    class="move-isolated-btn">
-                    {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
-                  </button>
-                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
-                    *ngIf="!finalStepBalancingComplete" class="balance-districts-btn"
-                    [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : 'Balance sibling district groups after moving isolated tracts'">
-                    {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
-                  </button>
-                  <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
-                  <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
-                    class="detect-bridge-btn" *ngIf="!bridgeTractsData">
-                    {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
-                  </button>
-                  <button mat-button (click)="moveBridgeTracts()" [disabled]="isMovingBridgeTracts || !bridgeTractsData"
-                    class="move-bridge-btn" *ngIf="bridgeTractsData">
-                    {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
-                  </button>
+              <div class="isolated-tracts-container"
+                *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+                <div class="isolated-tracts-error" *ngIf="errorMessage">
+                  <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
+                </div>
+                <div class="isolated-tracts-header">
+                  @if (isolatedTractsData && isolatedTractsData.isolatedTractIds) {
+                  <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
+                  } @else {
+                  <h4>Isolated Tracts (0)</h4>
+                  }
+                  <div class="header-buttons" *ngIf="isDevMode || !isVisualizationOnly">
+                    <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                      class="move-isolated-btn">
+                      {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
+                    </button>
+                    <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                      [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep && currentStep.divisionLines?.length)"
+                      *ngIf="!finalStepBalancingComplete" class="balance-districts-btn"
+                      [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : 'Balance sibling district groups after moving isolated tracts'">
+                      {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+                    </button>
+                    <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
+                    <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
+                      class="detect-bridge-btn" *ngIf="!bridgeTractsData">
+                      {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
+                    </button>
+                    <button mat-button (click)="moveBridgeTracts()"
+                      [disabled]="isMovingBridgeTracts || !bridgeTractsData" class="move-bridge-btn"
+                      *ngIf="bridgeTractsData">
+                      {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
+                    </button>
+                  </div>
+                </div>
+                <div class="isolated-tracts-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Tract ID</th>
+                        <th>Group</th>
+                        <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
+                        class="tract-row-clickable">
+                        <td class="tract-id-cell">
+                          {{ item.tractId }}
+                          <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                        </td>
+                        <td>{{ item.groupLabel }}</td>
+                        <td *ngIf="bridgeTractsData">
+                          <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)"
+                            class="bridge-tract-info"
+                            (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                            {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{
+                            bridge.adjacentIsolatedCount
+                            }}
+                            adjacent)
+                          </span>
+                          <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div class="isolated-tracts-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tract ID</th>
-                      <th>Group</th>
-                      <th *ngIf="bridgeTractsData">Bridge Tracts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
-                      class="tract-row-clickable">
-                      <td class="tract-id-cell">
-                        {{ item.tractId }}
-                        <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
-                      </td>
-                      <td>{{ item.groupLabel }}</td>
-                      <td *ngIf="bridgeTractsData">
-                        <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
-                          (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
-                          {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount
-                          }}
-                          adjacent)
-                        </span>
-                        <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            <!-- No Isolation Message (only when isolation resolution is enabled) -->
-            <div class="no-isolation-message"
-              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
-              <div class="no-isolation-content">
-                <p class="no-isolation-title">No isolation tracts found</p>
-                <div class="group-stats-list">
-                  <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
-                    <span class="group-label">District {{ stat.groupLabel }}:</span>
-                    <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
-                    <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
+              <!-- No Isolation Message (only when isolation resolution is enabled) -->
+              <div class="no-isolation-message"
+                *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+                <div class="no-isolation-content">
+                  <p class="no-isolation-title">No isolation tracts found</p>
+                  <div class="group-stats-list">
+                    <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
+                      <span class="group-label">District {{ stat.groupLabel }}:</span>
+                      <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
+                      <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="dg-header">
-              <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
-                Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
-              </span>
-              <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
-            </div>
+              
 
-            <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
-            <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
+              <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
+              <!-- <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
               <span class="step-move-balance-label">This step:</span>
               <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts" class="move-link"
                 [matTooltip]="isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts for this step'">
@@ -292,210 +289,244 @@
               </button>
               <span class="step-move-balance-sep">·</span>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep && currentStep.divisionLines?.length)"
                 class="balance-link"
                 [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : (isBalancingDistricts ? 'Balancing...' : 'Balance districts for this step')">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
               </button>
-            </div>
+            </div> -->
 
-            <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
-            <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
-            <div class="final-step-actions" *ngIf="isFinalStepActive">
-              <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
-                *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
-                {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
-              </button>
-              <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep?.divisionLines?.length ?? 0) > 0"
-                [disabled]="isBalancingDistricts"
-                class="balance-districts-btn"
-                matTooltip="Balance population across districts">
-                {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
-              </button>
-            </div>
-
-            <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
-            <div class="final-step-isolated-panel" *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
-              <mat-expansion-panel [(expanded)]="finalStepIsolatedSectionExpanded">
-                <mat-expansion-panel-header>
-                  <mat-panel-title>
-                    Isolated tracts
-                    <span class="final-step-isolated-count">({{ isolatedTractsData.isolatedTractIds.length }})</span>
-                  </mat-panel-title>
-                </mat-expansion-panel-header>
-                <div class="final-step-isolated-content">
-                  <div class="isolated-tracts-table">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Tract ID</th>
-                          <th>Group</th>
-                          <th *ngIf="bridgeTractsData">Bridge Tracts</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
-                          class="tract-row-clickable">
-                          <td class="tract-id-cell">
-                            {{ item.tractId }}
-                            <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
-                          </td>
-                          <td>{{ item.groupLabel }}</td>
-                          <td *ngIf="bridgeTractsData">
-                            <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
-                              (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
-                              {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount }}
-                              adjacent)
-                            </span>
-                            <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </mat-expansion-panel>
-            </div>
-
-            <div class="district-status-summary" *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
-              <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button" [disabled]="!!triggeringForGroupKey">
-                {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
-              </button>
-              <button mat-button *ngIf="needsCalcParty()" (click)="triggerDistrictPartyIfNeeded()" type="button" [disabled]="districtPartyJobTriggered">
-                {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
-              </button>
-            </div>
-            <div class="district-groups-container">
-              <div class="district-groups-list">
-                <table class="district-groups-table">
-                  <thead>
-                    <tr>
-                      <th>District</th>
-                      <th matTooltip="DG population / Target DG population">Variance</th>
-                      <th class="col-party" title="Party %">Party</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let group of currentStep.districtGroups; let i = index"
-                      [class.selected]="selectedDistrictGroupIndex === i" (click)="selectDistrictGroup(i)"
-                      style="cursor: pointer;">
-                      <td>
-                        {{ group.endDistrictNumber === group.startDistrictNumber ? 'District' : 'Districts' }} {{ group.startDistrictNumber }}
-                        <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
-                          - {{ group.endDistrictNumber }}
-                        </span>
-                      </td>
-                      <td [class.variance-positive]="getGroupVariance(group) > 0"
-                        [class.variance-negative]="getGroupVariance(group) < 0"
-                        [matTooltip]="getGroupVarianceTooltip(group)">
-                        {{ getGroupVariance(group).toFixed(2) }}%
-                      </td>
-                      <td class="col-party"
-                        [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))"
-                        (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
-                        <ng-container *ngIf="showPartyStatusIcon(i)">
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'" class="status-icon fail">error</mat-icon>
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'" class="status-icon missing">warning</mat-icon>
-                        </ng-container>
-                        <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{ getGroupPartyDisplayText(group) }}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
+              <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
+              <div class="final-step-actions" *ngIf="isFinalStepActive">
+                <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                  *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
+                  {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+                </button>
+                <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                  *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
+                  [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                  matTooltip="Balance population across districts">
+                  {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
+                </button>
               </div>
-            </div>
+
+              <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
+              <div class="final-step-isolated-panel"
+                *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+                <mat-expansion-panel [(expanded)]="finalStepIsolatedSectionExpanded">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      Isolated tracts
+                      @if (isolatedTractsData && isolatedTractsData.isolatedTractIds) {
+                      <span class="final-step-isolated-count">({{ isolatedTractsData.isolatedTractIds.length
+                        }})</span>
+                      } </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <div class="final-step-isolated-content">
+                    <div class="isolated-tracts-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tract ID</th>
+                            <th>Group</th>
+                            <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
+                            class="tract-row-clickable">
+                            <td class="tract-id-cell">
+                              {{ item.tractId }}
+                              <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                            </td>
+                            <td>{{ item.groupLabel }}</td>
+                            <td *ngIf="bridgeTractsData">
+                              <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)"
+                                class="bridge-tract-info"
+                                (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                                {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{
+                                bridge.adjacentIsolatedCount }}
+                                adjacent)
+                              </span>
+                              <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </mat-expansion-panel>
+              </div>
+
+              <div class="district-status-summary"
+                *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
+                <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
+                  [disabled]="!!triggeringForGroupKey">
+                  {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
+                </button>
+                <button mat-button *ngIf="needsCalcParty()" (click)="triggerDistrictPartyIfNeeded()" type="button"
+                  [disabled]="districtPartyJobTriggered">
+                  {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
+                </button>
+              </div>
+              <div class="district-groups-container">
+                <div class="district-groups-list">
+                  <table class="district-groups-table">
+                    <thead>
+                      <tr>
+                        <th>District</th>
+                        <th matTooltip="DG population / Target DG population">Variance</th>
+                        <th class="col-party" title="Party %">Party</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let group of currentStep.districtGroups; let i = index"
+                        [class.selected]="selectedDistrictGroupIndex === i" (click)="selectDistrictGroup(i)"
+                        style="cursor: pointer;">
+                        <td>
+                          {{ group.endDistrictNumber === group.startDistrictNumber ? 'District' : 'Districts' }} {{
+                          group.startDistrictNumber }}
+                          <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
+                            - {{ group.endDistrictNumber }}
+                          </span>
+                        </td>
+                        <td [class.variance-positive]="getGroupVariance(group) > 0"
+                          [class.variance-negative]="getGroupVariance(group) < 0"
+                          [matTooltip]="getGroupVarianceTooltip(group)">
+                          {{ getGroupVariance(group).toFixed(2) }}%
+                        </td>
+                        <td class="col-party" [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))"
+                          (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
+                          <ng-container *ngIf="showPartyStatusIcon(i)">
+                            <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
+                              class="status-icon in-progress">hourglass_empty</mat-icon>
+                            <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'"
+                              class="status-icon fail">error</mat-icon>
+                            <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'"
+                              class="status-icon missing">warning</mat-icon>
+                          </ng-container>
+                          <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
+                            getGroupPartyDisplayText(group) }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </ng-container>
 
           <!-- Steps 1+: keep step-info-container, no tract list -->
           <div class="step-info-container" *ngIf="currentStep && currentStepIndex >= 1">
-            <!-- Isolated Tracts Table (only when isolation resolution is enabled for this run) -->
-            <div class="isolated-tracts-container"
-              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
-              <div class="isolated-tracts-error" *ngIf="errorMessage">
-                <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
-              </div>
-              <div class="isolated-tracts-header">
-                <h4>Isolated Tracts ({{ isolatedTractsData.isolatedTractIds.length }})</h4>
-                <div class="header-buttons" *ngIf="isDevMode || !isVisualizationOnly">
-                  <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
-                    class="move-isolated-btn">
-                    {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
-                  </button>
-                  <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep.divisionLines?.length)"
-                    *ngIf="!finalStepBalancingComplete" class="balance-districts-btn"
-                    [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : 'Balance sibling district groups after moving isolated tracts'">
-                    {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
-                  </button>
-                  <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
-                  <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
-                    class="detect-bridge-btn" *ngIf="!bridgeTractsData">
-                    {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
-                  </button>
-                  <button mat-button (click)="moveBridgeTracts()" [disabled]="isMovingBridgeTracts || !bridgeTractsData"
-                    class="move-bridge-btn" *ngIf="bridgeTractsData">
-                    {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
-                  </button>
-                </div>
-              </div>
-              <div class="isolated-tracts-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tract ID</th>
-                      <th>Group</th>
-                      <th *ngIf="bridgeTractsData">Bridge Tracts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
-                      class="tract-row-clickable">
-                      <td class="tract-id-cell">
-                        {{ item.tractId }}
-                        <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
-                      </td>
-                      <td>{{ item.groupLabel }}</td>
-                      <td *ngIf="bridgeTractsData">
-                        <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
-                          (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
-                          {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount
-                          }}
-                          adjacent)
-                        </span>
-                        <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- No Isolation Message (only when isolation resolution is enabled) -->
-            <div class="no-isolation-message"
-              *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
-              <div class="no-isolation-content">
-                <p class="no-isolation-title">No isolation tracts found</p>
-                <div class="group-stats-list">
-                  <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
-                    <span class="group-label">District {{ stat.groupLabel }}:</span>
-                    <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
-                    <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div class="dg-header">
               <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
-                Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps() }}</span>
+                Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                  }}</span>
               </span>
-              <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString() }}</span>
+              <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
+                }}</span>
             </div>
+            
+            <!-- Accordion: Isolated tracts at this step (dev mode) -->
+            <mat-expansion-panel *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly"
+              class="step-isolated-accordion"
+              [expanded]="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  Isolated tracts
+                  <span class="step-isolated-count" *ngIf="isolatedTractsData?.isolatedTractIds != null">
+                    ({{ isolatedTractsData?.isolatedTractIds?.length ?? 0 }})
+                  </span>
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <div class="step-isolated-accordion-content">
+                <div class="isolated-tracts-error" *ngIf="errorMessage">
+                  <span class="isolated-tracts-error-text">{{ errorMessage }}</span>
+                </div>
+                <!-- Has isolated tracts: table and actions -->
+                <ng-container
+                  *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+                  <div class="header-buttons" style="margin-bottom: 8px;">
+                    <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                      class="move-isolated-btn">
+                      {{ isMovingIsolatedTracts ? 'Moving...' : 'Move Isolated Tracts' }}
+                    </button>
+                    <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                      [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep && currentStep.divisionLines?.length)"
+                      *ngIf="!finalStepBalancingComplete" class="balance-districts-btn"
+                      [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : 'Balance sibling district groups after moving isolated tracts'">
+                      {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+                    </button>
+                    <p class="move-isolated-hint" *ngIf="moveIsolatedHint">{{ moveIsolatedHint }}</p>
+                    <button mat-button (click)="detectBridgeTracts()" [disabled]="isDetectingBridge"
+                      class="detect-bridge-btn" *ngIf="!bridgeTractsData">
+                      {{ isDetectingBridge ? 'Detecting...' : 'Detect Bridge Tracts' }}
+                    </button>
+                    <button mat-button (click)="moveBridgeTracts()"
+                      [disabled]="isMovingBridgeTracts || !bridgeTractsData" class="move-bridge-btn"
+                      *ngIf="bridgeTractsData">
+                      {{ isMovingBridgeTracts ? 'Moving...' : 'Move Bridge Tracts' }}
+                    </button>
+                  </div>
+                  <div class="isolated-tracts-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Tract ID</th>
+                          <th>Group</th>
+                          <th *ngIf="bridgeTractsData">Bridge Tracts</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let item of getIsolatedTractsList()" (click)="showTractPopup(item.tractId)"
+                          class="tract-row-clickable">
+                          <td class="tract-id-cell">
+                            {{ item.tractId }}
+                            <mat-icon fontIcon="explicit" *ngIf="item.isEnclosed" class="enclosed-icon"></mat-icon>
+                          </td>
+                          <td>{{ item.groupLabel }}</td>
+                          <td *ngIf="bridgeTractsData">
+                            <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)"
+                              class="bridge-tract-info"
+                              (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
+                              {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{
+                              bridge.adjacentIsolatedCount }}
+                              adjacent)
+                            </span>
+                            <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </ng-container>
+                <!-- No isolated tracts -->
+                <div class="no-isolation-message"
+                  *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+                  <div class="no-isolation-content">
+                    <p class="no-isolation-title">No isolated tracts at this step</p>
+                    <div class="group-stats-list">
+                      <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
+                        <span class="group-label">District {{ stat.groupLabel }}:</span>
+                        <span class="stat-value">Max reachable: {{ stat.maxReachable }}</span>
+                        <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- No isolation data yet (e.g. step just loaded, detection in progress) -->
+                <p class="no-isolation-message" *ngIf="!isolatedTractsData && isDetectingIsolation">Detecting isolated
+                  tracts…</p>
+                <p class="no-isolation-message" *ngIf="!isolatedTractsData && !isDetectingIsolation">No isolation data
+                  for this step.</p>
+              </div>
+            </mat-expansion-panel>
+
+            
 
             <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
-            <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
+            <!-- <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
               <span class="step-move-balance-label">This step:</span>
               <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts" class="move-link"
                 [matTooltip]="isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts for this step'">
@@ -503,12 +534,12 @@
               </button>
               <span class="step-move-balance-sep">·</span>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep?.divisionLines?.length)"
+                [disabled]="isBalancingDistricts || hasUnresolvedIsolation || !(currentStep && currentStep.divisionLines?.length)"
                 class="balance-link"
                 [matTooltip]="hasUnresolvedIsolation ? 'Resolve isolated tracts first' : (isBalancingDistricts ? 'Balancing...' : 'Balance districts for this step')">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
               </button>
-            </div>
+            </div> -->
 
             <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
             <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
@@ -518,21 +549,23 @@
                 {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
               </button>
               <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep?.divisionLines?.length ?? 0) > 0"
-                [disabled]="isBalancingDistricts"
-                class="balance-districts-btn"
+                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
+                [disabled]="isBalancingDistricts" class="balance-districts-btn"
                 matTooltip="Balance population across districts">
                 {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
               </button>
             </div>
 
             <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
-            <div class="final-step-isolated-panel" *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+            <div class="final-step-isolated-panel"
+              *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
               <mat-expansion-panel [(expanded)]="finalStepIsolatedSectionExpanded">
                 <mat-expansion-panel-header>
                   <mat-panel-title>
                     Isolated tracts
+                    @if (isolatedTractsData && isolatedTractsData.isolatedTractIds) {
                     <span class="final-step-isolated-count">({{ isolatedTractsData.isolatedTractIds.length }})</span>
+                    }
                   </mat-panel-title>
                 </mat-expansion-panel-header>
                 <div class="final-step-isolated-content">
@@ -554,9 +587,11 @@
                           </td>
                           <td>{{ item.groupLabel }}</td>
                           <td *ngIf="bridgeTractsData">
-                            <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)" class="bridge-tract-info"
+                            <span *ngFor="let bridge of getBridgeTractsForGroup(item.groupIndex)"
+                              class="bridge-tract-info"
                               (click)="showTractPopup(bridge.bridgeTractId); $event.stopPropagation()">
-                              {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{ bridge.adjacentIsolatedCount }}
+                              {{ bridge.bridgeTractId }} (from {{ bridge.fromGroupLabel }}, {{
+                              bridge.adjacentIsolatedCount }}
                               adjacent)
                             </span>
                             <span *ngIf="getBridgeTractsForGroup(item.groupIndex).length === 0">-</span>
@@ -569,11 +604,14 @@
               </mat-expansion-panel>
             </div>
 
-            <div class="district-status-summary" *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
-              <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button" [disabled]="!!triggeringForGroupKey">
+            <div class="district-status-summary"
+              *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
+              <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
+                [disabled]="!!triggeringForGroupKey">
                 {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
               </button>
-              <button mat-button *ngIf="needsCalcParty()" (click)="triggerDistrictPartyIfNeeded()" type="button" [disabled]="districtPartyJobTriggered">
+              <button mat-button *ngIf="needsCalcParty()" (click)="triggerDistrictPartyIfNeeded()" type="button"
+                [disabled]="districtPartyJobTriggered">
                 {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
               </button>
             </div>
@@ -592,7 +630,8 @@
                       [class.selected]="selectedDistrictGroupIndex === i" (click)="selectDistrictGroup(i)"
                       style="cursor: pointer;">
                       <td>
-                        {{ group.endDistrictNumber === group.startDistrictNumber ? 'District' : 'Districts' }} {{ group.startDistrictNumber }}
+                        {{ group.endDistrictNumber === group.startDistrictNumber ? 'District' : 'Districts' }} {{
+                        group.startDistrictNumber }}
                         <span *ngIf="group.endDistrictNumber !== group.startDistrictNumber">
                           - {{ group.endDistrictNumber }}
                         </span>
@@ -602,15 +641,18 @@
                         [matTooltip]="getGroupVarianceTooltip(group)">
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
-                      <td class="col-party"
-                        [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))"
+                      <td class="col-party" [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))"
                         (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
                         <ng-container *ngIf="showPartyStatusIcon(i)">
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'" class="status-icon in-progress">hourglass_empty</mat-icon>
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'" class="status-icon fail">error</mat-icon>
-                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'" class="status-icon missing">warning</mat-icon>
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
+                            class="status-icon in-progress">hourglass_empty</mat-icon>
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'"
+                            class="status-icon fail">error</mat-icon>
+                          <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'"
+                            class="status-icon missing">warning</mat-icon>
                         </ng-container>
-                        <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{ getGroupPartyDisplayText(group) }}</span>
+                        <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
+                          getGroupPartyDisplayText(group) }}</span>
                       </td>
                     </tr>
                   </tbody>

@@ -490,9 +490,6 @@
     width: fit-content;
   }
 
-  .move-balance-per-step-option {
-    margin-top: 4px;
-  }
 }
 
 .generate-unions-row {
@@ -868,6 +865,19 @@
     font-size: 0.875rem;
     color: var(--mat-sys-on-surface-variant, #42474E);
     white-space: nowrap;
+  }
+}
+
+.step-isolated-accordion {
+  margin-bottom: 12px;
+
+  .step-isolated-count {
+    margin-left: 4px;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+  }
+
+  .step-isolated-accordion-content {
+    padding: 8px 0;
   }
 }
 

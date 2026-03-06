@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -48,7 +47,6 @@ declare global {
     RouterModule,
     MatButtonModule,
     MatIconModule,
-    MatCheckboxModule,
     MatChipsModule,
     MatExpansionModule,
     MatTooltipModule,
@@ -286,6 +284,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.isDevMode = this.route.snapshot.data['mode'] === 'development';
+    // Move/balance per step: controlled by URL query param ?moveBalPerStep (when present = same as checkbox checked)
+    const moveBalParam = this.route.snapshot.queryParamMap.get('moveBalPerStep');
+    this.moveBalancePerStep.set(moveBalParam !== null && moveBalParam !== '' && moveBalParam !== '0' && moveBalParam.toLowerCase() !== 'false');
     this.route.data.subscribe((data) => {
       this.isDevMode = data['mode'] === 'development';
       if (this.isDevMode) this.isVisualizationOnly = false;
@@ -2388,7 +2389,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.onStepDisplayComplete();
             });
           } else {
-            if ((stepToUse as any).step > 0 && (stepToUse as any).districtGroups?.length) {
+            // Run isolation detection for steps >= 1 (use stepIndex so it works after manual next-step and when step object omits .step)
+            if (stepIndex > 0 && (stepToUse as any).districtGroups?.length) {
               this.detectIsolatedTracts();
             }
             setTimeout(() => {
@@ -5328,7 +5330,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Get isolated tracts list for display
+   * Get isolated tracts list for display.
+   * Always returns one row per isolatedTractId so the table never shows a count with missing rows
+   * (e.g. after move when some tracts could not be moved and isolatedTractsByGroup/censusTracts may be out of sync).
    */
   getIsolatedTractsList(): Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> {
     if (!this.isolatedTractsData || !this.currentStep) {
@@ -5336,41 +5340,60 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const list: Array<{tractId: string, groupIndex: number, groupLabel: string, isEnclosed: boolean}> = [];
+    const listedIds = new Set<string>();
 
-    // If isolatedTractsByGroup is empty but isolatedTractIds has items, try to find which groups they belong to
-    if (Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length === 0 && 
-        this.isolatedTractsData.isolatedTractIds.length > 0) {
-      // Fallback: search through all groups to find which group each isolated tract belongs to
-      for (let groupIndex = 0; groupIndex < this.currentStep.districtGroups.length; groupIndex++) {
-        const group = this.currentStep.districtGroups[groupIndex];
-        const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
-        for (const tractId of this.isolatedTractsData.isolatedTractIds) {
-          const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
-          if (tract) {
-            const isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
-            list.push({ tractId, groupIndex, groupLabel, isEnclosed });
-          }
-        }
-      }
-    } else {
-      // Normal case: use isolatedTractsByGroup
+    const normalizeId = (id: string | number): string => String(id);
+    const addRow = (tractId: string | number, groupIndex: number, groupLabel: string, isEnclosed: boolean) => {
+      const id = normalizeId(tractId);
+      if (listedIds.has(id)) return;
+      listedIds.add(id);
+      list.push({ tractId: id, groupIndex, groupLabel, isEnclosed });
+    };
+
+    // If isolatedTractsByGroup has data, use it first
+    if (Object.keys(this.isolatedTractsData.isolatedTractsByGroup).length > 0) {
       for (const [groupIndexStr, tractIds] of Object.entries(this.isolatedTractsData.isolatedTractsByGroup)) {
-        const groupIndex = parseInt(groupIndexStr);
-        const group = this.currentStep.districtGroups[groupIndex];
-        const groupLabel = group ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}` : `Group ${groupIndex}`;
+        const groupIndex = parseInt(groupIndexStr, 10);
+        const group = this.currentStep.districtGroups?.[groupIndex];
+        const groupLabel = group
+          ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}`
+          : `Group ${groupIndex}`;
         for (const tractId of tractIds) {
-          // Check if tract is enclosed by looking for it in the district groups
           let isEnclosed = false;
-          if (group) {
-            const tract = group.censusTracts.find(t => this.getTractId(t) === tractId);
+          if (group?.censusTracts) {
+            const tract = group.censusTracts.find(t => this.getTractId(t) === tractId || this.getTractId(t) === String(tractId));
             if (tract) {
-              // Check for TRACT_GROUP_ID (enclosed tracts have this property)
-              // or ENCLOSED_BY property
               isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
             }
           }
-          list.push({ tractId, groupIndex, groupLabel, isEnclosed });
+          addRow(tractId, groupIndex, groupLabel, isEnclosed);
         }
+      }
+    }
+
+    // Ensure every isolatedTractId appears in the list (handles empty isolatedTractsByGroup or out-of-sync data)
+    for (const tractId of this.isolatedTractsData.isolatedTractIds) {
+      const id = normalizeId(tractId);
+      if (listedIds.has(id)) continue;
+      // Try to find group by searching censusTracts
+      let found = false;
+      if (this.currentStep.districtGroups) {
+        for (let groupIndex = 0; groupIndex < this.currentStep.districtGroups.length; groupIndex++) {
+          const group = this.currentStep.districtGroups[groupIndex];
+          const groupLabel = group
+            ? `Districts ${group.startDistrictNumber}${group.endDistrictNumber !== group.startDistrictNumber ? `-${group.endDistrictNumber}` : ''}`
+            : `Group ${groupIndex}`;
+          const tract = group?.censusTracts?.find(t => this.getTractId(t) === id || this.getTractId(t) === tractId);
+          if (tract) {
+            const isEnclosed = !!(tract.properties?.['TRACT_GROUP_ID'] || tract.properties?.['ENCLOSED_BY']);
+            addRow(tractId, groupIndex, groupLabel, isEnclosed);
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        addRow(tractId, -1, 'Unknown group (not in any DG)', false);
       }
     }
 
