@@ -517,7 +517,7 @@ class LatLongDivisionService {
             firstGroupTractIds.add(memberId);
             secondGroupTractIds.delete(memberId);
             movedTracts.add(memberId);
-            if (memberId.includes('001700') || memberId.includes('002302')) {
+            if (memberId.includes('001700') || memberId.includes('002302') || memberId.includes('48409')) {
               console.log(`🔗 Moved tract ${memberId} to first group to keep tract group ${groupId} together`);
             }
           }
@@ -530,7 +530,7 @@ class LatLongDivisionService {
             secondGroupTractIds.add(memberId);
             firstGroupTractIds.delete(memberId);
             movedTracts.add(memberId);
-            if (memberId.includes('001700') || memberId.includes('002302')) {
+            if (memberId.includes('001700') || memberId.includes('002302') || memberId.includes('48409')) {
               console.log(`🔗 Moved tract ${memberId} to second group to keep tract group ${groupId} together`);
             }
           }

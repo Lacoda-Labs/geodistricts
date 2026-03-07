@@ -2066,6 +2066,9 @@ class GeodistrictAlgorithmService {
     }
 
     let updatedGroups = newGroups;
+
+    // Post-division: move any tract with ENCLOSED_BY into the same DG as its enclosing tract (keeps enclosed+enclosing together even if TRACT_GROUP_ID was missing)
+    updatedGroups = this._moveEnclosedTractsToEnclosingGroup(updatedGroups);
     
     // Quick validation: Total tract count should match input count
     const validationStartTime = Date.now();
@@ -2416,6 +2419,68 @@ class GeodistrictAlgorithmService {
       dgAdjacentGroups.push(component);
     }
     return dgAdjacentGroups;
+  }
+
+  /**
+   * Post-division pass: move any tract with ENCLOSED_BY into the same DG as its enclosing tract.
+   * Keeps enclosed and enclosing tracts together when TRACT_GROUP_ID was missing or division split them.
+   * @param {Array} districtGroups - District groups (will be mutated)
+   * @returns {Array} The same districtGroups array (possibly with tracts moved)
+   */
+  _moveEnclosedTractsToEnclosingGroup(districtGroups) {
+    if (!districtGroups || districtGroups.length === 0) return districtGroups;
+    const tractIdToGroupIndex = new Map();
+    for (let i = 0; i < districtGroups.length; i++) {
+      for (const t of districtGroups[i].censusTracts || []) {
+        const id = getTractId(t);
+        if (id) tractIdToGroupIndex.set(id, i);
+      }
+    }
+    let moved = 0;
+    for (let fromIdx = 0; fromIdx < districtGroups.length; fromIdx++) {
+      const group = districtGroups[fromIdx];
+      const tracts = group.censusTracts || [];
+      const toMove = [];
+      for (const tract of tracts) {
+        const enclosingId = tract.properties?.ENCLOSED_BY;
+        if (!enclosingId) continue;
+        const toIdx = tractIdToGroupIndex.get(enclosingId);
+        if (toIdx === undefined || toIdx === fromIdx) continue;
+        toMove.push({ tract, toIdx });
+      }
+      for (const { tract, toIdx } of toMove) {
+        const tractId = getTractId(tract);
+        const fromGroup = districtGroups[fromIdx];
+        const toGroup = districtGroups[toIdx];
+        const idx = fromGroup.censusTracts.findIndex(t => getTractId(t) === tractId);
+        if (idx === -1) continue;
+        fromGroup.censusTracts.splice(idx, 1);
+        fromGroup.totalPopulation = (fromGroup.censusTracts || []).reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+        fromGroup.bounds = calculateBounds(fromGroup.censusTracts || []);
+        fromGroup.centroid = calculateCentroid(fromGroup.censusTracts || []);
+        if (!toGroup.censusTracts.some(t => getTractId(t) === tractId)) {
+          toGroup.censusTracts.push(tract);
+          toGroup.totalPopulation = (toGroup.censusTracts || []).reduce((sum, t) => sum + (t.properties?.POPULATION || 0), 0);
+          toGroup.bounds = calculateBounds(toGroup.censusTracts || []);
+          toGroup.centroid = calculateCentroid(toGroup.censusTracts || []);
+          if (tract.properties) {
+            const targetDG = `DG${toGroup.startDistrictNumber}-${toGroup.endDistrictNumber}`;
+            const sourceDG = `DG${fromGroup.startDistrictNumber}-${fromGroup.endDistrictNumber}`;
+            tract.properties.tract_DG = targetDG;
+            tract.properties.sibling_DG = sourceDG;
+          }
+          tractIdToGroupIndex.set(tractId, toIdx);
+          moved++;
+          if (tractId && tractId.includes('48409')) {
+            console.log(`🔄 Post-division: moved enclosed tract ${tractId} to same DG as enclosing ${enclosingId} (DG ${toGroup.startDistrictNumber}-${toGroup.endDistrictNumber})`);
+          }
+        }
+      }
+    }
+    if (moved > 0) {
+      console.log(`✅ Post-division ENCLOSED_BY: moved ${moved} enclosed tract(s) to same DG as enclosing tract`);
+    }
+    return districtGroups;
   }
 
   /**
@@ -4379,7 +4444,7 @@ class GeodistrictAlgorithmService {
       }
       
       const tractId = getTractId(tract);
-      if (tractId && (tractId.includes('001700') || tractId.includes('002302'))) {
+      if (tractId && (tractId.includes('001700') || tractId.includes('002302') || tractId.includes('48409'))) {
         console.log(`🔗 TRACT GROUP: Tract ${tractId} has group ${groupId}, found ${groupMembers.length} member(s)`);
       }
       
@@ -4397,7 +4462,7 @@ class GeodistrictAlgorithmService {
       let movedCount = 0;
       
       // Debug logging for specific tracts
-      if (tractId && (tractId.includes('001700') || tractId.includes('002302'))) {
+      if (tractId && (tractId.includes('001700') || tractId.includes('002302') || tractId.includes('48409'))) {
         console.log(`🔗 MOVE TRACT: Moving tract ${tractId} (group ${tract.properties?.TRACT_GROUP_ID || 'none'}) with ${groupMembers.length} member(s) from group ${fromGroup.startDistrictNumber}-${fromGroup.endDistrictNumber} to group ${toGroup.startDistrictNumber}-${toGroup.endDistrictNumber}`);
       }
       
@@ -4437,7 +4502,7 @@ class GeodistrictAlgorithmService {
         if (!toGroup.censusTracts.some(t => getTractId(t) === memberId)) {
           toGroup.censusTracts.push(groupMember);
           movedCount++;
-          if (memberId.includes('001700') || memberId.includes('002302')) {
+          if (memberId.includes('001700') || memberId.includes('002302') || memberId.includes('48409')) {
             console.log(`🔗 MOVE TRACT: Moved tract ${memberId} (part of group ${groupMember.properties?.TRACT_GROUP_ID || 'none'})`);
           }
         }

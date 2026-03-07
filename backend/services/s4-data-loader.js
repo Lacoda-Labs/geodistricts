@@ -142,7 +142,7 @@ class S4DataLoader {
           sampleNeighborIds.add(neighborId);
         }
         
-        // Check for our test tracts
+        // Check for our test tracts (AZ)
         if ((sourceId === '04005001700' || sourceId === '04005002302' || neighborId === '04005001700' || neighborId === '04005002302') && !foundTestTracts) {
           console.log(`🔍 DEBUG: Found test tract in adjacency data: source=${sourceId}, neighbor=${neighborId}`);
           console.log(`🔍 DEBUG: sourceId in stateTractIds: ${stateTractIds.has(sourceId)}, neighborId in stateTractIds: ${stateTractIds.has(neighborId)}`);
@@ -176,7 +176,16 @@ class S4DataLoader {
         const neighbors2 = adjacencyGraph.get(testTract2) || [];
         console.log(`🔍 DEBUG: Tract ${testTract2} has ${neighbors2.length} neighbors: ${neighbors2.slice(0, 5).join(', ')}${neighbors2.length > 5 ? '...' : ''}`);
       }
-      
+      // Texas (48) enclosed tracts: 48409010500 and 48409010800 enclosed by 48409010700
+      if (stateFips === '48') {
+        const txEnclosedIds = ['48409010500', '48409010700', '48409010800'];
+        console.log(`🔍 S4 TX enclosed tracts verification: ${txEnclosedIds.join(', ')}`);
+        txEnclosedIds.forEach(tid => {
+          const inTracts = stateTractIds.has(tid);
+          const neighbors = adjacencyGraph.get(tid) || [];
+          console.log(`   ${tid} in stateTractIds: ${inTracts}, neighbors: ${neighbors.length} [${neighbors.slice(0, 5).join(', ')}${neighbors.length > 5 ? '...' : ''}]`);
+        });
+      }
       console.log(`🔍 DEBUG: Processed ${totalAdjRows} adjacency rows, matched ${matchedCount} relationships for ${stateTracts.length} tracts`);
       
       // Cache the result
