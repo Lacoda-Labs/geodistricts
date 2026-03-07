@@ -1647,6 +1647,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             this.renderFinalDistricts();
           }
+          this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups (e.g. step 0 state-wide)
         }, 500);
       },
       error: (error) => {
@@ -2012,6 +2013,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedNorthPrefixSum = [];
     this.cachedSortedTractEntriesByDg.clear();
         this.renderFinalDistricts(); // Re-render map for the new step
+        this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups (e.g. 1-10, 11-19)
       } else {
         // Step not loaded yet, request it from backend
         console.log(`🚀 Requesting step ${prevIndex} from backend...`);
@@ -2079,6 +2081,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               }
             });
             this.subscriptions.push(unionSub);
+            this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups
           },
           error: (error) => {
             this.errorMessage = error.message || `Failed to load step ${prevIndex}`;
@@ -2231,6 +2234,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.isLoading = false;
       this.isLoadingSteps = false;
       this.renderFinalDistricts();
+      this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups
       setTimeout(() => this.onStepDisplayComplete(), 0);
     } else if (this.isVisualizationOnly) {
       // Visualization mode: fetch step via GET only
@@ -2266,6 +2270,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoadingSteps = false;
           this.isLoading = false;
           this.renderFinalDistricts();
+          this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups
           this.cdr.markForCheck();
           this.onStepDisplayComplete();
         },
@@ -2382,6 +2387,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
 
           const isFinalStep = isComplete && (stepToUse as any).districtGroups?.every((g: any) => g.totalDistricts === 1);
+          this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups (any step)
           if (isFinalStep && (stepToUse as any).districtGroups?.length) {
             this.finalStepNumber = stepIndex;
             this.detectIsolatedTracts(() => {
@@ -2438,6 +2444,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractIds.clear();
         this.bridgeTractsData = null;
         this.renderFinalDistricts();
+        this.fetchDistrictPartyForCurrentStep();
       } else {
         const stateRequested = this.selectedState;
         this.isLoadingSteps = true;
@@ -2458,6 +2465,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               this.bridgeTractIds.clear();
               this.bridgeTractsData = null;
               this.renderFinalDistricts();
+              this.fetchDistrictPartyForCurrentStep();
             }
             this.isLoadingSteps = false;
             this.isLoading = false;
@@ -3966,9 +3974,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             const partyData = this.tractPartyByGeoid;
             const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
             const useDistrictPartyColor = this.showPartyColor && this.districtPartyByGroupKey?.[groupKey];
-            // When coloring by party, prefer one color per district; only use tract-level party when district data is missing
+            // Tract-level party color only when Show tracts is ON (stored tract party % from parent county). When OFF, use DG color only.
             let pctDemForOpacity: number | null = null;
-            const useTractPartyColor = (this.showTractBoundaries || this.showPartyColor) && partyData && !useDistrictPartyColor;
+            const useTractPartyColor = this.showTractBoundaries && partyData && !useDistrictPartyColor;
             if (useTractPartyColor && partyData) {
               const geoid = this.normalizeTractPartyGeoid(tractId);
               const row = partyData[geoid];
@@ -5671,15 +5679,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.triggeringForGroupKey === `${group.startDistrictNumber}-${group.endDistrictNumber}`;
   }
 
-  /** Fetch district-level party data for current state/step; used for map coloring and tooltips. */
+  /** Fetch district-level party data for the step currently being viewed; used for map coloring and table. Works for any step (backend computes from tract totals when no cache). */
   private fetchDistrictPartyForCurrentStep(): void {
-    if (!this.selectedState || this.selectedState === 'ALL' || this.finalStepNumber == null) {
+    if (!this.selectedState || this.selectedState === 'ALL') {
       this.districtPartyByGroupKey = null;
       return;
     }
+    const stepToFetch = this.currentStepIndex ?? this.finalStepNumber ?? 0;
     const maxIter = this.finalStepMaxIterations ?? 100;
     const vestYear = 2024;
-    this.geodistrictService.getDistrictParty(this.selectedState, this.finalStepNumber, maxIter, vestYear).subscribe({
+    this.geodistrictService.getDistrictParty(this.selectedState, stepToFetch, maxIter, vestYear).subscribe({
       next: (res) => {
         this.districtPartyByGroupKey = res.districts ?? null;
         this.renderFinalDistricts();

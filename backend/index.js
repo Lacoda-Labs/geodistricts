@@ -1235,6 +1235,7 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
         if ((d.pctDem || 0) >= 0.5) geodistrictsD++;
         else geodistrictsR++;
       }
+      // Use two-party total (D+R) so percentages sum to 100%
       const totalVotes = totalVotesDem + totalVotesRep;
       const pctDem = totalVotes > 0 ? totalVotesDem / totalVotes : 0;
       const pctRep = totalVotes > 0 ? totalVotesRep / totalVotes : 0;
@@ -3410,7 +3411,7 @@ app.post('/api/algorithm/execute', async (req, res) => {
         // Store TRACT_GROUP_ID so they always move together
         if (groupIdMap.has(tractId)) {
           tract.properties.TRACT_GROUP_ID = groupIdMap.get(tractId);
-          if (tractId.includes('001700') || tractId.includes('002302')) {
+          if (tractId.includes('001700') || tractId.includes('002302') || tractId.includes('48409')) {
             console.log(`🔗 Assigned TRACT_GROUP_ID ${groupIdMap.get(tractId)} to tract ${tractId}`);
           }
         }
@@ -6708,6 +6709,49 @@ function uniqueTractGeoids(tractIds) {
 }
 
 /**
+ * Compute district-level party for any step by summing persisted tract totals (no persistence).
+ * Used when GET district-party is called for a step that has no cached doc (e.g. intermediate steps).
+ * @param {string} state - State code
+ * @param {number} stepNumber - Step number (0, 1, 2, ... or final)
+ * @param {number} maxIterations - Max iterations (for step cache lookup)
+ * @param {number} [vestYear] - VEST year (default 2024)
+ * @returns {Promise<{ districts: object, vestYear: number } | null>}
+ */
+async function computeDistrictPartyForStep(state, stepNumber, maxIterations, vestYear = DEFAULT_VEST_YEAR) {
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  const stepResult = await getStepCacheEntry(state, stepNumber, maxIterations);
+  if (!stepResult) return null;
+  const districtGroups = stepResult.cachedEntry.stepData?.districtGroups ?? stepResult.cachedEntry.districtGroups ?? [];
+  if (districtGroups.length === 0) return null;
+  const tractParty = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
+  if (!tractParty || Object.keys(tractParty).length === 0) return null;
+  const districts = {};
+  for (const group of districtGroups) {
+    const tractIds = group.censusTractIds && group.censusTractIds.length > 0
+      ? group.censusTractIds
+      : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
+    const uniqueGeoids = uniqueTractGeoids(tractIds);
+    let votesDem = 0;
+    let votesRep = 0;
+    let totalVotes = 0;
+    for (const geoid of uniqueGeoids) {
+      const row = tractParty[geoid];
+      if (row) {
+        votesDem += row.votesDem || 0;
+        votesRep += row.votesRep || 0;
+        totalVotes += row.totalVotes || 0;
+      }
+    }
+    const twoPartyTotal = votesDem + votesRep;
+    const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
+    const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
+    const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
+    districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+  }
+  return { districts, vestYear };
+}
+
+/**
  * Run district-level party % job for final step: aggregate tract party data by DG and persist.
  * @param {string} state - State code
  * @param {number} finalStepNumber - Final step number
@@ -6826,7 +6870,9 @@ app.post('/api/algorithm/district-party/:state', async (req, res) => {
 
 /**
  * GET /api/algorithm/district-party/:state/:stepNumber
- * Return district-level party percentages for a state and final step. Query: maxIterations (optional), vestYear (optional, default 2024).
+ * Return district-level party percentages for a state and step. Works for any step (0, 1, 2, ... final).
+ * If no cached doc exists for that step, computes on the fly by summing persisted tract totals.
+ * Query: maxIterations (optional), vestYear (optional, default 2024).
  */
 app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => {
   try {
@@ -6837,9 +6883,12 @@ app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => 
     if (!state || state.length !== 2 || isNaN(stepNumber)) {
       return res.status(400).json({ error: 'Invalid state or step number' });
     }
-    const loaded = await loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
+    let loaded = await loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
     if (loaded == null) {
-      return res.status(404).json({ error: 'District party data not found. Run POST /api/algorithm/district-party/:state first.' });
+      loaded = await computeDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
+      if (loaded == null) {
+        return res.status(404).json({ error: 'District party data not found. Ensure step is cached and tract party persistence has been run (POST /api/algorithm/tract-party-persistence).' });
+      }
     }
     return res.json({ state, step: stepNumber, maxIterations, districts: loaded.districts, vestYear: loaded.vestYear });
   } catch (error) {
@@ -8623,6 +8672,44 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
       }
     }
     console.log(`✅ RECONSTRUCT: Updated tract DG properties from divisionLines`);
+  }
+
+  // Ensure ENCLOSED_BY / ENCLOSES / TRACT_GROUP_ID are set (e.g. when tract cache predates enclosed detection or for TX enclosed tracts)
+  const allTractsForEnclosed = reconstructed.districtGroups.flatMap(g => g.censusTracts || []);
+  if (allTractsForEnclosed.length > 0) {
+    const { detectEnclosedTracts, getTractId } = require('./services/geodistrict-algorithm');
+    const enclosedMap = detectEnclosedTracts(allTractsForEnclosed);
+    if (enclosedMap.size > 0) {
+      let nextGroupId = 1;
+      const groupIdMap = new Map();
+      for (const [enclosedId, enclosingId] of enclosedMap.entries()) {
+        let groupId = groupIdMap.get(enclosedId) || groupIdMap.get(enclosingId);
+        if (!groupId) groupId = `group_${nextGroupId++}`;
+        groupIdMap.set(enclosedId, groupId);
+        groupIdMap.set(enclosingId, groupId);
+      }
+      for (const tract of allTractsForEnclosed) {
+        const tractId = getTractId(tract);
+        if (!tractId) continue;
+        if (enclosedMap.has(tractId)) {
+          if (!tract.properties) tract.properties = {};
+          tract.properties.ENCLOSED_BY = enclosedMap.get(tractId);
+        }
+        const enclosedByThis = [];
+        for (const [eid, encId] of enclosedMap.entries()) {
+          if (encId === tractId) enclosedByThis.push(eid);
+        }
+        if (enclosedByThis.length > 0) {
+          if (!tract.properties) tract.properties = {};
+          tract.properties.ENCLOSES = enclosedByThis;
+        }
+        if (groupIdMap.has(tractId)) {
+          if (!tract.properties) tract.properties = {};
+          tract.properties.TRACT_GROUP_ID = groupIdMap.get(tractId);
+        }
+      }
+      console.log(`✅ RECONSTRUCT: Assigned ENCLOSED_BY/TRACT_GROUP_ID for ${enclosedMap.size} enclosed tract(s)`);
+    }
   }
 
   const totalTracts = reconstructed.districtGroups.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0);

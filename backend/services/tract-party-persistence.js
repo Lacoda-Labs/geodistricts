@@ -81,6 +81,11 @@ async function loadTractPartyForState(state, year) {
  * group by state, write to Firestore (and Cloud Storage for large states).
  * When only county-level VEST data is available, builds tract-level data via
  * county→tract allocation (vest-data-loader.buildTractDataFromCountyVEST).
+ *
+ * Tract party is computed once per (state, year) and persisted per tract. Re-run this job
+ * when VEST data is refreshed or when the election year changes. District group party at
+ * any step is then derived by summing these stored tract totals (votesDem, votesRep).
+ *
  * @param {number} year - VEST year (e.g. 2020)
  * @param {{ apiBaseUrl?: string }} options - Optional. apiBaseUrl for tract boundaries when using county allocation.
  * @returns {Promise<{ statesWritten: string[], statesSkipped: string[], error?: string }>}

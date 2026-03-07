@@ -153,6 +153,7 @@
               </div>
               <div class="tract-list-dev"
                 *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
+                <mat-accordion>
                 <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips"
                   class="tract-list-county-panel">
                   <mat-expansion-panel-header>
@@ -192,6 +193,7 @@
                     </mat-expansion-panel>
                   </div>
                 </mat-expansion-panel>
+                </mat-accordion>
               </div>
 
               <!-- Isolated Tracts Table (only when isolation resolution is enabled for this run) -->
