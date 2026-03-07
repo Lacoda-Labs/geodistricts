@@ -113,12 +113,16 @@ async function runTractPartyPersistenceJob(year, options = {}) {
       if (!stateCode) continue;
       if (!byState[stateCode]) byState[stateCode] = {};
       const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
+      const votesDem = row.votes_dem_pres ?? 0;
+      const votesRep = row.votes_rep_pres ?? 0;
+      // Always store two-party total so percentages and district totals are consistent (D+R)
+      const totalVotes = votesDem + votesRep;
       byState[stateCode][normalizedGeoid] = {
         pctDem: row.pct_dem_pres ?? 0,
         pctRep: row.pct_rep_pres ?? 0,
-        votesDem: row.votes_dem_pres ?? 0,
-        votesRep: row.votes_rep_pres ?? 0,
-        totalVotes: row.total_votes_pres ?? 0
+        votesDem,
+        votesRep,
+        totalVotes
       };
     }
     if (USE_LOCAL_CACHE) {
