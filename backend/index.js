@@ -8559,6 +8559,15 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
       }
     }
   }
+
+  // Enrich tracts with party data from tract_party_{state}_{year} so popup and coloring can use tract.properties
+  let tractPartyByGeoid = null;
+  if (requestedState) {
+    tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(requestedState, 2024);
+    if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0) {
+      console.log(`✅ RECONSTRUCT: Enriching tracts with party data (${Object.keys(tractPartyByGeoid).length} tract party rows)`);
+    }
+  }
   
   const reconstructed = {
     ...normalizedStep,
@@ -8581,13 +8590,34 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         }
       }
       
-      const tracts = tractIds.map(id => tractLookup.get(id)).filter(Boolean);
+      let tracts = tractIds.map(id => tractLookup.get(id)).filter(Boolean);
       const missingCount = tractIds.length - tracts.length;
       
       if (missingCount > 0) {
         // Show some missing IDs for debugging
         const missingIds = tractIds.filter(id => !tractLookup.has(id)).slice(0, 3);
         console.log(`   ⚠️ Group ${idx + 1}: ${missingCount} missing tracts. Sample missing IDs: ${missingIds.join(', ')}`);
+      }
+
+      // Enrich each tract with party metadata (pctDem, pctRep, votesDem, votesRep, totalVotes) so popup and coloring use tract.properties
+      if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0) {
+        const { getTractId } = require('./services/geodistrict-algorithm');
+        tracts = tracts.map(t => {
+          const tid = getTractId(t);
+          const row = tractPartyByGeoid[tid] || tractPartyByGeoid[String(tid)];
+          if (!row) return t;
+          return {
+            ...t,
+            properties: {
+              ...(t.properties || {}),
+              pctDem: row.pctDem,
+              pctRep: row.pctRep,
+              votesDem: row.votesDem,
+              votesRep: row.votesRep,
+              totalVotes: row.totalVotes
+            }
+          };
+        });
       }
       
       // Validate that reconstructed tracts have geometry

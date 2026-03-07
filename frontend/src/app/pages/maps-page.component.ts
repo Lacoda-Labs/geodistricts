@@ -580,16 +580,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           localStorage.setItem('showTractBoundaries', component.showTractBoundaries.toString());
           component.updateMapLayers();
           updateButtonStates();
-          // When turning tracts on, load tract party data so party colors can be used
-          if (component.showTractBoundaries && component.selectedState && component.selectedState !== 'ALL' && !component.tractPartyByGeoid) {
-            component.geodistrictService.getTractParty(component.selectedState, 2024).subscribe({
-              next: (res) => {
-                component.tractPartyByGeoid = res.geoids || {};
-                component.updateMapLayers();
-                component.cdr.markForCheck();
-              },
-              error: () => { component.tractPartyByGeoid = null; }
-            });
+          // Party for tracts comes with census tract metadata from backend; no separate fetch
+          if (component.showTractBoundaries && component.currentStep) {
+            component.renderFinalDistricts();
+            component.cdr.markForCheck();
           }
         });
 
@@ -660,6 +654,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.devTractList = null;
       this.devIslandTractsData = null;
       this.devTractListState = null;
+      // Clear tract party so we don't use another state's data; will reload when show tracts is on
+      this.tractPartyByGeoid = null;
 
       if (this.selectedState !== 'ALL') {
         // Save All-states data to cache before clearing so we can restore when switching back
@@ -3971,19 +3967,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
 
             let tractColor = isIsolated ? this.darkenColor(color, 0.1) : color;
-            const partyData = this.tractPartyByGeoid;
+            const tractParty = this.getPartyFromTract(tract);
             const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
             const useDistrictPartyColor = this.showPartyColor && this.districtPartyByGroupKey?.[groupKey];
-            // Tract-level party color only when Show tracts is ON (stored tract party % from parent county). When OFF, use DG color only.
+            // Tract-level party color only when Show tracts is ON; use party from tract metadata (or fallback). When OFF, use DG color only.
             let pctDemForOpacity: number | null = null;
-            const useTractPartyColor = this.showTractBoundaries && partyData && !useDistrictPartyColor;
-            if (useTractPartyColor && partyData) {
-              const geoid = this.normalizeTractPartyGeoid(tractId);
-              const row = partyData[geoid];
-              if (row != null) {
-                tractColor = this.getTractColorByParty(row.pctDem);
-                pctDemForOpacity = row.pctDem;
-              }
+            const useTractPartyColor = this.showTractBoundaries && !useDistrictPartyColor;
+            if (useTractPartyColor && tractParty != null) {
+              tractColor = this.getTractColorByParty(tractParty.pctDem);
+              pctDemForOpacity = tractParty.pctDem;
             } else if (useDistrictPartyColor) {
               pctDemForOpacity = this.districtPartyByGroupKey![groupKey].pctDem;
             }
@@ -4013,7 +4005,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               ${isIsolated ? '<strong style="color: #d32f2f;">⚠️ ISOLATED TRACT</strong><br>' : ''}
               ${isBridge ? '<strong style="color: #1976d2;">🌉 BRIDGE TRACT</strong><br>' : ''}
               <strong>Population:</strong> ${(tractProperties.POPULATION || 0).toLocaleString()}<br>
-              ${this.getPopupPartyLine(partyData ? partyData[this.normalizeTractPartyGeoid(tractId)] ?? null : null)}
+              ${this.getPopupPartyLine(tractParty)}
               <strong>District Population:</strong> ${district.totalPopulation.toLocaleString()}<br>
               <strong>Tracts in District:</strong> ${district.censusTracts.length}<br>
               <strong>Sibling:</strong> ${this.getSiblingDGLabel(tract)}<br>
@@ -4926,6 +4918,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Get party data for a tract. Prefer census tract metadata (tract.properties) when backend
+   * includes party with step data; fall back to tractPartyByGeoid only for older cached steps.
+   */
+  private getPartyFromTract(tract: GeoJsonFeature): { pctDem: number; pctRep?: number; votesDem?: number; votesRep?: number; totalVotes?: number } | null {
+    const p = tract.properties as Record<string, unknown> | undefined;
+    if (p && typeof p['pctDem'] === 'number') {
+      return {
+        pctDem: p['pctDem'] as number,
+        pctRep: typeof p['pctRep'] === 'number' ? (p['pctRep'] as number) : 1 - (p['pctDem'] as number),
+        votesDem: p['votesDem'] as number | undefined,
+        votesRep: p['votesRep'] as number | undefined,
+        totalVotes: p['totalVotes'] as number | undefined
+      };
+    }
+    const tractId = this.getTractId(tract);
+    const geoid = tractId ? this.normalizeTractPartyGeoid(tractId) : '';
+    return this.tractPartyByGeoid?.[geoid] ?? null;
+  }
+
+  /**
    * Get tract ID from a GeoJSON feature (GEOID or fallbacks).
    * IMPORTANT: Must match backend getTractId logic for proper ID matching
    */
@@ -5497,7 +5509,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const isIsolated = this.isolatedTractIds.has(tractId);
         const isBridge = this.bridgeTractIds.has(tractId);
         const siblingLabel = this.getSiblingDGLabel(tractFeature);
-        const tractPartyRow = this.tractPartyByGeoid?.[this.normalizeTractPartyGeoid(tractId)] ?? null;
+        const tractPartyRow = this.getPartyFromTract(tractFeature);
         const popupContent = `
           <strong>${groupLabel}</strong><br>
           <strong>Tract ID:</strong> ${props.TRACT_FIPS ?? props['GEOID'] ?? tractId}<br>
@@ -5889,7 +5901,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   get partyDataUnavailableMessage(): string | null {
     if (!this.selectedState || this.selectedState === 'ALL') return null;
     if (!this.showPartyColor && !this.showTractBoundaries) return null;
+    // Party comes with census tract metadata from backend; check if any tract has it
     if (this.tractPartyByGeoid != null && Object.keys(this.tractPartyByGeoid).length > 0) return null;
+    const step = this.currentStep;
+    if (step?.districtGroups?.length) {
+      const hasAnyTractParty = step.districtGroups.some(g =>
+        g.censusTracts?.some(t => typeof (t.properties as Record<string, unknown>)?.['pctDem'] === 'number'));
+      if (hasAnyTractParty) return null;
+    }
     return 'Party data not loaded for this state. Run tract party persistence (POST /api/algorithm/tract-party-persistence).';
   }
 
@@ -5931,28 +5950,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return MapsPageComponent.colorFromStops(value, MapsPageComponent.REPUBLICAN_STOPS);
   }
 
-  /** Toggle party coloring and fetch tract party data if enabling. */
+  /** Toggle party coloring. Tract party comes with census tract metadata from backend; district party fetched if needed. */
   togglePartyColor(): void {
     this.showPartyColor = !this.showPartyColor;
     if (this.showPartyColor && this.selectedState && this.selectedState !== 'ALL') {
-      this.tractPartyByGeoid = null;
-      this.geodistrictService.getTractParty(this.selectedState, 2024).subscribe({
-        next: (res) => {
-          this.tractPartyByGeoid = res.geoids || {};
-          this.renderFinalDistricts();
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.tractPartyByGeoid = null;
-          this.showPartyColor = false;
-          this.cdr.markForCheck();
-        }
-      });
       if (this.districtPartyPercentagesCalculated && this.finalStepNumber != null) {
         this.fetchDistrictPartyForCurrentStep();
       }
+      this.renderFinalDistricts();
     } else if (!this.showPartyColor) {
-      this.tractPartyByGeoid = null;
       this.renderFinalDistricts();
     }
     this.cdr.markForCheck();

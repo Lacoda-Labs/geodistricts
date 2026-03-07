@@ -2,8 +2,8 @@
 
 /**
  * One-time fix: read tract_party_{state}_{year}.json from local cache,
- * set totalVotes = votesDem + votesRep for every tract, write back.
- * Use when existing files have county-level or full-ballot totalVotes.
+ * set totalVotes = votesDem + votesRep and recompute pctDem/pctRep from two-party total.
+ * Use when existing files have county-level or full-ballot totalVotes (or wrong percentages).
  *
  * Usage: node backend/scripts/fix-tract-party-totalvotes.js [state] [year]
  * Example: node backend/scripts/fix-tract-party-totalvotes.js TX 2024
@@ -37,7 +37,8 @@ async function main() {
     process.exit(1);
   }
 
-  let fixed = 0;
+  let fixedTotal = 0;
+  let fixedPct = 0;
   for (const geoid of Object.keys(geoids)) {
     const row = geoids[geoid];
     const votesDem = row.votesDem ?? 0;
@@ -45,7 +46,14 @@ async function main() {
     const twoParty = votesDem + votesRep;
     if (row.totalVotes !== twoParty) {
       row.totalVotes = twoParty;
-      fixed++;
+      fixedTotal++;
+    }
+    const pctDem = twoParty > 0 ? votesDem / twoParty : 0;
+    const pctRep = twoParty > 0 ? votesRep / twoParty : 0;
+    if (row.pctDem !== pctDem || row.pctRep !== pctRep) {
+      row.pctDem = pctDem;
+      row.pctRep = pctRep;
+      fixedPct++;
     }
   }
 
@@ -58,7 +66,7 @@ async function main() {
   } catch (_) {}
   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), 'utf8');
 
-  console.log(`Fixed ${fixed} tracts in ${key}; totalVotes = votesDem + votesRep. Wrote ${dataPath}`);
+  console.log(`Fixed ${key}: totalVotes=${fixedTotal} tracts, pctDem/pctRep=${fixedPct} tracts (two-party). Wrote ${dataPath}`);
 }
 
 main().catch((err) => {
