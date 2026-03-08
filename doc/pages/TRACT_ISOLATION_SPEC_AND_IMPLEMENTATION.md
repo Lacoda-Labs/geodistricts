@@ -46,7 +46,7 @@ A critical distinction:
    - Repeat until every tract in the group is in exactly one component.
 3. **Main component** = the largest dgAdjacentGroup by size. **Isolated** = all tracts not in the main component (all other components).
 4. At **step 0**: Do not add to `isolatedTractsByGroup`. Output non-main components as `islandTractsByGroup` (array of arrays per group).
-5. At **steps 1+**: Remove any tract ID in `step0IslandTractIds` from the isolated set, then add the remainder to `isolatedTractsByGroup` and `isolatedTractIds`. Also output `isolatedComponentsByGroup` (Map of group index → array of Sets, one per non-main component) for optional use by bridge detection.
+5. At **steps 1+**: Remove any tract ID in `step0IslandTractIds` from the isolated set. Also remove any tract ID that has `ENCLOSED_BY` (enclosed/donut-hole tract), since they are allowed and follow their enclosing tract (GDIP-004 §3.1.1). Then add the remainder to `isolatedTractsByGroup` and `isolatedTractIds`. Also output `isolatedComponentsByGroup` (Map of group index → array of Sets, one per non-main component) for optional use by bridge detection.
 
 ### Outputs
 

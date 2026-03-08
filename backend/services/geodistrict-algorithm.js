@@ -2516,7 +2516,18 @@ class GeodistrictAlgorithmService {
     const isolatedComponentsByGroup = new Map();
     const dgAdjacentGroupsByGroup = new Map();
     const groupStats = [];
-    
+
+    // Enclosed (donut-hole) tracts are allowed and follow their enclosing tract (GDIP-004 §3.1.1); exclude from isolated set at steps > 0
+    const enclosedTractIds = new Set();
+    for (const group of districtGroups) {
+      for (const tract of group.censusTracts || []) {
+        if (tract.properties?.ENCLOSED_BY) {
+          const id = getTractId(tract);
+          if (id) enclosedTractIds.add(id);
+        }
+      }
+    }
+
     for (let groupIndex = 0; groupIndex < districtGroups.length; groupIndex++) {
       const group = districtGroups[groupIndex];
       const totalTractsInGroup = group.censusTracts.length;
@@ -2588,7 +2599,20 @@ class GeodistrictAlgorithmService {
           groupIsolatedTractIds.delete(islandId);
         }
       }
-      
+
+      if (!isStep0 && enclosedTractIds.size > 0) {
+        let removedEnclosed = 0;
+        for (const enclosedId of enclosedTractIds) {
+          if (groupIsolatedTractIds.has(enclosedId)) {
+            groupIsolatedTractIds.delete(enclosedId);
+            removedEnclosed++;
+          }
+        }
+        if (removedEnclosed > 0) {
+          logger.debug(`🔍 DETECT ISOLATED: Excluded ${removedEnclosed} enclosed tract(s) from isolation in group ${group.startDistrictNumber}-${group.endDistrictNumber} (allowed per GDIP-004 §3.1.1)`);
+        }
+      }
+
       if (groupIsolatedTractIds.size > 0) {
         if (isStep0) {
           const islandGroups = isolatedComponents.map(s => Array.from(s));
