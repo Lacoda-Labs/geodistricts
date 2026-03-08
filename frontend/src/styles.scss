@@ -139,6 +139,12 @@ html {
     typography: Roboto,
     density: 0,
   ));
+
+  // Tooltip: opaque container and readable text (https://material.angular.dev/components/tooltip/styling)
+  @include mat.tooltip-overrides((
+    container-color: var(--mat-sys-inverse-surface, #313539),
+    supporting-text-color: var(--mat-sys-inverse-on-surface, #e0e2e8),
+  ));
 }
 
 

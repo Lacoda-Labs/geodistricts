@@ -5859,39 +5859,39 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return '–';
   }
 
-  /** Tooltip for district row Party icon: show D/R % and vote count when party data is loaded. */
+  /** Tooltip for district row Party icon: show D/R % and two-party vote count when party data is loaded. */
   getGroupPartyTooltip(group: DistrictGroup, status: PerGroupStatus | null): string {
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
     if (status?.party === 'done' && this.districtPartyByGroupKey?.[groupKey]) {
       const d = this.districtPartyByGroupKey[groupKey];
       const pctDem = (d.pctDem * 100).toFixed(1);
       const pctRep = (d.pctRep * 100).toFixed(1);
-      const votes = (d.totalVotes ?? 0).toLocaleString();
-      return `D ${pctDem}% · R ${pctRep}% · ${votes} votes`;
+      const twoPartyVotes = (d.votesDem ?? 0) + (d.votesRep ?? 0);
+      const votesStr = twoPartyVotes > 0 ? ` · ${twoPartyVotes.toLocaleString()} votes` : '';
+      return `D ${pctDem}% · R ${pctRep}%${votesStr}`;
     }
     if (this.districtPartyByGroupKey?.[groupKey]) {
       const d = this.districtPartyByGroupKey[groupKey];
       const pctDem = (d.pctDem * 100).toFixed(1);
       const pctRep = (d.pctRep * 100).toFixed(1);
-      const votes = (d.totalVotes ?? 0).toLocaleString();
-      return `D ${pctDem}% · R ${pctRep}% · ${votes} votes`;
+      const twoPartyVotes = (d.votesDem ?? 0) + (d.votesRep ?? 0);
+      const votesStr = twoPartyVotes > 0 ? ` · ${twoPartyVotes.toLocaleString()} votes` : '';
+      return `D ${pctDem}% · R ${pctRep}%${votesStr}`;
     }
     if (status?.party === 'done') return 'Party % calculated';
     if (status?.party === 'missing') return 'Click to calculate party %';
     return status?.party ?? '';
   }
 
-  /** Returns HTML line for popup: "Party: D xx% · R yy% (votes)" or "" when no data. */
+  /** Returns HTML line for popup: "Party: D xx% · R yy% (votes)" or "" when no data. Uses two-party total (D+R) for vote count. */
   private getPopupPartyLine(party: { pctDem: number; pctRep?: number; votesDem?: number; votesRep?: number; totalVotes?: number } | null): string {
     if (!party || typeof party.pctDem !== 'number') return '';
     const pctDem = (party.pctDem * 100).toFixed(1);
     const pctRep = (typeof party.pctRep === 'number' ? party.pctRep : 1 - party.pctDem) * 100;
     const pctRepStr = pctRep.toFixed(1);
-    const votes = party.totalVotes != null ? (party.totalVotes as number).toLocaleString() : null;
-    if (votes != null) {
-      return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}% (${votes} votes)<br>`;
-    }
-    return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}%<br>`;
+    const twoParty = (party.votesDem ?? 0) + (party.votesRep ?? 0);
+    const votesStr = twoParty > 0 ? ` (${twoParty.toLocaleString()} votes)` : '';
+    return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}%${votesStr}<br>`;
   }
 
   /** Message when party coloring is on but tract party data is not loaded for this state. */
