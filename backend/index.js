@@ -5369,6 +5369,28 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   
                   // For Step 0, ensure TIGER state boundaries are used
                   stepData = await ensureStep0UsesTigerBoundaries(stepData, state, 0, req);
+
+                  // Enrich tracts with party data (same as reconstructStepFromCache) so popup and coloring use tract.properties
+                  const tractPartyByGeoid = state ? await tractPartyPersistence.loadTractPartyForState(state, 2024) : null;
+                  if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0 && stepData.districtGroups[0].censusTracts) {
+                    stepData.districtGroups[0].censusTracts = stepData.districtGroups[0].censusTracts.map(t => {
+                      const tid = getTractId(t);
+                      const row = tractPartyByGeoid[tid] || tractPartyByGeoid[String(tid)];
+                      if (!row) return t;
+                      return {
+                        ...t,
+                        properties: {
+                          ...(t.properties || {}),
+                          pctDem: row.pctDem,
+                          pctRep: row.pctRep,
+                          votesDem: row.votesDem,
+                          votesRep: row.votesRep,
+                          totalVotes: row.totalVotes
+                        }
+                      };
+                    });
+                    console.log(`✅ STEP 0: Enriched ${stepData.districtGroups[0].censusTracts.length} tracts with party data`);
+                  }
                 }
                 
                 // Reconstruct algorithm state from cached step

@@ -772,9 +772,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // When toggling between tracts and union polygons, we need to re-render
-    // because we're switching between different geometries
+    // because we're switching between different geometries (party comes with tract metadata from backend).
     if (this.algorithmResult && this.currentStep) {
-      // Re-render to show either individual tracts or union polygons
       this.renderFinalDistricts();
     } else if (this.tractGeoJsonLayers.size > 0) {
       // Fallback: update existing layer styles if no algorithm result. Border always black.
@@ -1898,14 +1897,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const stepLabel = isComplete ? `final step ${stepIndex}` : `step ${stepIndex}`;
         console.log(`✅ ${stepLabel} loaded: ${step.districtGroups[0]?.censusTracts?.length || 0} tracts`);
         
-        // Render the step on map - wait a bit longer to ensure map is ready
+        // Render the step on map - wait a bit longer to ensure map is ready (party comes with tract metadata from backend).
         setTimeout(() => {
           console.log(`🖼️ About to render ${stepLabel}, map initialized: ${!!this.map}, tractLayer initialized: ${!!this.tractLayer}`);
           if (!this.map || !this.tractLayer) {
             console.error('⚠️ Map or tractLayer not initialized, retrying in 500ms...');
-            setTimeout(() => {
-              this.renderFinalDistricts();
-            }, 500);
+            setTimeout(() => this.renderFinalDistricts(), 500);
           } else {
             this.renderFinalDistricts();
           }
@@ -3970,10 +3967,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             const tractParty = this.getPartyFromTract(tract);
             const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
             const useDistrictPartyColor = this.showPartyColor && this.districtPartyByGroupKey?.[groupKey];
-            // Tract-level party color only when Show tracts is ON; use party from tract metadata (or fallback). When OFF, use DG color only.
+            // When Show tracts is ON, color each tract by its tract-level party % (if available). When OFF, use DG/state color only.
             let pctDemForOpacity: number | null = null;
-            const useTractPartyColor = this.showTractBoundaries && !useDistrictPartyColor;
-            if (useTractPartyColor && tractParty != null) {
+            const useTractPartyColor = this.showTractBoundaries && tractParty != null;
+            if (useTractPartyColor) {
               tractColor = this.getTractColorByParty(tractParty.pctDem);
               pctDemForOpacity = tractParty.pctDem;
             } else if (useDistrictPartyColor) {
@@ -5901,14 +5898,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   get partyDataUnavailableMessage(): string | null {
     if (!this.selectedState || this.selectedState === 'ALL') return null;
     if (!this.showPartyColor && !this.showTractBoundaries) return null;
-    // Party comes with census tract metadata from backend; check if any tract has it
-    if (this.tractPartyByGeoid != null && Object.keys(this.tractPartyByGeoid).length > 0) return null;
+    // Party comes with census tract metadata from backend; treat as available if any tract has pctDem
     const step = this.currentStep;
     if (step?.districtGroups?.length) {
       const hasAnyTractParty = step.districtGroups.some(g =>
         g.censusTracts?.some(t => typeof (t.properties as Record<string, unknown>)?.['pctDem'] === 'number'));
       if (hasAnyTractParty) return null;
     }
+    if (this.tractPartyByGeoid != null && Object.keys(this.tractPartyByGeoid).length > 0) return null;
     return 'Party data not loaded for this state. Run tract party persistence (POST /api/algorithm/tract-party-persistence).';
   }
 
