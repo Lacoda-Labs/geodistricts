@@ -125,22 +125,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private cachedSortedTractEntries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }> = [];
   private cachedNorthPrefixSum: number[] = []; // northPrefixSum[i] = sum of population for tracts 0..i-1
   private cachedTotalPopulation = 0;
-  private divisionLineDragHandle: L.Marker | null = null;
-  private divisionLineLabelNorth: L.Marker | null = null;
-  private divisionLineLabelSouth: L.Marker | null = null;
-  private divisionLineDragging = false;
-  /** When step has multiple DGs, one division line per DG. */
-  private divisionLineControlsByDg: Array<{ line: L.Polyline; handle: L.Marker; labelNorth: L.Marker; labelSouth: L.Marker; dgIndex: number }> = [];
-  /** Per-DG split value (0..sliderMax) when showing multiple DGs. */
-  private sortSliderValueByDgIndex: Record<number, number> = {};
-  /** Cached sorted entries per DG for multi-DG division lines (key = dgIndex). */
+  /** Cached sorted entries per DG (key = dgIndex). */
   private cachedSortedTractEntriesByDg: Map<number, { entries: Array<{ tractId: string; minLat: number; maxLat: number; minLng: number; maxLng: number; population: number }>; prefixSum: number[]; total: number }> = new Map();
   /** Throttle slider updates to reduce work while dragging. */
   private static readonly SLIDER_THROTTLE_MS = 100;
   private lastSliderUpdateTime = 0;
   private pendingSliderUpdateTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Line on map showing sort-position boundary (southernmost lat or easternmost lng of highlighted tracts). */
-  private sliderPositionLineLayer: L.Polyline | null = null;
   /** State bounds used for slider track length and min zoom (set when fitting map to state). */
   private stateBoundsForSlider: L.LatLngBounds | null = null;
   /** Slider track length in px to align with state extent on map (set from projected bounds). */
@@ -589,13 +579,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         });
 
-        // Division lines button click handler (toggles both historical division lines and sort slider lines)
+        // Division lines button click handler (toggles red division lines only)
         L.DomEvent.on(divisionButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
           component.showDivisionLines = !component.showDivisionLines;
           component.renderDivisionLines();
-          component.updateDivisionLineAndLabels();
           updateButtonStates();
         });
 
@@ -2038,7 +2027,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.bridgeTractsData = null;
         this.selectedDistrictGroupIndex = null; // Clear selection when changing steps
         this.sortSliderValue = 0;
-        this.sortSliderValueByDgIndex = {};
     this.cachedSortedTractIds = [];
     this.cachedSortedTractIdsKey = '';
     this.cachedSortedTractEntries = [];
@@ -3319,7 +3307,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     });
     this.lastSliderHighlightedTractIds = new Set();
-    this.removeDivisionLineControls();
   }
 
   /**
@@ -3363,358 +3350,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.lastSliderHighlightedTractIds = new Set(newIds);
-
-    this.updateDivisionLineAndLabels();
-  }
-
-  /**
-   * Draw or update the division line (at split position), draggable handle, and population labels. Replaces slider input: line is the control.
-   */
-  private updateDivisionLineAndLabels(): void {
-    if (!this.map || !this.currentStep?.districtGroups?.length) return;
-    this.removeDivisionLineControls();
-    if (!this.showDivisionLines) return;
-    const multiDg = this.currentStep.districtGroups.length > 1 && this.selectedDistrictGroupIndex === null;
-    if (multiDg) {
-      this.updateDivisionLinesForMultipleDgs();
-      return;
-    }
-    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
-    if (dgIndex < 0 || !this.currentStep?.districtGroups?.[dgIndex]) return;
-    const entries = this.getOrBuildSortedTractEntries();
-    if (entries.length === 0) return;
-    if (this.sortSliderValue === 0) {
-      const mid = this.getMidpointSplitIndex();
-      const M = this.sliderMax;
-      this.sortSliderValue = Math.round(mid * M / entries.length);
-    }
-    const splitIndex = this.getSplitIndexFromSliderValue();
-    let lineValue = this.getDivisionLinePositionFromSplitIndex(splitIndex);
-    if (lineValue == null) return;
-    const dgBounds = this.getDistrictGroupBounds(dgIndex);
-    const mapBounds = this.map.getBounds();
-    const isLat = this.sortDirection === 'latitude';
-    const west = dgBounds ? dgBounds.getWest() : mapBounds.getWest();
-    const east = dgBounds ? dgBounds.getEast() : mapBounds.getEast();
-    const south = dgBounds ? dgBounds.getSouth() : mapBounds.getSouth();
-    const north = dgBounds ? dgBounds.getNorth() : mapBounds.getNorth();
-    if (dgBounds) {
-      lineValue = isLat
-        ? Math.max(south, Math.min(north, lineValue))
-        : Math.max(west, Math.min(east, lineValue));
-    }
-    let latLngs: L.LatLng[];
-    if (isLat) {
-      latLngs = [L.latLng(lineValue, west), L.latLng(lineValue, east)];
-    } else {
-      latLngs = [L.latLng(south, lineValue), L.latLng(north, lineValue)];
-    }
-    const line = L.polyline(latLngs, {
-      color: '#1976d2',
-      weight: 3,
-      opacity: 0.95,
-      className: 'division-line-interactive ' + (isLat ? 'division-line-lat' : 'division-line-lng')
-    });
-    line.on('mouseover', () => {
-      if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
-    });
-    line.on('mouseout', () => {
-      if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = '';
-    });
-    line.on('mousedown', (e: L.LeafletMouseEvent) => {
-      L.DomEvent.stopPropagation(e);
-      if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
-      this.divisionLineDragging = true;
-      this.map!.dragging.disable();
-      this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
-      const onMove = (ev: L.LeafletMouseEvent) => {
-        if (ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
-        const newVal = isLat ? ev.latlng.lat : ev.latlng.lng;
-        this.updateDivisionLinePositionOnly(newVal);
-      };
-      const onUp = () => {
-        this.divisionLineDragging = false;
-        this.map!.dragging.enable();
-        this.map!.getContainer().style.cursor = '';
-        this.map!.off('mousemove', onMove);
-        this.map!.off('mouseup', onUp);
-        const latlngs = (this.sliderPositionLineLayer as L.Polyline)?.getLatLngs() as L.LatLng[] | undefined;
-        if (latlngs?.length) {
-          const lineVal = isLat ? latlngs[0].lat : latlngs[0].lng;
-          this.applyDivisionLinePosition(lineVal);
-        }
-      };
-      this.map!.on('mousemove', onMove);
-      this.map!.on('mouseup', onUp);
-    });
-    line.addTo(this.map);
-    this.sliderPositionLineLayer = line;
-
-    const handlePos = isLat ? L.latLng(lineValue, east) : L.latLng(north, lineValue);
-    const handleIcon = L.divIcon({
-      className: 'division-line-handle',
-      html: '<div style="width:12px;height:12px;border-radius:50%;background:#1976d2;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:' + (isLat ? 'ns-resize' : 'ew-resize') + '"></div>',
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
-    });
-    const handle = L.marker(handlePos, { draggable: true, icon: handleIcon });
-    handle.on('dragend', () => {
-      const pos = handle.getLatLng();
-      const newVal = isLat ? pos.lat : pos.lng;
-      this.applyDivisionLinePosition(newVal);
-    });
-    handle.addTo(this.map);
-    this.divisionLineDragHandle = handle;
-
-    const { first, second } = this.getPopulationsForSplitIndex(splitIndex);
-    const fmt = (n: number) => n.toLocaleString();
-    const labelOffset = 0.06;
-    const labelNorth = L.marker(
-      isLat ? L.latLng(lineValue + labelOffset, east) : L.latLng(north, lineValue + labelOffset),
-      {
-        icon: L.divIcon({
-          className: 'division-line-label',
-          html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>',
-          iconSize: [120, 24],
-          iconAnchor: [0, 12]
-        })
-      }
-    );
-    const labelSouth = L.marker(
-      isLat ? L.latLng(lineValue - labelOffset, east) : L.latLng(south, lineValue - labelOffset),
-      {
-        icon: L.divIcon({
-          className: 'division-line-label',
-          html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>',
-          iconSize: [120, 24],
-          iconAnchor: [0, 12]
-        })
-      }
-    );
-    labelNorth.addTo(this.map);
-    labelSouth.addTo(this.map);
-    this.divisionLineLabelNorth = labelNorth;
-    this.divisionLineLabelSouth = labelSouth;
-  }
-
-  private removeDivisionLineControls(): void {
-    this.divisionLineControlsByDg.forEach(({ line, handle, labelNorth, labelSouth }) => {
-      if (this.map) {
-        this.map.removeLayer(line);
-        this.map.removeLayer(handle);
-        this.map.removeLayer(labelNorth);
-        this.map.removeLayer(labelSouth);
-      }
-    });
-    this.divisionLineControlsByDg = [];
-    if (this.divisionLineDragHandle && this.map) {
-      this.map.removeLayer(this.divisionLineDragHandle);
-      this.divisionLineDragHandle = null;
-    }
-    if (this.divisionLineLabelNorth && this.map) {
-      this.map.removeLayer(this.divisionLineLabelNorth);
-      this.divisionLineLabelNorth = null;
-    }
-    if (this.divisionLineLabelSouth && this.map) {
-      this.map.removeLayer(this.divisionLineLabelSouth);
-      this.divisionLineLabelSouth = null;
-    }
-    if (this.sliderPositionLineLayer && this.map) {
-      this.map.removeLayer(this.sliderPositionLineLayer);
-      this.sliderPositionLineLayer = null;
-    }
-  }
-
-  /** Update line, handle, and label positions and label text in place (during drag) without removing layers. */
-  private updateDivisionLinePositionOnly(lineValue: number): void {
-    if (!this.map || !this.sliderPositionLineLayer || !this.divisionLineDragHandle) return;
-    const dgIndex = this.currentStepIndex === 0 ? 0 : this.selectedDistrictGroupIndex ?? -1;
-    const dgBounds = dgIndex >= 0 ? this.getDistrictGroupBounds(dgIndex) : null;
-    const mapBounds = this.map.getBounds();
-    const west = dgBounds ? dgBounds.getWest() : mapBounds.getWest();
-    const east = dgBounds ? dgBounds.getEast() : mapBounds.getEast();
-    const south = dgBounds ? dgBounds.getSouth() : mapBounds.getSouth();
-    const north = dgBounds ? dgBounds.getNorth() : mapBounds.getNorth();
-    const isLat = this.sortDirection === 'latitude';
-    const clamped = isLat
-      ? Math.max(south, Math.min(north, lineValue))
-      : Math.max(west, Math.min(east, lineValue));
-    if (isLat) {
-      (this.sliderPositionLineLayer as L.Polyline).setLatLngs([L.latLng(clamped, west), L.latLng(clamped, east)]);
-      this.divisionLineDragHandle.setLatLng(L.latLng(clamped, east));
-    } else {
-      (this.sliderPositionLineLayer as L.Polyline).setLatLngs([L.latLng(south, clamped), L.latLng(north, clamped)]);
-      this.divisionLineDragHandle.setLatLng(L.latLng(north, clamped));
-    }
-    const splitIndex = this.getSplitIndexFromDivisionLinePosition(clamped);
-    const M = this.sliderMax;
-    const N = this.cachedSortedTractEntries.length;
-    this.sortSliderValue = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
-    const { first, second } = this.getPopulationsForSplitIndex(splitIndex);
-    const fmt = (n: number) => n.toLocaleString();
-    const labelOffset = 0.06;
-    if (this.divisionLineLabelNorth) {
-      this.divisionLineLabelNorth.setLatLng(isLat ? L.latLng(clamped + labelOffset, east) : L.latLng(north, clamped + labelOffset));
-      this.divisionLineLabelNorth.setIcon(L.divIcon({
-        className: 'division-line-label',
-        html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>',
-        iconSize: [120, 24],
-        iconAnchor: [0, 12]
-      }));
-    }
-    if (this.divisionLineLabelSouth) {
-      this.divisionLineLabelSouth.setLatLng(isLat ? L.latLng(clamped - labelOffset, east) : L.latLng(south, clamped - labelOffset));
-      this.divisionLineLabelSouth.setIcon(L.divIcon({
-        className: 'division-line-label',
-        html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>',
-        iconSize: [120, 24],
-        iconAnchor: [0, 12]
-      }));
-    }
-    this.updateSliderHighlightOnLayers();
-    this.cdr.markForCheck();
-  }
-
-  /** Draw one division line per DG when step has multiple DGs and none selected. */
-  private updateDivisionLinesForMultipleDgs(): void {
-    const isLat = this.sortDirection === 'latitude';
-    const M = this.sliderMax;
-    for (let dgIndex = 0; dgIndex < this.currentStep!.districtGroups.length; dgIndex++) {
-      const dgBounds = this.getDistrictGroupBounds(dgIndex);
-      const data = this.getOrBuildSortedTractEntriesForDg(dgIndex);
-      if (!dgBounds || !data || data.entries.length === 0) continue;
-      let v = this.sortSliderValueByDgIndex[dgIndex] ?? 0;
-      const N = data.entries.length;
-      if (v === 0) {
-        const half = data.total / 2;
-        let mid = 0;
-        for (let i = 0; i <= N; i++) {
-          if ((data.prefixSum[i] ?? 0) >= half) { mid = i; break; }
-        }
-        v = Math.round(mid * M / N);
-        this.sortSliderValueByDgIndex[dgIndex] = v;
-      }
-      const splitIndex = Math.min(N, Math.max(0, Math.floor(v * N / M)));
-      let lineValue: number;
-      if (splitIndex <= 0) {
-        lineValue = isLat ? data.entries[0].maxLat + 0.001 : data.entries[0].minLng - 0.001;
-      } else if (splitIndex >= N) {
-        lineValue = isLat ? data.entries[N - 1].minLat - 0.001 : data.entries[N - 1].maxLng + 0.001;
-      } else {
-        lineValue = isLat
-          ? (data.entries[splitIndex - 1].minLat + data.entries[splitIndex].maxLat) / 2
-          : (data.entries[splitIndex - 1].maxLng + data.entries[splitIndex].minLng) / 2;
-      }
-      const west = dgBounds.getWest();
-      const east = dgBounds.getEast();
-      const south = dgBounds.getSouth();
-      const north = dgBounds.getNorth();
-      lineValue = isLat ? Math.max(south, Math.min(north, lineValue)) : Math.max(west, Math.min(east, lineValue));
-      const latLngs = isLat
-        ? [L.latLng(lineValue, west), L.latLng(lineValue, east)]
-        : [L.latLng(south, lineValue), L.latLng(north, lineValue)];
-      const line = L.polyline(latLngs, {
-        color: '#1976d2',
-        weight: 3,
-        opacity: 0.95,
-        className: 'division-line-interactive ' + (isLat ? 'division-line-lat' : 'division-line-lng')
-      });
-      const idx = dgIndex;
-      line.on('mouseover', () => {
-        if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
-      });
-      line.on('mouseout', () => {
-        if (!this.divisionLineDragging) this.map!.getContainer().style.cursor = '';
-      });
-      line.on('mousedown', (e: L.LeafletMouseEvent) => {
-        L.DomEvent.stopPropagation(e);
-        if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
-        this.divisionLineDragging = true;
-        this.map!.dragging.disable();
-        this.map!.getContainer().style.cursor = isLat ? 'ns-resize' : 'ew-resize';
-        const onMove = (ev: L.LeafletMouseEvent) => {
-          if (ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
-          const newVal = isLat ? ev.latlng.lat : ev.latlng.lng;
-          this.applyDivisionLinePositionForDg(newVal, idx);
-        };
-        const onUp = () => {
-          this.divisionLineDragging = false;
-          this.map!.dragging.enable();
-          this.map!.getContainer().style.cursor = '';
-          this.map!.off('mousemove', onMove);
-          this.map!.off('mouseup', onUp);
-          const latlngs = (line.getLatLngs() as L.LatLng[]);
-          if (latlngs.length) {
-            const lineVal = isLat ? latlngs[0].lat : latlngs[0].lng;
-            this.applyDivisionLinePositionForDg(lineVal, idx);
-          }
-        };
-        this.map!.on('mousemove', onMove);
-        this.map!.on('mouseup', onUp);
-      });
-      line.addTo(this.map!);
-      const handlePos = isLat ? L.latLng(lineValue, east) : L.latLng(north, lineValue);
-      const handleIcon = L.divIcon({
-        className: 'division-line-handle',
-        html: '<div style="width:12px;height:12px;border-radius:50%;background:#1976d2;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:' + (isLat ? 'ns-resize' : 'ew-resize') + '"></div>',
-        iconSize: [12, 12],
-        iconAnchor: [6, 6]
-      });
-      const handle = L.marker(handlePos, { draggable: true, icon: handleIcon });
-      handle.on('dragend', () => {
-        const pos = handle.getLatLng();
-        this.applyDivisionLinePositionForDg(isLat ? pos.lat : pos.lng, idx);
-      });
-      handle.addTo(this.map!);
-      const { first, second } = { first: data.prefixSum[splitIndex] ?? 0, second: data.total - (data.prefixSum[splitIndex] ?? 0) };
-      const fmt = (n: number) => n.toLocaleString();
-      const labelOffset = 0.06;
-      const labelNorth = L.marker(
-        isLat ? L.latLng(lineValue + labelOffset, east) : L.latLng(north, lineValue + labelOffset),
-        { icon: L.divIcon({ className: 'division-line-label', html: '<div class="division-label division-label-first">' + (isLat ? 'N' : 'W') + ': ' + fmt(first) + '</div>', iconSize: [120, 24], iconAnchor: [0, 12] }) }
-      );
-      const labelSouth = L.marker(
-        isLat ? L.latLng(lineValue - labelOffset, east) : L.latLng(south, lineValue - labelOffset),
-        { icon: L.divIcon({ className: 'division-line-label', html: '<div class="division-label division-label-second">' + (isLat ? 'S' : 'E') + ': ' + fmt(second) + '</div>', iconSize: [120, 24], iconAnchor: [0, 12] }) }
-      );
-      labelNorth.addTo(this.map!);
-      labelSouth.addTo(this.map!);
-      this.divisionLineControlsByDg.push({ line, handle, labelNorth, labelSouth, dgIndex: idx });
-    }
-    this.cdr.markForCheck();
-  }
-
-  /** Apply division line position for a specific DG (multi-DG mode). */
-  private applyDivisionLinePositionForDg(lineValue: number, dgIndex: number): void {
-    const data = this.getOrBuildSortedTractEntriesForDg(dgIndex);
-    const dgBounds = this.getDistrictGroupBounds(dgIndex);
-    if (!data || !dgBounds) return;
-    const isLat = this.sortDirection === 'latitude';
-    const west = dgBounds.getWest();
-    const east = dgBounds.getEast();
-    const south = dgBounds.getSouth();
-    const north = dgBounds.getNorth();
-    const clamped = isLat ? Math.max(south, Math.min(north, lineValue)) : Math.max(west, Math.min(east, lineValue));
-    const splitIndex = this.getSplitIndexFromLineValueForEntries(data.entries, clamped, isLat);
-    const M = this.sliderMax;
-    const N = data.entries.length;
-    this.sortSliderValueByDgIndex[dgIndex] = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
-    this.updateDivisionLineAndLabels();
-    this.cdr.markForCheck();
-  }
-
-  /** Apply new division line position (lat or lng): update split, slider value, highlight, and redraw line/labels. */
-  private applyDivisionLinePosition(lineValue: number): void {
-    const entries = this.getOrBuildSortedTractEntries();
-    const N = entries.length;
-    if (N === 0) return;
-    const splitIndex = this.getSplitIndexFromDivisionLinePosition(lineValue);
-    const M = this.sliderMax;
-    this.sortSliderValue = Math.max(0, Math.min(M, Math.round(splitIndex * M / N)));
-    this.clearSliderHighlight();
-    this.updateSliderHighlightOnLayers();
-    this.updateDivisionLineAndLabels();
-    this.cdr.markForCheck();
   }
 
   onSortSliderInput(value: number): void {
@@ -4160,8 +3795,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
     this.divisionLineMarkers = [];
-
-    // Do not remove interactive division line (sliderPositionLineLayer, handle, labels) here; that is the sort control, cleared only in clearSliderHighlight.
 
     // Clear animated layers
     this.animatedLineLayers.forEach(layer => {
