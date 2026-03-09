@@ -112,7 +112,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private tractLayer: L.LayerGroup | null = null;
   /** Guard to prevent re-entrant render (stops render loop) */
   private isRenderingDistricts = false;
-  private tractGeoJsonLayers: Map<L.GeoJSON, string> = new Map(); // Store layer -> color mapping
+  private tractGeoJsonLayers: Map<L.GeoJSON, string> = new Map(); // Store layer -> fill color mapping
+  private tractGeoJsonLayerBorderColors: Map<L.GeoJSON, string> = new Map(); // Store layer -> border color (darker shade of leading party)
   private tractIdToLayer: Map<string, L.GeoJSON> = new Map(); // Store tract ID -> layer mapping for popup access
   /** Tract IDs currently highlighted by slider (for setStyle updates only; no full re-render) */
   private lastSliderHighlightedTractIds: Set<string> = new Set();
@@ -648,6 +649,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.tractLayer.clearLayers();
       }
       this.tractGeoJsonLayers.clear();
+      this.tractGeoJsonLayerBorderColors.clear();
       this.tractIdToLayer.clear();
       this.clearDivisionLines();
       // Clear dev tract list so it is refetched for the new state
@@ -702,6 +704,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
             if (this.tractLayer) this.tractLayer.clearLayers();
             this.tractGeoJsonLayers.clear();
+            this.tractGeoJsonLayerBorderColors.clear();
             this.tractIdToLayer.clear();
             this.map?.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
             this.renderUSMapDistricts(this.usMapStepDataByState);
@@ -776,10 +779,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.algorithmResult && this.currentStep) {
       this.renderFinalDistricts();
     } else if (this.tractGeoJsonLayers.size > 0) {
-      // Fallback: update existing layer styles if no algorithm result. Border always black.
+      // Fallback: update existing layer styles if no algorithm result.
       this.tractGeoJsonLayers.forEach((districtColor, layer) => {
+        const borderColor = this.tractGeoJsonLayerBorderColors.get(layer) ?? this.darkenColor(districtColor, 0.25);
         layer.setStyle({
-          color: '#000000',
+          color: borderColor,
           weight: this.showTractBoundaries ? 0.5 : 0.3,
           opacity: 0.8,
           fillOpacity: this.polygonFillOpacity,
@@ -870,12 +874,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       <em>Click to view ${stateName}</em>`;
 
     const strokeWeight = this.getUSMapPolygonWeight();
+    const borderColor = this.getTractBorderColorByParty(allStatesParty?.pctDem ?? 0.5);
     for (const unionPolygon of polygonsToRender) {
       if (!unionPolygon?.geometry) continue;
       try {
         const geoJson = L.geoJSON(unionPolygon, {
           style: {
-            color: '#000000',
+            color: borderColor,
             weight: strokeWeight,
             opacity: 1,
             fillOpacity,
@@ -888,6 +893,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (geoJson as any).stateCode = item.stateCode;
         this.tractLayer.addLayer(geoJson);
         this.tractGeoJsonLayers.set(geoJson, fillColor);
+        this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
       } catch (e) {
         console.warn('Error rendering US map district polygon:', e);
       }
@@ -949,6 +955,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
     this.cdr.markForCheck();
 
@@ -1113,6 +1120,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map || !this.tractLayer) return;
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
 
     for (const { stateCode, stepData } of completedStatesData) {
@@ -1178,6 +1186,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     this.tractGeoJsonLayers.forEach((fillColor, layer) => {
       style.fillColor = fillColor;
+      style.color = this.tractGeoJsonLayerBorderColors.get(layer) ?? this.darkenColor(fillColor, 0.25);
       (layer as L.LayerGroup).eachLayer((child: L.Layer) => {
         if ('setStyle' in child) (child as L.Path).setStyle(style);
       });
@@ -1507,6 +1516,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractLayer.clearLayers();
     }
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
@@ -1768,6 +1778,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractLayer.clearLayers();
     }
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
@@ -3328,9 +3339,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const layer = this.tractIdToLayer.get(tractId) as L.GeoJSON | undefined;
       if (!layer) return;
       const tractColor = this.tractGeoJsonLayers.get(layer) ?? '#888';
+      const borderColor = this.tractGeoJsonLayerBorderColors.get(layer) ?? this.darkenColor(tractColor, 0.25);
       (layer as any).setStyle({
         weight: normalWeight,
-        color: '#000000',
+        color: borderColor,
         opacity: 0.8,
         fillOpacity: this.polygonFillOpacity,
         fillColor: tractColor
@@ -3741,12 +3753,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.mapPolygonsState !== this.selectedState) {
       this.tractLayer.clearLayers();
       this.tractGeoJsonLayers.clear();
+      this.tractGeoJsonLayerBorderColors.clear();
       this.tractIdToLayer.clear();
       return;
     }
 
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
     this.clearDivisionLines();
 
@@ -3759,9 +3773,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       polygons.forEach((feature: GeoJsonFeature, index: number) => {
         if (!feature?.geometry) return;
         const fillColor = this.getDistrictColor(index, polygons.length);
+        const borderColor = this.darkenColor(fillColor, 0.25);
         const geoJson = L.geoJSON(feature as any, {
           style: {
-            color: '#000000',
+            color: borderColor,
             weight: 2,
             opacity: 1.0,
             fillOpacity: this.polygonFillOpacity,
@@ -3770,6 +3785,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }).bindPopup(`<strong>District ${index + 1}</strong>`);
         this.tractLayer!.addLayer(geoJson);
         this.tractGeoJsonLayers.set(geoJson, fillColor);
+        this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
         const layerBounds = geoJson.getBounds?.();
         if (layerBounds?.isValid()) bounds.extend(layerBounds);
       });
@@ -3826,6 +3842,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear existing layers and reset tracking
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
     this.tractIdToLayer.clear();
     this.lastSliderHighlightedTractIds.clear();
     this.clearDivisionLines();
@@ -3931,12 +3948,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               ? { type: 'Feature', geometry, properties: (unionPolygon as GeoJsonFeature).properties ?? {} }
               : { type: 'Feature', geometry: geometry as any, properties: {} };
             try {
+              const fill = color ?? baseColor ?? '#888';
+              const borderColor = districtParty != null
+                ? this.getTractBorderColorByParty(districtParty.pctDem)
+                : this.darkenColor(fill, 0.25);
               const pathStyle: L.PathOptions = {
-                color: '#000000',
+                color: borderColor,
                 weight: .5,
                 opacity: 0.9,
                 fillOpacity: fillOpacity ?? this.polygonFillOpacity,
-                fillColor: color ?? baseColor ?? '#888'
+                fillColor: fill
               };
               const geoJson = L.geoJSON(feature, { style: pathStyle }).bindPopup(popupContent);
               // Ensure style is applied to the actual path layer(s) inside the GeoJSON group (Leaflet can miss it for single Feature)
@@ -3944,7 +3965,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 if ('setStyle' in layer) (layer as L.Path).setStyle(pathStyle);
               });
               this.tractLayer!.addLayer(geoJson);
-              this.tractGeoJsonLayers.set(geoJson, color);
+              this.tractGeoJsonLayers.set(geoJson, fill);
+              this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
               const layerBounds = geoJson.getBounds();
               if (layerBounds?.isValid()) {
                 bounds.extend(layerBounds);
@@ -4005,12 +4027,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             const tractFillOpacity = this.polygonFillOpacity;
 
-            // Determine border weight and color: border always black; bridge tracts get white 3px border.
+            // Border: leading party color one shade darker than fill so dense metros read as party color (not black).
             let borderWeight = this.showTractBoundaries ? 0.5 : 0.3;
-            let borderColor = '#000000';
+            let borderColor: string;
             if (isBridge) {
               borderWeight = 3;
               borderColor = '#ffffff';
+            } else if (useTractPartyColor && tractParty != null) {
+              borderColor = this.getTractBorderColorByParty(tractParty.pctDem);
+            } else if (useDistrictPartyColor) {
+              const dgParty = this.districtPartyByGroupKey![groupKey];
+              borderColor = this.getTractBorderColorByParty(dgParty.pctDem);
+            } else {
+              borderColor = this.darkenColor(tractColor, 0.25);
             }
             const borderOpacityVal = isBridge ? 1.0 : 0.8;
 
@@ -4041,6 +4070,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
             this.tractLayer!.addLayer(geoJson);
             this.tractGeoJsonLayers.set(geoJson, tractColor); // Store actual fill color (party or district) for style updates
+            this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
             totalTracts++;
 
             // Extend bounds
@@ -5018,8 +5048,34 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
       }
     }
-    // Fallback: return a darker shade
+    // Handle hex (#rgb or #rrggbb)
+    if (color.startsWith('#')) return this.darkenColorHex(color, amount);
     return color;
+  }
+
+  /** Darken a hex color by reducing lightness (for borders when no party scale). */
+  private darkenColorHex(hex: string, amount: number = 0.25): string {
+    const m = hex.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+    if (!m) return hex;
+    let r: number, g: number, b: number;
+    if (m[1].length === 3) {
+      r = parseInt(m[1][0] + m[1][0], 16);
+      g = parseInt(m[1][1] + m[1][1], 16);
+      b = parseInt(m[1][2] + m[1][2], 16);
+    } else {
+      r = parseInt(m[1].slice(0, 2), 16);
+      g = parseInt(m[1].slice(2, 4), 16);
+      b = parseInt(m[1].slice(4, 6), 16);
+    }
+    const max = Math.max(r, g, b) / 255;
+    const min = Math.min(r, g, b) / 255;
+    const l = (max + min) / 2;
+    const newL = Math.max(0.1, l - amount);
+    const scale = newL / l;
+    r = Math.round(Math.max(0, Math.min(255, r * scale)));
+    g = Math.round(Math.max(0, Math.min(255, g * scale)));
+    b = Math.round(Math.max(0, Math.min(255, b * scale)));
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
   /**
@@ -5972,6 +6028,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const pctRep = 1 - t;
     const value = 100 + ((pctRep - 0.5) / 0.5) * 400;
     return MapsPageComponent.colorFromStops(value, MapsPageComponent.REPUBLICAN_STOPS);
+  }
+
+  /** One shade group darker than getTractColorByParty (same scale, value + 100, max 500). Used for tract borders so dense metros read as party color. */
+  getTractBorderColorByParty(pctDem: number): string {
+    const t = Math.max(0, Math.min(1, pctDem));
+    if (t >= 0.5) {
+      const fillValue = 100 + ((t - 0.5) / 0.5) * 400;
+      const darkerValue = Math.min(500, fillValue + 100);
+      return MapsPageComponent.colorFromStops(darkerValue, MapsPageComponent.DEMOCRATIC_STOPS);
+    }
+    const pctRep = 1 - t;
+    const fillValue = 100 + ((pctRep - 0.5) / 0.5) * 400;
+    const darkerValue = Math.min(500, fillValue + 100);
+    return MapsPageComponent.colorFromStops(darkerValue, MapsPageComponent.REPUBLICAN_STOPS);
   }
 
   /** Toggle party coloring. Tract party comes with census tract metadata from backend; district party fetched if needed. */
