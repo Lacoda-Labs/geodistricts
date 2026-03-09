@@ -1957,9 +1957,35 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return !!(this.currentStep?.districtGroups?.length && this.currentStep.districtGroups.every((g: any) => g.totalDistricts === 1));
   }
 
-  /** True when there are isolated tracts to resolve (for Move button at final step). */
+  /**
+   * Tract IDs that count as "allowed" remaining isolated (islands or enclosed).
+   * When all current isolated tracts are in this set, we show the Balance button.
+   */
+  private getAllowedIsolatedTractIds(): Set<string> {
+    const allowed = new Set<string>();
+    const step0Ids = this.getStep0IslandTractIds() ?? [];
+    for (const id of step0Ids) allowed.add(String(id));
+    const stepExcluded = Array.isArray((this.currentStep as any)?.excludedTractIds) ? (this.currentStep as any).excludedTractIds as string[] : [];
+    for (const id of stepExcluded) allowed.add(String(id));
+    const step = this.currentStep;
+    if (step?.districtGroups) {
+      for (const group of step.districtGroups) {
+        for (const tract of group.censusTracts ?? []) {
+          if (tract.properties?.['ENCLOSED_BY'] || tract.properties?.['TRACT_GROUP_ID']) {
+            allowed.add(this.getTractId(tract));
+          }
+        }
+      }
+    }
+    return allowed;
+  }
+
+  /** True when there are isolated tracts that are not allowed (not island/enclosed). When false, Balance button is shown. */
   get hasUnresolvedIsolation(): boolean {
-    return !!(this.isolatedTractsData?.isolatedTractIds?.length);
+    const ids = this.isolatedTractsData?.isolatedTractIds;
+    if (!ids?.length) return false;
+    const allowed = this.getAllowedIsolatedTractIds();
+    return ids.some((id: string) => !allowed.has(String(id)));
   }
 
   /** True when balance can no longer improve variances (or final step was loaded as complete). Hides Balance button. */
@@ -1971,11 +1997,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private syncIsolationFromCurrentStep(): void {
     const data = this.currentStep?.isolatedTractsData;
     const ids = data?.isolatedTractIds;
-    if (ids && Array.isArray(ids) && ids.length > 0) {
+    if (ids && Array.isArray(ids)) {
       this.isolatedTractIds = new Set(ids);
       this.isolatedTractsData = {
         isolatedTractsByGroup: data.isolatedTractsByGroup || {},
-        isolatedTractIds: ids
+        isolatedTractIds: ids,
+        groupStats: (data as any)?.groupStats
       };
     } else {
       this.isolatedTractIds.clear();

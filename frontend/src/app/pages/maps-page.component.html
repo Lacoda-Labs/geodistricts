@@ -153,46 +153,53 @@
               </div>
               <div class="tract-list-dev"
                 *ngIf="isDevMode && tractsByCountyForList && tractsByCountyForList.length > 0">
-                <mat-accordion>
-                <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips"
-                  class="tract-list-county-panel">
-                  <mat-expansion-panel-header>
-                    <mat-panel-title>County FIPS: {{ county.countyFips }}{{ county.countyName ? ' — ' +
-                      county.countyName : '' }} (pop. {{ county.countyPopulation | number }})</mat-panel-title>
-                  </mat-expansion-panel-header>
-                  <div class="tract-list-county-content">
-                    <mat-expansion-panel *ngFor="let chunk of county.chunks; trackBy: trackByChunkStart"
-                      class="tract-list-chunk-panel" [style.display]="(chunk.tracts.length) > 0 ? '' : 'none'">
-                      <mat-expansion-panel-header>
-                        <mat-panel-title>Tracts {{ chunk.start }}–{{ chunk.end }}</mat-panel-title>
-                      </mat-expansion-panel-header>
-                      <div class="tract-list-chunk-table-wrap">
-                        <table class="tract-list-table">
-                          <thead>
-                            <tr>
-                              <th>Tract ID</th>
-                              <th>Population</th>
-                              <th title="Polygon">⬡</th>
-                              <th>Party</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr *ngFor="let tract of (chunk.tracts || []); trackBy: trackByTractId"
-                              (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
-                              <td class="tract-list-id">{{ getTractId(tract) }}</td>
-                              <td>{{ (tract.properties && tract.properties.POPULATION != null ?
-                                tract.properties.POPULATION : 0) | number }}</td>
-                              <td>
-                                <mat-icon [fontIcon]="getTractPolygonIcon(tract)" class="tract-list-icon"></mat-icon>
-                              </td>
-                              <td>{{ getTractPartyPercentages(tract) }}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </mat-expansion-panel>
-                  </div>
-                </mat-expansion-panel>
+                <mat-accordion class="tract-list-county-accordion-outer">
+                  <mat-expansion-panel class="tract-list-county-accordion-wrapper">
+                    <mat-expansion-panel-header>
+                      <mat-panel-title>County tracts</mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <mat-accordion>
+                      <mat-expansion-panel *ngFor="let county of tractsByCountyForList; trackBy: trackByCountyFips"
+                        class="tract-list-county-panel">
+                        <mat-expansion-panel-header>
+                          <mat-panel-title>County FIPS: {{ county.countyFips }}{{ county.countyName ? ' — ' +
+                            county.countyName : '' }} (pop. {{ county.countyPopulation | number }})</mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <div class="tract-list-county-content">
+                          <mat-expansion-panel *ngFor="let chunk of county.chunks; trackBy: trackByChunkStart"
+                            class="tract-list-chunk-panel" [style.display]="(chunk.tracts.length) > 0 ? '' : 'none'">
+                            <mat-expansion-panel-header>
+                              <mat-panel-title>Tracts {{ chunk.start }}–{{ chunk.end }}</mat-panel-title>
+                            </mat-expansion-panel-header>
+                            <div class="tract-list-chunk-table-wrap">
+                              <table class="tract-list-table">
+                                <thead>
+                                  <tr>
+                                    <th>Tract ID</th>
+                                    <th>Population</th>
+                                    <th title="Polygon">⬡</th>
+                                    <th>Party</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr *ngFor="let tract of (chunk.tracts || []); trackBy: trackByTractId"
+                                    (click)="showTractPopup(getTractId(tract))" class="tract-row-clickable">
+                                    <td class="tract-list-id">{{ getTractId(tract) }}</td>
+                                    <td>{{ (tract.properties && tract.properties.POPULATION != null ?
+                                      tract.properties.POPULATION : 0) | number }}</td>
+                                    <td>
+                                      <mat-icon [fontIcon]="getTractPolygonIcon(tract)" class="tract-list-icon"></mat-icon>
+                                    </td>
+                                    <td>{{ getTractPartyPercentages(tract) }}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </mat-expansion-panel>
+                        </div>
+                      </mat-expansion-panel>
+                    </mat-accordion>
+                  </mat-expansion-panel>
                 </mat-accordion>
               </div>
 
@@ -267,15 +274,22 @@
 
               <!-- No Isolation Message (only when isolation resolution is enabled) -->
               <div class="no-isolation-message"
-                *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+                *ngIf="showIsolationResolutionUI && isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0">
                 <div class="no-isolation-content">
                   <p class="no-isolation-title">No isolation tracts found</p>
-                  <div class="group-stats-list">
+                  <div class="group-stats-list" *ngIf="isolatedTractsData.groupStats?.length">
                     <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
                       <span class="group-label">District {{ stat.groupLabel }}:</span>
                       <span class="stat-value">Max reachable tracts: {{ stat.maxReachable }}</span>
                       <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
                     </div>
+                  </div>
+                  <div class="header-buttons" *ngIf="(isDevMode || !isVisualizationOnly) && !finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
+                    <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                      [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                      matTooltip="Balance sibling district groups after moving isolated tracts">
+                      {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -507,17 +521,24 @@
                     </table>
                   </div>
                 </ng-container>
-                <!-- No isolated tracts -->
+                <!-- No isolated tracts (or all remaining are allowed islands/enclosed): show Balance -->
                 <div class="no-isolation-message"
-                  *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0 && isolatedTractsData.groupStats">
+                  *ngIf="isolatedTractsData && isolatedTractsData.isolatedTractIds.length === 0">
                   <div class="no-isolation-content">
                     <p class="no-isolation-title">No isolated tracts at this step</p>
-                    <div class="group-stats-list">
+                    <div class="group-stats-list" *ngIf="isolatedTractsData.groupStats?.length">
                       <div *ngFor="let stat of isolatedTractsData.groupStats" class="group-stat-item">
                         <span class="group-label">District {{ stat.groupLabel }}:</span>
                         <span class="stat-value">Max reachable: {{ stat.maxReachable }}</span>
                         <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
                       </div>
+                    </div>
+                    <div class="header-buttons" style="margin-top: 8px;" *ngIf="!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
+                      <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                        [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                        matTooltip="Balance sibling district groups after moving isolated tracts">
+                        {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
+                      </button>
                     </div>
                   </div>
                 </div>
