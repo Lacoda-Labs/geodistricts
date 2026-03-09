@@ -910,6 +910,11 @@
   padding: 8px 16px;
   font-size: 0.875rem;
 
+  .union-polygon-status {
+    align-self: center;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+  }
+
   .status-summary-item {
     .status-label {
       color: var(--mat-sys-on-surface-variant, #42474E);

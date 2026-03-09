@@ -192,6 +192,18 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Loading state for single-DG polygon or party trigger (groupKey or null). */
   triggeringForGroupKey: string | null = null;
 
+  /** Per-step union polygon: step index for which we triggered POST (show "building DG polygons..." and poll). */
+  unionPolygonBuildTriggeredForStep: number | null = null;
+  /** Polling subscription for GET union-polygons after POST; cleared on step change or when GET 200. */
+  private unionPolygonPollSub: Subscription | null = null;
+  /** Interval ID for polling; cleared in stopUnionPolygonPolling. */
+  private unionPolygonPollIntervalId: ReturnType<typeof setInterval> | null = null;
+  /** True when current step has union polygons loaded (GET 200 merged). Used for status UI. */
+  currentStepUnionPolygonsCached: boolean = false;
+  private static readonly UNION_POLL_INTERVAL_MS = 3000;
+  private static readonly UNION_POLL_TIMEOUT_MS = 5 * 60 * 1000;
+  private unionPolygonPollStartedAt: number = 0;
+
   /** When true, color tracts by VEST party % (red = R, blue = D, light = 50%). Default on for final step. */
   showPartyColor: boolean = true;
   /** Tract GEOID -> { pctDem } from GET tract-party (for party coloring). */
@@ -355,6 +367,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.pendingSliderUpdateTimer);
       this.pendingSliderUpdateTimer = null;
     }
+
+    this.stopUnionPolygonPolling();
 
     // Remove hash change listener
     this.subscriptions.forEach(sub => sub.unsubscribe());
@@ -664,6 +678,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.currentStep = null;
         this.currentStepIndex = 0;
         this.loadedSteps = [];
+        this.stopUnionPolygonPolling();
+        this.currentStepUnionPolygonsCached = false;
         this.mapPolygons = null;
         this.mapPolygonsState = null;
         this.isVisualizationOnly = false;
@@ -1470,9 +1486,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           });
         }
+        this.currentStepUnionPolygonsCached = resp.unionPolygonsCached === true;
         this.cdr.markForCheck();
         setTimeout(() => {
           this.renderFinalDistricts();
+          this.checkAndUpdateUnionPolygonStatusForCurrentStep();
           this.loadAllPreviousSteps(stepIndex);
         }, 100);
       },
@@ -1643,6 +1661,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.renderFinalDistricts();
           }
           this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups (e.g. step 0 state-wide)
+          this.checkAndUpdateUnionPolygonStatusForCurrentStep();
         }, 500);
       },
       error: (error) => {
@@ -2013,6 +2032,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   previousStep(): void {
     if (this.currentStepIndex > 0) {
+      this.stopUnionPolygonPolling();
       const prevIndex = this.currentStepIndex - 1;
       // Ensure we check the array properly - handle both dense and sparse arrays
       const step = this.loadedSteps[prevIndex];
@@ -2034,6 +2054,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractEntriesByDg.clear();
         this.renderFinalDistricts(); // Re-render map for the new step
         this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups (e.g. 1-10, 11-19)
+        this.checkAndUpdateUnionPolygonStatusForCurrentStep();
       } else {
         // Step not loaded yet, request it from backend
         console.log(`🚀 Requesting step ${prevIndex} from backend...`);
@@ -2096,8 +2117,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               next: (body) => {
                 if (body && this.currentStep && (this.currentStep as any).step === stepIndex) {
                   this.mergeUnionPolygonsIntoStep(this.currentStep as any, body);
+                  this.currentStepUnionPolygonsCached = true;
                   this.renderFinalDistricts();
+                } else {
+                  this.currentStepUnionPolygonsCached = false;
                 }
+                this.cdr.markForCheck();
               }
             });
             this.subscriptions.push(unionSub);
@@ -2162,6 +2187,154 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         (group as any).unionPolygons = u.unionPolygons;
       }
     }
+  }
+
+  /** True when the current step is "complete" for union polygon purpose: step 0 → false; non-final → true when we have the step; final → true when !hasUnresolvedIsolation && finalStepBalancingComplete. */
+  isCurrentStepCompleteForUnionPolygons(): boolean {
+    if (this.currentStepIndex === 0) return false;
+    if (!this.currentStep?.districtGroups?.length) return false;
+    if (!this.isFinalStepActive) return true; // Non-final step: complete as soon as we have the step
+    return !this.hasUnresolvedIsolation && this.finalStepBalancingComplete;
+  }
+
+  /** Stop polling for union polygons and clear trigger state for previous step. */
+  private stopUnionPolygonPolling(): void {
+    if (this.unionPolygonPollIntervalId != null) {
+      clearInterval(this.unionPolygonPollIntervalId);
+      this.unionPolygonPollIntervalId = null;
+    }
+    if (this.unionPolygonPollSub) {
+      this.unionPolygonPollSub.unsubscribe();
+      this.unionPolygonPollSub = null;
+    }
+    this.unionPolygonBuildTriggeredForStep = null;
+  }
+
+  /**
+   * Check union polygon status for current step: GET union-polygons. On 200 merge and render; on 404 set status (not started or in progress). Call after Next, Move, Balance, or when loading a step.
+   */
+  checkAndUpdateUnionPolygonStatusForCurrentStep(): void {
+    if (!this.selectedState || this.selectedState === 'ALL') return;
+    if (this.currentStepIndex == null || this.currentStepIndex < 0) return;
+    if (!this.isCurrentStepCompleteForUnionPolygons()) {
+      this.currentStepUnionPolygonsCached = false;
+      return;
+    }
+    if (this.currentStepIndex === 0) {
+      this.currentStepUnionPolygonsCached = false;
+      return; // Step 0: no union build
+    }
+    const state = this.selectedState;
+    const stepIndex = this.currentStepIndex;
+    const maxIter = this.finalStepMaxIterations ?? this.algorithmResult?.maxIterations ?? 100;
+    this.geodistrictService.getStepUnionPolygons(state, stepIndex, maxIter).subscribe({
+      next: (body) => {
+        if (this.selectedState !== state || this.currentStepIndex !== stepIndex) return;
+        if (body && this.currentStep) {
+          this.mergeUnionPolygonsIntoStep(this.currentStep as any, body);
+          if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+            this.loadedSteps[this.currentStepIndex] = this.currentStep;
+          }
+          this.currentStepUnionPolygonsCached = true;
+          this.unionPolygonBuildTriggeredForStep = null;
+          this.stopUnionPolygonPolling();
+          this.renderFinalDistricts();
+        } else {
+          this.currentStepUnionPolygonsCached = false;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.selectedState === state && this.currentStepIndex === stepIndex) {
+          this.currentStepUnionPolygonsCached = false;
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Start polling GET union-polygons for current step until 200 or timeout. */
+  private startUnionPolygonPolling(): void {
+    this.stopUnionPolygonPolling();
+    const state = this.selectedState;
+    const stepIndex = this.currentStepIndex!;
+    const maxIter = this.finalStepMaxIterations ?? this.algorithmResult?.maxIterations ?? 100;
+    this.unionPolygonBuildTriggeredForStep = stepIndex;
+    this.unionPolygonPollStartedAt = Date.now();
+    const poll = () => {
+      if (this.selectedState !== state || this.currentStepIndex !== stepIndex) {
+        this.stopUnionPolygonPolling();
+        return;
+      }
+      if (Date.now() - this.unionPolygonPollStartedAt > MapsPageComponent.UNION_POLL_TIMEOUT_MS) {
+        this.stopUnionPolygonPolling();
+        this.cdr.markForCheck();
+        return;
+      }
+      if (this.unionPolygonPollSub) {
+        this.unionPolygonPollSub.unsubscribe();
+        this.unionPolygonPollSub = null;
+      }
+      this.unionPolygonPollSub = this.geodistrictService.getStepUnionPolygons(state, stepIndex, maxIter).subscribe({
+        next: (body) => {
+          if (body && this.currentStep && this.selectedState === state && this.currentStepIndex === stepIndex) {
+            this.mergeUnionPolygonsIntoStep(this.currentStep as any, body);
+            if (this.currentStepIndex >= 0 && this.currentStepIndex < this.loadedSteps.length) {
+              this.loadedSteps[this.currentStepIndex] = this.currentStep;
+            }
+            this.currentStepUnionPolygonsCached = true;
+            this.stopUnionPolygonPolling();
+            this.renderFinalDistricts();
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.unionPolygonPollSub = null;
+          this.cdr.markForCheck();
+        }
+      });
+    };
+    poll();
+    this.unionPolygonPollIntervalId = setInterval(() => {
+      if (this.unionPolygonBuildTriggeredForStep !== stepIndex || this.currentStepUnionPolygonsCached) {
+        if (this.unionPolygonPollIntervalId != null) {
+          clearInterval(this.unionPolygonPollIntervalId);
+          this.unionPolygonPollIntervalId = null;
+        }
+        return;
+      }
+      if (Date.now() - this.unionPolygonPollStartedAt > MapsPageComponent.UNION_POLL_TIMEOUT_MS) {
+        this.stopUnionPolygonPolling();
+        this.cdr.markForCheck();
+        return;
+      }
+      poll();
+    }, MapsPageComponent.UNION_POLL_INTERVAL_MS);
+  }
+
+  /** User clicked "Build union polygon": POST for current step, then poll until GET 200. */
+  buildUnionPolygonForCurrentStep(): void {
+    if (!this.selectedState || this.selectedState === 'ALL' || this.currentStepIndex == null || this.currentStepIndex === 0) return;
+    if (this.unionPolygonBuildTriggeredForStep != null) return;
+    const state = this.selectedState;
+    const stepIndex = this.currentStepIndex;
+    const maxIter = this.finalStepMaxIterations ?? this.algorithmResult?.maxIterations ?? 100;
+    this.unionPolygonBuildTriggeredForStep = stepIndex;
+    this.cdr.markForCheck();
+    this.geodistrictService.generateStepUnionPolygons(state, stepIndex, maxIter).subscribe({
+      next: () => {
+        if (this.selectedState === state && this.currentStepIndex === stepIndex) {
+          this.startUnionPolygonPolling();
+        } else {
+          this.unionPolygonBuildTriggeredForStep = null;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.unionPolygonBuildTriggeredForStep = null;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   /**
@@ -2255,6 +2428,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.isLoadingSteps = false;
       this.renderFinalDistricts();
       this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups
+      this.checkAndUpdateUnionPolygonStatusForCurrentStep();
       setTimeout(() => this.onStepDisplayComplete(), 0);
     } else if (this.isVisualizationOnly) {
       // Visualization mode: fetch step via GET only
@@ -2291,6 +2465,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoading = false;
           this.renderFinalDistricts();
           this.fetchDistrictPartyForCurrentStep(); // Party for this step's groups
+          this.checkAndUpdateUnionPolygonStatusForCurrentStep();
           this.cdr.markForCheck();
           this.onStepDisplayComplete();
         },
@@ -2412,6 +2587,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.finalStepNumber = stepIndex;
             this.detectIsolatedTracts(() => {
               this.renderFinalDistricts();
+              this.checkAndUpdateUnionPolygonStatusForCurrentStep();
               this.onStepDisplayComplete();
             });
           } else {
@@ -2421,6 +2597,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             setTimeout(() => {
               this.renderFinalDistricts();
+              this.checkAndUpdateUnionPolygonStatusForCurrentStep();
               this.onStepDisplayComplete();
             }, 100);
           }
@@ -2689,6 +2866,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.errorMessage = '';
           this.cdr.markForCheck();
           this.renderFinalDistricts();
+          this.checkAndUpdateUnionPolygonStatusForCurrentStep();
         },
         error: (err) => {
           this.isLoadingSteps = false;
@@ -3719,6 +3897,54 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             console.error('⚠️ Error rendering tract:', error, tract);
           }
         });
+
+      // When show tracts is ON and DG has union polygon, draw DG outline only (tracts already drawn and colored by tract party)
+      if (this.showTractBoundaries) {
+        const unionPolygons = (district as any).unionPolygons;
+        const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
+        const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
+        const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
+        if (polygonsToRender.length > 0) {
+          const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
+          const districtParty = this.districtPartyByGroupKey?.[groupKey] ?? null;
+          const borderColor = districtParty != null
+            ? this.getTractBorderColorByParty(districtParty.pctDem)
+            : this.darkenColor(color, 0.25);
+          for (const unionPolygon of polygonsToRender) {
+            let geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
+            if (!geometry) continue;
+            if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+              geometry = this.normalizeUnionGeometry(geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+            }
+            const feature: GeoJsonFeature = unionPolygon?.geometry
+              ? { type: 'Feature', geometry, properties: (unionPolygon as GeoJsonFeature).properties ?? {} }
+              : { type: 'Feature', geometry: geometry as any, properties: {} };
+            try {
+              const pathStyle: L.PathOptions = {
+                color: borderColor,
+                weight: 1.5,
+                opacity: 0.9,
+                fillOpacity: 0,
+                fillColor: color
+              };
+              const geoJson = L.geoJSON(feature, { style: pathStyle });
+              (geoJson as L.LayerGroup).eachLayer((layer: L.Layer) => {
+                if ('setStyle' in layer) (layer as L.Path).setStyle(pathStyle);
+              });
+              this.tractLayer!.addLayer(geoJson);
+              this.tractGeoJsonLayers.set(geoJson, color);
+              this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
+              const layerBounds = geoJson.getBounds();
+              if (layerBounds?.isValid()) {
+                bounds.extend(layerBounds);
+                hasBounds = true;
+              }
+            } catch (e) {
+              console.warn('Error rendering DG outline for district:', e);
+            }
+          }
+        }
+      }
     });
 
     console.log(`✅ Rendered ${totalTracts} tracts across ${districtsToRender.length} districts`);
@@ -4984,6 +5210,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         // Re-render map with updated groups
         this.renderFinalDistricts();
+        this.checkAndUpdateUnionPolygonStatusForCurrentStep();
         this.cdr.detectChanges();
         onSuccess?.(result);
       },
@@ -5034,6 +5261,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.finalStepBalancingComplete = true;
         }
         this.renderFinalDistricts();
+        this.checkAndUpdateUnionPolygonStatusForCurrentStep();
         this.cdr.detectChanges();
         onSuccess?.(result);
       },
