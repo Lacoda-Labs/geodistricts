@@ -24,6 +24,7 @@ import { PageHeaderComponent } from '../components/page-header.component';
 import { StateRowComponent, StateRowData } from '../components/state-row.component';
 import { StepBtnBarComponent } from '../components/step-btn-bar.component';
 import { environment } from '../../environments/environment';
+import * as turf from '@turf/turf';
 
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
@@ -4220,9 +4221,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const stepDivisionLines: L.Polyline[] = [];
 
     for (const divLineInfo of step.divisionLines) {
-      const staticLine = this.createStaticDivisionLine(divLineInfo, stepIdx);
-      if (staticLine) {
-        stepDivisionLines.push(staticLine);
+      const staticLines = this.createStaticDivisionLine(divLineInfo, stepIdx);
+      if (staticLines) {
+        staticLines.forEach(l => stepDivisionLines.push(l));
       }
     }
 
@@ -4240,21 +4241,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const stepDivisionLines: L.Polyline[] = [];
-    const animationPromises: Promise<L.Polyline | null>[] = [];
+    const animationPromises: Promise<L.Polyline[]>[] = [];
 
     // Start all animations for this step simultaneously
     for (const divLineInfo of step.divisionLines) {
-      const animationPromise = this.createAnimatedDivisionLine(divLineInfo, stepIdx);
-      if (animationPromise) {
-        animationPromises.push(animationPromise);
-      }
+      animationPromises.push(this.createAnimatedDivisionLine(divLineInfo, stepIdx));
     }
 
     // Wait for all animations to complete
     if (animationPromises.length > 0) {
       try {
-        const completedLines = await Promise.all(animationPromises);
-        stepDivisionLines.push(...completedLines.filter(line => line !== null) as L.Polyline[]);
+        const completedArrays = await Promise.all(animationPromises);
+        for (const arr of completedArrays) {
+          if (arr.length) stepDivisionLines.push(...arr);
+        }
       } catch (error) {
         console.error(`Error animating division lines for step ${stepIdx}:`, error);
       }
@@ -4266,190 +4266,241 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /** Bounds for a district group in a given step (by start/end district numbers). */
+  private getBoundsForGroupInStep(step: GeodistrictStep, startDistrictNumber: number, endDistrictNumber: number): L.LatLngBounds | null {
+    const group = step.districtGroups?.find(g =>
+      g.startDistrictNumber === startDistrictNumber && g.endDistrictNumber === endDistrictNumber
+    );
+    if (!group?.censusTracts?.length) return null;
+    if ((group as { bounds?: { south: number; north: number; west: number; east: number } }).bounds) {
+      const b = (group as { bounds: { south: number; north: number; west: number; east: number } }).bounds;
+      return L.latLngBounds(L.latLng(b.south, b.west), L.latLng(b.north, b.east));
+    }
+    return this.calculateGroupBounds(group.censusTracts);
+  }
+
   /**
-   * Create a static division line (no animation)
+   * Extract shared boundary between two polygon features (union polygons of sibling DGs).
+   * Returns one or more polylines as L.LatLng[][], or null if not computable.
    */
-  private createStaticDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): L.Polyline | null {
+  private getSharedBoundaryFromUnions(
+    polyA: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    polyB: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+  ): L.LatLng[][] | null {
     try {
-      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+      const tol = 1e-6;
+      const toKey = (p: [number, number]) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
+      const eq = (a: [number, number], b: [number, number]) =>
+        Math.abs(a[0] - b[0]) < tol && Math.abs(a[1] - b[1]) < tol;
+      const feat = (g: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> =>
+        ({ type: 'Feature', geometry: g, properties: {} });
 
-      // Get bounds from the previous step (where the parent group existed)
-      let groupBounds: L.LatLngBounds | null = null;
-      if (stepIdx > 0) {
-        const prevStep = this.loadedSteps[stepIdx - 1];
-        if (prevStep) {
-          const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
-            g.startDistrictNumber === parentGroup.startDistrictNumber &&
-            g.endDistrictNumber === parentGroup.endDistrictNumber
-          );
+      const lineA = turf.polygonToLine(feat(polyA.geometry));
+      const lineB = turf.polygonToLine(feat(polyB.geometry));
+      const segsA = turf.lineSegment(lineA).features;
+      const segsB = turf.lineSegment(lineB).features;
 
-          if (parentGroupInPrevStep && parentGroupInPrevStep.bounds) {
-            groupBounds = L.latLngBounds(
-              L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
-              L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
-            );
-          } else if (parentGroupInPrevStep) {
-            // Calculate bounds from tracts
-            groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+      const shared: Array<[number, number][]> = [];
+      for (const fa of segsA) {
+        const coords = fa.geometry.coordinates;
+        if (coords.length < 2) continue;
+        const a0 = coords[0] as [number, number];
+        const a1 = coords[1] as [number, number];
+        for (const fb of segsB) {
+          const bc = fb.geometry.coordinates;
+          if (bc.length < 2) continue;
+          const b0 = bc[0] as [number, number];
+          const b1 = bc[1] as [number, number];
+          if ((eq(a0, b0) && eq(a1, b1)) || (eq(a0, b1) && eq(a1, b0))) {
+            shared.push([a0, a1]);
+            break;
           }
         }
       }
+      if (shared.length === 0) return null;
 
-      if (!groupBounds || !groupBounds.isValid()) {
-        // Fallback: use map bounds
-        if (this.map) {
-          groupBounds = this.map.getBounds();
-        } else {
-          return null;
-        }
+      // Build adjacency: point key -> list of connected point keys; collect points
+      const pointToKey = (p: [number, number]) => toKey(p);
+      const adj = new Map<string, string[]>();
+      const keyToCoord = new Map<string, [number, number]>();
+      for (const seg of shared) {
+        const k0 = pointToKey(seg[0]);
+        const k1 = pointToKey(seg[1]);
+        keyToCoord.set(k0, seg[0]);
+        keyToCoord.set(k1, seg[1]);
+        if (!adj.has(k0)) adj.set(k0, []);
+        if (!adj.get(k0)!.includes(k1)) adj.get(k0)!.push(k1);
+        if (!adj.has(k1)) adj.set(k1, []);
+        if (!adj.get(k1)!.includes(k0)) adj.get(k1)!.push(k0);
       }
 
-      let lineCoordinates: L.LatLng[] | null = null;
-
-      if (direction === 'latitude') {
-        const minLng = groupBounds.getWest();
-        const maxLng = groupBounds.getEast();
-        const lineLat = divisionLine;
-        const south = groupBounds.getSouth();
-        const north = groupBounds.getNorth();
-
-        if (lineLat < south) {
-          lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
-        } else if (lineLat > north) {
-          lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
-        } else {
-          lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
-        }
-      } else {
-        const minLat = groupBounds.getSouth();
-        const maxLat = groupBounds.getNorth();
-        const lineLng = divisionLine;
-        const west = groupBounds.getWest();
-        const east = groupBounds.getEast();
-
-        if (lineLng < west) {
-          lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
-        } else if (lineLng > east) {
-          lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
-        } else {
-          lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
-        }
+      // Walk from each degree-1 vertex (or any) to build polylines
+      const used = new Set<string>();
+      const polylines: L.LatLng[][] = [];
+      const startKeys: string[] = Array.from(adj.keys()).filter(k => adj.get(k)!.length === 1);
+      if (startKeys.length === 0) {
+        const firstKey = adj.keys().next().value;
+        if (firstKey !== undefined) startKeys.push(firstKey);
       }
-
-      if (!lineCoordinates || lineCoordinates.some(coord => !coord || isNaN(coord.lat) || isNaN(coord.lng))) {
-        return null;
+      for (const startK of startKeys) {
+        if (used.has(startK)) continue;
+        const path: L.LatLng[] = [];
+        let current: string | undefined = startK;
+        while (current) {
+          used.add(current);
+          const c = keyToCoord.get(current)!;
+          path.push(L.latLng(c[1], c[0]));
+          const nexts: string[] = adj.get(current)!.filter((n: string) => !used.has(n));
+          current = nexts.length >= 1 ? nexts[0] : undefined;
+        }
+        if (path.length >= 2) polylines.push(path);
       }
-
-      const divisionLineLayer = L.polyline(lineCoordinates, {
-        color: '#ff0000',
-        weight: 2,
-        opacity: 0.6,
-        dashArray: '10, 5'
-      });
-
-      divisionLineLayer.bindPopup(`
-        <strong>Division Line</strong><br>
-        Step ${stepIdx + 1}<br>
-        ${direction === 'latitude' ? 'Latitude' : 'Longitude'}: ${divisionLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}<br>
-        Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
-        Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
-      `);
-
-      divisionLineLayer.addTo(this.map!);
-      this.divisionLineLayers.push(divisionLineLayer);
-
-      return divisionLineLayer;
-    } catch (error) {
-      console.error(`Error creating static division line for step ${stepIdx}:`, error);
+      // Any remaining segments (closed loop or disjoint)
+      for (const k of adj.keys()) {
+        if (used.has(k)) continue;
+        const path: L.LatLng[] = [];
+        let current: string | undefined = k;
+        while (current) {
+          used.add(current);
+          const c = keyToCoord.get(current)!;
+          path.push(L.latLng(c[1], c[0]));
+          const nexts: string[] = adj.get(current)!.filter((n: string) => !used.has(n));
+          current = nexts[0];
+        }
+        if (path.length >= 2) polylines.push(path);
+      }
+      return polylines.length > 0 ? polylines : null;
+    } catch {
       return null;
     }
   }
 
   /**
-   * Create and animate a single division line
+   * Compute division line geometry: either shared boundary from union polygons (Phase 2)
+   * or straight line clipped to sibling bounds overlap (Phase 1). Returns array of coordinate arrays.
    */
-  private async createAnimatedDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): Promise<L.Polyline | null> {
-    try {
-      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+  private getDivisionLineCoordinates(divLineInfo: DivisionLineInfo, stepIdx: number): L.LatLng[][] | null {
+    const { line: divisionLine, direction, parentGroup } = divLineInfo;
+    const step = this.loadedSteps[stepIdx];
 
-      // Get bounds from the previous step (where the parent group existed before division)
-      let groupBounds: L.LatLngBounds | null = null;
-      if (stepIdx > 0) {
-        const prevStep = this.loadedSteps[stepIdx - 1];
-        if (prevStep) {
-          const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
-            g.startDistrictNumber === parentGroup.startDistrictNumber &&
-            g.endDistrictNumber === parentGroup.endDistrictNumber
+    // Phase 2: shared boundary from union polygons when both siblings have union geometry
+    if (step?.districtGroups && divLineInfo.siblingGroups?.length === 2) {
+      const s1 = divLineInfo.siblingGroups[0];
+      const s2 = divLineInfo.siblingGroups[1];
+      const g1 = step.districtGroups.find(g => g.startDistrictNumber === s1.startDistrictNumber && g.endDistrictNumber === s1.endDistrictNumber);
+      const g2 = step.districtGroups.find(g => g.startDistrictNumber === s2.startDistrictNumber && g.endDistrictNumber === s2.endDistrictNumber);
+      const g1Any = g1 as { unionPolygon?: { geometry?: GeoJSON.Geometry }; unionPolygons?: { geometry?: GeoJSON.Geometry }[] } | undefined;
+      const g2Any = g2 as { unionPolygon?: { geometry?: GeoJSON.Geometry }; unionPolygons?: { geometry?: GeoJSON.Geometry }[] } | undefined;
+      const union1 = g1Any?.unionPolygon?.geometry ?? g1Any?.unionPolygons?.[0]?.geometry;
+      const union2 = g2Any?.unionPolygon?.geometry ?? g2Any?.unionPolygons?.[0]?.geometry;
+      if (union1 && union2 && (union1.type === 'Polygon' || union1.type === 'MultiPolygon') && (union2.type === 'Polygon' || union2.type === 'MultiPolygon')) {
+        const shared = this.getSharedBoundaryFromUnions(
+          { type: 'Feature', geometry: union1, properties: {} } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+          { type: 'Feature', geometry: union2, properties: {} } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+        );
+        if (shared && shared.length > 0) return shared;
+      }
+    }
+
+    // Phase 1: straight line clipped to sibling bounds overlap (or full parent bounds)
+    let groupBounds: L.LatLngBounds | null = null;
+    if (stepIdx > 0) {
+      const prevStep = this.loadedSteps[stepIdx - 1];
+      if (prevStep) {
+        const parentGroupInPrevStep = prevStep.districtGroups.find(g =>
+          g.startDistrictNumber === parentGroup.startDistrictNumber &&
+          g.endDistrictNumber === parentGroup.endDistrictNumber
+        );
+        if (parentGroupInPrevStep?.bounds) {
+          groupBounds = L.latLngBounds(
+            L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
+            L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
           );
+        } else if (parentGroupInPrevStep) {
+          groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+        }
+      }
+    }
+    if (!groupBounds || !groupBounds.isValid()) {
+      if (this.map) groupBounds = this.map.getBounds();
+      else return null;
+    }
 
-          if (parentGroupInPrevStep && parentGroupInPrevStep.bounds) {
-            groupBounds = L.latLngBounds(
-              L.latLng(parentGroupInPrevStep.bounds.south, parentGroupInPrevStep.bounds.west),
-              L.latLng(parentGroupInPrevStep.bounds.north, parentGroupInPrevStep.bounds.east)
-            );
-          } else if (parentGroupInPrevStep) {
-            // Calculate bounds from tracts
-            groupBounds = this.calculateGroupBounds(parentGroupInPrevStep.censusTracts);
+    let minLng = groupBounds.getWest();
+    let maxLng = groupBounds.getEast();
+    let minLat = groupBounds.getSouth();
+    let maxLat = groupBounds.getNorth();
+
+    if (step && divLineInfo.siblingGroups?.length === 2) {
+      const s1 = divLineInfo.siblingGroups[0];
+      const s2 = divLineInfo.siblingGroups[1];
+      const b1 = this.getBoundsForGroupInStep(step, s1.startDistrictNumber, s1.endDistrictNumber);
+      const b2 = this.getBoundsForGroupInStep(step, s2.startDistrictNumber, s2.endDistrictNumber);
+      if (b1?.isValid() && b2?.isValid()) {
+        if (direction === 'latitude') {
+          const lngMin = Math.max(b1.getWest(), b2.getWest());
+          const lngMax = Math.min(b1.getEast(), b2.getEast());
+          if (lngMin < lngMax) {
+            minLng = lngMin;
+            maxLng = lngMax;
+          }
+        } else {
+          const latMin = Math.max(b1.getSouth(), b2.getSouth());
+          const latMax = Math.min(b1.getNorth(), b2.getNorth());
+          if (latMin < latMax) {
+            minLat = latMin;
+            maxLat = latMax;
           }
         }
       }
+    }
 
-      if (!groupBounds || !groupBounds.isValid()) {
-        // Fallback: use map bounds
-        if (this.map) {
-          groupBounds = this.map.getBounds();
-        } else {
-          return null;
-        }
-      }
-
-      let lineCoordinates: L.LatLng[] | null = null;
-
-      if (direction === 'latitude') {
-        const minLng = groupBounds.getWest();
-        const maxLng = groupBounds.getEast();
-        const lineLat = divisionLine;
-        const south = groupBounds.getSouth();
-        const north = groupBounds.getNorth();
-
-        if (lineLat < south) {
-          lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
-        } else if (lineLat > north) {
-          lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
-        } else {
-          lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
-        }
+    let lineCoordinates: L.LatLng[];
+    if (direction === 'latitude') {
+      const lineLat = divisionLine;
+      const south = groupBounds.getSouth();
+      const north = groupBounds.getNorth();
+      if (lineLat < south) {
+        lineCoordinates = [L.latLng(south, minLng), L.latLng(south, maxLng)];
+      } else if (lineLat > north) {
+        lineCoordinates = [L.latLng(north, minLng), L.latLng(north, maxLng)];
       } else {
-        const minLat = groupBounds.getSouth();
-        const maxLat = groupBounds.getNorth();
-        const lineLng = divisionLine;
-        const west = groupBounds.getWest();
-        const east = groupBounds.getEast();
-
-        if (lineLng < west) {
-          lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
-        } else if (lineLng > east) {
-          lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
-        } else {
-          lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
-        }
+        lineCoordinates = [L.latLng(lineLat, minLng), L.latLng(lineLat, maxLng)];
       }
-
-      if (!lineCoordinates || lineCoordinates.some(coord => !coord || isNaN(coord.lat) || isNaN(coord.lng))) {
-        return null;
+    } else {
+      const lineLng = divisionLine;
+      const west = groupBounds.getWest();
+      const east = groupBounds.getEast();
+      if (lineLng < west) {
+        lineCoordinates = [L.latLng(minLat, west), L.latLng(maxLat, west)];
+      } else if (lineLng > east) {
+        lineCoordinates = [L.latLng(minLat, east), L.latLng(maxLat, east)];
+      } else {
+        lineCoordinates = [L.latLng(minLat, lineLng), L.latLng(maxLat, lineLng)];
       }
+    }
+    if (lineCoordinates.some(c => !c || isNaN(c.lat) || isNaN(c.lng))) return null;
+    return [lineCoordinates];
+  }
 
-      // Animate the drawing of the division line
-      if (this.map) {
-        const divisionLineLayer = await this.animateLineDrawing(lineCoordinates, this.map, {
-          duration: 1500, // 1.5 seconds animation
+  /**
+   * Create a static division line (no animation). Returns one or more polylines (e.g. shared boundary).
+   */
+  private createStaticDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): L.Polyline[] | null {
+    try {
+      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+      const coordArrays = this.getDivisionLineCoordinates(divLineInfo, stepIdx);
+      if (!coordArrays?.length) return null;
+
+      const layers: L.Polyline[] = [];
+      for (const lineCoordinates of coordArrays) {
+        if (lineCoordinates.length < 2) continue;
+        const divisionLineLayer = L.polyline(lineCoordinates, {
           color: '#ff0000',
-          weight: 3,
-          dashArray: '10, 5',
-          dotSize: 10
+          weight: 2,
+          opacity: 0.6,
+          dashArray: '10, 5'
         });
-
-        // Bind popup to the animated line after animation completes
         divisionLineLayer.bindPopup(`
           <strong>Division Line</strong><br>
           Step ${stepIdx + 1}<br>
@@ -4457,17 +4508,58 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
           Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
         `);
-
-        // Track the final line
+        divisionLineLayer.addTo(this.map!);
         this.divisionLineLayers.push(divisionLineLayer);
-
-        return divisionLineLayer;
+        layers.push(divisionLineLayer);
       }
-
+      return layers.length > 0 ? layers : null;
+    } catch (error) {
+      console.error(`Error creating static division line for step ${stepIdx}:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Create and animate a single division line. Returns one or more polylines (e.g. shared boundary).
+   */
+  private async createAnimatedDivisionLine(divLineInfo: DivisionLineInfo, stepIdx: number): Promise<L.Polyline[]> {
+    try {
+      const { line: divisionLine, direction, parentGroup, ratio: divisionRatio } = divLineInfo;
+      const coordArrays = this.getDivisionLineCoordinates(divLineInfo, stepIdx);
+      if (!coordArrays?.length || !this.map) return [];
+
+      const layers: L.Polyline[] = [];
+      const style = { color: '#ff0000', weight: 3, dashArray: '10, 5' as const, dotSize: 10 };
+      const popupHtml = `
+        <strong>Division Line</strong><br>
+        Step ${stepIdx + 1}<br>
+        ${direction === 'latitude' ? 'Latitude' : 'Longitude'}: ${divisionLine.toFixed(6)}${direction === 'latitude' ? '°N' : '°W'}<br>
+        Dividing group (Districts ${parentGroup.startDistrictNumber}-${parentGroup.endDistrictNumber})<br>
+        Ratio: ${divisionRatio[0]}% / ${divisionRatio[1]}%
+      `;
+
+      const firstCoords = coordArrays[0];
+      const divisionLineLayer = await this.animateLineDrawing(firstCoords, this.map, {
+        duration: 1500,
+        ...style
+      });
+      divisionLineLayer.bindPopup(popupHtml);
+      this.divisionLineLayers.push(divisionLineLayer);
+      layers.push(divisionLineLayer);
+
+      for (let i = 1; i < coordArrays.length; i++) {
+        const lineCoordinates = coordArrays[i];
+        if (lineCoordinates.length < 2) continue;
+        const extra = L.polyline(lineCoordinates, { color: '#ff0000', weight: 2, opacity: 0.6, dashArray: '10, 5' });
+        extra.bindPopup(popupHtml);
+        extra.addTo(this.map);
+        this.divisionLineLayers.push(extra);
+        layers.push(extra);
+      }
+      return layers;
     } catch (error) {
       console.error(`Error creating animated division line for step ${stepIdx}:`, error);
-      return null;
+      return [];
     }
   }
 
