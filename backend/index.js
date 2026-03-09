@@ -7589,6 +7589,9 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
       await cacheAlgorithmState(stateKey, updatedState);
     }
 
+    // Enrich step tracts with party data so client gets same coloring as after refresh (cache-hit path enriches via reconstructStepFromCache)
+    step = await enrichStepTractsWithParty(step, state);
+
     res.json({
       step: updatedState.iteration,
       data: step,
@@ -8446,6 +8449,44 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
   const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(stateNorm, 1);
   console.log(`🗑️ RESTART: Deleted algorithm cache from step 1 for ${stateNorm}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
   return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
+}
+
+/**
+/**
+ * Enrich a step's census tracts with party data (pctDem, pctRep, etc.) so the client can color by party
+ * without needing a separate tract-party request. Used when returning step from executeNextStep (cache miss)
+ * so the result matches what the client gets after refresh (reconstructStepFromCache enriches cached steps).
+ * @param {Object} step - Step data with districtGroups[].censusTracts (full tract objects)
+ * @param {string} state - State code (e.g. 'TX')
+ * @returns {Promise<Object>} Step with tract.properties enriched (new object, does not mutate)
+ */
+async function enrichStepTractsWithParty(step, state) {
+  if (!state || !step || !step.districtGroups || step.districtGroups.length === 0) return step;
+  const tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(state, 2024);
+  if (!tractPartyByGeoid || Object.keys(tractPartyByGeoid).length === 0) return step;
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  const districtGroups = step.districtGroups.map(group => {
+    if (!group.censusTracts || group.censusTracts.length === 0) return group;
+    const censusTracts = group.censusTracts.map(t => {
+      const tid = getTractId(t);
+      const row = tractPartyByGeoid[tid] || tractPartyByGeoid[String(tid)];
+      if (!row) return t;
+      return {
+        ...t,
+        properties: {
+          ...(t.properties || {}),
+          pctDem: row.pctDem,
+          pctRep: row.pctRep,
+          votesDem: row.votesDem,
+          votesRep: row.votesRep,
+          totalVotes: row.totalVotes
+        }
+      };
+    });
+    return { ...group, censusTracts };
+  });
+  console.log(`✅ NEXT-STEP: Enriched step tracts with party data (${Object.keys(tractPartyByGeoid).length} tract party rows)`);
+  return { ...step, districtGroups };
 }
 
 /**
