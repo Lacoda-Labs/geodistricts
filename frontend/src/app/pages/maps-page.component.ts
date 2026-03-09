@@ -2197,6 +2197,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return !this.hasUnresolvedIsolation && this.finalStepBalancingComplete;
   }
 
+  /** True when the current step's district groups already have union polygon data (e.g. from GET merge or loaded step). Used to hide "Build union polygon" when not needed. */
+  currentStepHasUnionPolygons(): boolean {
+    const groups = this.currentStep?.districtGroups;
+    if (!groups?.length) return false;
+    return groups.some((g: { unionPolygon?: { geometry?: unknown }; unionPolygons?: unknown[] }) =>
+      !!(g.unionPolygon?.geometry || (Array.isArray(g.unionPolygons) && g.unionPolygons.length > 0)));
+  }
+
   /** Stop polling for union polygons and clear trigger state for previous step. */
   private stopUnionPolygonPolling(): void {
     if (this.unionPolygonPollIntervalId != null) {

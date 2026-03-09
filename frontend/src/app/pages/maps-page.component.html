@@ -632,8 +632,8 @@
             </div>
 
             <div class="district-status-summary"
-              *ngIf="currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons()">
-              <button mat-button *ngIf="!currentStepUnionPolygonsCached && unionPolygonBuildTriggeredForStep !== currentStepIndex"
+              *ngIf="currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons() && (!currentStepHasUnionPolygons() || unionPolygonBuildTriggeredForStep === currentStepIndex)">
+              <button mat-button *ngIf="!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex"
                 (click)="buildUnionPolygonForCurrentStep()" type="button">
                 Build union polygon
               </button>
