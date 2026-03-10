@@ -1396,6 +1396,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }, 100);
+        // Fetch district party when map-polygons has final step so single-state uses same approach as US view (party-colored polygons).
+        if (response.hasFinalStep && response.finalStepNumber != null) {
+          const partySub = this.geodistrictService.getDistrictParty(stateRequested, response.finalStepNumber, 100, 2024).subscribe({
+            next: (res) => {
+              if (this.selectedState !== stateRequested) return;
+              this.districtPartyByGroupKey = res.districts ?? null;
+              this.renderMapPolygons();
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.districtPartyByGroupKey = null;
+              this.cdr.markForCheck();
+            }
+          });
+          this.subscriptions.push(partySub);
+        }
       },
       error: (err) => {
         this.errorMessage = err.message || 'Failed to load map polygons';
@@ -1453,11 +1469,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.districtPartyPercentagesCalculated = resp.districtPartyPercentagesCalculated === true;
         this.perGroupStatus = resp.perGroupStatus ?? [];
         this.finalStepMaxIterations = resp.maxIterations ?? 100;
-        if (resp.districtPartyPercentagesCalculated === true && this.selectedState === stateRequested && this.finalStepNumber != null) {
-          this.fetchDistrictPartyForCurrentStep();
-        } else {
-          this.districtPartyByGroupKey = null;
-        }
         this.isLoading = false;
         this.isLoadingSteps = false;
         if (data.isolatedTractsData) {
@@ -1488,11 +1499,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.currentStepUnionPolygonsCached = resp.unionPolygonsCached === true;
         this.cdr.markForCheck();
-        setTimeout(() => {
-          this.renderFinalDistricts();
-          this.checkAndUpdateUnionPolygonStatusForCurrentStep();
-          this.loadAllPreviousSteps(stepIndex);
-        }, 100);
+        const doRenderAndSteps = () => {
+          setTimeout(() => {
+            this.renderFinalDistricts();
+            this.checkAndUpdateUnionPolygonStatusForCurrentStep();
+            this.loadAllPreviousSteps(stepIndex);
+          }, 100);
+        };
+        // When we have a final step, render only after district party is loaded so fill colors use party data.
+        if (this.selectedState === stateRequested && this.finalStepNumber != null) {
+          this.fetchDistrictPartyForCurrentStep(doRenderAndSteps);
+        } else {
+          this.districtPartyByGroupKey = null;
+          doRenderAndSteps();
+        }
       },
       error: (err) => {
         if (this.selectedState !== stateRequested) return;
@@ -3594,8 +3614,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const polygons = this.mapPolygons.finalDistrictPolygons;
       polygons.forEach((feature: GeoJsonFeature, index: number) => {
         if (!feature?.geometry) return;
-        const fillColor = this.getDistrictColor(index, polygons.length);
-        const borderColor = this.darkenColor(fillColor, 0.25);
+        const groupKey = `${index + 1}-${index + 1}`;
+        const party = this.districtPartyByGroupKey?.[groupKey];
+        const fillColor = party != null ? this.getTractColorByParty(party.pctDem) : this.getDistrictColor(index, polygons.length);
+        const borderColor = this.getTractBorderColorByParty(party?.pctDem ?? 0.5);
+        const popupContent = `<strong>District ${index + 1}</strong><br>${this.getPopupPartyLine(party ?? null)}`;
         const geoJson = L.geoJSON(feature as any, {
           style: {
             color: borderColor,
@@ -3604,7 +3627,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             fillOpacity: this.polygonFillOpacity,
             fillColor
           }
-        }).bindPopup(`<strong>District ${index + 1}</strong>`);
+        }).bindPopup(popupContent);
         this.tractLayer!.addLayer(geoJson);
         this.tractGeoJsonLayers.set(geoJson, fillColor);
         this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
@@ -5733,7 +5756,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Fetch district-level party data for the step currently being viewed; used for map coloring and table. Works for any step (backend computes from tract totals when no cache). */
-  private fetchDistrictPartyForCurrentStep(): void {
+  private fetchDistrictPartyForCurrentStep(onLoaded?: () => void): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
       this.districtPartyByGroupKey = null;
       return;
@@ -5744,12 +5767,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.geodistrictService.getDistrictParty(this.selectedState, stepToFetch, maxIter, vestYear).subscribe({
       next: (res) => {
         this.districtPartyByGroupKey = res.districts ?? null;
-        this.renderFinalDistricts();
         this.cdr.markForCheck();
+        onLoaded?.();
+        // Defer re-render so it runs after any in-progress render completes (avoids re-entrancy guard blocking party-colored draw).
+        setTimeout(() => this.renderFinalDistricts(), 0);
       },
       error: () => {
         this.districtPartyByGroupKey = null;
         this.cdr.markForCheck();
+        onLoaded?.();
       }
     });
   }

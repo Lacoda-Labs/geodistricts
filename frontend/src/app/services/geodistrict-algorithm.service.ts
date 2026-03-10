@@ -508,7 +508,8 @@ export class GeodistrictAlgorithmService {
     vestYear: number = 2024
   ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}&vestYear=${vestYear}`;
+    // Cache-bust so 304 doesn't cause stale party data; backend/cache may have been updated (e.g. after Calc Party %).
+    const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}&vestYear=${vestYear}&_=${Date.now()}`;
     return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -568,7 +569,8 @@ export class GeodistrictAlgorithmService {
    */
   getMapPolygons(state: string): Observable<MapPolygonsResponse> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const url = `${backendUrl}/api/algorithm/map-polygons/${state}`;
+    // Cache-bust so 304 doesn't cause stale polygons (e.g. after build-all-union-polygons).
+    const url = `${backendUrl}/api/algorithm/map-polygons/${state}?_=${Date.now()}`;
     return this.http.get<MapPolygonsResponse>(url, {
       headers: { 'Content-Type': 'application/json' }
     }).pipe(
