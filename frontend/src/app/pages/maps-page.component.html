@@ -448,8 +448,8 @@
                 }}</span>
             </div>
             
-            <!-- Accordion: Isolated tracts at this step (dev mode) -->
-            <mat-expansion-panel *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly"
+            <!-- Accordion: Isolated tracts at this step (dev mode). Hidden when count is 0. -->
+            <mat-expansion-panel *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly && (isolatedTractsData == null || (isolatedTractsData.isolatedTractIds?.length ?? 0) > 0)"
               class="step-isolated-accordion"
               [expanded]="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
               <mat-expansion-panel-header>
