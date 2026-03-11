@@ -6093,12 +6093,36 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Get state data for display in state rows (from state-comparison API; when All selected and party % available, use state-party-summaries for geodistricts and swing).
    * When state-party-summaries and state-comparison lack geodistricts data, derives from allStatesDistrictPartyByState (same data used for map coloring).
+   * For the selected state in single-state view, prefers districtPartyByGroupKey (same source as district list and map) so header matches after clear-cache-and-play.
    */
   getStateData(stateCode: string, source: '119th' | 'geodistricts' | 'swing', type: 'D' | 'R' | 'value'): string {
     if (source === '119th') {
       const s = this.stateComparison?.states?.[stateCode];
       if (s) return type === 'D' ? String(s.congressD) : String(s.congressR);
       return '0';
+    }
+    if (source === 'geodistricts' || source === 'swing') {
+      // Prefer live run data for selected state (same source as district list and map) so header shows correct D/R after clear-cache-and-play
+      const liveDistricts = stateCode === this.selectedState && this.districtPartyByGroupKey && Object.keys(this.districtPartyByGroupKey).length > 0
+        ? this.districtPartyByGroupKey
+        : this.allStatesDistrictPartyByState[stateCode];
+      if (liveDistricts && typeof liveDistricts === 'object') {
+        let geodistrictsD = 0;
+        let geodistrictsR = 0;
+        for (const d of Object.values(liveDistricts)) {
+          if (d && typeof (d as { pctDem?: number }).pctDem === 'number') {
+            if ((d as { pctDem: number }).pctDem >= 0.5) geodistrictsD++;
+            else geodistrictsR++;
+          }
+        }
+        if (geodistrictsD + geodistrictsR > 0) {
+          if (source === 'swing') {
+            const congressD = parseInt(this.getStateData(stateCode, '119th', 'D'), 10) || 0;
+            return String(geodistrictsD - congressD);
+          }
+          if (source === 'geodistricts') return type === 'D' ? String(geodistrictsD) : String(geodistrictsR);
+        }
+      }
     }
     const partySummary = this.statePartySummaries?.[stateCode];
     if (partySummary && (source === 'geodistricts' || source === 'swing')) {
@@ -6377,7 +6401,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const hasGeodistrictsPartyData =
       (this.stateComparison?.states?.[stateCode] != null) ||
       !!(this.statePartySummaries && this.statePartySummaries[stateCode]) ||
-      !!(this.allStatesDistrictPartyByState[stateCode] && Object.keys(this.allStatesDistrictPartyByState[stateCode]).length > 0);
+      !!(this.allStatesDistrictPartyByState[stateCode] && Object.keys(this.allStatesDistrictPartyByState[stateCode]).length > 0) ||
+      (stateCode === this.selectedState && !!this.districtPartyByGroupKey && Object.keys(this.districtPartyByGroupKey).length > 0);
     return {
       stateCode: stateCode,
       stateName: state?.name,
