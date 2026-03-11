@@ -3676,8 +3676,46 @@ async function loadTractsFromStateTractCache(state) {
   const GEOMETRY_COVERAGE_THRESHOLD = 0.95;
 
   try {
-    const stateTractDoc = await getCacheDoc(tractCacheKey);
-    if (!stateTractDoc) return null;
+    let stateTractDoc = await getCacheDoc(tractCacheKey);
+    // When local cache is empty (e.g. after clear-cache or first run), try Cloud Storage so we don't refetch from TIGER
+    if (!stateTractDoc) {
+      try {
+        const cloudResult = await cloudStorageCache.get(tractCacheKey);
+        if (cloudResult && cloudResult.data) {
+          let tractMap = cloudResult.data;
+          if (tractMap && tractMap.type === 'FeatureCollection' && Array.isArray(tractMap.features)) {
+            tractMap = tractMap.features;
+          } else if (!Array.isArray(tractMap)) {
+            tractMap = tractMap.data || null;
+          }
+          if (tractMap && Array.isArray(tractMap) && tractMap.length > 0) {
+            let tracts = [];
+            if (Array.isArray(tractMap[0]) && tractMap[0].length === 2) {
+              tracts = tractMap.map(([, t]) => t).filter(Boolean);
+            } else {
+              tracts = tractMap.filter(t => t && (t.geometry || (t.type === 'Feature' && t.geometry)));
+            }
+            if (tracts.length > 0) {
+              const sampleSize = Math.min(200, tracts.length);
+              const step = Math.max(1, Math.floor(tracts.length / sampleSize));
+              let withGeometry = 0;
+              for (let i = 0; i < tracts.length && withGeometry < sampleSize; i += step) {
+                const t = tracts[i];
+                if (t && (t.geometry || (t.type === 'Feature' && t.geometry))) withGeometry++;
+              }
+              const coverage = sampleSize > 0 ? withGeometry / sampleSize : 0;
+              if (coverage >= GEOMETRY_COVERAGE_THRESHOLD) {
+                console.log(`✅ STATE TRACT CACHE: Loaded ${tracts.length} tracts for ${state} from Cloud Storage (skip external fetch)`);
+                return { tracts, tractCacheKey };
+              }
+            }
+          }
+        }
+      } catch (cloudErr) {
+        console.warn(`⚠️ loadTractsFromStateTractCache(${state}): Cloud Storage fallback failed: ${cloudErr.message}`);
+      }
+      return null;
+    }
 
     const stateTractData = stateTractDoc;
     if (stateTractData.algorithmVersion !== ALGORITHM_VERSION) return null;
@@ -4914,7 +4952,8 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 /**
  * POST /api/algorithm/clear-cache
  * Delete all algorithm cache for a state (trash). Removes step 0..N, algorithm state, union polygons.
- * Does NOT touch external data (tract boundaries, census tract data, state tract cache).
+ * Does NOT delete state_tracts_{state} (census/original-source tract data). After clear, step-by-step
+ * will use state tract cache (local or Cloud Storage fallback) when available, avoiding TIGER refetch.
  */
 app.post('/api/algorithm/clear-cache', async (req, res) => {
   try {
@@ -8342,7 +8381,7 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
   const currentVersion = ALGORITHM_VERSION;
   let firestoreDeleted = 0;
 
-  // 1. Delete all step docs: algorithm_step_{state}_{maxIterations}_*
+  // 1. Delete all step docs: algorithm_step_{state}_{maxIterations}_* (never state_tracts_*)
   for (let stepNum = 0; stepNum <= 100; stepNum++) {
     const stepCacheKey = `algorithm_step_${stateNorm}_${maxIterations}_${stepNum}`;
     try {
@@ -8361,6 +8400,7 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
       }
     } catch (e) { /* continue */ }
   }
+  // Explicit: do not delete state_tracts_{state} — that is census/original-source data, not algorithm cache
 
   // 2. Delete algorithm state (Firestore + Cloud Storage)
   await deleteCachedAlgorithmState(stateKey);
@@ -8370,12 +8410,13 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
   if (USE_LOCAL_CACHE) {
     const allKeys = await listCacheDocIds(`union_polygon_${stateNorm}_`);
     for (const key of allKeys) {
+      if (key.startsWith('state_tracts_')) continue; // Never delete census tract cache (original-source data)
       try {
         const doc = await getCacheDoc(key);
         if (doc) { await deleteCacheDoc(key); firestoreDeleted++; }
       } catch (e) { /* continue */ }
     }
-    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} local doc(s)`);
+    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} local doc(s) (state_tracts preserved)`);
     return { firestoreDeleted, cloudDeleted: 0 };
   }
   const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(stateNorm, 0);
