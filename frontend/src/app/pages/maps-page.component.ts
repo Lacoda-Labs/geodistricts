@@ -133,6 +133,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private pendingSliderUpdateTimer: ReturnType<typeof setTimeout> | null = null;
   /** State bounds used for slider track length and min zoom (set when fitting map to state). */
   private stateBoundsForSlider: L.LatLngBounds | null = null;
+  /** When true, the next zoomend is from our fitBounds (e.g. in renderFinalDistricts); do not center on selected district. */
+  private programmaticFitInProgress = false;
   /** Slider track length in px to align with state extent on map (set from projected bounds). */
   sliderTrackLengthPx: number | null = null;
   private subscriptions: Subscription[] = [];
@@ -436,6 +438,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.on('zoomend', () => {
       if (this.map) {
         console.log(`🔍 Map zoom changed - New zoom level: ${this.map.getZoom()}`);
+        if (this.programmaticFitInProgress) {
+          this.programmaticFitInProgress = false;
+        } else if (this.selectedDistrictGroupIndex !== null) {
+          // User clicked zoom buttons: keep zoom level but center on the selected district
+          const bounds = this.getBoundsForDistrictGroup(this.selectedDistrictGroupIndex);
+          if (bounds?.isValid()) {
+            this.map.setView(bounds.getCenter(), this.map.getZoom());
+          }
+        }
         this.updateSliderTrackLength();
         this.updateUSMapPolygonWeights();
       }
@@ -3655,6 +3666,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (bounds.isValid()) {
       const padding: [number, number] = [20, 20];
+      this.programmaticFitInProgress = true;
       this.map.fitBounds(bounds, { padding });
       this.stateBoundsForSlider = bounds;
       this.map.setMinZoom(4);
@@ -3996,6 +4008,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.stateBoundsForSlider = bounds;
       const padding = L.point(20, 20);
+      this.programmaticFitInProgress = true;
       this.map.fitBounds(bounds, { padding: [20, 20] });
       this.map.setMinZoom(4);
       this.updateSliderTrackLength();
@@ -4702,17 +4715,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedSortedTractEntries = [];
     this.cachedNorthPrefixSum = [];
     this.cachedSortedTractEntriesByDg.clear();
-    // Re-render the map with the new highlighting
+    // Re-render the map with the new highlighting (keep current zoom; do not fit to selected district)
     this.renderFinalDistricts();
-    // Zoom and center on the selected district when selecting from info-body
-    if (this.selectedDistrictGroupIndex !== null && this.map) {
-      const bounds = this.getBoundsForDistrictGroup(this.selectedDistrictGroupIndex);
-      if (bounds?.isValid()) {
-        const size = this.map.getSize();
-        const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
-        this.map.fitBounds(bounds, { maxZoom: 14, padding });
-      }
-    }
   }
 
   /**
@@ -5551,6 +5555,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         // Zoom and center on the selected tract when selecting from info-body
         const size = this.map.getSize();
         const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
+        this.programmaticFitInProgress = true;
         this.map.fitBounds(bounds, { maxZoom: 14, padding });
       } else {
         layer.openPopup();
@@ -5567,6 +5572,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const center = bounds.getCenter();
         const size = this.map.getSize();
         const padding: [number, number] = [Math.round(size.y * 0.2), Math.round(size.x * 0.2)];
+        this.programmaticFitInProgress = true;
         this.map.fitBounds(bounds, { maxZoom: 14, padding });
         const props = tractFeature.properties || {};
         const groupLabel = this.getTractGroupLabel(tractFeature);
@@ -6323,15 +6329,35 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       districts: districtCount,
       congressD,
       congressR,
-      congressDChange: congressMarginD > 0 ? congressMarginD : undefined,
+      congressDChange: congressMarginD >= 0 ? congressMarginD : undefined,
       congressRChange: congressMarginR > 0 ? congressMarginR : undefined,
       geodistrictsD,
       geodistrictsR,
-      geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
+      geodistrictsDChange: geodistrictsMarginD >= 0 ? geodistrictsMarginD : undefined,
       geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
       swing: parseInt(this.getUSData('swing', 'value'), 10) || 0,
       hasGeodistrictsPartyData
     };
+  }
+
+  /**
+   * Row data for the selected state (same as All states table row). Used in .dg-header when on final step.
+   */
+  get headerComparisonRowData(): StateRowData | null {
+    return this.selectedState && this.selectedState !== 'ALL' ? this.getStateRowData(this.selectedState) : null;
+  }
+
+  /** Format delta for header comparison: (+n) or (+0) when zero. */
+  formatDeltaHeader(change: number | undefined): string {
+    if (change === undefined || change === null) return '';
+    return `(+${Math.abs(change)})`;
+  }
+
+  /** Swing column text for header: D:+N (blue), R:+N (red), +0. */
+  headerSwingColumnText(swing: number): string {
+    if (swing > 0) return `D:+${swing}`;
+    if (swing < 0) return `R:+${-swing}`;
+    return '+0';
   }
 
   /**
@@ -6358,11 +6384,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       districts: state?.districts ?? 0,
       congressD,
       congressR,
-      congressDChange: congressMarginD > 0 ? congressMarginD : undefined,
+      congressDChange: congressMarginD >= 0 ? congressMarginD : undefined,
       congressRChange: congressMarginR > 0 ? congressMarginR : undefined,
       geodistrictsD,
       geodistrictsR,
-      geodistrictsDChange: geodistrictsMarginD > 0 ? geodistrictsMarginD : undefined,
+      geodistrictsDChange: geodistrictsMarginD >= 0 ? geodistrictsMarginD : undefined,
       geodistrictsRChange: geodistrictsMarginR > 0 ? geodistrictsMarginR : undefined,
       swing: parseInt(this.getStateData(stateCode, 'swing', 'value'), 10) || 0,
       hasGeodistrictsPartyData

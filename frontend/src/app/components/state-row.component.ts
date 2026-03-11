@@ -39,7 +39,7 @@ export class StateRowComponent {
     }
   }
 
-  /** Format delta for display: always (+n). */
+  /** Format delta for display: always (+n); (+0) when zero so cell is never empty. */
   formatDelta(change: number | undefined): string {
     if (change === undefined || change === null) return '';
     return `(+${Math.abs(change)})`;

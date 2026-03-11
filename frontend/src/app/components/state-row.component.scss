@@ -142,6 +142,10 @@
     }
   }
 
+  &.delta-zero {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
   &.republican {
     // no-bkg variant; shade by party % (--party-pct 0–1)
     background-color: transparent;
@@ -170,6 +174,10 @@
 // Styles for us-data-section (dark background)
 :host-context(.us-data-section) {
   .data-badge {
+    &.delta-zero {
+      color: var(--mat-sys-on-surface-variant);
+    }
+
     &.democratic {
       color: var(--party-democratic, #2F59FF);
 

@@ -5,6 +5,12 @@ Use this structure when appending a session to the daily archive file
 
 ---
 
+## Current date (use shell, not user_info)
+
+Get today's date by running in the shell: `date +%Y-%m-%d` (for YYYY-MM-DD) and `date +%y%m%d` (for YYMMDD). Use this output for all paths, folder names, filenames, and the `# YYMMDD` first line. Do **not** use the date from user_info or other context.
+
+---
+
 ## Daily file (create once per day)
 
 - **Path:** `.cursor/archive/YYYY-MM/YYYY-MM-DD/YYMMDD.md`  

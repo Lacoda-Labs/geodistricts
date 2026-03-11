@@ -843,6 +843,61 @@
   }
 }
 
+.dg-header-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr auto; // D R Δ D R Δ Swing
+  grid-template-rows: auto auto auto;
+  gap: 0 8px;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--mat-sys-on-surface-variant, #42474E);
+
+  .dg-header-comparison-row {
+    display: contents;
+  }
+
+  .dg-header-comparison-cell {
+    white-space: nowrap;
+    padding: 2px 4px;
+
+    &.dg-header-comparison-span3 {
+      grid-column: span 3;
+    }
+
+    &.dg-header-comparison-swing {
+      min-width: 40px;
+      text-align: center;
+    }
+  }
+
+  .dg-header-comparison-headers .dg-header-comparison-cell {
+    font-weight: 500;
+  }
+
+  .dg-header-comparison-subheaders .dg-header-comparison-cell {
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #42474E);
+  }
+
+  .dg-header-comparison-data .dg-header-comparison-cell {
+    border-top: 1px solid var(--mat-sys-outline-variant, #cac4d0);
+    padding-top: 6px;
+    margin-top: 2px;
+
+    &.democratic {
+      color: var(--party-democratic, #2F59FF);
+    }
+
+    &.republican {
+      color: #FF2828;
+    }
+
+    &.delta-zero {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
 .step-isolated-accordion {
   margin-bottom: 12px;
 

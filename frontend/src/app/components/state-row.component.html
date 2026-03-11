@@ -22,7 +22,7 @@
     </div>
   </div>
   <div class="data-column congress-delta">
-    <div class="data-badge" [class.democratic]="showCongressDDelta" [class.republican]="showCongressRDelta"
+    <div class="data-badge" [class.democratic]="showCongressDDelta && data.congressDChange !== 0" [class.republican]="showCongressRDelta && data.congressRChange !== 0" [class.delta-zero]="(showCongressDDelta && data.congressDChange === 0) || (showCongressRDelta && data.congressRChange === 0)"
          *ngIf="showCongressDDelta || showCongressRDelta">
       <span>{{ showCongressDDelta ? formatDelta(data.congressDChange) : formatDelta(data.congressRChange) }}</span>
     </div>
@@ -43,7 +43,7 @@
   </div>
   <div class="data-column geodistricts-delta">
     <ng-container *ngIf="data.hasGeodistrictsPartyData !== false && (showGeodistrictsDDelta || showGeodistrictsRDelta)">
-      <div class="data-badge" [class.democratic]="showGeodistrictsDDelta" [class.republican]="showGeodistrictsRDelta">
+      <div class="data-badge" [class.democratic]="showGeodistrictsDDelta && data.geodistrictsDChange !== 0" [class.republican]="showGeodistrictsRDelta && data.geodistrictsRChange !== 0" [class.delta-zero]="(showGeodistrictsDDelta && data.geodistrictsDChange === 0) || (showGeodistrictsRDelta && data.geodistrictsRChange === 0)">
         <span>{{ showGeodistrictsDDelta ? formatDelta(data.geodistrictsDChange) : formatDelta(data.geodistrictsRChange) }}</span>
       </div>
     </ng-container>

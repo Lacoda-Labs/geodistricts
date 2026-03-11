@@ -96,12 +96,45 @@
           <ng-container *ngIf="currentStep && currentStepIndex === 0">
             <div class="step-0-info-container">
               <div class="dg-header">
-                <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
-                  Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                <ng-container *ngIf="isFinalStepActive && headerComparisonRowData as rowData">
+                  <div class="dg-header-comparison">
+                    <div class="dg-header-comparison-row dg-header-comparison-headers">
+                      <div class="dg-header-comparison-cell dg-header-comparison-span3">119th Congress</div>
+                      <div class="dg-header-comparison-cell dg-header-comparison-span3">GeoDistricts</div>
+                      <div class="dg-header-comparison-cell dg-header-comparison-swing">Swing</div>
+                    </div>
+                    <div class="dg-header-comparison-row dg-header-comparison-subheaders">
+                      <div class="dg-header-comparison-cell">D</div>
+                      <div class="dg-header-comparison-cell">R</div>
+                      <div class="dg-header-comparison-cell">Δ</div>
+                      <div class="dg-header-comparison-cell">D</div>
+                      <div class="dg-header-comparison-cell">R</div>
+                      <div class="dg-header-comparison-cell">Δ</div>
+                      <div class="dg-header-comparison-cell dg-header-comparison-swing"></div>
+                    </div>
+                    <div class="dg-header-comparison-row dg-header-comparison-data">
+                      <div class="dg-header-comparison-cell democratic">D: {{ rowData.congressD }}</div>
+                      <div class="dg-header-comparison-cell republican">R: {{ rowData.congressR }}</div>
+                      <div class="dg-header-comparison-cell" [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0" [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0" [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
+                        <span *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{ (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) : formatDeltaHeader(rowData.congressRChange)) }}</span>
+                      </div>
+                      <div class="dg-header-comparison-cell democratic"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD }}</ng-container></div>
+                      <div class="dg-header-comparison-cell republican"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR }}</ng-container></div>
+                      <div class="dg-header-comparison-cell" [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0" [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0" [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
+                        <ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{ rowData.geodistrictsD >= rowData.geodistrictsR ? formatDeltaHeader(rowData.geodistrictsDChange) : formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
+                      </div>
+                      <div class="dg-header-comparison-cell dg-header-comparison-swing" [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{ rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="!isFinalStepActive || !headerComparisonRowData">
+                  <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
+                    Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                      }}</span>
+                  </span>
+                  <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
                     }}</span>
-                </span>
-                <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
-                  }}</span>
+                </ng-container>
               </div>
               <!-- Step 0: Island & enclosed tracts (collapsible) -->
               <div class="step-0-isolated-panel"
@@ -188,7 +221,8 @@
                                     <td>{{ (tract.properties && tract.properties.POPULATION != null ?
                                       tract.properties.POPULATION : 0) | number }}</td>
                                     <td>
-                                      <mat-icon [fontIcon]="getTractPolygonIcon(tract)" class="tract-list-icon"></mat-icon>
+                                      <mat-icon [fontIcon]="getTractPolygonIcon(tract)"
+                                        class="tract-list-icon"></mat-icon>
                                     </td>
                                     <td>{{ getTractPartyPercentages(tract) }}</td>
                                   </tr>
@@ -284,9 +318,10 @@
                       <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
                     </div>
                   </div>
-                  <div class="header-buttons" *ngIf="(isDevMode || !isVisualizationOnly) && !finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
-                    <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                      [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                  <div class="header-buttons"
+                    *ngIf="(isDevMode || !isVisualizationOnly) && !finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
+                    <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts"
+                      class="balance-districts-btn"
                       matTooltip="Balance sibling district groups after moving isolated tracts">
                       {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
                     </button>
@@ -294,7 +329,7 @@
                 </div>
               </div>
 
-              
+
 
               <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
               <!-- <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
@@ -314,22 +349,25 @@
 
               <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
               <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
-              <div class="final-step-actions" *ngIf="isFinalStepActive">
-                <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
-                  *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
-                  {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
-                </button>
-                <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                  *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
-                  [disabled]="isBalancingDistricts" class="balance-districts-btn"
-                  matTooltip="Balance population across districts">
-                  {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
-                </button>
-              </div>
+              <ng-container *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
+                <div class="final-step-actions">
+                  <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                    *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
+                    {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+                  </button>
+                  <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                    *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
+                    [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                    matTooltip="Balance population across districts">
+                    {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
+                  </button>
+                </div>
+              </ng-container>
 
               <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
-              <div class="final-step-isolated-panel"
-                *ngIf="isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
+              @if (isFinalStepActive && hasUnresolvedIsolation && isolatedTractsData &&
+              isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0) {
+              <div class="final-step-isolated-panel">
                 <mat-expansion-panel [(expanded)]="finalStepIsolatedSectionExpanded">
                   <mat-expansion-panel-header>
                     <mat-panel-title>
@@ -374,9 +412,10 @@
                   </div>
                 </mat-expansion-panel>
               </div>
+              }
 
-              <div class="district-status-summary"
-                *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
+              @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() || needsCalcParty())) {
+              <div class="district-status-summary">
                 <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
                   [disabled]="!!triggeringForGroupKey">
                   {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
@@ -386,6 +425,7 @@
                   {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
                 </button>
               </div>
+              }
               <div class="district-groups-container">
                 <div class="district-groups-list">
                   <table class="district-groups-table">
@@ -440,16 +480,50 @@
           <!-- Steps 1+: keep step-info-container, no tract list -->
           <div class="step-info-container" *ngIf="currentStep && currentStepIndex >= 1">
             <div class="dg-header">
-              <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
-                Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+              <ng-container *ngIf="isFinalStepActive && headerComparisonRowData as rowData">
+                <div class="dg-header-comparison">
+                  <div class="dg-header-comparison-row dg-header-comparison-headers">
+                    <div class="dg-header-comparison-cell dg-header-comparison-span3">119th Congress</div>
+                    <div class="dg-header-comparison-cell dg-header-comparison-span3">GeoDistricts</div>
+                    <div class="dg-header-comparison-cell dg-header-comparison-swing">Swing</div>
+                  </div>
+                  <div class="dg-header-comparison-row dg-header-comparison-subheaders">
+                    <div class="dg-header-comparison-cell">D</div>
+                    <div class="dg-header-comparison-cell">R</div>
+                    <div class="dg-header-comparison-cell">Δ</div>
+                    <div class="dg-header-comparison-cell">D</div>
+                    <div class="dg-header-comparison-cell">R</div>
+                    <div class="dg-header-comparison-cell">Δ</div>
+                    <div class="dg-header-comparison-cell dg-header-comparison-swing"></div>
+                  </div>
+                  <div class="dg-header-comparison-row dg-header-comparison-data">
+                    <div class="dg-header-comparison-cell democratic">D: {{ rowData.congressD }}</div>
+                    <div class="dg-header-comparison-cell republican">R: {{ rowData.congressR }}</div>
+                    <div class="dg-header-comparison-cell" [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0" [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0" [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
+                      <span *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{ (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) : formatDeltaHeader(rowData.congressRChange)) }}</span>
+                    </div>
+                    <div class="dg-header-comparison-cell democratic"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD }}</ng-container></div>
+                    <div class="dg-header-comparison-cell republican"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR }}</ng-container></div>
+                    <div class="dg-header-comparison-cell" [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0" [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0" [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
+                      <ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{ rowData.geodistrictsD >= rowData.geodistrictsR ? formatDeltaHeader(rowData.geodistrictsDChange) : formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
+                    </div>
+                    <div class="dg-header-comparison-cell dg-header-comparison-swing" [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{ rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
+                  </div>
+                </div>
+              </ng-container>
+              <ng-container *ngIf="!isFinalStepActive || !headerComparisonRowData">
+                <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
+                  Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                    }}</span>
+                </span>
+                <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
                   }}</span>
-              </span>
-              <span class="dg-header-target">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
-                }}</span>
+              </ng-container>
             </div>
-            
+
             <!-- Accordion: Isolated tracts at this step (dev mode). Hidden when count is 0. -->
-            <mat-expansion-panel *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly && (isolatedTractsData == null || (isolatedTractsData.isolatedTractIds?.length ?? 0) > 0)"
+            <mat-expansion-panel
+              *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly && (isolatedTractsData == null || (isolatedTractsData.isolatedTractIds?.length ?? 0) > 0)"
               class="step-isolated-accordion"
               [expanded]="isolatedTractsData && isolatedTractsData.isolatedTractIds && isolatedTractsData.isolatedTractIds.length > 0">
               <mat-expansion-panel-header>
@@ -533,9 +607,10 @@
                         <span class="stat-value">DG total tracts: {{ stat.totalTracts }}</span>
                       </div>
                     </div>
-                    <div class="header-buttons" style="margin-top: 8px;" *ngIf="!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
-                      <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                        [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                    <div class="header-buttons" style="margin-top: 8px;"
+                      *ngIf="!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0">
+                      <button mat-button (click)="balanceDistrictsAfterIsolated()" [disabled]="isBalancingDistricts"
+                        class="balance-districts-btn"
                         matTooltip="Balance sibling district groups after moving isolated tracts">
                         {{ isBalancingDistricts ? 'Balancing...' : 'Balance districts' }}
                       </button>
@@ -550,7 +625,7 @@
               </div>
             </mat-expansion-panel>
 
-            
+
 
             <!-- Move / Balance for this step (manual step-through): show after any step >= 1 in dev mode -->
             <!-- <div class="step-move-balance-actions" *ngIf="currentStepIndex >= 1 && isDevMode && !isVisualizationOnly">
@@ -570,18 +645,20 @@
 
             <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
             <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
-            <div class="final-step-actions" *ngIf="isFinalStepActive">
-              <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
-                *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
-                {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
-              </button>
-              <button mat-button (click)="balanceDistrictsAfterIsolated()"
-                *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
-                [disabled]="isBalancingDistricts" class="balance-districts-btn"
-                matTooltip="Balance population across districts">
-                {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
-              </button>
-            </div>
+            <ng-container *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
+              <div class="final-step-actions">
+                <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
+                  *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
+                  {{ isMovingIsolatedTracts ? 'Moving...' : 'Move isolated tracts' }}
+                </button>
+                <button mat-button (click)="balanceDistrictsAfterIsolated()"
+                  *ngIf="!hasUnresolvedIsolation && !finalStepBalancingComplete && (currentStep && (currentStep.divisionLines?.length ?? 0) > 0)"
+                  [disabled]="isBalancingDistricts" class="balance-districts-btn"
+                  matTooltip="Balance population across districts">
+                  {{ isBalancingDistricts ? 'Balancing...' : 'Balance tracts' }}
+                </button>
+              </div>
+            </ng-container>
 
             <!-- Final step: isolated tracts accordion (when Move isolated tracts is shown) -->
             <div class="final-step-isolated-panel"
@@ -631,16 +708,23 @@
               </mat-expansion-panel>
             </div>
 
-            <div class="district-status-summary"
-              *ngIf="currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons() && (!currentStepHasUnionPolygons() || unionPolygonBuildTriggeredForStep === currentStepIndex)">
-              <button mat-button *ngIf="!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex"
+            @if (currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons()
+            && (!currentStepHasUnionPolygons() || unionPolygonBuildTriggeredForStep === currentStepIndex)
+            && ((!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex)
+                || unionPolygonBuildTriggeredForStep === currentStepIndex)) {
+            <div class="district-status-summary">
+              <button mat-button
+                *ngIf="!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex"
                 (click)="buildUnionPolygonForCurrentStep()" type="button">
                 Build union polygon
               </button>
-              <span *ngIf="unionPolygonBuildTriggeredForStep === currentStepIndex" class="union-polygon-status">building DG polygons...</span>
+              <span *ngIf="unionPolygonBuildTriggeredForStep === currentStepIndex" class="union-polygon-status">building
+                DG polygons...</span>
             </div>
-            <div class="district-status-summary"
-              *ngIf="currentStep?.districtGroups?.length && isDevMode && isFinalStepActive">
+            }
+
+            @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() || needsCalcParty())) {
+            <div class="district-status-summary">
               <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
                 [disabled]="!!triggeringForGroupKey">
                 {{ triggeringForGroupKey ? 'Building...' : 'Build Polygons' }}
@@ -650,6 +734,7 @@
                 {{ districtPartyJobTriggered ? 'Calculating...' : 'Calc Party %' }}
               </button>
             </div>
+            }
             <div class="district-groups-container">
               <div class="district-groups-list">
                 <table class="district-groups-table">
