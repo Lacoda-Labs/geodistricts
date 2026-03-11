@@ -93,6 +93,7 @@ For detailed implementation specifications and related documentation, see:
 ### Data Sources & Services
 - [Census Population Data](pages/CENSUS_POPULATION_DATA.md) - Demographic statistics integration
 - [TIGER/Line Shapefiles](pages/TIGER_LINE_SHAPEFILES.md) - Geographic boundaries and spatial data
+- [TIGERweb Alternatives](pages/TIGERWEB_ALTERNATIVES.md) - Alternative endpoints when TIGERweb is unreachable (e.g. Esri fallback)
 - [State Election Data](pages/STATE_ELECTION_DATA.md) - Voter registration and party affiliation
 - [Census Service README](pages/CENSUS_SERVICE_README.md) - Census data integration
 - [Census API Key Setup](pages/CENSUS_API_KEY_SETUP.md) - API configuration

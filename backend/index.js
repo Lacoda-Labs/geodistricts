@@ -105,8 +105,13 @@ const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGE
 // Boundary data: tract, county, and state boundaries are fetched from Census TIGERweb (not ArcGIS/Esri).
 // Census TIGERweb Tracts_Blocks layer 10 = Census 2020 Tracts (replaces Esri USA_Census_Tracts)
 const TIGERWEB_TRACT_LAYER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/10';
+// Fallback when TIGERweb is unreachable (e.g. ETIMEDOUT, ECONNABORTED): Esri-hosted USA Census Tracts. Same query pattern; normalize field names.
+const TIGERWEB_TRACT_LAYER_FALLBACK = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0';
 // Census TIGERweb State_County layer 0 = States (STATE, GEOID, NAME, STUSAB)
 const TIGERWEB_STATE_LAYER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0';
+const TIGERWEB_REQUEST_TIMEOUT_MS = 45000;
+// Smaller batches reduce payload per request and help avoid timeouts; env override optional.
+const TIGERWEB_TRACT_BATCH_SIZE = parseInt(process.env.TIGERWEB_TRACT_BATCH_SIZE || '200', 10) || 200;
 const ACS_YEAR = '2022';
 const ACS_DATASET = 'acs/acs5';
 
@@ -1732,22 +1737,33 @@ async function getTractCount(state, county) {
   
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
 
-  const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
-  let whereClause = `STATE='${stateFips}'`;
-  if (county) {
-    whereClause += ` AND COUNTY='${county}'`;
+  const whereTiger = `STATE='${stateFips}'${county ? ` AND COUNTY='${county}'` : ''}`;
+  const whereEsri = `STATEFP='${stateFips}'${county ? ` AND COUNTYFP='${county}'` : ''}`;
+
+  const tryCount = async (baseUrl, where) => {
+    const serviceUrl = `${baseUrl}/query`;
+    const countParams = new URLSearchParams({
+      where,
+      outFields: 'STATE',
+      f: 'geojson',
+      returnCountOnly: 'true'
+    });
+    const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`, { timeout: TIGERWEB_REQUEST_TIMEOUT_MS });
+    return countResponse.data.properties?.count || 0;
+  };
+
+  try {
+    logExternalFetch('TIGERweb', 'tract count for boundaries query', county ? `state=${state} county=${county}` : `state=${state}`);
+    return await tryCount(TIGERWEB_TRACT_LAYER, whereTiger);
+  } catch (err) {
+    const isNetwork = err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || (err.response && err.response.status >= 500);
+    if (isNetwork) {
+      console.warn(`⚠️ TIGERweb tract count failed (${err.code || err.message}), trying Esri fallback...`);
+      logExternalFetch('Esri USA_Census_Tracts', 'tract count (fallback)', county ? `state=${state} county=${county}` : `state=${state}`);
+      return await tryCount(TIGERWEB_TRACT_LAYER_FALLBACK, whereEsri);
+    }
+    throw err;
   }
-
-  const countParams = new URLSearchParams({
-    where: whereClause,
-    outFields: 'STATE',
-    f: 'geojson',
-    returnCountOnly: 'true'
-  });
-
-  logExternalFetch('TIGERweb', 'tract count for boundaries query', county ? `state=${state} county=${county}` : `state=${state}`);
-  const countResponse = await axios.get(`${serviceUrl}?${countParams.toString()}`);
-  return countResponse.data.properties?.count || 0;
 }
 
 /**
@@ -1758,6 +1774,19 @@ async function getTractCount(state, county) {
  * @param {string} [county] - Optional county FIPS
  * @returns {Promise<{ type: string, features: Array }>} GeoJSON FeatureCollection
  */
+function normalizeTractFeatureFromTiger(f) {
+  const p = f.properties || {};
+  return { ...f, properties: { ...p, STATE_FIPS: p.STATE, COUNTY_FIPS: p.COUNTY, TRACT_FIPS: p.TRACT, FIPS: p.GEOID, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+}
+function normalizeTractFeatureFromEsri(f) {
+  const p = f.properties || {};
+  const state = p.STATE != null ? p.STATE : p.STATEFP;
+  const county = p.COUNTY != null ? p.COUNTY : p.COUNTYFP;
+  const tract = p.TRACT != null ? p.TRACT : p.TRACTCE;
+  const geoid = p.GEOID != null ? p.GEOID : (state != null && county != null && tract != null ? `${String(state).padStart(2, '0')}${String(county).padStart(3, '0')}${String(tract).padStart(6, '0')}` : null);
+  return { ...f, properties: { ...p, STATE: state, COUNTY: county, TRACT: tract, GEOID: geoid, STATE_FIPS: state, COUNTY_FIPS: county, TRACT_FIPS: tract, FIPS: geoid, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+}
+
 async function fetchTractBoundariesForState(state, county) {
   const stateFipsMap = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
@@ -1773,40 +1802,51 @@ async function fetchTractBoundariesForState(state, county) {
     'DC': '11'
   };
   const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
-  const serviceUrl = `${TIGERWEB_TRACT_LAYER}/query`;
   let whereClause = `STATE='${stateFips}'`;
   if (county) {
     whereClause += ` AND COUNTY='${county}'`;
   }
-  const totalCount = await getTractCount(state, county);
-  function normalizeTractFeature(f) {
-    const p = f.properties || {};
-    return { ...f, properties: { ...p, STATE_FIPS: p.STATE, COUNTY_FIPS: p.COUNTY, TRACT_FIPS: p.TRACT, FIPS: p.GEOID, POPULATION: p.POP100 != null ? p.POP100 : p.POPULATION } };
+  const whereClauseEsri = `STATEFP='${stateFips}'${county ? ` AND COUNTYFP='${county}'` : ''}`;
+  const outFieldsTiger = 'STATE,COUNTY,TRACT,GEOID,POP100';
+  const outFieldsEsri = '*';
+
+  const doFetch = async (baseUrl, normalizer, logLabel, where) => {
+    const serviceUrl = `${baseUrl}/query`;
+    const allFeatures = [];
+    const batchSize = TIGERWEB_TRACT_BATCH_SIZE;
+    let offset = 0;
+    let batchIndex = 0;
+    while (true) {
+      const batchParams = new URLSearchParams({
+        where: where,
+        outFields: baseUrl === TIGERWEB_TRACT_LAYER_FALLBACK ? outFieldsEsri : outFieldsTiger,
+        f: 'geojson',
+        outSR: '4326',
+        resultRecordCount: batchSize.toString(),
+        resultOffset: offset.toString()
+      });
+      batchIndex++;
+      logExternalFetch(logLabel, 'tract boundaries batch (internal)', `state=${state} batch=${batchIndex}`);
+      const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`, { timeout: TIGERWEB_REQUEST_TIMEOUT_MS });
+      const batchFeatures = (batchResponse.data.features || []).map(normalizer);
+      allFeatures.push(...batchFeatures);
+      if (batchFeatures.length < batchSize) break;
+      offset += batchSize;
+    }
+    console.log(`📦 Fetched ${allFeatures.length} tract boundaries for state ${state} (${logLabel}, ${batchIndex} batch(es))`);
+    return { type: 'FeatureCollection', features: allFeatures };
+  };
+
+  try {
+    return await doFetch(TIGERWEB_TRACT_LAYER, normalizeTractFeatureFromTiger, 'TIGERweb', whereClause);
+  } catch (err) {
+    const isNetwork = err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || (err.response && err.response.status >= 500);
+    if (isNetwork) {
+      console.warn(`⚠️ TIGERweb tract boundaries failed (${err.code || err.message}), trying Esri fallback...`);
+      return await doFetch(TIGERWEB_TRACT_LAYER_FALLBACK, normalizeTractFeatureFromEsri, 'Esri USA_Census_Tracts', whereClauseEsri);
+    }
+    throw err;
   }
-  const allFeatures = [];
-  const batchSize = 500;
-  // Loop until we get a batch smaller than batchSize so we get all tracts even if getTractCount is capped (e.g. 2000)
-  let offset = 0;
-  let batchIndex = 0;
-  while (true) {
-    const batchParams = new URLSearchParams({
-      where: whereClause,
-      outFields: 'STATE,COUNTY,TRACT,GEOID,POP100',
-      f: 'geojson',
-      outSR: '4326',
-      resultRecordCount: batchSize.toString(),
-      resultOffset: offset.toString()
-    });
-    batchIndex++;
-    logExternalFetch('TIGERweb', 'tract boundaries batch (internal)', `state=${state} batch=${batchIndex}`);
-    const batchResponse = await axios.get(`${serviceUrl}?${batchParams.toString()}`);
-    const batchFeatures = (batchResponse.data.features || []).map(normalizeTractFeature);
-    allFeatures.push(...batchFeatures);
-    if (batchFeatures.length < batchSize) break;
-    offset += batchSize;
-  }
-  console.log(`📦 Fetched ${allFeatures.length} tract boundaries for state ${state} (internal, ${batchIndex} batch(es))`);
-  return { type: 'FeatureCollection', features: allFeatures };
 }
 
 /**
@@ -1844,7 +1884,7 @@ async function handleStreamingResponse(req, res, state, county, cacheKey, totalC
   res.setHeader('Transfer-Encoding', 'chunked');
   res.write('{"type":"FeatureCollection","features":[');
 
-  const batchSize = 500;
+  const batchSize = TIGERWEB_TRACT_BATCH_SIZE;
   const totalBatches = Math.ceil(totalCount / batchSize);
   let isFirstBatch = true;
   let totalFeaturesStreamed = 0;
@@ -3717,26 +3757,35 @@ async function loadTractsFromStateTractCache(state) {
       return null;
     }
 
-    const stateTractData = stateTractDoc;
-    if (stateTractData.algorithmVersion !== ALGORITHM_VERSION) return null;
-    if (isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) return null;
-
+    // Local cache (USE_LOCAL_CACHE) stores state_tracts as raw array via setCacheDoc(key, finalTractMap).
+    // Firestore/production stores a metadata wrapper with .data / .chunkKeys / .cloudStorage. Accept both.
     let tractMap = null;
-    if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
-      const cloudResult = await cloudStorageCache.get(tractCacheKey);
-      if (cloudResult && cloudResult.data) tractMap = cloudResult.data;
-    } else if (stateTractData.chunked && stateTractData.chunkKeys) {
-      const chunkDocs = await Promise.all(
-        stateTractData.chunkKeys.map(key => getCacheDoc(key))
-      );
-      tractMap = [];
-      for (const chunkDoc of chunkDocs) {
-        if (chunkDoc && chunkDoc.data && Array.isArray(chunkDoc.data)) {
-          tractMap.push(...chunkDoc.data);
-        }
+    if (Array.isArray(stateTractDoc) && stateTractDoc.length > 0) {
+      tractMap = stateTractDoc;
+      if (USE_LOCAL_CACHE) {
+        console.log(`✅ STATE TRACT CACHE: Found local file cache for ${state} (${stateTractDoc.length} entries), checking geometry coverage...`);
       }
-    } else if (stateTractData.data && Array.isArray(stateTractData.data)) {
-      tractMap = stateTractData.data;
+    } else {
+      const stateTractData = stateTractDoc;
+      if (stateTractData.algorithmVersion !== ALGORITHM_VERSION) return null;
+      if (isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) return null;
+
+      if (stateTractData.cloudStorage && stateTractData.cloudStoragePath) {
+        const cloudResult = await cloudStorageCache.get(tractCacheKey);
+        if (cloudResult && cloudResult.data) tractMap = cloudResult.data;
+      } else if (stateTractData.chunked && stateTractData.chunkKeys) {
+        const chunkDocs = await Promise.all(
+          stateTractData.chunkKeys.map(key => getCacheDoc(key))
+        );
+        tractMap = [];
+        for (const chunkDoc of chunkDocs) {
+          if (chunkDoc && chunkDoc.data && Array.isArray(chunkDoc.data)) {
+            tractMap.push(...chunkDoc.data);
+          }
+        }
+      } else if (stateTractData.data && Array.isArray(stateTractData.data)) {
+        tractMap = stateTractData.data;
+      }
     }
     if (!tractMap || (Array.isArray(tractMap) && tractMap.length === 0)) return null;
 
