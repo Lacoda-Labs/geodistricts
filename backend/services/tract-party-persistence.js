@@ -87,20 +87,21 @@ async function loadTractPartyForState(state, year) {
  * any step is then derived by summing these stored tract totals (votesDem, votesRep).
  *
  * @param {number} year - VEST year (e.g. 2020)
- * @param {{ apiBaseUrl?: string }} options - Optional. apiBaseUrl for tract boundaries when using county allocation.
+ * @param {{ apiBaseUrl?: string, state?: string }} options - Optional. apiBaseUrl for tract boundaries; state to run for one state only (e.g. 'RI').
  * @returns {Promise<{ statesWritten: string[], statesSkipped: string[], error?: string }>}
  */
 async function runTractPartyPersistenceJob(year, options = {}) {
   const statesWritten = [];
   const statesSkipped = [];
-  const { apiBaseUrl } = options;
+  const { apiBaseUrl, state: stateFilter } = options;
+  const stateCodeFilter = stateFilter ? String(stateFilter).toUpperCase() : null;
   try {
-    console.log('🔍 runTractPartyPersistenceJob:', year);
+    console.log('🔍 runTractPartyPersistenceJob:', year, stateCodeFilter ? `(state: ${stateCodeFilter})` : '');
     let vestData = await vestDataLoader.loadVESTData(year);
     if (!vestData.data || typeof vestData.data !== 'object' || Object.keys(vestData.data).length === 0) {
       if (vestData.countyData && Object.keys(vestData.countyData).length > 0) {
         console.log('📊 Building tract-level party data from county VEST data...');
-        vestData = await vestDataLoader.buildTractDataFromCountyVEST(year, apiBaseUrl);
+        vestData = await vestDataLoader.buildTractDataFromCountyVEST(year, apiBaseUrl, stateCodeFilter ? { stateCode: stateCodeFilter } : {});
       }
       if (!vestData.data || Object.keys(vestData.data).length === 0) {
         return { statesWritten: [], statesSkipped: [], error: 'VEST tract-level data not available for this year. Use tract-level CSV or county-level file (countypres) with tract boundaries.' };
@@ -111,6 +112,7 @@ async function runTractPartyPersistenceJob(year, options = {}) {
       const stateFips = (row.state_fips || String(geoid).substring(0, 2)).padStart(2, '0');
       const stateCode = STATE_FIPS_TO_CODE[stateFips];
       if (!stateCode) continue;
+      if (stateCodeFilter && stateCode !== stateCodeFilter) continue;
       if (!byState[stateCode]) byState[stateCode] = {};
       const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
       const votesDem = row.votes_dem_pres ?? 0;

@@ -525,6 +525,16 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Trigger tract-level party persistence for a VEST year (async, 202). Optional state limits to one state (e.g. RI). Run this when Party shows "missing" so district-party has data.
+   */
+  triggerTractPartyPersistence(year: number = 2024, state?: string): Observable<{ accepted: boolean; message: string; year: number; state?: string }> {
+    const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
+    const url = `${backendUrl}/api/algorithm/tract-party-persistence`;
+    const body = state && state.length === 2 ? { year, state: state.toUpperCase() } : { year };
+    return this.http.post<{ accepted: boolean; message: string; year: number; state?: string }>(url, body, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /**
    * Compute and persist party % for a single district group.
    */
   triggerDistrictPartyForGroup(state: string, finalStepNumber: number, groupKey: string, maxIterations: number = 100): Observable<unknown> {

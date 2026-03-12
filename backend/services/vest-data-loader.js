@@ -1086,9 +1086,10 @@ class VESTDataLoader {
    * returns countyData but empty data (e.g. countypres file only).
    * @param {number} year - VEST year (e.g. 2020)
    * @param {string|null} apiBaseUrl - Backend base URL for tract boundaries (optional)
+   * @param {{ stateCode?: string }} options - Optional. stateCode to limit to one state (e.g. 'RI').
    * @returns {Promise<{ data: object, countyData?: object, metadata: object }>}
    */
-  async buildTractDataFromCountyVEST(year, apiBaseUrl = null) {
+  async buildTractDataFromCountyVEST(year, apiBaseUrl = null, options = {}) {
     const vestData = await this.loadVESTData(year);
     if (vestData.data && Object.keys(vestData.data).length > 0) {
       return vestData;
@@ -1108,9 +1109,13 @@ class VESTDataLoader {
       '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT', '50': 'VT',
       '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI', '56': 'WY'
     };
-    const stateFipsInCountyData = new Set();
+    let stateFipsInCountyData = new Set();
     for (const c of Object.values(vestData.countyData)) {
       if (c.stateFips) stateFipsInCountyData.add(String(c.stateFips).padStart(2, '0'));
+    }
+    if (options.stateCode) {
+      const targetCode = String(options.stateCode).toUpperCase();
+      stateFipsInCountyData = new Set([...stateFipsInCountyData].filter(f => stateFipsMap[f] === targetCode));
     }
     const spatialAnalyzer = require('./spatial-analyzer');
     const data = {};

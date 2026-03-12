@@ -5874,25 +5874,41 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** Trigger district party for one DG (dev/maps). */
+  /** Trigger district party for one DG (dev/maps). When party is missing/fail, runs tract-party-persistence first, then district party for the state. */
   triggerPartyForGroup(group: DistrictGroup, e: Event): void {
     e.stopPropagation();
     if (!this.selectedState || this.currentStepIndex == null) return;
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
     if (this.triggeringForGroupKey) return;
     this.triggeringForGroupKey = groupKey;
-    const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
-    const finalStep = this.finalStepNumber ?? this.currentStepIndex;
-    this.geodistrictService.triggerDistrictPartyForGroup(this.selectedState, finalStep, groupKey, maxIter).subscribe({
+    const vestYear = 2024;
+    // First ensure tract-level party data exists for this state (POST tract-party-persistence), then trigger district party.
+    this.geodistrictService.triggerTractPartyPersistence(vestYear, this.selectedState).subscribe({
       next: () => {
-        this.triggeringForGroupKey = null;
-        this.errorMessage = '';
-        this.refetchFinalStepForStatus(this.selectedState);
+        this.districtPartyJobTriggered = true;
         this.cdr.markForCheck();
+        this.geodistrictService.triggerDistrictPartyJob(
+          this.selectedState!,
+          this.finalStepNumber ?? this.currentStepIndex!,
+          this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100
+        ).subscribe({
+          next: () => {
+            this.triggeringForGroupKey = null;
+            this.errorMessage = '';
+            setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.triggeringForGroupKey = null;
+            this.districtPartyJobTriggered = false;
+            this.errorMessage = err?.error?.error || err?.message || 'District party failed. If tract data is still building, try again in a few minutes.';
+            this.cdr.markForCheck();
+          }
+        });
       },
       error: (err) => {
         this.triggeringForGroupKey = null;
-        this.errorMessage = err?.error?.error || err?.message || 'Failed to compute district party. Run tract party persistence for this state first.';
+        this.errorMessage = err?.error?.error || err?.message || 'Failed to start tract party persistence.';
         this.cdr.markForCheck();
       }
     });

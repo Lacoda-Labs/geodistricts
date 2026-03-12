@@ -6726,7 +6726,7 @@ app.post('/api/algorithm/build-all-union-polygons/:state', async (req, res) => {
 
 /**
  * POST /api/algorithm/tract-party-persistence
- * Trigger tract-level party % persistence for a VEST year. Returns 202 when accepted.
+ * Trigger tract-level party % persistence for a VEST year. Optional state limits to one state (e.g. RI). Returns 202 when accepted.
  */
 app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
   try {
@@ -6734,15 +6734,20 @@ app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
     if (isNaN(year) || year < 2016) {
       return res.status(400).json({ error: 'Valid year (2016 or later) is required' });
     }
+    const state = (req.body?.state || req.query?.state || '').trim().toUpperCase();
+    const stateParam = state.length === 2 ? state : null;
     const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
     setImmediate(async () => {
       try {
-        await tractPartyPersistence.runTractPartyPersistenceJob(year, { apiBaseUrl });
+        await tractPartyPersistence.runTractPartyPersistenceJob(year, { apiBaseUrl, state: stateParam });
       } catch (e) {
         console.error('❌ Tract party persistence job error:', e.message);
       }
     });
-    return res.status(202).json({ accepted: true, message: `Tract party persistence started for ${year}`, year });
+    const message = stateParam
+      ? `Tract party persistence started for ${stateParam} (${year})`
+      : `Tract party persistence started for ${year}`;
+    return res.status(202).json({ accepted: true, message, year, state: stateParam || undefined });
   } catch (error) {
     console.error('❌ POST tract-party-persistence error:', error);
     res.status(500).json({ error: 'Tract party persistence failed', message: error.message });
