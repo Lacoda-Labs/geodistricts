@@ -59,8 +59,7 @@
             <img *ngIf="selectedState && selectedState !== 'ALL'"
               [src]="'/images/state-flags/23x15/' + selectedState + '.png'" [alt]="stateName(selectedState) + ' Flag'"
               class="info-header-flag" (error)="$event.target.style.display='none'">
-            <span class="info-header-title">{{ stateName(selectedState) }} {{ getStateDistrictCount(selectedState) }}
-              Districts</span>
+            <span class="info-header-title">{{ stateName(selectedState) }}</span>
             <span class="info-header-state-fips"
               *ngIf="isDevMode && selectedState && selectedState !== 'ALL' && getStateFips(selectedState)">State FIPS:
               {{ getStateFips(selectedState) }}</span>
@@ -73,6 +72,9 @@
           <div class="info-header-population-row">
             <span class="info-header-population-item">
               Population: <strong>{{ statePopulation.toLocaleString() }}</strong>
+            </span>
+            <span class="info-header-population-item">
+              Districts: <strong>{{ getStateDistrictCount(selectedState) }}</strong>
             </span>
             <span class="info-header-population-item">
               Target District Population: <strong>{{ finalTargetDistrictPopulation.toLocaleString() }}</strong>

@@ -981,7 +981,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const orderedStateCodes = this.states.map((s) => s.code);
     const sub = from(orderedStateCodes).pipe(
       concatMap((stateCode) =>
-        this.geodistrictService.getMapPolygons(stateCode).pipe(
+        this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
           tap((response) => this.onStatePolygonsReceived(stateCode, response))
         )
       )
@@ -1005,6 +1005,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             results.forEach((r) => {
               this.allStatesDistrictPartyByState[r.state] = r.districts ?? {};
             });
+            this.renderUSMapDistricts(this.usMapStepDataByState);
             this.finishUSMapLoad();
           });
           this.subscriptions.push(partySub);
@@ -1164,12 +1165,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           <em>Click to view ${stateName}</em>`;
 
         const strokeWeight = this.getUSMapPolygonWeight();
+        const borderColor = allStatesParty != null
+          ? this.getTractBorderColorByParty(allStatesParty.pctDem)
+          : '#000000';
         for (const unionPolygon of polygonsToRender) {
           if (!unionPolygon?.geometry) continue;
           try {
             const geoJson = L.geoJSON(unionPolygon, {
               style: {
-                color: '#000000',
+                color: borderColor,
                 weight: strokeWeight,
                 opacity: 1,
                 fillOpacity,
@@ -1182,6 +1186,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             (geoJson as any).stateCode = stateCode;
             this.tractLayer!.addLayer(geoJson);
             this.tractGeoJsonLayers.set(geoJson, fillColor);
+            this.tractGeoJsonLayerBorderColors.set(geoJson, borderColor);
           } catch (e) {
             console.warn('Error rendering US map district polygon:', e);
           }

@@ -2096,6 +2096,33 @@ app.get('/api/census/tract-geoids', async (req, res) => {
       offset += features.length;
       hasMore = features.length >= pageSize;
     }
+    // When TIGERweb returns no features (e.g. RI sometimes), fall back to state_tracts cache so tract-party-persistence can still run
+    const stateCode = (typeof state === 'string' && state.length === 2) ? state.toUpperCase() : (/^[A-Z]{2}$/i.test(state) ? String(state).toUpperCase() : null);
+    if (geoids.length === 0 && stateCode) {
+      const tractCacheKey = `state_tracts_${stateCode}`;
+      let tractMap = await getCacheDoc(tractCacheKey);
+      if (!tractMap && cloudStorageCache && typeof cloudStorageCache.get === 'function') {
+        try {
+          const cloudResult = await cloudStorageCache.get(tractCacheKey);
+          if (cloudResult && cloudResult.data) tractMap = cloudResult.data;
+        } catch (e) {
+          // ignore
+        }
+      }
+      const raw = Array.isArray(tractMap) ? tractMap : (tractMap && tractMap.data);
+      if (raw && Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0]) && raw[0].length === 2) {
+        for (const pair of raw) {
+          const id = pair[0];
+          if (id != null) {
+            const g = String(id).padStart(11, '0').substring(0, 11);
+            if (g.length === 11) geoids.push(g);
+          }
+        }
+        if (geoids.length > 0) {
+          console.log(`✅ tract-geoids: TIGERweb returned 0 for ${stateCode}; using ${geoids.length} GEOIDs from state_tracts cache`);
+        }
+      }
+    }
     res.json({ geoids });
   } catch (error) {
     console.error('Error fetching tract GEOIDs:', error);
@@ -4356,12 +4383,22 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
 
 /**
  * Get state boundary and optional final-step district polygons for one state.
- * Single read: map_polygons_${state} blob in Cloud Storage (full response). If missing, state boundary only.
+ * Single read: map_polygons_${state} or map_polygons_${state}_overview blob in Cloud Storage.
+ * If overview is true, use overview blob when present (reduced precision for All-states map); otherwise use full-precision blob.
+ * If blob missing, state boundary only.
  * No step-doc or N-polygon reads on the request path.
+ * @param {string} stateCode
+ * @param {{ overview?: boolean }} [options] - overview: true to request reduced-precision blob for All-states map
  */
-async function getMapPolygonsForState(stateCode) {
-  const blobKey = `map_polygons_${stateCode}`;
-  const blobResult = await cloudStorageCache.get(blobKey).catch(() => null);
+async function getMapPolygonsForState(stateCode, options = {}) {
+  const useOverview = options.overview === true;
+  const blobKey = useOverview ? `map_polygons_${stateCode}_overview` : `map_polygons_${stateCode}`;
+  let blobResult = await cloudStorageCache.get(blobKey).catch(() => null);
+  // When overview requested but overview blob missing, fall back to full-precision blob
+  if (useOverview && (!blobResult || !blobResult.data)) {
+    const fallbackKey = `map_polygons_${stateCode}`;
+    blobResult = await cloudStorageCache.get(fallbackKey).catch(() => null);
+  }
   const data = blobResult && blobResult.data;
   if (data && data.statePolygon && (data.statePolygon.type === 'Feature' || data.statePolygon.geometry)) {
     return {
@@ -4391,7 +4428,8 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
     }
-    const result = await getMapPolygonsForState(state);
+    const overview = req.query.overview === 'true' || req.query.for === 'all';
+    const result = await getMapPolygonsForState(state, { overview });
     return res.json({
       statePolygon: result.statePolygon,
       finalDistrictPolygons: result.finalDistrictPolygons,
@@ -6514,6 +6552,29 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
         console.warn(`⚠️ Failed to write map_polygons blob for ${state}:`, err.message);
       });
       console.log(`✅ Map-polygons blob written for ${state} (${finalDistrictPolygons.length} district polygons)`);
+
+      // Overview blob: reduced-precision polygons for All-states map (smaller payload).
+      const overviewDistrictPolygons = finalDistrictPolygons.map(f => {
+        if (!f || !f.geometry) return f;
+        return {
+          ...f,
+          geometry: simplifyUnionGeometry(f.geometry, {
+            decimals: 4,
+            removeDuplicatePoints: true,
+            simplifyTolerance: 0.0001
+          })
+        };
+      });
+      const overviewBlobKey = `map_polygons_${state}_overview`;
+      await cloudStorageCache.set(overviewBlobKey, {
+        statePolygon,
+        finalDistrictPolygons: overviewDistrictPolygons,
+        hasFinalStep: overviewDistrictPolygons.length > 0,
+        finalStepNumber
+      }, { state, source: 'map-polygons-overview-blob' }).catch(err => {
+        console.warn(`⚠️ Failed to write map_polygons overview blob for ${state}:`, err.message);
+      });
+      console.log(`✅ Map-polygons overview blob written for ${state} (${overviewDistrictPolygons.length} district polygons)`);
     }
   }
 

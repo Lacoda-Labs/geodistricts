@@ -576,11 +576,15 @@ export class GeodistrictAlgorithmService {
   /**
    * Get map polygons only for a state (state outline + optional final district polygons).
    * Does not run algorithm. For fast initial map display.
+   * @param options.overview - When true, request reduced-precision polygons (for All-states map); smaller payload.
    */
-  getMapPolygons(state: string): Observable<MapPolygonsResponse> {
+  getMapPolygons(state: string, options?: { overview?: boolean }): Observable<MapPolygonsResponse> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     // Cache-bust so 304 doesn't cause stale polygons (e.g. after build-all-union-polygons).
-    const url = `${backendUrl}/api/algorithm/map-polygons/${state}?_=${Date.now()}`;
+    let url = `${backendUrl}/api/algorithm/map-polygons/${state}?_=${Date.now()}`;
+    if (options?.overview) {
+      url += '&overview=true';
+    }
     return this.http.get<MapPolygonsResponse>(url, {
       headers: { 'Content-Type': 'application/json' }
     }).pipe(
