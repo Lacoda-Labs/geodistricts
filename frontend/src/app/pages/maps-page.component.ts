@@ -6122,6 +6122,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       if (s) return type === 'D' ? String(s.congressD) : String(s.congressR);
       return '0';
     }
+    // When on All states view, single-district states have no algorithm steps; show 119th as GeoDistricts and zero swing
+    if (this.selectedState === 'ALL' && this.isSingleDistrictState(stateCode)) {
+      if (source === 'geodistricts') {
+        const s = this.stateComparison?.states?.[stateCode];
+        if (s) return type === 'D' ? String(s.congressD) : String(s.congressR);
+        return '0';
+      }
+      if (source === 'swing') return '0';
+    }
     if (source === 'geodistricts' || source === 'swing') {
       // Prefer live run data for selected state (same source as district list and map) so header shows correct D/R after clear-cache-and-play
       const liveDistricts = stateCode === this.selectedState && this.districtPartyByGroupKey && Object.keys(this.districtPartyByGroupKey).length > 0
@@ -6423,7 +6432,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       (this.stateComparison?.states?.[stateCode] != null) ||
       !!(this.statePartySummaries && this.statePartySummaries[stateCode]) ||
       !!(this.allStatesDistrictPartyByState[stateCode] && Object.keys(this.allStatesDistrictPartyByState[stateCode]).length > 0) ||
-      (stateCode === this.selectedState && !!this.districtPartyByGroupKey && Object.keys(this.districtPartyByGroupKey).length > 0);
+      (stateCode === this.selectedState && !!this.districtPartyByGroupKey && Object.keys(this.districtPartyByGroupKey).length > 0) ||
+      (this.selectedState === 'ALL' && this.isSingleDistrictState(stateCode) && this.stateComparison?.states?.[stateCode] != null);
     return {
       stateCode: stateCode,
       stateName: state?.name,
