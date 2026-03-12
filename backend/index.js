@@ -189,6 +189,14 @@ function logExternalFetch(datasource, reason, details = '') {
   console.log(`>>> EXTERNAL FETCH | ${datasource} | ${reason}${detailStr}`);
 }
 
+/**
+ * When true, skip all external HTTP fetches (TIGERweb, Census, etc.). Used in CI (e.g. GitHub Actions)
+ * so tests do not hit external APIs. Set CI=true (GitHub sets this) or SKIP_EXTERNAL_FETCH=true.
+ */
+function skipExternalFetch() {
+  return process.env.CI === 'true' || process.env.SKIP_EXTERNAL_FETCH === 'true';
+}
+
 // Census Proxy Utility Functions
 /**
  * Get Census API key - prioritize environment variable for local development
@@ -1740,6 +1748,10 @@ async function getTractCount(state, county) {
   const whereTiger = `STATE='${stateFips}'${county ? ` AND COUNTY='${county}'` : ''}`;
   const whereEsri = `STATEFP='${stateFips}'${county ? ` AND COUNTYFP='${county}'` : ''}`;
 
+  if (skipExternalFetch()) {
+    return 0;
+  }
+
   const tryCount = async (baseUrl, where) => {
     const serviceUrl = `${baseUrl}/query`;
     const countParams = new URLSearchParams({
@@ -1788,6 +1800,9 @@ function normalizeTractFeatureFromEsri(f) {
 }
 
 async function fetchTractBoundariesForState(state, county) {
+  if (skipExternalFetch()) {
+    return { type: 'FeatureCollection', features: [] };
+  }
   const stateFipsMap = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
     'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
@@ -1853,6 +1868,12 @@ async function fetchTractBoundariesForState(state, county) {
  * Handle streaming response for large datasets
  */
 async function handleStreamingResponse(req, res, state, county, cacheKey, totalCount) {
+  if (skipExternalFetch()) {
+    res.setHeader('Content-Type', 'application/json');
+    res.write('{"type":"FeatureCollection","features":[]}');
+    res.end();
+    return;
+  }
   // Convert state abbreviation to FIPS code if needed
   const stateFipsMap = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
@@ -1976,6 +1997,11 @@ app.get('/api/census/tract-boundaries', async (req, res) => {
       }
     }
 
+    // In CI (e.g. GitHub Actions), never fetch from external sources
+    if (skipExternalFetch()) {
+      return res.json({ type: 'FeatureCollection', features: [] });
+    }
+
     // For large datasets, use streaming response. Use >= 2000 so we never rely on single-request 2000 cap (TIGER count may be capped at 2000).
     const totalCount = await getTractCount(state, county);
     if (totalCount >= 2000) {
@@ -2058,6 +2084,9 @@ app.get('/api/census/tract-geoids', async (req, res) => {
     const { state } = req.query;
     if (!state) {
       return res.status(400).json({ error: 'State parameter is required' });
+    }
+    if (skipExternalFetch()) {
+      return res.json({ geoids: [] });
     }
     const stateFipsMap = {
       'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
@@ -2157,10 +2186,14 @@ app.get('/api/census/state-boundaries', async (req, res) => {
         return res.json(cachedData);
       }
     }
+
+    if (skipExternalFetch()) {
+      return res.json({ type: 'FeatureCollection', features: [] });
+    }
     
     // Convert state abbreviation to FIPS code if needed
     const stateFipsMap = {
-      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
       'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
       'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18', 'IA': '19',
       'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24',
@@ -4325,6 +4358,9 @@ async function getOrCreateStateBoundaryInCloudStorage(state) {
   }
 
   // 3. Fetch from TIGER and save to Cloud Storage
+  if (skipExternalFetch()) {
+    throw new Error('External fetch disabled in CI');
+  }
   const stateFipsMap = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06',
     'CO': '08', 'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13',
