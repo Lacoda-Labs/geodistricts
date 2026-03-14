@@ -18,7 +18,7 @@ This Google Cloud Storage bucket holds cached census, boundary, and algorithm da
 | union-polygons/ | Union polygons per algorithm step (by state and step) — see `union-polygons/README.md` |
 | congressional-boundaries/ | Current/precedent congressional district boundaries (Lewis) — see `congressional-boundaries/README.md` |
 | tract-party/ | Tract-level party registration / partisan data by state and year — see `tract-party/README.md` |
-| data/ | Maps page blobs: `maps_landing.json`, `maps_state_comparison.json` (119th vs GeoDistricts party comparison; synced so public site matches local). |
+| data/ | Maps page blobs: `maps_landing.json`, `maps_state_comparison.json` (119th vs GeoDistricts party comparison; synced so public site matches local). The API uses `maps_landing.json` as a fallback for state-comparison and state-party-summaries when Firestore has no data, so the public site can show party data from GCS only. |
 
 ## Usage
 

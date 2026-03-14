@@ -1248,6 +1248,15 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
       delete s._complete;
     }
 
+    // When Firestore has no district_party_* docs (e.g. public site), use party data from GCS maps_landing blob
+    if (Object.keys(summaries).length === 0) {
+      const landingResult = await cloudStorageCache.get('maps_landing').catch(() => null);
+      const landing = landingResult && (landingResult.data !== undefined ? landingResult.data : landingResult);
+      if (landing && landing.statePartySummaries && typeof landing.statePartySummaries.summaries === 'object' && Object.keys(landing.statePartySummaries.summaries).length > 0) {
+        return res.json(landing.statePartySummaries);
+      }
+    }
+
     return res.json({ summaries });
   } catch (error) {
     console.error('❌ GET /api/maps/state-party-summaries error:', error);
@@ -1295,6 +1304,10 @@ async function resolveStateComparison() {
   const gcsResult = await cloudStorageCache.get('maps_state_comparison').catch(() => null);
   const gcsPayload = gcsResult && (gcsResult.data !== undefined ? gcsResult.data : gcsResult);
   if (gcsPayload && gcsPayload.us && gcsPayload.states) return gcsPayload;
+  // Fallback: use stateComparison from maps_landing blob in GCS (public site when only landing is synced)
+  const landingResult = await cloudStorageCache.get('maps_landing').catch(() => null);
+  const landing = landingResult && (landingResult.data !== undefined ? landingResult.data : landingResult);
+  if (landing && landing.stateComparison && landing.stateComparison.us && landing.stateComparison.states) return landing.stateComparison;
   const congressSummary = congress119Party.getPartySummary();
   const states = {};
   let usCongressD = 0;
