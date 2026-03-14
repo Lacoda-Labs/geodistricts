@@ -420,7 +420,7 @@
   flex: 1;
   font-family: 'Inter', sans-serif;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 18px;
   line-height: 20px;
   color: var(--mat-sys-on-surface, #181C20);
 }
@@ -872,11 +872,17 @@
 
   .dg-header-comparison-headers .dg-header-comparison-cell {
     font-weight: 500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .dg-header-comparison-subheaders .dg-header-comparison-cell {
     font-size: 0.75rem;
     color: var(--mat-sys-on-surface-variant, #42474E);
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .dg-header-comparison-data .dg-header-comparison-cell {
