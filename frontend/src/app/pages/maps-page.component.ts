@@ -104,6 +104,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isVisualizationOnly: boolean = false;
   /** True when route is /dev/maps: show admin step bar, allow run/execute and isolation/bridge actions. */
   isDevMode: boolean = false;
+  /** True when isDevMode or All states selected; use for display so /maps matches /dev/maps when All is selected. */
+  get effectiveDevMode(): boolean {
+    return this.isDevMode || this.selectedState === 'ALL';
+  }
   /** True when current run uses isolation resolution (perStep/finalStepOnly); hide isolated-tracts UI when false (grid-only). */
   showIsolationResolutionUI: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */

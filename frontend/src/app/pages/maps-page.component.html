@@ -15,9 +15,9 @@
       </div>
     </section>
 
-    <!-- US View: table and state rows when ALL is selected -->
+    <!-- US View: table and state rows when ALL is selected. Same layout and data for /maps and /dev/maps. -->
     <ng-container *ngIf="selectedState === 'ALL'">
-      <section class="us-data-section">
+      <section class="us-data-section" [attr.data-same-as-dev]="effectiveDevMode ? '' : null">
         <!-- US Summary Row -->
         <app-state-row [data]="getUSRowData()" [clickable]="false" background="off" section="us-data">
         </app-state-row>
@@ -81,7 +81,7 @@
             </span>
           </div>
           <div class="info-header-step-bar">
-            <app-step-btn-bar [variant]="isDevMode ? 'admin' : 'public'"
+            <app-step-btn-bar [variant]="effectiveDevMode ? 'admin' : 'public'"
               [disabled]="isLoadingSteps || isMovingIsolatedTracts || isBalancingDistricts"
               [canGoToFirst]="canGoToFirstStep()" [canGoToPrevious]="canGoToPreviousStep()"
               [canGoToNext]="canGoToNextStep()" [canGoToLast]="canGoToLastStep()" [isPlaying]="isPlaying"
