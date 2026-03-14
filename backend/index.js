@@ -1159,48 +1159,16 @@ let cachedMapsStateComparison = null;
 /**
  * GET /api/maps/state-comparison
  * Returns 119th vs GeoDistricts party comparison for maps page state list.
- * Served from cache or data/maps-state-comparison.json. If no file exists, returns 119th-only payload (GeoDistricts zeros).
+ * Served from: in-memory cache, then resolveStateComparison() (file → Firestore → GCS → 119th-only fallback).
  */
-app.get('/api/maps/state-comparison', (req, res) => {
+app.get('/api/maps/state-comparison', async (req, res) => {
   try {
     if (cachedMapsStateComparison) {
       return res.json(cachedMapsStateComparison);
     }
-    const payload = mapsComparison.loadPersistedComparison();
-    if (payload) {
-      cachedMapsStateComparison = payload;
-      return res.json(payload);
-    }
-    // Fallback: 119th party only (geodistricts 0/0) so maps page can show real 119th data
-    const congressSummary = congress119Party.getPartySummary();
-    const states = {};
-    let usCongressD = 0;
-    let usCongressR = 0;
-    for (const [stateCode, counts] of Object.entries(congressSummary.states || {})) {
-      const D = counts.D || 0;
-      const R = counts.R || 0;
-      usCongressD += D;
-      usCongressR += R;
-      states[stateCode] = {
-        congressD: D,
-        congressR: R,
-        geodistrictsD: 0,
-        geodistrictsR: 0,
-        swing: -D,
-      };
-    }
-    const fallback = {
-      us: {
-        congressD: usCongressD,
-        congressR: usCongressR,
-        geodistrictsD: 0,
-        geodistrictsR: 0,
-        swing: -usCongressD,
-      },
-      states,
-      meta: { generatedAt: new Date().toISOString(), vestYear: null, congress: 119, source: '119th-only' },
-    };
-    return res.json(fallback);
+    const payload = await resolveStateComparison();
+    cachedMapsStateComparison = payload;
+    return res.json(payload);
   } catch (error) {
     console.error('❌ GET /api/maps/state-comparison error:', error);
     res.status(500).json({
@@ -1316,40 +1284,53 @@ app.get('/api/maps/landing', async (req, res) => {
 });
 
 /**
+ * Resolve state comparison for maps: file, then Firestore, then GCS, then 119th-only fallback.
+ * Shared by GET /api/maps/state-comparison and buildMapsLandingPayload.
+ */
+async function resolveStateComparison() {
+  const filePayload = mapsComparison.loadPersistedComparison();
+  if (filePayload && filePayload.us && filePayload.states) return filePayload;
+  const docPayload = await getCacheDoc('maps_state_comparison').catch(() => null);
+  if (docPayload && docPayload.us && docPayload.states) return docPayload;
+  const gcsResult = await cloudStorageCache.get('maps_state_comparison').catch(() => null);
+  const gcsPayload = gcsResult && (gcsResult.data !== undefined ? gcsResult.data : gcsResult);
+  if (gcsPayload && gcsPayload.us && gcsPayload.states) return gcsPayload;
+  const congressSummary = congress119Party.getPartySummary();
+  const states = {};
+  let usCongressD = 0;
+  let usCongressR = 0;
+  for (const [stateCode, counts] of Object.entries(congressSummary.states || {})) {
+    const D = counts.D || 0;
+    const R = counts.R || 0;
+    usCongressD += D;
+    usCongressR += R;
+    states[stateCode] = {
+      congressD: D,
+      congressR: R,
+      geodistrictsD: 0,
+      geodistrictsR: 0,
+      swing: -D,
+    };
+  }
+  return {
+    us: {
+      congressD: usCongressD,
+      congressR: usCongressR,
+      geodistrictsD: 0,
+      geodistrictsR: 0,
+      swing: -usCongressD,
+    },
+    states,
+    meta: { generatedAt: new Date().toISOString(), vestYear: null, congress: 119, source: '119th-only' },
+  };
+}
+
+/**
  * Build maps-landing payload from existing caches (state-comparison, state-party-summaries, map_polygons_*_overview, district_party_*).
  * Used by POST /api/admin/maps-landing/generate. Does not trigger TIGER or algorithm runs.
  */
 async function buildMapsLandingPayload() {
-  const stateComparison = mapsComparison.loadPersistedComparison() || (() => {
-    const congressSummary = congress119Party.getPartySummary();
-    const states = {};
-    let usCongressD = 0;
-    let usCongressR = 0;
-    for (const [stateCode, counts] of Object.entries(congressSummary.states || {})) {
-      const D = counts.D || 0;
-      const R = counts.R || 0;
-      usCongressD += D;
-      usCongressR += R;
-      states[stateCode] = {
-        congressD: D,
-        congressR: R,
-        geodistrictsD: 0,
-        geodistrictsR: 0,
-        swing: -D,
-      };
-    }
-    return {
-      us: {
-        congressD: usCongressD,
-        congressR: usCongressR,
-        geodistrictsD: 0,
-        geodistrictsR: 0,
-        swing: -usCongressD,
-      },
-      states,
-      meta: { generatedAt: new Date().toISOString(), vestYear: null, congress: 119, source: '119th-only' },
-    };
-  })();
+  const stateComparison = await resolveStateComparison();
 
   const ids = await listCacheDocIds('district_party_');
   const congressSummary = congress119Party.getPartySummary();
@@ -1494,6 +1475,19 @@ app.post('/api/admin/maps-comparison/refresh', async (req, res) => {
 
     mapsComparison.savePersistedComparison(payload);
     cachedMapsStateComparison = payload;
+    // Keep GCP in sync: Firestore (production) or GCS (when refresh run from local)
+    if (!USE_LOCAL_CACHE) {
+      await setCacheDoc('maps_state_comparison', payload).catch((err) =>
+        console.warn('⚠️ Maps comparison: could not persist to Firestore:', err.message)
+      );
+    } else {
+      try {
+        await cloudStorageCache.set('maps_state_comparison', payload, { source: 'maps-comparison-refresh' });
+        console.log('💾 Maps comparison: synced to GCS for public site');
+      } catch (cloudErr) {
+        console.warn('⚠️ Maps comparison: GCS sync skipped (e.g. no credentials):', cloudErr.message);
+      }
+    }
     console.log(`✅ Maps comparison refreshed: US ${payload.us.congressD}D/${payload.us.congressR}R → ${payload.us.geodistrictsD}D/${payload.us.geodistrictsR}R GeoDistricts`);
     res.json(payload);
   } catch (error) {
