@@ -1291,6 +1291,185 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
 });
 
 /**
+ * GET /api/maps/landing
+ * Single blob for /maps All-states view: stateComparison, statePartySummaries, polygonsByState, optional districtPartyByState.
+ * One read from GCS (data/maps_landing.json). Returns 404 if not present so frontend can fall back to per-state requests.
+ */
+app.get('/api/maps/landing', async (req, res) => {
+  try {
+    const result = await cloudStorageCache.get('maps_landing').catch(() => null);
+    const data = result && (result.data !== undefined ? result.data : result);
+    if (data && (data.stateComparison || data.polygonsByState)) {
+      return res.json(data);
+    }
+    return res.status(404).json({
+      error: 'Maps landing not found',
+      message: 'Run the maps-landing generation script and upload to GCS, or use per-state endpoints.',
+    });
+  } catch (error) {
+    console.error('❌ GET /api/maps/landing error:', error);
+    res.status(500).json({
+      error: 'Maps landing failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Build maps-landing payload from existing caches (state-comparison, state-party-summaries, map_polygons_*_overview, district_party_*).
+ * Used by POST /api/admin/maps-landing/generate. Does not trigger TIGER or algorithm runs.
+ */
+async function buildMapsLandingPayload() {
+  const stateComparison = mapsComparison.loadPersistedComparison() || (() => {
+    const congressSummary = congress119Party.getPartySummary();
+    const states = {};
+    let usCongressD = 0;
+    let usCongressR = 0;
+    for (const [stateCode, counts] of Object.entries(congressSummary.states || {})) {
+      const D = counts.D || 0;
+      const R = counts.R || 0;
+      usCongressD += D;
+      usCongressR += R;
+      states[stateCode] = {
+        congressD: D,
+        congressR: R,
+        geodistrictsD: 0,
+        geodistrictsR: 0,
+        swing: -D,
+      };
+    }
+    return {
+      us: {
+        congressD: usCongressD,
+        congressR: usCongressR,
+        geodistrictsD: 0,
+        geodistrictsR: 0,
+        swing: -usCongressD,
+      },
+      states,
+      meta: { generatedAt: new Date().toISOString(), vestYear: null, congress: 119, source: '119th-only' },
+    };
+  })();
+
+  const ids = await listCacheDocIds('district_party_');
+  const congressSummary = congress119Party.getPartySummary();
+  const summaries = {};
+  const docList = await Promise.all(ids.map((id) => getCacheDoc(id)));
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const data = docList[i];
+    const parts = id.split('_');
+    if (parts.length < 4) continue;
+    const stateCode = (parts[2] || '').toUpperCase();
+    if (stateCode.length !== 2) continue;
+    if (!data || !data.districts || typeof data.districts !== 'object') continue;
+    const districts = data.districts;
+    let totalVotesDem = 0;
+    let totalVotesRep = 0;
+    let geodistrictsD = 0;
+    let geodistrictsR = 0;
+    for (const d of Object.values(districts)) {
+      const vd = d.votesDem || 0;
+      const vr = d.votesRep || 0;
+      totalVotesDem += vd;
+      totalVotesRep += vr;
+      if ((d.pctDem || 0) >= 0.5) geodistrictsD++;
+      else geodistrictsR++;
+    }
+    const totalVotes = totalVotesDem + totalVotesRep;
+    const pctDem = totalVotes > 0 ? totalVotesDem / totalVotes : 0;
+    const pctRep = totalVotes > 0 ? totalVotesRep / totalVotes : 0;
+    const congress = congressSummary.states[stateCode] || { D: 0, R: 0 };
+    const congressD = congress.D || 0;
+    const swing = geodistrictsD - congressD;
+    const stepNum = parseInt(parts[3], 10) || 0;
+    const districtCount = geodistrictsD + geodistrictsR;
+    const expectedDistricts = CONGRESSIONAL_DISTRICTS_BY_STATE[stateCode];
+    const isComplete = expectedDistricts != null && districtCount === expectedDistricts;
+    const existing = summaries[stateCode];
+    if (!existing) {
+      summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum, _complete: isComplete };
+    } else {
+      const preferCandidate =
+        isComplete && !existing._complete ||
+        (isComplete === existing._complete && stepNum > (existing._step ?? -1));
+      if (preferCandidate) {
+        summaries[stateCode] = { pctDem, pctRep, geodistrictsD, geodistrictsR, swing, _step: stepNum, _complete: isComplete };
+      }
+    }
+  }
+  for (const stateCode of Object.keys(summaries)) {
+    const s = summaries[stateCode];
+    delete s._step;
+    delete s._complete;
+  }
+  const statePartySummaries = { summaries };
+
+  const stateCodes = Object.keys(CONGRESSIONAL_DISTRICTS_BY_STATE || {});
+  const polygonsByState = {};
+  for (const stateCode of stateCodes) {
+    const result = await getMapPolygonsForStateFromCacheOnly(stateCode, { overview: true });
+    if (result && result.statePolygon) {
+      polygonsByState[stateCode] = {
+        statePolygon: result.statePolygon,
+        finalDistrictPolygons: result.finalDistrictPolygons,
+        hasFinalStep: !!result.hasFinalStep,
+        finalStepNumber: result.finalStepNumber,
+      };
+    }
+  }
+
+  const districtPartyByState = {};
+  const vestYear = 2024;
+  const maxIterations = 100;
+  for (const stateCode of Object.keys(polygonsByState)) {
+    const p = polygonsByState[stateCode];
+    if (p.hasFinalStep && typeof p.finalStepNumber === 'number') {
+      const key = `district_party_${stateCode}_${p.finalStepNumber}_${maxIterations}_${vestYear}`;
+      const doc = await getCacheDoc(key).catch(() => null);
+      if (doc && doc.districts && typeof doc.districts === 'object') {
+        districtPartyByState[stateCode] = doc.districts;
+      }
+    }
+  }
+
+  return {
+    stateComparison,
+    statePartySummaries,
+    polygonsByState,
+    districtPartyByState,
+    meta: { generatedAt: new Date().toISOString(), vestYear, source: 'buildMapsLandingPayload' },
+  };
+}
+
+/**
+ * POST /api/admin/maps-landing/generate
+ * Builds maps_landing from existing caches and writes to GCS (data/maps_landing.json).
+ * Run after algorithm + build-all-union-polygons + maps-comparison refresh.
+ */
+app.post('/api/admin/maps-landing/generate', async (req, res) => {
+  try {
+    console.log('🔄 Maps landing generate started...');
+    const payload = await buildMapsLandingPayload();
+    const stateCount = Object.keys(payload.polygonsByState || {}).length;
+    console.log(`✅ Maps landing payload built: ${stateCount} states with polygons`);
+    await cloudStorageCache.set('maps_landing', payload, { source: 'maps-landing-generate' });
+    console.log('💾 Maps landing written to GCS (data/maps_landing.json)');
+    res.json({
+      ok: true,
+      stateCount,
+      message: 'Maps landing written to GCS',
+    });
+  } catch (error) {
+    console.error('❌ POST /api/admin/maps-landing/generate error:', error);
+    res.status(500).json({
+      error: 'Maps landing generate failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * POST /api/admin/maps-comparison/refresh
  * Recomputes 119th vs GeoDistricts comparison and persists to data/maps-state-comparison.json.
  * Requires final-step states and VEST data. May take several minutes for all states.
@@ -4451,6 +4630,42 @@ async function getMapPolygonsForState(stateCode, options = {}) {
     hasFinalStep: false,
     finalStepNumber: undefined
   };
+}
+
+/**
+ * Get map polygons for one state from cache/GCS only (no TIGER fetch).
+ * Used by maps-landing generation so the job does not trigger external fetches.
+ * @returns {Promise<Object|null>} Same shape as getMapPolygonsForState, or null if nothing in cache.
+ */
+async function getMapPolygonsForStateFromCacheOnly(stateCode, options = {}) {
+  const useOverview = options.overview === true;
+  const blobKey = useOverview ? `map_polygons_${stateCode}_overview` : `map_polygons_${stateCode}`;
+  let blobResult = await cloudStorageCache.get(blobKey).catch(() => null);
+  if (useOverview && (!blobResult || !blobResult.data)) {
+    blobResult = await cloudStorageCache.get(`map_polygons_${stateCode}`).catch(() => null);
+  }
+  let data = blobResult && blobResult.data;
+  if (data && data.statePolygon && (data.statePolygon.type === 'Feature' || data.statePolygon.geometry)) {
+    return {
+      statePolygon: data.statePolygon,
+      finalDistrictPolygons: Array.isArray(data.finalDistrictPolygons) ? data.finalDistrictPolygons : undefined,
+      hasFinalStep: !!data.hasFinalStep && Array.isArray(data.finalDistrictPolygons) && data.finalDistrictPolygons.length > 0,
+      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined
+    };
+  }
+  const stateBoundaryKey = `state_boundary_polygon_${stateCode.toUpperCase()}`;
+  const boundaryResult = await cloudStorageCache.get(stateBoundaryKey).catch(() => null);
+  const boundaryData = boundaryResult && boundaryResult.data;
+  const feature = boundaryData && (Array.isArray(boundaryData) ? boundaryData[0] : boundaryData);
+  if (feature && (feature.type === 'Feature' || feature.geometry)) {
+    return {
+      statePolygon: feature,
+      finalDistrictPolygons: undefined,
+      hasFinalStep: false,
+      finalStepNumber: undefined
+    };
+  }
+  return null;
 }
 
 /**

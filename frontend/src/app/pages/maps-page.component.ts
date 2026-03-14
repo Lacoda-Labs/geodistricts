@@ -28,6 +28,20 @@ import * as turf from '@turf/turf';
 
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
+const MAPS_LANDING_URL = `${environment.apiUrl}/maps/landing`;
+
+/** Response from GET /api/maps/landing - single blob for All-states view */
+interface MapsLandingResponse {
+  stateComparison?: { us: any; states: Record<string, any> };
+  statePartySummaries?: { summaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> };
+  polygonsByState?: Record<string, {
+    statePolygon: GeoJsonFeature;
+    finalDistrictPolygons?: GeoJsonFeature[];
+    hasFinalStep: boolean;
+    finalStepNumber?: number;
+  }>;
+  districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
+}
 
 /** Fill opacity for district/tract polygons: 1 = solid when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
 const POLYGON_OPACITY_SOLID = 1;
@@ -351,7 +365,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.initializeMap();
       if (this.selectedState === 'ALL') {
         this.updateMapView();
-        this.loadUSMapDistricts();
+        this.tryLandingThenLoadUSMapDistricts();
       } else {
         setTimeout(() => {
           this.updateMapView();
@@ -954,6 +968,75 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
     this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Try GET /api/maps/landing for All-states view; on success apply and render. On 404 or error, fall back to loadUSMapDistricts().
+   * Same data path for /maps and /dev/maps when showing All states.
+   */
+  private tryLandingThenLoadUSMapDistricts(): void {
+    if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    this.http.get<MapsLandingResponse>(MAPS_LANDING_URL).pipe(
+      take(1),
+      catchError(() => of(null))
+    ).subscribe((data) => {
+      if (data && (data.stateComparison || data.polygonsByState)) {
+        this.applyLandingData(data);
+      } else {
+        this.loadUSMapDistricts();
+      }
+    });
+  }
+
+  /**
+   * Apply maps-landing payload: set comparison/summaries, build step data from polygonsByState, render map and table.
+   */
+  private applyLandingData(data: MapsLandingResponse): void {
+    if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.usMapStepDataByState = [];
+    this.usMapTotalDistricts = 0;
+    this.completedStateCodes = new Set();
+    this.allStatesDistrictPartyByState = data.districtPartyByState ?? {};
+    if (data.stateComparison) this.stateComparison = data.stateComparison;
+    this.statePartySummaries = data.statePartySummaries?.summaries && Object.keys(data.statePartySummaries.summaries).length > 0
+      ? data.statePartySummaries.summaries
+      : null;
+    if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
+    this.tractLayer.clearLayers();
+    this.tractGeoJsonLayers.clear();
+    this.tractGeoJsonLayerBorderColors.clear();
+    this.tractIdToLayer.clear();
+    this.cdr.markForCheck();
+    this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
+
+    const orderedStateCodes = this.states.map((s) => s.code);
+    const polygonsByState = data.polygonsByState ?? {};
+    for (const stateCode of orderedStateCodes) {
+      const poly = polygonsByState[stateCode];
+      if (!poly?.statePolygon) continue;
+      const stepData = this.mapPolygonsResponseToStepData(poly as MapPolygonsResponse);
+      const finalStepNumber = poly.finalStepNumber;
+      this.usMapStepDataByState.push({ stateCode, stepData, finalStepNumber });
+      this.usMapTotalDistricts += stepData.districtGroups?.length ?? 0;
+      this.completedStateCodes.add(stateCode);
+      if (poly.statePolygon?.geometry) {
+        this.addUSMapRevealItem({ type: 'state', stateCode, stateOutline: poly.statePolygon });
+      }
+      const groups = stepData.districtGroups ?? [];
+      groups.forEach((district, idx) => {
+        this.addUSMapRevealItem({
+          type: 'district',
+          stateCode,
+          district,
+          districtIndex: idx,
+          totalDistricts: groups.length
+        });
+      });
+    }
+    this.renderUSMapDistricts(this.usMapStepDataByState);
+    this.finishUSMapLoad();
   }
 
   /**

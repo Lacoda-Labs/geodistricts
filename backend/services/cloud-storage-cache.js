@@ -113,6 +113,9 @@ class CloudStorageCache {
       const state = (parts[0] || 'unknown').toUpperCase();
       const year = parts[1] || 'unknown';
       return `tract-party/${state}/${year}.json`;
+    } else if (cacheKey === 'maps_landing') {
+      // Single blob for /maps All-states view: stateComparison + statePartySummaries + polygonsByState + optional districtPartyByState
+      return `data/maps_landing.json`;
     } else {
       // Default: store in root with key as filename
       return `${type}/${cacheKey}.json`;
