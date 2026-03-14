@@ -844,6 +844,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Line weight for All-states state outlines (fixed, thin so they don’t dominate when zoomed out). */
   private static readonly US_MAP_STATE_OUTLINE_WEIGHT = 0.5;
 
+  /** Border color for district union polygons (Material outline token). Tract-level borders when show tracts is on are unchanged. */
+  private static readonly DISTRICT_UNION_BORDER_COLOR = 'var(--mat-sys-outline)';
+
   private updateMapView(): void {
     if (!this.map || !this.selectedState) return;
 
@@ -905,7 +908,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       <em>Click to view ${stateName}</em>`;
 
     const strokeWeight = this.getUSMapPolygonWeight();
-    const borderColor = this.getTractBorderColorByParty(allStatesParty?.pctDem ?? 0.5);
+    const borderColor = MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
     for (const unionPolygon of polygonsToRender) {
       if (!unionPolygon?.geometry) continue;
       try {
@@ -1248,9 +1251,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           <em>Click to view ${stateName}</em>`;
 
         const strokeWeight = this.getUSMapPolygonWeight();
-        const borderColor = allStatesParty != null
-          ? this.getTractBorderColorByParty(allStatesParty.pctDem)
-          : '#000000';
+        const borderColor = MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
         for (const unionPolygon of polygonsToRender) {
           if (!unionPolygon?.geometry) continue;
           try {
@@ -1283,7 +1284,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.selectedState !== 'ALL' || !this.map || this.tractGeoJsonLayers.size === 0) return;
     const w = this.getUSMapPolygonWeight();
     const style: { color: string; weight: number; opacity: number; fillOpacity: number; fillColor: string } = {
-      color: '#000000',
+      color: MapsPageComponent.DISTRICT_UNION_BORDER_COLOR,
       weight: w,
       opacity: 1,
       fillOpacity: this.polygonFillOpacity,
@@ -1291,7 +1292,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     this.tractGeoJsonLayers.forEach((fillColor, layer) => {
       style.fillColor = fillColor;
-      style.color = this.tractGeoJsonLayerBorderColors.get(layer) ?? this.darkenColor(fillColor, 0.25);
+      style.color = this.tractGeoJsonLayerBorderColors.get(layer) ?? MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
       (layer as L.LayerGroup).eachLayer((child: L.Layer) => {
         if ('setStyle' in child) (child as L.Path).setStyle(style);
       });
@@ -3716,7 +3717,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const groupKey = `${index + 1}-${index + 1}`;
         const party = this.districtPartyByGroupKey?.[groupKey];
         const fillColor = party != null ? this.getTractColorByParty(party.pctDem) : this.getDistrictColor(index, polygons.length);
-        const borderColor = this.getTractBorderColorByParty(party?.pctDem ?? 0.5);
+        const borderColor = MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
         const popupContent = `<strong>District ${index + 1}</strong><br>${this.getPopupPartyLine(party ?? null)}`;
         const geoJson = L.geoJSON(feature as any, {
           style: {
@@ -3894,9 +3895,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               : { type: 'Feature', geometry: geometry as any, properties: {} };
             try {
               const fill = color ?? baseColor ?? '#888';
-              const borderColor = districtParty != null
-                ? this.getTractBorderColorByParty(districtParty.pctDem)
-                : this.darkenColor(fill, 0.25);
+              const borderColor = MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
               const pathStyle: L.PathOptions = {
                 color: borderColor,
                 weight: .5,
@@ -4037,10 +4036,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const polygonsToRender = hasUnionPolygonsArray ? unionPolygons : (hasSingleUnionPolygon ? [district.unionPolygon] : []);
         if (polygonsToRender.length > 0) {
           const groupKey = `${district.startDistrictNumber}-${district.endDistrictNumber}`;
-          const districtParty = this.districtPartyByGroupKey?.[groupKey] ?? null;
-          const borderColor = districtParty != null
-            ? this.getTractBorderColorByParty(districtParty.pctDem)
-            : this.darkenColor(color, 0.25);
+          const borderColor = MapsPageComponent.DISTRICT_UNION_BORDER_COLOR;
           for (const unionPolygon of polygonsToRender) {
             let geometry = unionPolygon?.geometry ?? (unionPolygon?.type === 'Polygon' || unionPolygon?.type === 'MultiPolygon' ? unionPolygon : null);
             if (!geometry) continue;
