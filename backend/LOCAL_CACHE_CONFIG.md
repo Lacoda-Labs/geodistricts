@@ -39,7 +39,7 @@ The system automatically selects the cache mode based on:
 
 ## Local-Only Data (dev/maps on localhost)
 
-When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE_LOCAL_CACHE=true`), primary reads and writes use the local filesystem. The following are also written to **both** local and cloud when possible:
+When `USE_LOCAL_CACHE` is true (default when `NODE_ENV !== 'production'` or `USE_LOCAL_CACHE=true`), primary reads and writes use the local filesystem. **GCP (Firestore and Cloud Storage) is the source of truth** for data used by the public site; local storage is a local cache of that data. All writes via `setCacheDoc` (and the other dual-write paths below) are also pushed to GCP when credentials are available, so running jobs locally keeps production in sync. The following are written to **both** local and cloud when possible:
 
 - **Union polygons**: Full geometry is stored locally (with metadata) and in Cloud Storage. On read, the local blob is used when present; otherwise Cloud Storage is used.
 - **Tract-level party data** (`tract_party_{state}_{year}`): Written to local cache and to Cloud Storage. If GCP credentials are not configured (e.g. in dev), the cloud write is skipped and a warning is logged; local write still succeeds.
@@ -60,8 +60,21 @@ Tract party calculation is intended to be run from local dev (e.g. `cd backend &
 
 - **Disk space**: Local cache can grow with state tracts, step data, and VEST data. Clear `backend/data/census-cache/` (and optionally `backend/data/vest/`) if needed.
 - **Large payloads**: Single JSON files (e.g. for large states) have no built-in size cap. Monitor disk usage for very large states (e.g. CA, TX).
-- **Dev vs production**: Data in local cache is not in GCP. Switching from local to Firestore (or vice versa) does not migrate data; repopulate or clear as needed.
+- **Dev vs production**: When GCP credentials are present, writes from local (e.g. district-party, algorithm steps, maps comparison) are dual-written to Firestore/GCS so production has the same data. If credentials are missing, only local cache is updated and a warning is logged; production will not see that data until the job is re-run with credentials or from production.
 - **Listing/querying**: Listing cache keys uses the local cache directory (e.g. for algorithm step invalidation). Some Firestore-style queries are emulated via key prefix and loading docs.
+
+### One-time backfill (local → GCP)
+
+To upload existing local cache data to GCP so production has the same data (e.g. after enabling GCP-as-source-of-truth), run the backfill script from repo root with GCP credentials set:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
+node backend/scripts/backfill-local-cache-to-gcp.js
+node backend/scripts/backfill-local-cache-to-gcp.js --maps-comparison   # also upload data/maps-state-comparison.json
+node backend/scripts/backfill-local-cache-to-gcp.js --dry-run          # list keys only
+```
+
+Then run `node backend/scripts/sync-maps-to-gcs.js` so GCS has `data/maps_landing.json`.
 
 ## Local File Cache Benefits
 

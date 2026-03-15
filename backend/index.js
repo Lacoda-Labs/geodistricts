@@ -34,16 +34,20 @@ if (global.gc) {
   logger.debug('Garbage collection is not available - consider running with --expose-gc');
 }
 
-// Firestore: lazy init only when not using local cache (dev can start without GCP credentials)
+// Firestore: lazy init when not using local cache (dev can start without GCP credentials).
+// When USE_LOCAL_CACHE, also lazy-inited on first dual-write so local runs can push to GCP.
 let _firestore = null;
 function getFirestore() {
-  if (_firestore === null && !USE_LOCAL_CACHE) {
+  if (_firestore === null) {
     _firestore = new Firestore({
       projectId: process.env.GOOGLE_CLOUD_PROJECT || 'geodistricts'
     });
   }
   return _firestore;
 }
+
+// When USE_LOCAL_CACHE, skip further GCP dual-writes for this process after first failure (e.g. no credentials).
+let _gcpDualWriteFailed = false;
 
 /**
  * Test Firestore and Cloud Storage access on startup. Skipped when USE_LOCAL_CACHE (dev runs without GCP).
@@ -602,15 +606,48 @@ async function getCacheDoc(key) {
 }
 
 /**
- * Set a census_cache document. When USE_LOCAL_CACHE, writes to local file cache only.
- * When not local, writes to Firestore (or Cloud Storage + metadata for large payloads).
+ * Set a census_cache document. When USE_LOCAL_CACHE, writes to local file cache and, when GCP
+ * credentials are available, also writes to Firestore (or GCS + metadata for large payloads) so
+ * GCP remains the source of truth. When not local, writes to Firestore/GCS only.
  * @param {string} key - Document ID
  * @param {object} data - Full document payload
  * @param {{ ttl?: number }} options - Optional; ttl for expiry
  */
 async function setCacheDoc(key, data, options = {}) {
   if (USE_LOCAL_CACHE) {
-    return await localCache.setCache(key, data, options.ttl ?? null);
+    await localCache.setCache(key, data, options.ttl ?? null);
+    if (_gcpDualWriteFailed) return;
+    try {
+      const firestore = getFirestore();
+      const FIRESTORE_INDEX_ERROR = 'too many index entries';
+      const sizeBytes = JSON.stringify(data).length;
+      try {
+        await firestore.collection('census_cache').doc(key).set(data);
+        return;
+      } catch (err) {
+        const isIndexError = err.message && err.message.includes(FIRESTORE_INDEX_ERROR);
+        const isInvalidArg = err.code === 3 || (err.message && err.message.includes('INVALID_ARGUMENT'));
+        if (!isIndexError && !isInvalidArg) throw err;
+      }
+      await cloudStorageCache.initialize();
+      const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+      console.log(`📦 CLOUD STORAGE: Doc too large for Firestore (${sizeMB} MB), storing in Cloud Storage: ${key}`);
+      const cloudStoragePath = await cloudStorageCache.set(key, data, {
+        source: 'census-cache-doc',
+        key
+      });
+      const metadataEntry = {
+        cloudStoragePath,
+        cloudStorage: true,
+        timestamp: data.timestamp != null ? data.timestamp : Date.now(),
+        ttl: data.ttl != null ? data.ttl : options.ttl ?? null
+      };
+      await firestore.collection('census_cache').doc(key).set(metadataEntry);
+    } catch (gcpErr) {
+      _gcpDualWriteFailed = true;
+      console.warn(`⚠️ setCacheDoc: GCP dual-write skipped (no credentials or network): ${gcpErr.message}`);
+    }
+    return;
   }
   const firestore = getFirestore();
   const FIRESTORE_INDEX_ERROR = 'too many index entries';
@@ -1500,6 +1537,9 @@ app.post('/api/admin/maps-comparison/refresh', async (req, res) => {
       } catch (cloudErr) {
         console.warn('⚠️ Maps comparison: GCS sync skipped (e.g. no credentials):', cloudErr.message);
       }
+      await setCacheDoc('maps_state_comparison', payload).catch((err) =>
+        console.warn('⚠️ Maps comparison: Firestore sync skipped:', err.message)
+      );
     }
     console.log(`✅ Maps comparison refreshed: US ${payload.us.congressD}D/${payload.us.congressR}R → ${payload.us.geodistrictsD}D/${payload.us.geodistrictsR}R GeoDistricts`);
     res.json(payload);

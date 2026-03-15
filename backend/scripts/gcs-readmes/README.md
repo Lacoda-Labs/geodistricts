@@ -31,3 +31,5 @@ This Google Cloud Storage bucket holds cached census, boundary, and algorithm da
 - Service account with `storage.objects.create`, `storage.objects.get`, `storage.objects.delete`, and (optional) `storage.buckets.get` / `storage.buckets.create`.
 
 See [doc/history/CLOUD_STORAGE_MIGRATION.md](../../../doc/history/CLOUD_STORAGE_MIGRATION.md) for migration and configuration details.
+
+**One-time backfill (local cache → GCP):** Run `node backend/scripts/backfill-local-cache-to-gcp.js` from repo root with `GOOGLE_APPLICATION_CREDENTIALS` set to upload local cache (e.g. `district_party_*`, optional `maps_state_comparison`) to Firestore/GCS. Then run `node backend/scripts/sync-maps-to-gcs.js` so GCS has `data/maps_landing.json`.
