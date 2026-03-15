@@ -42,11 +42,13 @@
           </div>
         </div>
 
-        <!-- State Rows (single-district states shown but not selectable) -->
-        <app-state-row *ngFor="let state of states" [data]="getStateRowData(state.code)"
-          [clickable]="!isSingleDistrictState(state.code)" background="off" section="us-data"
-          (rowClick)="selectStateFromTable($event)">
-        </app-state-row>
+        <!-- State Rows (single-district states shown but not selectable); only this area scrolls -->
+        <div class="state-rows-scroll">
+          <app-state-row *ngFor="let state of states" [data]="getStateRowData(state.code)"
+            [clickable]="!isSingleDistrictState(state.code)" background="off" section="us-data"
+            (rowClick)="selectStateFromTable($event)">
+          </app-state-row>
+        </div>
       </section>
     </ng-container>
 
