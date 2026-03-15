@@ -45,7 +45,7 @@ interface MapsLandingResponse {
 
 /** Fill opacity for district/tract polygons: 1 = solid when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
 const POLYGON_OPACITY_SOLID = 1;
-const POLYGON_OPACITY_HALF = 0.8;
+const POLYGON_OPACITY_HALF = 0.5;
 
 declare global {
   interface Window {
@@ -1005,11 +1005,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.usMapStepDataByState = [];
     this.usMapTotalDistricts = 0;
     this.completedStateCodes = new Set();
-    this.allStatesDistrictPartyByState = data.districtPartyByState ?? {};
+    const landingDistrictParty = data.districtPartyByState ?? {};
+    if (Object.keys(landingDistrictParty).length > 0) this.allStatesDistrictPartyByState = landingDistrictParty;
     if (data.stateComparison) this.stateComparison = data.stateComparison;
-    this.statePartySummaries = data.statePartySummaries?.summaries && Object.keys(data.statePartySummaries.summaries).length > 0
-      ? data.statePartySummaries.summaries
-      : null;
+    const landingSummaries = data.statePartySummaries?.summaries;
+    if (landingSummaries && Object.keys(landingSummaries).length > 0) this.statePartySummaries = landingSummaries;
     if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
     this.tractLayer.clearLayers();
     this.tractGeoJsonLayers.clear();
