@@ -85,6 +85,14 @@
   height: 100%;
 }
 
+.static-all-map-img,
+.static-state-map-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .sort-slider-wrapper {
   position: absolute;
   z-index: 800;
@@ -1080,6 +1088,11 @@
     max-width: 180px;
     text-align: left;
     font-size: 0.875rem;
+
+    &.party-cell-filled {
+      color: #fff;
+      font-weight: 600;
+    }
 
     .party-tooltip-text {
       white-space: nowrap;

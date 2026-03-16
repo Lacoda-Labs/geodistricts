@@ -2,10 +2,22 @@
   <app-page-header (homeClick)="goHome()">
   </app-page-header>
   <div class="body">
-    <!-- Map: Leaflet for both ALL (geodistrict polygons or state outline) and state view -->
+    <!-- Map: static raster for All (when available) or Leaflet for All fallback and state view -->
     <section class="map-section">
       <div class="map-container">
-        <div id="usMap" class="map"></div>
+        <ng-container *ngIf="useStaticAllMap">
+          <img class="static-all-map-img"
+            [src]="staticAllMapImageUrl"
+            alt="U.S. GeoDistricts map"
+            (error)="onStaticAllMapError()"
+            fetchpriority="high" />
+        </ng-container>
+        <ng-container *ngIf="useStaticStateMap && staticStateData?.stateMapImageUrl">
+          <img class="static-state-map-img"
+            [src]="staticStateData.stateMapImageUrl"
+            [alt]="'GeoDistricts map – ' + staticStateData.stateName" />
+        </ng-container>
+        <div *ngIf="!useStaticAllMap && !useStaticStateMap" id="usMap" class="map"></div>
         <div *ngIf="isLoading && selectedState !== 'ALL'" class="loading-overlay">
           <div class="loading-spinner-container">
             <div class="loading-spinner"></div>
@@ -82,7 +94,7 @@
               Target District Population: <strong>{{ finalTargetDistrictPopulation.toLocaleString() }}</strong>
             </span>
           </div>
-          <div class="info-header-step-bar">
+          <div class="info-header-step-bar" *ngIf="isDevMode">
             <app-step-btn-bar [variant]="effectiveDevMode ? 'admin' : 'public'"
               [disabled]="isLoadingSteps || isMovingIsolatedTracts || isBalancingDistricts"
               [canGoToFirst]="canGoToFirstStep()" [canGoToPrevious]="canGoToPreviousStep()"
@@ -436,9 +448,9 @@
                     <thead>
                       <tr>
                         <th>District</th>
-                        <th *ngIf="!isFinalStepActive" matTooltip="District group population">Population</th>
+                        <th matTooltip="District group population">Population</th>
                         <th matTooltip="DG population / Target DG population">Variance</th>
-                        <th *ngIf="isFinalStepActive" class="col-party" title="Party %">Party</th>
+                        <th *ngIf="isFinalStepActive" class="col-party" title="Leading party %">Party</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -452,13 +464,15 @@
                             - {{ group.endDistrictNumber }}
                           </span>
                         </td>
-                        <td *ngIf="!isFinalStepActive">{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
+                        <td>{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
                         <td [class.variance-positive]="getGroupVariance(group) > 0"
                           [class.variance-negative]="getGroupVariance(group) < 0"
                           [matTooltip]="getGroupVarianceTooltip(group)">
                           {{ getGroupVariance(group).toFixed(2) }}%
                         </td>
                         <td *ngIf="isFinalStepActive" class="col-party"
+                          [class.party-cell-filled]="getDistrictPartyFillColor(group)"
+                          [style.background]="getDistrictPartyFillColor(group)"
                           (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
                           <span [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
                             <ng-container *ngIf="showPartyStatusIcon(i)">
@@ -470,7 +484,7 @@
                                 class="status-icon missing">warning</mat-icon>
                             </ng-container>
                             <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
-                              getGroupPartyDisplayText(group) }}</span>
+                              getLeadingPartyDisplay(group) }}</span>
                           </span>
                         </td>
                       </tr>
@@ -745,9 +759,9 @@
                   <thead>
                     <tr>
                       <th>District</th>
-                      <th *ngIf="!isFinalStepActive" matTooltip="District group population">Population</th>
+                      <th matTooltip="District group population">Population</th>
                       <th matTooltip="DG population / Target DG population">Variance</th>
-                      <th *ngIf="isFinalStepActive" class="col-party" title="Party %">Party</th>
+                      <th *ngIf="isFinalStepActive" class="col-party" title="Leading party %">Party</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -761,13 +775,15 @@
                           - {{ group.endDistrictNumber }}
                         </span>
                       </td>
-                      <td *ngIf="!isFinalStepActive">{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
+                      <td>{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
                       <td [class.variance-positive]="getGroupVariance(group) > 0"
                         [class.variance-negative]="getGroupVariance(group) < 0"
                         [matTooltip]="getGroupVarianceTooltip(group)">
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
                       <td *ngIf="isFinalStepActive" class="col-party"
+                        [class.party-cell-filled]="getDistrictPartyFillColor(group)"
+                        [style.background]="getDistrictPartyFillColor(group)"
                         (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
                         <span [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
                           <ng-container *ngIf="showPartyStatusIcon(i)">
@@ -779,7 +795,7 @@
                               class="status-icon missing">warning</mat-icon>
                           </ng-container>
                           <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
-                            getGroupPartyDisplayText(group) }}</span>
+                            getLeadingPartyDisplay(group) }}</span>
                         </span>
                       </td>
                     </tr>
