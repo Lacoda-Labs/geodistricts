@@ -5972,9 +5972,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const targetPopulationForGroup = targetPopulationPerDistrict * group.totalDistricts;
     
     // Calculate variance percentage
-    const variance = ((group.totalPopulation - targetPopulationForGroup) / targetPopulationForGroup) * 100;
-    
-    return variance;
+    const computedVariance = targetPopulationForGroup === 0
+      ? 0
+      : ((group.totalPopulation - targetPopulationForGroup) / targetPopulationForGroup) * 100;
+    return Number.isFinite(computedVariance) ? computedVariance : 0;
   }
 
   /** Target population for a district group (for variance tooltip). */

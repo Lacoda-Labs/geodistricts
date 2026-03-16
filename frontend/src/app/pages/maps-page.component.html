@@ -14,8 +14,8 @@
         </ng-container>
         <ng-container *ngIf="useStaticStateMap && staticStateData?.stateMapImageUrl">
           <img class="static-state-map-img"
-            [src]="staticStateData.stateMapImageUrl"
-            [alt]="'GeoDistricts map – ' + staticStateData.stateName" />
+            [src]="staticStateData?.stateMapImageUrl"
+            [alt]="'GeoDistricts map – ' + (staticStateData?.stateName ?? '')" />
         </ng-container>
         <div *ngIf="!useStaticAllMap && !useStaticStateMap" id="usMap" class="map"></div>
         <div *ngIf="isLoading && selectedState !== 'ALL'" class="loading-overlay">
