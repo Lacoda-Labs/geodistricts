@@ -4825,7 +4825,7 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
   // Declare getTractId once at function scope to avoid duplicate declaration errors
   const { getTractId } = require('./services/geodistrict-algorithm');
   try {
-    const { state } = req.params;
+    const state = req.params.state ? String(req.params.state).toUpperCase() : '';
     const maxIterations = 100; // Default max iterations
     const currentVersion = ALGORITHM_VERSION;
 
@@ -5224,7 +5224,12 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
         // If step wasn't marked as complete, update it now for future queries
         if (!cachedEntry.isComplete) {
           try {
-            await finalStepDoc.ref.update({ isComplete: true });
+            if (finalStepDoc.ref) {
+              await finalStepDoc.ref.update({ isComplete: true });
+            } else {
+              const keyToUpdate = finalStepDoc.id || `algorithm_step_${state}_100_${finalStepNumber}`;
+              await setCacheDoc(keyToUpdate, { ...cachedEntry, isComplete: true });
+            }
             console.log(`✅ Marked step ${finalStepNumber} as complete for future queries`);
           } catch (updateError) {
             console.warn(`⚠️ Failed to mark step ${finalStepNumber} as complete: ${updateError.message}`);
@@ -5327,6 +5332,7 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
     return res.status(404).json({ error: 'No final step found for this state' });
   } catch (error) {
     console.error('❌ Final step lookup error:', error);
+    console.error('❌ Final step error stack:', error.stack);
     res.status(500).json({
       error: 'Final step lookup failed',
       message: error.message

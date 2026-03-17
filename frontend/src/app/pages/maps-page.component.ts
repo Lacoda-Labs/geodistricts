@@ -2242,10 +2242,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
-  /** True when current step is the final step (all single-district groups). Used to show final-step actions. */
+  /** True when current step is the final step (all single-district groups). Used to show final-step actions and party totals on /maps and /dev/maps. */
   get isFinalStepActive(): boolean {
     if (this.staticStateData) return true;
-    if (!this.isDevMode || !this.currentStep?.districtGroups?.length) return false;
+    if (!this.currentStep?.districtGroups?.length) return false;
     return this.currentStep.districtGroups.every(g => g.totalDistricts === 1);
   }
 
