@@ -4022,8 +4022,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
 
-      // When tract boundaries are hidden, use union polygon(s) if available (e.g. step complete, isolated resolved)
-      if (!this.showTractBoundaries) {
+        // When tracts are off, or when tracts are on but a different district is selected, render as union polygon (gray for non-selected)
+        const useUnionPolygonForThisDistrict =
+          !this.showTractBoundaries ||
+          (this.selectedDistrictGroupIndex !== null && !isSelected);
+
+      // When using union polygon for this district, draw it (e.g. tracts off, or tracts on + non-selected district)
+      if (useUnionPolygonForThisDistrict) {
         const unionPolygons = (district as any).unionPolygons;
         const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
         const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
@@ -4185,8 +4190,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         });
 
-      // When show tracts is ON and DG has union polygon, draw DG outline only (tracts already drawn and colored by tract party)
-      if (this.showTractBoundaries) {
+      // When show tracts is ON and this district is drawn as tracts (selected or no selection), draw DG outline if available
+      const drawTractOutlineForThisDistrict =
+        this.showTractBoundaries &&
+        (this.selectedDistrictGroupIndex === null || isSelected);
+      if (drawTractOutlineForThisDistrict) {
         const unionPolygons = (district as any).unionPolygons;
         const hasUnionPolygonsArray = Array.isArray(unionPolygons) && unionPolygons.length > 0;
         const hasSingleUnionPolygon = !hasUnionPolygonsArray && district.unionPolygon?.geometry;
