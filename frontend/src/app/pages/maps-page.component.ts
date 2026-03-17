@@ -414,7 +414,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.initializeMap();
       if (this.selectedState === 'ALL') {
         this.updateMapView();
-        this.tryLandingThenLoadUSMapDistricts();
+        // Fetch geodistricts polygons per state sequentially; use landing only for table data.
+        this.loadUSMapDistricts();
+        this.tryLandingForTableOnly();
       } else {
         setTimeout(() => {
           this.updateMapView();
@@ -432,7 +434,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.initializeMap();
       if (this.selectedState === 'ALL') {
         this.updateMapView();
-        this.tryLandingThenLoadUSMapDistricts();
+        this.loadUSMapDistricts();
+        this.tryLandingForTableOnly();
       }
     }, 100);
   }

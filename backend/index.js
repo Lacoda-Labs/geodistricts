@@ -4990,22 +4990,48 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
       
       if (needsReconstruction && (hasStepDataField || hasDirectData)) {
           try {
-            const stateTractDoc = await getCacheDoc(tractCacheKey);
+            let stateTractDoc = await getCacheDoc(tractCacheKey);
+            // Fallback: when Firestore has no tract metadata (e.g. GCS-only or migrated), try Cloud Storage directly
+            if (!stateTractDoc && cloudStorageCache && typeof cloudStorageCache.get === 'function') {
+              try {
+                const cloudResult = await cloudStorageCache.get(tractCacheKey);
+                if (cloudResult && cloudResult.data) {
+                  let tractMapFromCloud = cloudResult.data;
+                  if (tractMapFromCloud && tractMapFromCloud.type === 'FeatureCollection' && Array.isArray(tractMapFromCloud.features)) {
+                    tractMapFromCloud = tractMapFromCloud.features;
+                  } else if (!Array.isArray(tractMapFromCloud)) {
+                    tractMapFromCloud = tractMapFromCloud?.data || null;
+                  }
+                  if (tractMapFromCloud && Array.isArray(tractMapFromCloud) && tractMapFromCloud.length > 0) {
+                    stateTractDoc = { cloudStorage: true, cloudStoragePath: null, timestamp: Date.now(), ttl: null };
+                  }
+                }
+              } catch (cloudErr) {
+                console.warn(`⚠️ final-step: Cloud Storage fallback for tract cache failed: ${cloudErr.message}`);
+              }
+            }
             if (stateTractDoc) {
               const stateTractData = stateTractDoc;
               if (!isCacheExpired(stateTractData.timestamp, stateTractData.ttl)) {
                 let tractMap = null;
-                if (stateTractData.cloudStorage && stateTractData.cloudStoragePath && tractCacheKey) {
+                if (stateTractData.cloudStorage && tractCacheKey) {
                   const cloudStorageResult = await cloudStorageCache.get(tractCacheKey);
                   if (cloudStorageResult && cloudStorageResult.data) {
                     tractMap = cloudStorageResult.data;
+                    if (tractMap && tractMap.type === 'FeatureCollection' && Array.isArray(tractMap.features)) {
+                      tractMap = tractMap.features;
+                    } else if (tractMap && !Array.isArray(tractMap) && tractMap.data) {
+                      tractMap = tractMap.data;
+                    }
                     
                     // Validate that tracts in cache have geometry
                     if (Array.isArray(tractMap) && tractMap.length > 0) {
                       const sampleTract = Array.isArray(tractMap[0]) && tractMap[0].length === 2 ? tractMap[0][1] : tractMap[0];
                       if (!sampleTract || !sampleTract.geometry || (sampleTract.type === 'Feature' && !sampleTract.geometry)) {
                         console.error(`❌ TRACT CACHE CORRUPTED: Tract cache for ${state} contains tracts without geometry. Sample tract:`, sampleTract);
-                        console.error(`   The cache file at ${stateTractData.cloudStoragePath} is corrupted and needs to be regenerated.`);
+                        if (stateTractData.cloudStoragePath) {
+                          console.error(`   The cache file at ${stateTractData.cloudStoragePath} is corrupted and needs to be regenerated.`);
+                        }
                         return res.status(500).json({ 
                           error: `Tract cache for ${state} is corrupted: tracts are missing geometry data. Please re-run the algorithm to regenerate the cache.`,
                           details: 'The cached tract file contains incomplete data. This usually happens when the cache was created incorrectly.'
