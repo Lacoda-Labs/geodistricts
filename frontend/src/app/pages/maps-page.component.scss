@@ -110,14 +110,17 @@
     max-width: 44px;
     padding-top: 14px;
     padding-bottom: 14px;
+
     .sort-slider {
       transform: rotate(-90deg);
       width: 45vh;
       margin: 4px 0;
+
       @media (min-width: 768px) {
         width: 90vh;
       }
     }
+
     .sort-slider-value {
       font-size: 0.65rem;
       color: var(--mat-sys-on-surface-variant, #444);
@@ -132,10 +135,12 @@
     flex-direction: row;
     max-height: 40px;
     box-sizing: border-box;
+
     .sort-slider {
       flex: 1;
       min-width: 0;
     }
+
     .sort-slider-value {
       font-size: 0.65rem;
       color: var(--mat-sys-on-surface-variant, #444);
@@ -162,12 +167,15 @@
 .division-line-interactive.path {
   cursor: ns-resize;
 }
+
 .division-line-lat path {
   cursor: ns-resize;
 }
+
 .division-line-lng path {
   cursor: ew-resize;
 }
+
 .map-controls {
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -389,7 +397,7 @@
     order: 1;
   }
 
-  > * {
+  >* {
     width: 100%;
     max-width: 100%;
   }
@@ -773,7 +781,8 @@
     border-collapse: collapse;
     font-size: 10px;
 
-    th, td {
+    th,
+    td {
       padding: 0;
       text-align: left;
       border-bottom: 1px solid var(--mat-sys-outline-variant, #C2C7CE);
@@ -944,6 +953,7 @@
     min-width: 0;
     padding: 0 4px;
     text-decoration: underline;
+
     &:not([disabled]):hover {
       text-decoration: none;
     }
@@ -989,9 +999,11 @@
       color: var(--mat-sys-on-surface-variant, #42474E);
       margin-right: 6px;
     }
+
     .status-value {
       font-weight: 500;
     }
+
     .party-data-unavailable {
       margin-left: 8px;
       font-size: 0.8rem;
@@ -1100,6 +1112,9 @@
       text-overflow: ellipsis;
       display: inline-block;
       max-width: 100%;
+      color: black;
+      border-radius: 10px;
+      padding: 2px 8px;
     }
 
     .status-icon {
@@ -1111,14 +1126,17 @@
       &.done {
         color: #2e7d32;
       }
+
       &.missing,
       &.fail {
         color: #ed6c02;
         cursor: pointer;
+
         &:hover {
           opacity: 0.8;
         }
       }
+
       &.in-progress {
         color: #0288d1;
       }
@@ -1328,6 +1346,7 @@
 
 .table-header-rows {
   flex-shrink: 0;
+
   .table-header-row {
     background-color: transparent;
     padding: 5px 2px;

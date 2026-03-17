@@ -6,15 +6,11 @@
     <section class="map-section">
       <div class="map-container">
         <ng-container *ngIf="useStaticAllMap">
-          <img class="static-all-map-img"
-            [src]="staticAllMapImageUrl"
-            alt="U.S. GeoDistricts map"
-            (error)="onStaticAllMapError()"
-            fetchpriority="high" />
+          <img class="static-all-map-img" [src]="staticAllMapImageUrl" alt="U.S. GeoDistricts map"
+            (error)="onStaticAllMapError()" fetchpriority="high" />
         </ng-container>
         <ng-container *ngIf="useStaticStateMap && staticStateData?.stateMapImageUrl">
-          <img class="static-state-map-img"
-            [src]="staticStateData?.stateMapImageUrl"
+          <img class="static-state-map-img" [src]="staticStateData?.stateMapImageUrl"
             [alt]="'GeoDistricts map – ' + (staticStateData?.stateName ?? '')" />
         </ng-container>
         <div *ngIf="!useStaticAllMap && !useStaticStateMap" id="usMap" class="map"></div>
@@ -131,24 +127,45 @@
                     <div class="dg-header-comparison-row dg-header-comparison-data">
                       <div class="dg-header-comparison-cell democratic">D: {{ rowData.congressD }}</div>
                       <div class="dg-header-comparison-cell republican">R: {{ rowData.congressR }}</div>
-                      <div class="dg-header-comparison-cell" [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0" [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0" [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
-                        <span *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{ (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) : formatDeltaHeader(rowData.congressRChange)) }}</span>
+                      <div class="dg-header-comparison-cell"
+                        [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0"
+                        [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0"
+                        [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
+                        <span
+                          *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{
+                          (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) :
+                          formatDeltaHeader(rowData.congressRChange)) }}</span>
                       </div>
-                      <div class="dg-header-comparison-cell democratic"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD }}</ng-container></div>
-                      <div class="dg-header-comparison-cell republican"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR }}</ng-container></div>
-                      <div class="dg-header-comparison-cell" [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0" [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0" [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
-                        <ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{ rowData.geodistrictsD >= rowData.geodistrictsR ? formatDeltaHeader(rowData.geodistrictsDChange) : formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
+                      <div class="dg-header-comparison-cell democratic"><ng-container
+                          *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD
+                          }}</ng-container></div>
+                      <div class="dg-header-comparison-cell republican"><ng-container
+                          *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR
+                          }}</ng-container></div>
+                      <div class="dg-header-comparison-cell"
+                        [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0"
+                        [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0"
+                        [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
+                        <ng-container
+                          *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{
+                          rowData.geodistrictsD >= rowData.geodistrictsR ?
+                          formatDeltaHeader(rowData.geodistrictsDChange) :
+                          formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
                       </div>
-                      <div class="dg-header-comparison-cell dg-header-comparison-swing" [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{ rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
+                      <div class="dg-header-comparison-cell dg-header-comparison-swing"
+                        [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{
+                        rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
                     </div>
                   </div>
                 </ng-container>
                 <ng-container *ngIf="!isFinalStepActive || !headerComparisonRowData">
                   <span class="step-indicator" *ngIf="(currentStepIndex ?? 0) >= 0 && !isFinalStepActive">
-                    Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
+                    Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{
+                      getDisplayTotalSteps()
                       }}</span>
                   </span>
-                  <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
+                  <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{
+                    targetDGPopulationRounded.toLocaleString()
                     }}</span>
                 </ng-container>
               </div>
@@ -365,7 +382,8 @@
 
               <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
               <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
-              <ng-container *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
+              <ng-container
+                *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
                 <div class="final-step-actions">
                   <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
                     *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
@@ -430,7 +448,8 @@
               </div>
               }
 
-              @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() || needsCalcParty())) {
+              @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
+              needsCalcParty())) {
               <div class="district-status-summary">
                 <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
                   [disabled]="!!triggeringForGroupKey">
@@ -472,9 +491,8 @@
                         </td>
                         <td *ngIf="isFinalStepActive" class="col-party"
                           [class.party-cell-filled]="getDistrictPartyFillColor(group)"
-                          [style.background]="getDistrictPartyFillColor(group)"
                           (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
-                          <span [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
+                          <span [style.background]="getDistrictPartyFillColor(group)">
                             <ng-container *ngIf="showPartyStatusIcon(i)">
                               <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
                                 class="status-icon in-progress">hourglass_empty</mat-icon>
@@ -517,15 +535,33 @@
                   <div class="dg-header-comparison-row dg-header-comparison-data">
                     <div class="dg-header-comparison-cell democratic">D: {{ rowData.congressD }}</div>
                     <div class="dg-header-comparison-cell republican">R: {{ rowData.congressR }}</div>
-                    <div class="dg-header-comparison-cell" [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0" [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0" [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
-                      <span *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{ (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) : formatDeltaHeader(rowData.congressRChange)) }}</span>
+                    <div class="dg-header-comparison-cell"
+                      [class.democratic]="rowData.congressD >= rowData.congressR && (rowData.congressDChange ?? 0) !== 0"
+                      [class.republican]="rowData.congressR > rowData.congressD && (rowData.congressRChange ?? 0) !== 0"
+                      [class.delta-zero]="(rowData.congressD >= rowData.congressR && rowData.congressDChange === 0) || (rowData.congressR > rowData.congressD && rowData.congressRChange === 0)">
+                      <span
+                        *ngIf="(rowData.congressD >= rowData.congressR && rowData.congressDChange != null) || (rowData.congressR > rowData.congressD && rowData.congressRChange != null)">{{
+                        (rowData.congressD >= rowData.congressR ? formatDeltaHeader(rowData.congressDChange) :
+                        formatDeltaHeader(rowData.congressRChange)) }}</span>
                     </div>
-                    <div class="dg-header-comparison-cell democratic"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD }}</ng-container></div>
-                    <div class="dg-header-comparison-cell republican"><ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR }}</ng-container></div>
-                    <div class="dg-header-comparison-cell" [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0" [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0" [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
-                      <ng-container *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{ rowData.geodistrictsD >= rowData.geodistrictsR ? formatDeltaHeader(rowData.geodistrictsDChange) : formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
+                    <div class="dg-header-comparison-cell democratic"><ng-container
+                        *ngIf="rowData.hasGeodistrictsPartyData !== false">D: {{ rowData.geodistrictsD }}</ng-container>
                     </div>
-                    <div class="dg-header-comparison-cell dg-header-comparison-swing" [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{ rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
+                    <div class="dg-header-comparison-cell republican"><ng-container
+                        *ngIf="rowData.hasGeodistrictsPartyData !== false">R: {{ rowData.geodistrictsR }}</ng-container>
+                    </div>
+                    <div class="dg-header-comparison-cell"
+                      [class.democratic]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsD >= rowData.geodistrictsR && (rowData.geodistrictsDChange ?? 0) !== 0"
+                      [class.republican]="rowData.hasGeodistrictsPartyData !== false && rowData.geodistrictsR > rowData.geodistrictsD && (rowData.geodistrictsRChange ?? 0) !== 0"
+                      [class.delta-zero]="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange === 0) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange === 0))">
+                      <ng-container
+                        *ngIf="rowData.hasGeodistrictsPartyData !== false && ((rowData.geodistrictsD >= rowData.geodistrictsR && rowData.geodistrictsDChange != null) || (rowData.geodistrictsR > rowData.geodistrictsD && rowData.geodistrictsRChange != null))">{{
+                        rowData.geodistrictsD >= rowData.geodistrictsR ? formatDeltaHeader(rowData.geodistrictsDChange)
+                        : formatDeltaHeader(rowData.geodistrictsRChange) }}</ng-container>
+                    </div>
+                    <div class="dg-header-comparison-cell dg-header-comparison-swing"
+                      [class.democratic]="rowData.swing > 0" [class.republican]="rowData.swing <= 0">{{
+                      rowData.hasGeodistrictsPartyData !== false ? headerSwingColumnText(rowData.swing) : '' }}</div>
                   </div>
                 </div>
               </ng-container>
@@ -534,7 +570,8 @@
                   Step {{ getDisplayStepIndex() }}<span *ngIf="getDisplayTotalSteps() > 0"> of {{ getDisplayTotalSteps()
                     }}</span>
                 </span>
-                <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{ targetDGPopulationRounded.toLocaleString()
+                <span class="dg-header-target" *ngIf="!isFinalStepActive">Target DG Population: {{
+                  targetDGPopulationRounded.toLocaleString()
                   }}</span>
               </ng-container>
             </div>
@@ -663,7 +700,8 @@
 
             <!-- Final step: phase label (Move isolated tracts / Balance tracts / State geodistricting complete) when play runs at final step -->
             <div class="final-step-phase-label" *ngIf="finalStepPhaseLabel">{{ finalStepPhaseLabel }}</div>
-            <ng-container *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
+            <ng-container
+              *ngIf="isFinalStepActive && (hasUnresolvedIsolation || (!finalStepBalancingComplete && currentStep && (currentStep.divisionLines?.length ?? 0) > 0))">
               <div class="final-step-actions">
                 <button mat-button (click)="moveIsolatedTracts()" [disabled]="isMovingIsolatedTracts"
                   *ngIf="hasUnresolvedIsolation" class="move-isolated-btn">
@@ -728,8 +766,9 @@
 
             @if (currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons()
             && (!currentStepHasUnionPolygons() || unionPolygonBuildTriggeredForStep === currentStepIndex)
-            && ((!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex)
-                || unionPolygonBuildTriggeredForStep === currentStepIndex)) {
+            && ((!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep
+            !== currentStepIndex)
+            || unionPolygonBuildTriggeredForStep === currentStepIndex)) {
             <div class="district-status-summary">
               <button mat-button
                 *ngIf="!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep !== currentStepIndex"
@@ -741,7 +780,8 @@
             </div>
             }
 
-            @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() || needsCalcParty())) {
+            @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
+            needsCalcParty())) {
             <div class="district-status-summary">
               <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
                 [disabled]="!!triggeringForGroupKey">
@@ -783,9 +823,8 @@
                       </td>
                       <td *ngIf="isFinalStepActive" class="col-party"
                         [class.party-cell-filled]="getDistrictPartyFillColor(group)"
-                        [style.background]="getDistrictPartyFillColor(group)"
                         (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
-                        <span [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
+                        <span >
                           <ng-container *ngIf="showPartyStatusIcon(i)">
                             <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
                               class="status-icon in-progress">hourglass_empty</mat-icon>
@@ -794,7 +833,8 @@
                             <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'"
                               class="status-icon missing">warning</mat-icon>
                           </ng-container>
-                          <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
+                          <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text"
+                          [style.background]="getDistrictPartyFillColor(group)">{{
                             getLeadingPartyDisplay(group) }}</span>
                         </span>
                       </td>

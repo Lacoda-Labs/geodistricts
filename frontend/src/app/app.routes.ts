@@ -8,6 +8,7 @@ import { GeodistrictPageComponent } from './pages/geodistrict-page.component';
 import { TractDebugPageComponent } from './pages/tract-debug-page.component';
 import { AlgorithmComplexityPageComponent } from './pages/algorithm-complexity-page.component';
 import { MapsPageComponent } from './pages/maps-page.component';
+import { devMapsRedirectGuard } from './guards/dev-maps-redirect.guard';
 import { VoterRegistrationAdminPageComponent } from './pages/voter-registration-admin-page.component';
 import { PoliGeoAdminPageComponent } from './pages/poligeo-admin-page.component';
 import { PrivacyPageComponent } from './pages/privacy-page.component';
@@ -22,7 +23,7 @@ export const routes: Routes = [
   { path: 'census', component: CensusPageComponent },
   { path: 'map', component: StateMapPageComponent },
   { path: 'maps', component: MapsPageComponent, data: { mode: 'visualization' } },
-  { path: 'dev/maps', component: MapsPageComponent, data: { mode: 'development' } },
+  { path: 'dev/maps', component: MapsPageComponent, data: { mode: 'development' }, canActivate: [devMapsRedirectGuard] },
   { path: 'districts', component: CongressionalDistrictsViewerComponent },
   { path: 'geodistrict', component: GeodistrictPageComponent },
   { path: 'tract-debug', component: TractDebugPageComponent },
