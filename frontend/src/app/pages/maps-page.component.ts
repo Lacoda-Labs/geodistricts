@@ -1755,11 +1755,30 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.mapPolygonsState = stateRequested;
         this.isVisualizationOnly = !!(response.hasFinalStep) && !this.isDevMode;
         this.isLoading = false;
+        // When map-polygons has final districts, set currentStep from it so the district list shows immediately (public site). loadVisualizationState() will overwrite with full data when GET final-step succeeds.
+        if (response.hasFinalStep && response.finalDistrictPolygons?.length) {
+          const stepData = this.mapPolygonsResponseToStepData(response);
+          const stepIndex = response.finalStepNumber ?? 0;
+          this.loadedSteps[stepIndex] = stepData;
+          this.currentStepIndex = stepIndex;
+          this.currentStep = stepData;
+          this.totalSteps = stepIndex + 1;
+          this.finalStepNumber = response.finalStepNumber ?? null;
+          this.algorithmResult = {
+            finalDistricts: stepData.districtGroups,
+            steps: [stepData],
+            totalPopulation: stepData.districtGroups.reduce((sum, g) => sum + (g.totalPopulation ?? 0), 0),
+            averagePopulation: 0,
+            populationVariance: 0,
+            algorithmHistory: [],
+            maxIterations: 100
+          };
+        }
         this.cdr.markForCheck();
         setTimeout(() => {
           this.renderMapPolygons();
-          // When precomputed data exists, load final step so population and district list show. /maps: GET-only (visualization). /dev/maps: same load so sidebar shows data; user can still run/restart.
-          if (!this.algorithmResult && this.selectedState && this.selectedState !== 'ALL' && !this.isSingleDistrictState(this.selectedState)) {
+          // When precomputed data exists, load final step so population and district list show. /maps: GET-only (visualization). /dev/maps: same load so sidebar shows data; user can still run/restart. Call even when we already set fallback from map-polygons so GET final-step can overwrite with full data.
+          if (this.selectedState && this.selectedState !== 'ALL' && !this.isSingleDistrictState(this.selectedState)) {
             if (this.isVisualizationOnly || this.isDevMode) {
               this.loadVisualizationState();
             }
@@ -1802,12 +1821,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadingMessage = `Loading step data for ${this.stateName(stateRequested)}`;
     this.isLoadingSteps = true;
     this.errorMessage = '';
-    this.loadedSteps = [];
-    this.algorithmResult = null;
-    this.currentStep = null;
-    this.currentStepIndex = 0;
-    this.totalSteps = 0;
-    this.finalStepNumber = null;
+    // When we have a map-polygons fallback (district list already showing), do not clear step state so list stays visible if GET final-step fails.
+    const keepFallback = !!(this.mapPolygons?.hasFinalStep && this.mapPolygons?.finalDistrictPolygons?.length);
+    if (!keepFallback) {
+      this.loadedSteps = [];
+      this.algorithmResult = null;
+      this.currentStep = null;
+      this.currentStepIndex = 0;
+      this.totalSteps = 0;
+      this.finalStepNumber = null;
+    }
     this.districtPartyByGroupKey = null;
     const sub = this.geodistrictService.getFinalStep(stateRequested).subscribe({
       next: (resp: FinalStepResponse) => {
