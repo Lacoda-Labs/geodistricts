@@ -113,12 +113,21 @@ export interface GeodistrictOptions {
   moveBalanceAfterStep?: boolean;
 }
 
+/** Per-district summary from map-polygons blob (same order as finalDistrictPolygons). */
+export interface MapPolygonsDistrictSummary {
+  startDistrictNumber: number;
+  endDistrictNumber: number;
+  totalPopulation: number;
+}
+
 /** Response from GET /api/algorithm/map-polygons/:state - polygons only, no algorithm run */
 export interface MapPolygonsResponse {
   statePolygon: GeoJsonFeature;
   finalDistrictPolygons?: GeoJsonFeature[];
   hasFinalStep: boolean;
   finalStepNumber?: number;
+  /** When present, same length and order as finalDistrictPolygons; used for header and list population. */
+  districtSummaries?: MapPolygonsDistrictSummary[];
 }
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache

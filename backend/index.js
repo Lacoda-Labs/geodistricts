@@ -4700,7 +4700,8 @@ async function getMapPolygonsForState(stateCode, options = {}) {
       statePolygon: data.statePolygon,
       finalDistrictPolygons: Array.isArray(data.finalDistrictPolygons) ? data.finalDistrictPolygons : undefined,
       hasFinalStep: !!data.hasFinalStep && Array.isArray(data.finalDistrictPolygons) && data.finalDistrictPolygons.length > 0,
-      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined
+      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined,
+      districtSummaries: Array.isArray(data.districtSummaries) ? data.districtSummaries : undefined
     };
   }
   const statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateCode);
@@ -4708,7 +4709,8 @@ async function getMapPolygonsForState(stateCode, options = {}) {
     statePolygon,
     finalDistrictPolygons: undefined,
     hasFinalStep: false,
-    finalStepNumber: undefined
+    finalStepNumber: undefined,
+    districtSummaries: undefined
   };
 }
 
@@ -4730,7 +4732,8 @@ async function getMapPolygonsForStateFromCacheOnly(stateCode, options = {}) {
       statePolygon: data.statePolygon,
       finalDistrictPolygons: Array.isArray(data.finalDistrictPolygons) ? data.finalDistrictPolygons : undefined,
       hasFinalStep: !!data.hasFinalStep && Array.isArray(data.finalDistrictPolygons) && data.finalDistrictPolygons.length > 0,
-      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined
+      finalStepNumber: typeof data.finalStepNumber === 'number' ? data.finalStepNumber : undefined,
+      districtSummaries: Array.isArray(data.districtSummaries) ? data.districtSummaries : undefined
     };
   }
   const stateBoundaryKey = `state_boundary_polygon_${stateCode.toUpperCase()}`;
@@ -4765,7 +4768,8 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
       statePolygon: result.statePolygon,
       finalDistrictPolygons: result.finalDistrictPolygons,
       hasFinalStep: result.hasFinalStep,
-      finalStepNumber: result.finalStepNumber
+      finalStepNumber: result.finalStepNumber,
+      ...(result.districtSummaries && { districtSummaries: result.districtSummaries })
     });
   } catch (error) {
     console.error('❌ GET /api/algorithm/map-polygons error:', error);
@@ -6888,9 +6892,10 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
   const finalStepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
   if (finalStepResult && finalStepResult.cachedEntry.unionPolygonsCached === true) {
     const groups = finalStepResult.cachedEntry.stepData?.districtGroups ?? finalStepResult.cachedEntry.districtGroups ?? [];
-    const keys = groups
+    const sortedGroups = groups
       .filter(g => g && (g.unionPolygonCacheKey || (g.startDistrictNumber != null && g.endDistrictNumber != null)))
-      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0))
+      .sort((a, b) => (a.startDistrictNumber || 0) - (b.startDistrictNumber || 0));
+    const keys = sortedGroups
       .map(g => g.unionPolygonCacheKey || `union_polygon_${state}_${finalStepNumber}_${g.startDistrictNumber}-${g.endDistrictNumber}`);
     if (keys.length > 0) {
       const statePolygon = await getOrCreateStateBoundaryInCloudStorage(state);
@@ -6905,12 +6910,18 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
           }
         }
       }
+      const districtSummaries = sortedGroups.map(g => ({
+        startDistrictNumber: g.startDistrictNumber,
+        endDistrictNumber: g.endDistrictNumber,
+        totalPopulation: g.totalPopulation ?? 0
+      }));
       const blobKey = `map_polygons_${state}`;
       await cloudStorageCache.set(blobKey, {
         statePolygon,
         finalDistrictPolygons,
         hasFinalStep: finalDistrictPolygons.length > 0,
-        finalStepNumber
+        finalStepNumber,
+        districtSummaries
       }, { state, source: 'map-polygons-blob' }).catch(err => {
         console.warn(`⚠️ Failed to write map_polygons blob for ${state}:`, err.message);
       });
@@ -6933,7 +6944,8 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
         statePolygon,
         finalDistrictPolygons: overviewDistrictPolygons,
         hasFinalStep: overviewDistrictPolygons.length > 0,
-        finalStepNumber
+        finalStepNumber,
+        districtSummaries
       }, { state, source: 'map-polygons-overview-blob' }).catch(err => {
         console.warn(`⚠️ Failed to write map_polygons overview blob for ${state}:`, err.message);
       });

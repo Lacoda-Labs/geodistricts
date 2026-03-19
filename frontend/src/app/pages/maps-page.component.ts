@@ -1416,17 +1416,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private mapPolygonsResponseToStepData(response: MapPolygonsResponse | null): GeodistrictStep {
     if (response?.finalDistrictPolygons?.length) {
-      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => ({
-      startDistrictNumber: i + 1,
-      endDistrictNumber: i + 1,
-      unionPolygon: polygon,
-      unionPolygons: [polygon],
-      totalPopulation: 0,
-      censusTracts: [] as GeoJsonFeature[],
-      totalDistricts: 1,
-      bounds: { north: 0, south: 0, east: 0, west: 0 },
-      centroid: { lat: 0, lng: 0 }
-    }));
+      const summaries = response.districtSummaries;
+      const lengthMatches = Array.isArray(summaries) && summaries.length === response.finalDistrictPolygons.length;
+      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => {
+        const summary = lengthMatches && summaries![i] ? summaries![i] : null;
+        return {
+          startDistrictNumber: summary?.startDistrictNumber ?? i + 1,
+          endDistrictNumber: summary?.endDistrictNumber ?? i + 1,
+          unionPolygon: polygon,
+          unionPolygons: [polygon],
+          totalPopulation: summary != null ? summary.totalPopulation : 0,
+          censusTracts: [] as GeoJsonFeature[],
+          totalDistricts: 1,
+          bounds: { north: 0, south: 0, east: 0, west: 0 },
+          centroid: { lat: 0, lng: 0 }
+        };
+      });
       return {
         step: 0,
         level: 0,
@@ -1789,19 +1794,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             next: (res) => {
               if (this.selectedState !== stateRequested) return;
               this.districtPartyByGroupKey = res.districts ?? null;
-              // When we have fallback step (groups have totalPopulation 0), patch from district-party totalVotes so info-header and list show non-zero population.
-              if (this.currentStep?.districtGroups?.length && res.districts && this.currentStep.districtGroups.every((g: { totalPopulation?: number }) => (g.totalPopulation ?? 0) === 0)) {
-                this.currentStep.districtGroups.forEach((g: { startDistrictNumber: number; endDistrictNumber: number; totalPopulation?: number }) => {
-                  const key = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
-                  const party = res.districts![key];
-                  if (party && typeof (party as { totalVotes?: number }).totalVotes === 'number') {
-                    g.totalPopulation = (party as { totalVotes: number }).totalVotes;
-                  }
-                });
-                if (this.algorithmResult?.finalDistricts === this.currentStep.districtGroups) {
-                  this.algorithmResult.totalPopulation = this.currentStep.districtGroups.reduce((sum: number, g: { totalPopulation?: number }) => sum + (g.totalPopulation ?? 0), 0);
-                }
-              }
               this.renderMapPolygons();
               this.cdr.markForCheck();
             },
