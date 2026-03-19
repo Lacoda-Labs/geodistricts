@@ -116,6 +116,9 @@ class CloudStorageCache {
     } else if (cacheKey === 'maps_landing') {
       // Single blob for /maps All-states view: stateComparison + statePartySummaries + polygonsByState + optional districtPartyByState
       return `data/maps_landing.json`;
+    } else if (cacheKey === 'maps_landing_summaries') {
+      // Summaries-only blob for /maps table: stateComparison + statePartySummaries + districtPartyByState (no polygons)
+      return `data/maps_landing_summaries.json`;
     } else if (cacheKey === 'maps_state_comparison') {
       // 119th vs GeoDistricts party comparison for /maps page; synced so public site can read same data as local
       return `data/maps_state_comparison.json`;

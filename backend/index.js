@@ -1330,6 +1330,31 @@ app.get('/api/maps/landing', async (req, res) => {
 });
 
 /**
+ * GET /api/maps/landing/summaries
+ * Lightweight blob for /maps table only: stateComparison, statePartySummaries, districtPartyByState (no polygons).
+ * One read from GCS (data/maps_landing_summaries.json). Returns 404 if not present.
+ */
+app.get('/api/maps/landing/summaries', async (req, res) => {
+  try {
+    const result = await cloudStorageCache.get('maps_landing_summaries').catch(() => null);
+    const data = result && (result.data !== undefined ? result.data : result);
+    if (data && (data.stateComparison || data.statePartySummaries)) {
+      return res.json(data);
+    }
+    return res.status(404).json({
+      error: 'Maps landing summaries not found',
+      message: 'Run the maps-landing generation script so GCS has data/maps_landing_summaries.json.',
+    });
+  } catch (error) {
+    console.error('❌ GET /api/maps/landing/summaries error:', error);
+    res.status(500).json({
+      error: 'Maps landing summaries failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * Resolve state comparison for maps: file, then Firestore, then GCS, then 119th-only fallback.
  * Shared by GET /api/maps/state-comparison and buildMapsLandingPayload.
  */
@@ -1486,6 +1511,14 @@ app.post('/api/admin/maps-landing/generate', async (req, res) => {
     console.log(`✅ Maps landing payload built: ${stateCount} states with polygons`);
     await cloudStorageCache.set('maps_landing', payload, { source: 'maps-landing-generate' });
     console.log('💾 Maps landing written to GCS (data/maps_landing.json)');
+    const summariesPayload = {
+      stateComparison: payload.stateComparison,
+      statePartySummaries: payload.statePartySummaries,
+      districtPartyByState: payload.districtPartyByState,
+      meta: payload.meta,
+    };
+    await cloudStorageCache.set('maps_landing_summaries', summariesPayload, { source: 'maps-landing-generate' });
+    console.log('💾 Maps landing summaries written to GCS (data/maps_landing_summaries.json)');
     res.json({
       ok: true,
       stateCount,

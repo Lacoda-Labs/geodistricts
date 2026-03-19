@@ -17,6 +17,18 @@ import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, Geodis
 type USMapRevealItem =
   | { type: 'state'; stateCode: string; stateOutline: GeoJsonFeature }
   | { type: 'district'; stateCode: string; district: DistrictGroup; districtIndex: number; totalDistricts: number };
+
+/** Queue item for timed US map reveal: state (with party + stepData for bookkeeping) or district. */
+type USMapRevealQueueItem =
+  | {
+      type: 'state';
+      stateCode: string;
+      stateOutline: GeoJsonFeature;
+      districtPartyByState: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>;
+      stepData: GeodistrictStep;
+      finalStepNumber: number | undefined;
+    }
+  | { type: 'district'; stateCode: string; district: DistrictGroup; districtIndex: number; totalDistricts: number };
 import { GeodistrictCacheService } from '../services/geodistrict-cache.service';
 import { GeoJsonFeature } from '../services/census.service';
 import { CongressionalDistrictsService } from '../services/congressional-districts.service';
@@ -29,6 +41,14 @@ import * as turf from '@turf/turf';
 const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
 const MAPS_LANDING_URL = `${environment.apiUrl}/maps/landing`;
+const MAPS_LANDING_SUMMARIES_URL = `${environment.apiUrl}/maps/landing/summaries`;
+
+/** Response from GET /api/maps/landing/summaries - table data only (no polygons) */
+interface MapsLandingSummariesResponse {
+  stateComparison?: { us: any; states: Record<string, any> };
+  statePartySummaries?: { summaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> };
+  districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
+}
 
 /** Response from GET /api/maps/landing - single blob for All-states view */
 interface MapsLandingResponse {
@@ -505,6 +525,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.stopUnionPolygonPolling();
+
+    this.usMapRevealTimeouts.forEach(t => clearTimeout(t));
+    this.usMapRevealTimeouts = [];
 
     // Remove hash change listener
     this.subscriptions.forEach(sub => sub.unsubscribe());
@@ -1000,6 +1023,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Total duration in ms for the US map reveal (state outlines + geodistricts). */
   private static readonly US_MAP_REVEAL_MS = 8000;
+  /** Match hero map: total draw duration 30s over ~435 districts; delay between each reveal. */
+  private static readonly US_MAP_REVEAL_TOTAL_MS = 30 * 1000;
+  private static readonly US_MAP_REVEAL_DELAY_MS = Math.max(1, Math.round(MapsPageComponent.US_MAP_REVEAL_TOTAL_MS / 435));
+  /** Timeout IDs for US map timed reveal (per-state); cleared in ngOnDestroy and when starting a new load. */
+  private usMapRevealTimeouts: ReturnType<typeof setTimeout>[] = [];
+  /** Last stateCode emitted by loadUSMapDistricts (used to call finishUSMapLoad when its last district is drawn). */
+  private usMapLastReceivedStateCode: string | null = null;
+  /** True when the loadUSMapDistricts observable has completed (all state fetches done). */
+  private usMapAllFetchesComplete = false;
 
   /**
    * Add a single reveal item to the map (state outline on stateOutlinesLayer or district on tractLayer).
@@ -1131,11 +1163,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Fetch maps/landing for All-states table only (state comparison, party summaries). Use when static All map is shown and no Leaflet.
+   * Fetch maps/landing/summaries for All-states table only (state comparison, party summaries). Use when static All map is shown and no Leaflet.
    */
   private tryLandingForTableOnly(): void {
     if (this.selectedState !== 'ALL') return;
-    this.http.get<MapsLandingResponse>(MAPS_LANDING_URL).pipe(
+    this.http.get<MapsLandingSummariesResponse>(MAPS_LANDING_SUMMARIES_URL).pipe(
       take(1),
       catchError(() => of(null))
     ).subscribe((data) => {
@@ -1203,11 +1235,16 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Load district data for US map view.
-   * Fetches step0 (state boundary) and final-step geodistrict polygons per state sequentially via GET map-polygons/:state,
-   * revealing each state (outline + districts) as data arrives, hero-style.
+   * Fetches map-polygons for each state (random order); after each response, fetches district-party for that state,
+   * then draws that state's outline and districts sequentially with hero-style timing (delay = 30s/435 per item).
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
+    this.usMapRevealTimeouts.forEach(t => clearTimeout(t));
+    this.usMapRevealTimeouts = [];
+    this.usMapLastReceivedStateCode = null;
+    this.usMapAllFetchesComplete = false;
+
     this.isLoading = true;
     this.errorMessage = '';
     this.usMapStepDataByState = [];
@@ -1224,47 +1261,120 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
 
     const orderedStateCodes = this.states.map((s) => s.code);
-    const sub = from(orderedStateCodes).pipe(
-      concatMap((stateCode) =>
-        this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
-          tap((response) => this.onStatePolygonsReceived(stateCode, response))
+    const shuffledStateCodes = this.shuffleArray([...orderedStateCodes]);
+
+    const vestYear = 2024;
+    const maxIter = this.finalStepMaxIterations ?? 100;
+    const delayMs = MapsPageComponent.US_MAP_REVEAL_DELAY_MS;
+
+    const sub = from(shuffledStateCodes)
+      .pipe(
+        concatMap((stateCode) =>
+          this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
+            switchMap((response) => {
+              const hasFinal =
+                response.hasFinalStep &&
+                response.finalStepNumber != null &&
+                response.finalStepNumber >= 0;
+              if (!hasFinal) {
+                return of({
+                  stateCode,
+                  response,
+                  districts: {} as Record<
+                    string,
+                    { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }
+                  >,
+                });
+              }
+              return this.geodistrictService
+                .getDistrictParty(stateCode, response.finalStepNumber!, maxIter, vestYear)
+                .pipe(
+                  catchError(() =>
+                    of({
+                      state: stateCode,
+                      districts: {} as Record<
+                        string,
+                        { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }
+                      >,
+                    })
+                  ),
+                  map((r) => ({ stateCode, response, districts: r.districts ?? {} }))
+                );
+            })
+          )
         )
       )
-    ).subscribe({
-      complete: () => {
-        const statesWithFinalStep = this.usMapStepDataByState.filter(
-          (s): s is typeof s & { finalStepNumber: number } =>
-            s.finalStepNumber != null && s.finalStepNumber >= 0
-        );
-        if (statesWithFinalStep.length > 0) {
-          const vestYear = 2024;
-          const partySub = forkJoin(
-            statesWithFinalStep.map((s) =>
-              this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
-                catchError(() =>
-                  of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> })
-                )
-              )
-            )
-          ).subscribe((results) => {
-            results.forEach((r) => {
-              this.allStatesDistrictPartyByState[r.state] = r.districts ?? {};
+      .subscribe({
+        next: ({ stateCode, response, districts }) => {
+          this.usMapLastReceivedStateCode = stateCode;
+          const stepData = this.mapPolygonsResponseToStepData(response);
+          const stateOutline = response.statePolygon;
+          const finalStepNumber = response.finalStepNumber;
+          const groups = stepData.districtGroups ?? [];
+
+          this.allStatesDistrictPartyByState[stateCode] = districts;
+          this.usMapStepDataByState.push({ stateCode, stepData, finalStepNumber });
+          this.usMapTotalDistricts += groups.length;
+          this.completedStateCodes.add(stateCode);
+
+          if (stateOutline?.geometry) {
+            this.addUSMapRevealItem({
+              type: 'state',
+              stateCode,
+              stateOutline,
             });
-            this.renderUSMapDistricts(this.usMapStepDataByState);
-            this.finishUSMapLoad();
+          }
+
+          groups.forEach((district, districtIndex) => {
+            const t = setTimeout(() => {
+              this.addUSMapRevealItem({
+                type: 'district',
+                stateCode,
+                district,
+                districtIndex,
+                totalDistricts: groups.length,
+              });
+              const isLastDistrict = districtIndex === groups.length - 1;
+              if (isLastDistrict && this.usMapAllFetchesComplete && this.usMapLastReceivedStateCode === stateCode) {
+                this.finishUSMapLoad();
+              }
+              this.cdr.markForCheck();
+            }, (districtIndex + 1) * delayMs);
+            this.usMapRevealTimeouts.push(t);
           });
-          this.subscriptions.push(partySub);
-        } else {
-          this.finishUSMapLoad();
-        }
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.errorMessage = err?.message || 'Failed to load US map districts';
-        this.cdr.markForCheck();
-      }
-    });
+
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+        complete: () => {
+          this.usMapAllFetchesComplete = true;
+          const lastCode = this.usMapLastReceivedStateCode;
+          if (lastCode == null || this.completedStateCodes.size === 0) {
+            this.finishUSMapLoad();
+            return;
+          }
+          const lastStateData = this.usMapStepDataByState.find((s) => s.stateCode === lastCode);
+          const lastStateDistrictCount = lastStateData?.stepData?.districtGroups?.length ?? 0;
+          if (lastStateDistrictCount === 0) {
+            this.finishUSMapLoad();
+          }
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.errorMessage = err?.message || 'Failed to load US map districts';
+          this.cdr.markForCheck();
+        },
+      });
     this.subscriptions.push(sub);
+  }
+
+  /** Shuffle array in place (Fisher-Yates); returns the same array. */
+  private shuffleArray<T>(arr: T[]): T[] {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 
   /**
