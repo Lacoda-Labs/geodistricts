@@ -1755,14 +1755,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.mapPolygonsState = stateRequested;
         this.isVisualizationOnly = !!(response.hasFinalStep) && !this.isDevMode;
         this.isLoading = false;
-        // When map-polygons has final districts, set currentStep from it so the district list shows immediately (public site). loadVisualizationState() will overwrite with full data when GET final-step succeeds.
+        // When map-polygons has final districts, set currentStep from it so the district list shows immediately (public site). Use step index 0 so the template's step 0 block (currentStepIndex === 0) renders and .info-body shows the district list. loadVisualizationState() will overwrite with full data when GET final-step succeeds.
         if (response.hasFinalStep && response.finalDistrictPolygons?.length) {
           const stepData = this.mapPolygonsResponseToStepData(response);
-          const stepIndex = response.finalStepNumber ?? 0;
-          this.loadedSteps[stepIndex] = stepData;
-          this.currentStepIndex = stepIndex;
+          this.loadedSteps[0] = stepData;
+          this.currentStepIndex = 0;
           this.currentStep = stepData;
-          this.totalSteps = stepIndex + 1;
+          this.totalSteps = 1;
           this.finalStepNumber = response.finalStepNumber ?? null;
           this.algorithmResult = {
             finalDistricts: stepData.districtGroups,
@@ -1790,6 +1789,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             next: (res) => {
               if (this.selectedState !== stateRequested) return;
               this.districtPartyByGroupKey = res.districts ?? null;
+              // When we have fallback step (groups have totalPopulation 0), patch from district-party totalVotes so info-header and list show non-zero population.
+              if (this.currentStep?.districtGroups?.length && res.districts && this.currentStep.districtGroups.every((g: { totalPopulation?: number }) => (g.totalPopulation ?? 0) === 0)) {
+                this.currentStep.districtGroups.forEach((g: { startDistrictNumber: number; endDistrictNumber: number; totalPopulation?: number }) => {
+                  const key = `${g.startDistrictNumber}-${g.endDistrictNumber}`;
+                  const party = res.districts![key];
+                  if (party && typeof (party as { totalVotes?: number }).totalVotes === 'number') {
+                    g.totalPopulation = (party as { totalVotes: number }).totalVotes;
+                  }
+                });
+                if (this.algorithmResult?.finalDistricts === this.currentStep.districtGroups) {
+                  this.algorithmResult.totalPopulation = this.currentStep.districtGroups.reduce((sum: number, g: { totalPopulation?: number }) => sum + (g.totalPopulation ?? 0), 0);
+                }
+              }
               this.renderMapPolygons();
               this.cdr.markForCheck();
             },
