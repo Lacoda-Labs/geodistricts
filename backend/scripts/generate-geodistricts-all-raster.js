@@ -31,11 +31,11 @@ const CONUS = {
 // Party color stops (match maps-page.component.ts DEMOCRATIC_STOPS / REPUBLICAN_STOPS)
 const REP_STOPS = [
   { v: 100, hex: '#FFCDD2' }, { v: 200, hex: '#EF9A9A' }, { v: 300, hex: '#E57373' },
-  { v: 400, hex: '#EF5350' }, { v: 500, hex: '#F44336' },
+  { v: 400, hex: '#E57373' }, { v: 500, hex: '#E57373' },
 ];
 const DEM_STOPS = [
   { v: 100, hex: '#BBDEFB' }, { v: 200, hex: '#90CAF9' }, { v: 300, hex: '#64B5F6' },
-  { v: 400, hex: '#42A5F5' }, { v: 500, hex: '#2196F3' },
+  { v: 400, hex: '#64B5F6' }, { v: 500, hex: '#64B5F6' },
 ];
 
 function colorFromStops(value, stops) {

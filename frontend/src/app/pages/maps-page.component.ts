@@ -1416,22 +1416,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private mapPolygonsResponseToStepData(response: MapPolygonsResponse | null): GeodistrictStep {
     if (response?.finalDistrictPolygons?.length) {
-      const summaries = response.districtSummaries;
-      const lengthMatches = Array.isArray(summaries) && summaries.length === response.finalDistrictPolygons.length;
-      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => {
-        const summary = lengthMatches && summaries![i] ? summaries![i] : null;
-        return {
-          startDistrictNumber: summary?.startDistrictNumber ?? i + 1,
-          endDistrictNumber: summary?.endDistrictNumber ?? i + 1,
-          unionPolygon: polygon,
-          unionPolygons: [polygon],
-          totalPopulation: summary != null ? summary.totalPopulation : 0,
-          censusTracts: [] as GeoJsonFeature[],
-          totalDistricts: 1,
-          bounds: { north: 0, south: 0, east: 0, west: 0 },
-          centroid: { lat: 0, lng: 0 }
-        };
-      });
+      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => ({
+      startDistrictNumber: i + 1,
+      endDistrictNumber: i + 1,
+      unionPolygon: polygon,
+      unionPolygons: [polygon],
+      totalPopulation: 0,
+      censusTracts: [] as GeoJsonFeature[],
+      totalDistricts: 1,
+      bounds: { north: 0, south: 0, east: 0, west: 0 },
+      centroid: { lat: 0, lng: 0 }
+    }));
       return {
         step: 0,
         level: 0,
@@ -5018,8 +5013,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Color for step0 state boundary by 119th Congress party share (D/(D+R)).
-   * Red for R-majority, blue for D-majority (no green/yellow). Lightness reflects strength (pale near 50%).
+   * Step0 / fallback color from 119th Congress seat share D/(D+R).
+   * Same scale as district party fills (getTractColorByParty): max R #E57373, max D #64B5F6.
    */
   private getStatePartyColor(stateCode: string): string {
     const s = this.stateComparison?.states?.[stateCode];
@@ -5029,11 +5024,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const total = congressD + congressR;
     if (total === 0) return 'hsl(0, 0%, 55%)';
     const demPct = congressD / total;
-    // Strength 0 = tie (50/50), 1 = 100% D or 100% R
-    const strength = demPct <= 0.5 ? (0.5 - demPct) * 2 : (demPct - 0.5) * 2;
-    const hue = demPct <= 0.5 ? 0 : 240; // red or blue only
-    const lightness = Math.round(72 - strength * 22); // 72% at tie (pale), 50% at full
-    return `hsl(${hue}, 70%, ${lightness}%)`;
+    return this.getTractColorByParty(demPct);
   }
 
   /**
@@ -5073,17 +5064,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Convert a color to grayscale
    */
   private colorToGrayscale(color: string): string {
-    // Handle HSL colors
     if (color.startsWith('hsl(')) {
       const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
       if (match) {
-        const lightness = parseInt(match[3]);
-        // Convert to grayscale by removing saturation and adjusting lightness
-        // Keep the lightness similar but reduce saturation to 0
+        const lightness = parseInt(match[3], 10);
         return `hsl(0, 0%, ${lightness}%)`;
       }
     }
-    // Fallback: return a medium gray
+    const hexMatch = color.match(/^#([0-9a-fA-F]{6})$/);
+    if (hexMatch) {
+      const n = parseInt(hexMatch[1], 16);
+      const r = (n >> 16) & 255;
+      const g = (n >> 8) & 255;
+      const b = n & 255;
+      const lum = Math.round(((0.299 * r + 0.587 * g + 0.114 * b) / 255) * 100);
+      return `hsl(0, 0%, ${lum}%)`;
+    }
     return 'hsl(0, 0%, 50%)';
   }
 
@@ -6424,13 +6420,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Party color scale: 100 = 51%, 500 = 100%. Stops for interpolation. */
+  /** Max fill at 100% lean: #E57373 (R) / #64B5F6 (D); stronger Material shades not used. */
   private static readonly REPUBLICAN_STOPS: { v: number; hex: string }[] = [
     { v: 100, hex: '#FFCDD2' }, { v: 200, hex: '#EF9A9A' }, { v: 300, hex: '#E57373' },
-    { v: 400, hex: '#EF5350' }, { v: 500, hex: '#F44336' }
+    { v: 400, hex: '#E57373' }, { v: 500, hex: '#E57373' }
   ];
   private static readonly DEMOCRATIC_STOPS: { v: number; hex: string }[] = [
     { v: 100, hex: '#BBDEFB' }, { v: 200, hex: '#90CAF9' }, { v: 300, hex: '#64B5F6' },
-    { v: 400, hex: '#42A5F5' }, { v: 500, hex: '#2196F3' }
+    { v: 400, hex: '#64B5F6' }, { v: 500, hex: '#64B5F6' }
   ];
 
   /** Quantize value to nearest stop (100, 200, 300, 400, 500) and return that stop's exact hex. */
