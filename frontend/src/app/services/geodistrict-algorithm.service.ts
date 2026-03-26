@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
-import { Observable, throwError, of, from, Subject } from 'rxjs';
-import { map, catchError, switchMap, timeout } from 'rxjs/operators';
+import { Observable, throwError, of, from, Subject, timer } from 'rxjs';
+import { map, catchError, switchMap, timeout, concatMap, filter, take, throwIfEmpty } from 'rxjs/operators';
 import { CensusService, GeoJsonFeature, GeoJsonResponse } from './census.service';
 import { CongressionalDistrictsService } from './congressional-districts.service';
 import { LatLongDivisionService } from './latlong-division.service';
 import { GeodistrictCacheService } from './geodistrict-cache.service';
 import { environment } from '../../environments/environment';
 import * as turf from '@turf/turf';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 
 // Interface for DistrictGroup as defined in the algorithm
 export interface DistrictGroup {
@@ -525,12 +525,78 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Poll until tract_party_{state}_{year} exists locally (after async tract-party-persistence job).
+   */
+  private waitForTractPartyData(state: string, year: number): Observable<void> {
+    return timer(2000, 2000).pipe(
+      take(50),
+      concatMap(() => this.getTractParty(state, year)),
+      filter(
+        (res) =>
+          res.available === true ||
+          (res.geoids != null && Object.keys(res.geoids).length > 0)
+      ),
+      take(1),
+      map(() => void 0),
+      throwIfEmpty(() => new Error('Tract party data did not become available in time. Run tract-party-persistence or check VEST files.'))
+    );
+  }
+
+  /**
+   * Same as getDistrictParty, but on 404 (missing tract-level VEST cache) triggers tract-party-persistence for this state, waits, then retries once.
+   */
+  getDistrictPartyWithTractHealIfNeeded(
+    state: string,
+    stepNumber: number,
+    maxIterations: number = 100,
+    vestYear: number = 2024
+  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }> {
+    return this.getDistrictParty(state, stepNumber, maxIterations, vestYear).pipe(
+      catchError((err: unknown) => {
+        const status = err instanceof HttpErrorResponse ? err.status : 0;
+        if (status !== 404) {
+          return throwError(() => err);
+        }
+        return this.triggerTractPartyPersistence(vestYear, state).pipe(
+          switchMap(() => this.waitForTractPartyData(state, vestYear)),
+          switchMap(() => this.getDistrictParty(state, stepNumber, maxIterations, vestYear))
+        );
+      })
+    );
+  }
+
+  /**
    * Trigger district-level party % job for final step (async, 202).
    */
   triggerDistrictPartyJob(state: string, finalStepNumber: number, maxIterations: number = 100): Observable<unknown> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const url = `${backendUrl}/api/algorithm/district-party/${state}?finalStepNumber=${finalStepNumber}&maxIterations=${maxIterations}`;
     return this.http.post(url, {}, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  /**
+   * If tract_party cache is missing, run persistence and wait; then POST district-party job.
+   * When tract data already exists, only the district-party POST runs.
+   */
+  ensureTractPartyThenTriggerDistrictJob(
+    state: string,
+    finalStepNumber: number,
+    maxIterations: number = 100,
+    vestYear: number = 2024
+  ): Observable<unknown> {
+    return this.getTractParty(state, vestYear).pipe(
+      switchMap((res) => {
+        const ready =
+          res.available === true || (res.geoids != null && Object.keys(res.geoids).length > 0);
+        if (ready) {
+          return this.triggerDistrictPartyJob(state, finalStepNumber, maxIterations);
+        }
+        return this.triggerTractPartyPersistence(vestYear, state).pipe(
+          switchMap(() => this.waitForTractPartyData(state, vestYear)),
+          switchMap(() => this.triggerDistrictPartyJob(state, finalStepNumber, maxIterations))
+        );
+      })
+    );
   }
 
   /**
@@ -564,10 +630,10 @@ export class GeodistrictAlgorithmService {
   /**
    * Get tract-level party percentages for a state and year (for tract coloring by party).
    */
-  getTractParty(state: string, year: number): Observable<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }> }> {
+  getTractParty(state: string, year: number): Observable<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }>; available?: boolean }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const url = `${backendUrl}/api/algorithm/tract-party/${state}/${year}`;
-    return this.http.get<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }> }>(url, {
+    return this.http.get<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }>; available?: boolean }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
   }

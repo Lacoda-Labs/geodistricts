@@ -448,7 +448,7 @@
               </div>
               }
 
-              @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
+              @if (currentStep.districtGroups.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
               needsCalcParty())) {
               <div class="district-status-summary">
                 <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
@@ -483,7 +483,7 @@
                             - {{ group.endDistrictNumber }}
                           </span>
                         </td>
-                        <td>{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
+                        <td>{{ group.totalPopulation.toLocaleString() }}</td>
                         <td [class.variance-positive]="getGroupVariance(group) > 0"
                           [class.variance-negative]="getGroupVariance(group) < 0"
                           [matTooltip]="getGroupVarianceTooltip(group)">
@@ -764,7 +764,7 @@
               </mat-expansion-panel>
             </div>
 
-            @if (currentStep?.districtGroups?.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons()
+            @if (currentStep.districtGroups.length && currentStepIndex >= 1 && isCurrentStepCompleteForUnionPolygons()
             && (!currentStepHasUnionPolygons() || unionPolygonBuildTriggeredForStep === currentStepIndex)
             && ((!currentStepUnionPolygonsCached && !currentStepHasUnionPolygons() && unionPolygonBuildTriggeredForStep
             !== currentStepIndex)
@@ -780,7 +780,7 @@
             </div>
             }
 
-            @if (currentStep?.districtGroups?.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
+            @if (currentStep.districtGroups.length && isDevMode && isFinalStepActive && (needsBuildPolygons() ||
             needsCalcParty())) {
             <div class="district-status-summary">
               <button mat-button *ngIf="needsBuildPolygons()" (click)="triggerPolygonsForAllMissing()" type="button"
@@ -815,7 +815,7 @@
                           - {{ group.endDistrictNumber }}
                         </span>
                       </td>
-                      <td>{{ (group.totalPopulation ?? 0).toLocaleString() }}</td>
+                      <td>{{ group.totalPopulation.toLocaleString() }}</td>
                       <td [class.variance-positive]="getGroupVariance(group) > 0"
                         [class.variance-negative]="getGroupVariance(group) < 0"
                         [matTooltip]="getGroupVarianceTooltip(group)">

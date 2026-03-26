@@ -2397,7 +2397,24 @@ app.get('/api/census/tract-geoids', async (req, res) => {
           // ignore
         }
       }
-      const raw = Array.isArray(tractMap) ? tractMap : (tractMap && tractMap.data);
+      let raw = Array.isArray(tractMap) ? tractMap : tractMap && tractMap.data;
+      const isIdTractPairs =
+        raw &&
+        Array.isArray(raw) &&
+        raw.length > 0 &&
+        Array.isArray(raw[0]) &&
+        raw[0].length === 2;
+      if (!isIdTractPairs && tractMap && (tractMap.cloudStorage === true || tractMap.cloudStoragePath) && cloudStorageCache && typeof cloudStorageCache.get === 'function') {
+        try {
+          const cloudResult = await cloudStorageCache.get(tractCacheKey);
+          if (cloudResult?.data) {
+            tractMap = cloudResult.data;
+            raw = Array.isArray(tractMap) ? tractMap : tractMap && tractMap.data;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
       if (raw && Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0]) && raw[0].length === 2) {
         for (const pair of raw) {
           const id = pair[0];

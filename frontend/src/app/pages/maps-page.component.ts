@@ -1785,18 +1785,20 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }, 100);
         // Fetch district party when map-polygons has final step so single-state uses same approach as US view (party-colored polygons).
         if (response.hasFinalStep && response.finalStepNumber != null) {
-          const partySub = this.geodistrictService.getDistrictParty(stateRequested, response.finalStepNumber, 100, 2024).subscribe({
-            next: (res) => {
-              if (this.selectedState !== stateRequested) return;
-              this.districtPartyByGroupKey = res.districts ?? null;
-              this.renderMapPolygons();
-              this.cdr.markForCheck();
-            },
-            error: () => {
-              this.districtPartyByGroupKey = null;
-              this.cdr.markForCheck();
-            }
-          });
+          const partySub = this.geodistrictService
+            .getDistrictPartyWithTractHealIfNeeded(stateRequested, response.finalStepNumber, 100, 2024)
+            .subscribe({
+              next: (res) => {
+                if (this.selectedState !== stateRequested) return;
+                this.districtPartyByGroupKey = res.districts ?? null;
+                this.renderMapPolygons();
+                this.cdr.markForCheck();
+              },
+              error: () => {
+                this.districtPartyByGroupKey = null;
+                this.cdr.markForCheck();
+              }
+            });
           this.subscriptions.push(partySub);
         }
       },
@@ -1880,13 +1882,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         if (isComplete && !this.districtPartyPercentagesCalculated && !this.districtPartyJobTriggered) {
           this.districtPartyJobTriggered = true;
-          this.geodistrictService.triggerDistrictPartyJob(stateRequested, stepIndex, this.finalStepMaxIterations).subscribe({
-            next: () => {},
-            error: () => {},
-            complete: () => {
-              setTimeout(() => this.refetchFinalStepForStatus(stateRequested), 3000);
-            }
-          });
+          this.geodistrictService
+            .ensureTractPartyThenTriggerDistrictJob(stateRequested, stepIndex, this.finalStepMaxIterations, 2024)
+            .subscribe({
+              next: () => {},
+              error: () => {
+                this.districtPartyJobTriggered = false;
+              },
+              complete: () => {
+                setTimeout(() => this.refetchFinalStepForStatus(stateRequested), 3000);
+              }
+            });
         }
         this.currentStepUnionPolygonsCached = resp.unionPolygonsCached === true;
         this.cdr.markForCheck();
@@ -6158,20 +6164,22 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const stepToFetch = this.currentStepIndex ?? this.finalStepNumber ?? 0;
     const maxIter = this.finalStepMaxIterations ?? 100;
     const vestYear = 2024;
-    this.geodistrictService.getDistrictParty(this.selectedState, stepToFetch, maxIter, vestYear).subscribe({
-      next: (res) => {
-        this.districtPartyByGroupKey = res.districts ?? null;
-        this.cdr.markForCheck();
-        onLoaded?.();
-        // Defer re-render so it runs after any in-progress render completes (avoids re-entrancy guard blocking party-colored draw).
-        setTimeout(() => this.renderFinalDistricts(), 0);
-      },
-      error: () => {
-        this.districtPartyByGroupKey = null;
-        this.cdr.markForCheck();
-        onLoaded?.();
-      }
-    });
+    this.geodistrictService
+      .getDistrictPartyWithTractHealIfNeeded(this.selectedState, stepToFetch, maxIter, vestYear)
+      .subscribe({
+        next: (res) => {
+          this.districtPartyByGroupKey = res.districts ?? null;
+          this.cdr.markForCheck();
+          onLoaded?.();
+          // Defer re-render so it runs after any in-progress render completes (avoids re-entrancy guard blocking party-colored draw).
+          setTimeout(() => this.renderFinalDistricts(), 0);
+        },
+        error: () => {
+          this.districtPartyByGroupKey = null;
+          this.cdr.markForCheck();
+          onLoaded?.();
+        }
+      });
   }
 
   /** Refetch final step to update status (e.g. after district party job or union polygon build). */
@@ -6226,16 +6234,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.selectedState || this.selectedState === 'ALL' || this.finalStepNumber == null || this.districtPartyJobTriggered) return;
     this.districtPartyJobTriggered = true;
     const maxIter = this.finalStepMaxIterations ?? 100;
-    this.geodistrictService.triggerDistrictPartyJob(this.selectedState, this.finalStepNumber, maxIter).subscribe({
-      next: () => {
-        this.cdr.markForCheck();
-        setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
-      },
-      error: () => {
-        this.districtPartyJobTriggered = false;
-        this.cdr.markForCheck();
-      }
-    });
+    const vestYear = 2024;
+    this.geodistrictService
+      .ensureTractPartyThenTriggerDistrictJob(this.selectedState, this.finalStepNumber, maxIter, vestYear)
+      .subscribe({
+        next: () => {
+          this.cdr.markForCheck();
+          setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
+        },
+        error: () => {
+          this.districtPartyJobTriggered = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   /** Trigger union polygon for one DG (dev/maps). */
@@ -6270,33 +6281,23 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.triggeringForGroupKey) return;
     this.triggeringForGroupKey = groupKey;
     const vestYear = 2024;
-    // First ensure tract-level party data exists for this state (POST tract-party-persistence), then trigger district party.
-    this.geodistrictService.triggerTractPartyPersistence(vestYear, this.selectedState).subscribe({
+    const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
+    const finalStep = this.finalStepNumber ?? this.currentStepIndex!;
+    this.districtPartyJobTriggered = true;
+    this.geodistrictService.ensureTractPartyThenTriggerDistrictJob(this.selectedState, finalStep, maxIter, vestYear).subscribe({
       next: () => {
-        this.districtPartyJobTriggered = true;
+        this.triggeringForGroupKey = null;
+        this.errorMessage = '';
+        setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
         this.cdr.markForCheck();
-        this.geodistrictService.triggerDistrictPartyJob(
-          this.selectedState!,
-          this.finalStepNumber ?? this.currentStepIndex!,
-          this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100
-        ).subscribe({
-          next: () => {
-            this.triggeringForGroupKey = null;
-            this.errorMessage = '';
-            setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
-            this.cdr.markForCheck();
-          },
-          error: (err) => {
-            this.triggeringForGroupKey = null;
-            this.districtPartyJobTriggered = false;
-            this.errorMessage = err?.error?.error || err?.message || 'District party failed. If tract data is still building, try again in a few minutes.';
-            this.cdr.markForCheck();
-          }
-        });
       },
       error: (err) => {
         this.triggeringForGroupKey = null;
-        this.errorMessage = err?.error?.error || err?.message || 'Failed to start tract party persistence.';
+        this.districtPartyJobTriggered = false;
+        this.errorMessage =
+          err?.error?.error ||
+          err?.message ||
+          'District party failed. If tract data is still building, try again in a few minutes.';
         this.cdr.markForCheck();
       }
     });

@@ -1017,7 +1017,32 @@ class VESTDataLoader {
     const countyFips5 = stateFips + countyFips;
     const divisor = (countyTractCounts && countyTractCounts[countyFips5] > 0) ? countyTractCounts[countyFips5] : 1;
 
-    const countyVotes = vestData.countyData[countyFips5];
+    let countyVotes = vestData.countyData[countyFips5];
+    // countypres-style files sometimes use longer reporting-unit keys (e.g. 4400711800) that share the 5-digit county FIPS prefix (44007).
+    if (!countyVotes && vestData.countyData) {
+      const subKeys = Object.keys(vestData.countyData).filter(
+        (k) => k === countyFips5 || (k.length > 5 && k.startsWith(countyFips5))
+      );
+      if (subKeys.length === 1) {
+        countyVotes = vestData.countyData[subKeys[0]];
+      } else if (subKeys.length > 1) {
+        let dem = 0;
+        let rep = 0;
+        for (const k of subKeys) {
+          const row = vestData.countyData[k];
+          dem += row.votes_dem_pres || 0;
+          rep += row.votes_rep_pres || 0;
+        }
+        const two = dem + rep;
+        countyVotes = {
+          votes_dem_pres: dem,
+          votes_rep_pres: rep,
+          total_votes_pres: two,
+          pct_dem_pres: two > 0 ? dem / two : 0,
+          pct_rep_pres: two > 0 ? rep / two : 0,
+        };
+      }
+    }
     if (!countyVotes) {
       return null;
     }

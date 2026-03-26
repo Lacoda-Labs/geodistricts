@@ -7,6 +7,56 @@ const turf = require('@turf/turf');
 const axios = require('axios');
 
 /**
+ * GEOIDs from persisted state tract cache when TIGERweb/API returns nothing (e.g. RI on Tracts_Blocks layer).
+ */
+async function loadTractGeoidsFromStateTractsCache(stateCodeUpper) {
+  const localCache = require('../local-cache');
+  const key = `state_tracts_${stateCodeUpper}`;
+  let tractMap = await localCache.getFromCache(key);
+
+  function tryExtractIdTractPairs(obj) {
+    if (!obj) return null;
+    const raw = Array.isArray(obj) ? obj : obj.data;
+    if (raw && Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0]) && raw[0].length === 2) {
+      return raw;
+    }
+    return null;
+  }
+
+  let pairs = tryExtractIdTractPairs(tractMap);
+  if (!pairs && tractMap && (tractMap.cloudStorage === true || tractMap.cloudStoragePath)) {
+    try {
+      const cloudStorageCache = require('./cloud-storage-cache');
+      const cloudResult = await cloudStorageCache.get(key);
+      pairs = tryExtractIdTractPairs(cloudResult?.data);
+    } catch (_e) {
+      // non-fatal
+    }
+  }
+  if (!pairs) {
+    try {
+      const cloudStorageCache = require('./cloud-storage-cache');
+      const cloudResult = await cloudStorageCache.get(key);
+      pairs = tryExtractIdTractPairs(cloudResult?.data);
+    } catch (_e) {
+      // non-fatal
+    }
+  }
+
+  const geoids = [];
+  if (pairs) {
+    for (const pair of pairs) {
+      const id = pair[0];
+      if (id != null) {
+        const g = String(id).padStart(11, '0').substring(0, 11);
+        if (g.length === 11) geoids.push(g);
+      }
+    }
+  }
+  return geoids;
+}
+
+/**
  * Spatial Analyzer Class
  */
 class SpatialAnalyzer {
@@ -135,6 +185,8 @@ class SpatialAnalyzer {
       'DC': '11'
     };
     const stateFips = /^\d{2}$/.test(state) ? state : (stateFipsMap[state.toUpperCase()] || state);
+    const stateCode =
+      typeof state === 'string' && /^[A-Za-z]{2}$/.test(state.trim()) ? state.trim().toUpperCase() : null;
 
     if (apiBaseUrl) {
       const axios = require('axios');
@@ -142,7 +194,16 @@ class SpatialAnalyzer {
         params: { state },
         timeout: 60000,
       });
-      return response.data?.geoids ?? [];
+      let geoids = response.data?.geoids ?? [];
+      if (geoids.length === 0 && stateCode) {
+        geoids = await loadTractGeoidsFromStateTractsCache(stateCode);
+        if (geoids.length > 0) {
+          console.log(
+            `✅ loadTractGeoids: tract-geoids API returned 0 for ${stateCode}; using ${geoids.length} GEOIDs from state_tracts cache`
+          );
+        }
+      }
+      return geoids;
     }
 
     const serviceUrl = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/10/query';
@@ -167,6 +228,15 @@ class SpatialAnalyzer {
       }
       offset += features.length;
       hasMore = features.length >= pageSize;
+    }
+    if (geoids.length === 0 && stateCode) {
+      const fromCache = await loadTractGeoidsFromStateTractsCache(stateCode);
+      if (fromCache.length > 0) {
+        console.log(
+          `✅ loadTractGeoids: TIGERweb returned 0 for ${stateCode}; using ${fromCache.length} GEOIDs from state_tracts cache`
+        );
+        return fromCache;
+      }
     }
     return geoids;
   }
