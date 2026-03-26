@@ -9,6 +9,8 @@ const fs = require('fs');
 
 let cachedSummary = null;
 let cachedUsHouseByState = null;
+/** mtimeMs of congress-119-party.json when cachedSummary was built; used to reload after file edits */
+let cachedSummarySourceMtime = null;
 
 /**
  * Resolve path to data file (works when run from project root or backend/)
@@ -34,9 +36,31 @@ function loadRaw() {
 }
 
 /**
+ * @returns {number|null} mtimeMs of data file, or null if missing
+ */
+function getSourceFileMtime() {
+  const dataPath = getDataPath();
+  try {
+    if (!fs.existsSync(dataPath)) return null;
+    return fs.statSync(dataPath).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+function ensurePartyDataFresh() {
+  const mtime = getSourceFileMtime();
+  if (mtime !== cachedSummarySourceMtime) {
+    clearCache();
+    cachedSummarySourceMtime = mtime;
+  }
+}
+
+/**
  * Get party summary: { us: { D, R }, states: { [stateCode]: { D, R } } }
  */
 function getPartySummary() {
+  ensurePartyDataFresh();
   if (cachedSummary) return cachedSummary;
   const data = loadRaw();
   if (!data || !data.states) {
@@ -65,6 +89,7 @@ function getPartySummary() {
  * Returns array of { district: '1', party: 'D'|'R' } in district order.
  */
 function getUsHouseByState(stateCode) {
+  ensurePartyDataFresh();
   if (cachedUsHouseByState && cachedUsHouseByState[stateCode]) {
     return cachedUsHouseByState[stateCode];
   }
@@ -95,4 +120,5 @@ module.exports = {
   getUsHouseByState,
   loadRaw,
   clearCache,
+  getSourceFileMtime,
 };

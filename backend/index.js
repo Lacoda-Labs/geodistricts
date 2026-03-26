@@ -1200,12 +1200,11 @@ let cachedMapsStateComparison = null;
  */
 app.get('/api/maps/state-comparison', async (req, res) => {
   try {
-    if (cachedMapsStateComparison) {
-      return res.json(cachedMapsStateComparison);
+    if (!cachedMapsStateComparison) {
+      cachedMapsStateComparison = await resolveStateComparison();
     }
-    const payload = await resolveStateComparison();
-    cachedMapsStateComparison = payload;
-    return res.json(payload);
+    const merged = mapsComparison.applyFreshCongress119ToComparisonPayload(cachedMapsStateComparison);
+    return res.json(merged);
   } catch (error) {
     console.error('❌ GET /api/maps/state-comparison error:', error);
     res.status(500).json({
@@ -1314,6 +1313,12 @@ app.get('/api/maps/landing', async (req, res) => {
     const result = await cloudStorageCache.get('maps_landing').catch(() => null);
     const data = result && (result.data !== undefined ? result.data : result);
     if (data && (data.stateComparison || data.polygonsByState)) {
+      if (data.stateComparison) {
+        return res.json({
+          ...data,
+          stateComparison: mapsComparison.applyFreshCongress119ToComparisonPayload(data.stateComparison),
+        });
+      }
       return res.json(data);
     }
     return res.status(404).json({
@@ -1339,6 +1344,12 @@ app.get('/api/maps/landing/summaries', async (req, res) => {
     const result = await cloudStorageCache.get('maps_landing_summaries').catch(() => null);
     const data = result && (result.data !== undefined ? result.data : result);
     if (data && (data.stateComparison || data.statePartySummaries)) {
+      if (data.stateComparison) {
+        return res.json({
+          ...data,
+          stateComparison: mapsComparison.applyFreshCongress119ToComparisonPayload(data.stateComparison),
+        });
+      }
       return res.json(data);
     }
     return res.status(404).json({

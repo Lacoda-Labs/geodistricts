@@ -182,6 +182,41 @@ async function buildStateComparisonPayload(options = {}) {
   return { us, states, meta };
 }
 
+/**
+ * Re-apply 119th Congress D/R from data/congress-119-party.json onto a cached comparison payload
+ * (Firestore/GCS/file snapshot) so edits to that JSON show up without re-running PoliGeo or restarting the server.
+ * Preserves geodistrictsD/R; recomputes swing = geodistrictsD - congressD per state and US totals.
+ */
+function applyFreshCongress119ToComparisonPayload(payload) {
+  if (!payload || !payload.states || typeof payload.states !== 'object') return payload;
+  const congressSummary = congress119Party.getPartySummary();
+  const states = {};
+  let usCongressD = 0;
+  let usCongressR = 0;
+  for (const [stateCode, s] of Object.entries(payload.states)) {
+    const c = congressSummary.states[stateCode] || { D: 0, R: 0 };
+    const congressD = c.D || 0;
+    const congressR = c.R || 0;
+    usCongressD += congressD;
+    usCongressR += congressR;
+    const geodistrictsD = s.geodistrictsD || 0;
+    states[stateCode] = {
+      ...s,
+      congressD,
+      congressR,
+      swing: geodistrictsD - congressD,
+    };
+  }
+  const geodUS = payload.us?.geodistrictsD || 0;
+  const us = {
+    ...payload.us,
+    congressD: usCongressD,
+    congressR: usCongressR,
+    swing: geodUS - usCongressD,
+  };
+  return { ...payload, states, us };
+}
+
 module.exports = {
   buildStateComparisonPayload,
   extractTractIdsFromGroup,
@@ -189,4 +224,5 @@ module.exports = {
   loadPersistedComparison,
   savePersistedComparison,
   getComparisonDataPath,
+  applyFreshCongress119ToComparisonPayload,
 };

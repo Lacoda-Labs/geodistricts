@@ -6772,7 +6772,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const congressR = parseInt(this.getUSData('119th', 'R'), 10) || 0;
     const geodistrictsD = parseInt(this.getUSData('geodistricts', 'D'), 10) || 0;
     const geodistrictsR = parseInt(this.getUSData('geodistricts', 'R'), 10) || 0;
-    const districtCount = 435;
+    const districtCount = 436;
     const congressMarginD = congressD - congressR;
     const congressMarginR = congressR - congressD;
     const geodistrictsMarginD = geodistrictsD - geodistrictsR;
