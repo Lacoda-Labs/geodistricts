@@ -27,7 +27,7 @@
     <ng-container *ngIf="selectedState === 'ALL'">
       <section class="us-data-section" [attr.data-same-as-dev]="effectiveDevMode ? '' : null">
         <!-- US Summary Row -->
-        <app-state-row [data]="getUSRowData()" [clickable]="false" background="off" section="us-data">
+        <app-state-row [data]="getUSRowData()" [clickable]="false" background="off" section="us-data" class="usa-row">
         </app-state-row>
 
         <!-- Table Header: two rows for D, R, Δ sub-columns -->

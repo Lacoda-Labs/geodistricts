@@ -1311,6 +1311,19 @@
     max-width: 440px;
     order: 1;
   }
+
+  app-state-row,
+  .table-header-rows {
+    width: 100%;
+    max-width: 400px;
+    .table-header-row {
+      justify-content: space-between;
+    } 
+  }
+
+  app-state-row.usa-row, .table-header-rows {
+    margin-left: -15px;
+  }
 }
 
 .us-summary-row,
