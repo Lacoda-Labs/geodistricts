@@ -4,6 +4,11 @@
   <div class="body">
     <!-- Map: static raster for All (when available) or Leaflet for All fallback and state view -->
     <section class="map-section">
+      <div class="map-mode-toolbar" *ngIf="showMapModeToggle">
+        <button mat-stroked-button type="button" (click)="toggleMapDisplayMode()" class="map-mode-toggle">
+          {{ mapDisplayMode() === 'image' ? 'Interactive map' : 'Static map image' }}
+        </button>
+      </div>
       <div class="map-container">
         <ng-container *ngIf="useStaticAllMap">
           <img class="static-all-map-img" [src]="staticAllMapImageUrl" alt="U.S. GeoDistricts map"

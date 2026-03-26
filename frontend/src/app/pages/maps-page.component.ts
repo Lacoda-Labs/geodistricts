@@ -42,6 +42,8 @@ const STATE_COMPARISON_URL = `${environment.apiUrl}/maps/state-comparison`;
 const STATE_PARTY_SUMMARIES_URL = `${environment.apiUrl}/maps/state-party-summaries`;
 const MAPS_LANDING_URL = `${environment.apiUrl}/maps/landing`;
 const MAPS_LANDING_SUMMARIES_URL = `${environment.apiUrl}/maps/landing/summaries`;
+/** Bundled static summaries (no polygons); same shape as MapsLandingSummariesResponse */
+const STATIC_MAPS_SUMMARIES_URL = '/maps/maps-landing-summaries.json';
 
 /** Response from GET /api/maps/landing/summaries - table data only (no polygons) */
 interface MapsLandingSummariesResponse {
@@ -158,7 +160,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   staticAllMapFailed: boolean = false;
   /** True when showing static raster for All view (no Leaflet). */
   get useStaticAllMap(): boolean {
-    return this.selectedState === 'ALL' && !!this.staticAllMapImageUrl && !this.staticAllMapFailed;
+    return this.selectedState === 'ALL' && this.mapDisplayMode() === 'image' && !!this.staticAllMapImageUrl && !this.staticAllMapFailed;
   }
   /** CDN base URL for static state JSON (from environment). */
   readonly cdnBaseUrl: string = (environment.cdnBaseUrl || '').replace(/\/$/, '');
@@ -166,7 +168,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   staticStateData: StaticStatePayload | null = null;
   /** True when showing static state map image (state view, no Leaflet). */
   get useStaticStateMap(): boolean {
-    return this.selectedState !== 'ALL' && !!this.staticStateData?.stateMapImageUrl;
+    return this.selectedState !== 'ALL' && this.mapDisplayMode() === 'image' && !!this.staticStateData?.stateMapImageUrl;
+  }
+
+  /** Show image ↔ interactive control when a CDN raster exists for the current view. */
+  get showMapModeToggle(): boolean {
+    if (this.selectedState === 'ALL') {
+      return !!this.staticAllMapImageUrl && !this.staticAllMapFailed;
+    }
+    return !!this.staticStateData?.stateMapImageUrl;
   }
   /** True when current run uses isolation resolution (perStep/finalStepOnly); hide isolated-tracts UI when false (grid-only). */
   showIsolationResolutionUI: boolean = false;
@@ -228,6 +238,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isPlaying: boolean = false; // Track if auto-playing steps
   /** When true, Play runs move isolated + balance after each division step (backend option moveBalanceAfterStep). */
   moveBalancePerStep = signal(false);
+  /** Public /maps default: image (CDN WebP) when URLs exist; /dev/maps stays Leaflet-first. */
+  mapDisplayMode = signal<'image' | 'leaflet'>('leaflet');
   /** Guard to avoid re-entering runFinalStepToCompletion while move/balance is in flight (prevents play bouncing). */
   private _runningFinalStepCompletion = false;
 
@@ -373,7 +385,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.moveBalancePerStep.set(moveBalParam !== null && moveBalParam !== '' && moveBalParam !== '0' && moveBalParam.toLowerCase() !== 'false');
     this.route.data.subscribe((data) => {
       this.isDevMode = data['mode'] === 'development';
-      if (this.isDevMode) this.isVisualizationOnly = false;
+      if (this.isDevMode) {
+        this.isVisualizationOnly = false;
+        this.mapDisplayMode.set('leaflet');
+      }
       this.cdr.markForCheck();
     });
     // Check if we're on production (geodistricts.org)
@@ -402,7 +417,84 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedState = 'ALL';
     }
 
-    // Load state comparison (119th vs GeoDistricts) for state list
+    this.initMapDisplayModePreference();
+    this.loadMapsPageInitialSummaries();
+  }
+
+  /** /dev/maps: Leaflet-first. Public: prefer image when CDN URLs exist; else Leaflet; respect saved toggle. */
+  private initMapDisplayModePreference(): void {
+    if (this.isDevMode) {
+      this.mapDisplayMode.set('leaflet');
+      return;
+    }
+    const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('mapsPageDisplayMode')) as 'image' | 'leaflet' | null;
+    if (saved === 'image' || saved === 'leaflet') {
+      this.mapDisplayMode.set(saved);
+      return;
+    }
+    if (this.staticAllMapImageUrl || this.cdnBaseUrl) {
+      this.mapDisplayMode.set('image');
+    } else {
+      this.mapDisplayMode.set('leaflet');
+    }
+  }
+
+  private static landingSummariesPayloadIsUseful(data: MapsLandingSummariesResponse | null): boolean {
+    if (!data) return false;
+    if (data.stateComparison?.us && data.stateComparison?.states && Object.keys(data.stateComparison.states).length > 0) {
+      return true;
+    }
+    const s = data.statePartySummaries?.summaries;
+    if (s && Object.keys(s).length > 0) return true;
+    const d = data.districtPartyByState;
+    if (d && Object.keys(d).length > 0) return true;
+    return false;
+  }
+
+  private applyLandingSummariesPayload(data: MapsLandingSummariesResponse): void {
+    if (data.stateComparison) this.stateComparison = data.stateComparison;
+    const landingSummaries = data.statePartySummaries?.summaries;
+    if (landingSummaries && Object.keys(landingSummaries).length > 0) {
+      this.statePartySummaries = landingSummaries;
+    }
+    const landingDistrictParty = data.districtPartyByState ?? {};
+    if (Object.keys(landingDistrictParty).length > 0) {
+      this.allStatesDistrictPartyByState = landingDistrictParty;
+    }
+  }
+
+  /** Prefer bundled `/maps/maps-landing-summaries.json`; fall back to API (single summaries, then legacy endpoints). */
+  private loadMapsPageInitialSummaries(): void {
+    this.http.get<MapsLandingSummariesResponse>(STATIC_MAPS_SUMMARIES_URL).pipe(
+      take(1),
+      catchError(() => of(null))
+    ).subscribe((data) => {
+      if (MapsPageComponent.landingSummariesPayloadIsUseful(data)) {
+        this.applyLandingSummariesPayload(data!);
+        this.rerenderUSMapIfAllView();
+        this.cdr.markForCheck();
+        return;
+      }
+      this.loadLandingSummariesFromApi();
+    });
+  }
+
+  private loadLandingSummariesFromApi(): void {
+    this.http.get<MapsLandingSummariesResponse>(MAPS_LANDING_SUMMARIES_URL).pipe(
+      take(1),
+      catchError(() => of(null))
+    ).subscribe((data) => {
+      if (MapsPageComponent.landingSummariesPayloadIsUseful(data)) {
+        this.applyLandingSummariesPayload(data!);
+        this.rerenderUSMapIfAllView();
+        this.cdr.markForCheck();
+        return;
+      }
+      this.loadStateComparisonAndPartyFromLegacyEndpoints();
+    });
+  }
+
+  private loadStateComparisonAndPartyFromLegacyEndpoints(): void {
     this.http.get<{ us: any; states: Record<string, any> }>(STATE_COMPARISON_URL).pipe(
       catchError(err => {
         console.warn('Maps: state-comparison not available, using placeholders', err?.status || err);
@@ -414,7 +506,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
-    // Load state party summaries (for All view: show D/R % and swing when district party % is calculated)
     this.http.get<{ summaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> }>(STATE_PARTY_SUMMARIES_URL).pipe(
       catchError(() => of({ summaries: {} }))
     ).subscribe(res => {
@@ -422,6 +513,94 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.rerenderUSMapIfAllView();
       this.cdr.markForCheck();
     });
+  }
+
+  /** User control: CDN raster vs interactive Leaflet (when raster exists for this view). */
+  toggleMapDisplayMode(): void {
+    if (!this.showMapModeToggle) return;
+    const next: 'image' | 'leaflet' = this.mapDisplayMode() === 'image' ? 'leaflet' : 'image';
+    if (next === 'image') {
+      if (this.selectedState === 'ALL' && (!this.staticAllMapImageUrl || this.staticAllMapFailed)) return;
+      if (this.selectedState !== 'ALL' && !this.staticStateData?.stateMapImageUrl) return;
+    }
+    this.mapDisplayMode.set(next);
+    if (!this.isDevMode) {
+      localStorage.setItem('mapsPageDisplayMode', next);
+    }
+    this.applyMapDisplayModeSideEffects();
+  }
+
+  private applyMapDisplayModeSideEffects(): void {
+    if (this.selectedState === 'ALL') {
+      if (this.useStaticAllMap) {
+        if (this.map) {
+          this.map.remove();
+          this.map = null;
+        }
+        this.tractLayer = null;
+        this.stateOutlinesLayer = null;
+        this.mapToggleControl = null;
+        this.loadLandingSummariesPreferStatic();
+        this.cdr.markForCheck();
+        return;
+      }
+      setTimeout(() => {
+        this.initializeMap();
+        setTimeout(() => {
+          this.updateMapView();
+          if (this.cachedUSMapStepDataByState && this.cachedUSMapStepDataByState.length > 0) {
+            this.usMapStepDataByState = [...this.cachedUSMapStepDataByState];
+            this.usMapTotalDistricts = this.cachedUSMapTotalDistricts;
+            this.completedStateCodes = new Set(this.cachedUSMapCompletedStateCodes);
+            if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
+            if (this.tractLayer) this.tractLayer.clearLayers();
+            this.tractGeoJsonLayers.clear();
+            this.tractGeoJsonLayerBorderColors.clear();
+            this.tractIdToLayer.clear();
+            this.map?.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
+            this.renderUSMapDistricts(this.usMapStepDataByState);
+            const statesWithFinalStep = this.usMapStepDataByState.filter((s): s is typeof s & { finalStepNumber: number } =>
+              s.finalStepNumber != null && s.finalStepNumber >= 0
+            );
+            if (statesWithFinalStep.length > 0) {
+              const vestYear = 2024;
+              forkJoin(
+                statesWithFinalStep.map((s) =>
+                  this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
+                    catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
+                  )
+                )
+              ).subscribe((results) => {
+                this.allStatesDistrictPartyByState = {};
+                results.forEach((r) => {
+                  this.allStatesDistrictPartyByState[r.state] = r.districts ?? {};
+                });
+                this.renderUSMapDistricts(this.usMapStepDataByState);
+                this.cdr.markForCheck();
+              });
+            }
+            this.cdr.markForCheck();
+          } else {
+            this.tryLandingThenLoadUSMapDistricts();
+          }
+        }, 100);
+      }, 100);
+      return;
+    }
+
+    if (this.useStaticStateMap) {
+      if (this.map) {
+        this.map.remove();
+        this.map = null;
+      }
+      this.tractLayer = null;
+      this.stateOutlinesLayer = null;
+      this.mapToggleControl = null;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.proceedWithStateViewLoadMap();
   }
 
   ngAfterViewInit(): void {
@@ -449,6 +628,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Called when static All map image fails to load; fall back to Leaflet. */
   onStaticAllMapError(): void {
     this.staticAllMapFailed = true;
+    this.mapDisplayMode.set('leaflet');
+    if (!this.isDevMode) {
+      localStorage.setItem('mapsPageDisplayMode', 'leaflet');
+    }
     this.cdr.markForCheck();
     setTimeout(() => {
       this.initializeMap();
@@ -1163,23 +1346,36 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Fetch maps/landing/summaries for All-states table only (state comparison, party summaries). Use when static All map is shown and no Leaflet.
+   * Refresh All-states table data: prefer bundled static JSON, then API summaries.
    */
-  private tryLandingForTableOnly(): void {
+  private loadLandingSummariesPreferStatic(): void {
     if (this.selectedState !== 'ALL') return;
-    this.http.get<MapsLandingSummariesResponse>(MAPS_LANDING_SUMMARIES_URL).pipe(
+    this.http.get<MapsLandingSummariesResponse>(STATIC_MAPS_SUMMARIES_URL).pipe(
       take(1),
       catchError(() => of(null))
     ).subscribe((data) => {
-      if (data) {
-        if (data.stateComparison) this.stateComparison = data.stateComparison;
-        const landingSummaries = data.statePartySummaries?.summaries;
-        if (landingSummaries && Object.keys(landingSummaries).length > 0) this.statePartySummaries = landingSummaries;
-        const landingDistrictParty = data.districtPartyByState ?? {};
-        if (Object.keys(landingDistrictParty).length > 0) this.allStatesDistrictPartyByState = landingDistrictParty;
+      if (MapsPageComponent.landingSummariesPayloadIsUseful(data)) {
+        this.applyLandingSummariesPayload(data!);
         this.cdr.markForCheck();
+        return;
       }
+      this.http.get<MapsLandingSummariesResponse>(MAPS_LANDING_SUMMARIES_URL).pipe(
+        take(1),
+        catchError(() => of(null))
+      ).subscribe((apiData) => {
+        if (apiData) {
+          this.applyLandingSummariesPayload(apiData);
+        }
+        this.cdr.markForCheck();
+      });
     });
+  }
+
+  /**
+   * Fetch maps/landing/summaries for All-states table only (state comparison, party summaries). Use when static All map is shown and no Leaflet.
+   */
+  private tryLandingForTableOnly(): void {
+    this.loadLandingSummariesPreferStatic();
   }
 
   /**

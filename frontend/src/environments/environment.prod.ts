@@ -2,9 +2,15 @@ export const environment = {
   production: true,
   apiUrl: 'https://geodistricts-api-288960974559.us-central1.run.app/api',
   censusProxyUrl: 'https://geodistricts-api-288960974559.us-central1.run.app', // Production - integrated into geodistricts-api
-  /** Base URL for CDN static assets (maps, state JSON). Empty = use API/Leaflet. */
+  /**
+   * CDN base for `states/{ST}.json` and `states/{ST}.webp` (no trailing slash).
+   * Example: `https://storage.googleapis.com/YOUR_BUCKET/maps`
+   */
   cdnBaseUrl: '',
-  /** Static raster for All-states map (e.g. geodistricts-all-119.webp). Set to CDN path when asset is available. */
+  /**
+   * Full URL to national GeoDistricts WebP, or leave empty to use `{cdnBaseUrl}/geodistricts-all-119.webp`.
+   * Generate: `node backend/scripts/generate-geodistricts-all-raster.js`; upload to CDN. See doc/pages/STATIC_MAPS_CDN.md
+   */
   staticAllMapImageUrl: '',
 };
 

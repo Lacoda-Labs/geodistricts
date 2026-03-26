@@ -11,7 +11,12 @@
  *   Default: data/maps_landing.json, output dir data/static-states (or states/ under output-dir).
  *   Set GET_MAPS_LANDING_URL to fetch landing from API instead of file.
  *
- * Upload output dir to CDN; set frontend environment.cdnBaseUrl so state JSON is at {cdnBaseUrl}/states/{stateCode}.json.
+ * Optional env:
+ *   CDN_PUBLIC_BASE_URL — public base URL for map assets (no trailing slash), e.g. https://cdn.example.com/maps.
+ *   State preview image URL becomes {CDN_PUBLIC_BASE_URL}/states/{STATE}.webp (upload WebPs from generate-state-map-rasters.js).
+ *
+ * Upload states/*.json (+ states/*.webp) to CDN; set frontend environment.cdnBaseUrl so JSON is at {cdnBaseUrl}/states/{stateCode}.json.
+ * See doc/pages/STATIC_MAPS_CDN.md.
  */
 
 const fs = require('fs');
@@ -40,7 +45,7 @@ async function loadMapsLanding(inputPath, apiUrl) {
   return JSON.parse(raw);
 }
 
-function buildStatePayload(stateCode, poly, partyByKey, statePopulation, districtCount) {
+function buildStatePayload(stateCode, poly, partyByKey, statePopulation, districtCount, stateMapImageUrl) {
   const stateName = STATE_NAMES[stateCode] || stateCode;
   const targetPopulation = districtCount > 0 && statePopulation > 0
     ? Math.round(statePopulation / districtCount)
@@ -73,7 +78,7 @@ function buildStatePayload(stateCode, poly, partyByKey, statePopulation, distric
     targetPopulation,
     finalStepNumber: poly.finalStepNumber ?? null,
     geodistricts,
-    stateMapImageUrl: null,
+    stateMapImageUrl,
   };
 }
 
@@ -81,6 +86,7 @@ async function main() {
   const inputPath = process.argv[2] || 'data/maps_landing.json';
   const outputDir = process.argv[3] || path.join(process.cwd(), 'data', 'static-states');
   const apiUrl = process.env.GET_MAPS_LANDING_URL || null;
+  const cdnBase = (process.env.CDN_PUBLIC_BASE_URL || '').replace(/\/$/, '');
 
   console.log('Loading maps_landing...');
   const landing = await loadMapsLanding(inputPath, apiUrl);
@@ -98,11 +104,12 @@ async function main() {
     const partyByKey = districtPartyByState[stateCode] || {};
     const districtCount = poly.finalDistrictPolygons.length;
     const statePopulation = 0;
-    const payload = buildStatePayload(stateCode, poly, partyByKey, statePopulation, districtCount);
+    const stateMapImageUrl = cdnBase ? `${cdnBase}/states/${stateCode}.webp` : null;
+    const payload = buildStatePayload(stateCode, poly, partyByKey, statePopulation, districtCount, stateMapImageUrl);
     const outPath = path.join(statesDir, `${stateCode}.json`);
     fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf8');
     count++;
-    console.log('  ', stateCode);
+    console.log('  ', stateCode, stateMapImageUrl || '(no CDN_PUBLIC_BASE_URL)');
   }
   console.log(`Wrote ${count} state JSON files to ${statesDir}`);
 }

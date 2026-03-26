@@ -117,6 +117,7 @@ For detailed implementation specifications and related documentation, see:
 - [Secret Manager Integration](pages/SECRET_MANAGER_INTEGRATION.md) - Secrets management
 - [Cloud Storage Migration](pages/CLOUD_STORAGE_MIGRATION.md) - Storage migration guide
 - [Caching Design](pages/CACHING_DESIGN.md) - Caching strategy
+- [Static maps CDN](pages/STATIC_MAPS_CDN.md) - Public maps: bundled summaries JSON, CDN WebP rasters, regen scripts
 
 ### UI Components
 - [Division Boxes Component](pages/DIVISION_BOXES_COMPONENT.md) - UI component documentation

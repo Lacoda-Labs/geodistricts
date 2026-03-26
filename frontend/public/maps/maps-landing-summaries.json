@@ -1,0 +1,11 @@
+{
+  "stateComparison": null,
+  "statePartySummaries": {
+    "summaries": {}
+  },
+  "districtPartyByState": {},
+  "meta": {
+    "generatedAt": "",
+    "note": "Placeholder: run node backend/scripts/generate-frontend-maps-summaries.js with data/maps_landing.json (or GET_MAPS_LANDING_URL). Then API fallback loads live data when this file has no comparison/summaries."
+  }
+}
