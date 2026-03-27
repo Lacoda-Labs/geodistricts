@@ -4,21 +4,8 @@
   <div class="body">
     <!-- Map: static raster for All (when available) or Leaflet for All fallback and state view -->
     <section class="map-section">
-      <div class="map-mode-toolbar" *ngIf="showMapModeToggle">
-        <button mat-stroked-button type="button" (click)="toggleMapDisplayMode()" class="map-mode-toggle">
-          {{ mapDisplayMode() === 'image' ? 'Interactive map' : 'Static map image' }}
-        </button>
-      </div>
       <div class="map-container">
-        <ng-container *ngIf="useStaticAllMap">
-          <img class="static-all-map-img" [src]="staticAllMapImageUrl" alt="U.S. GeoDistricts map"
-            (error)="onStaticAllMapError()" fetchpriority="high" />
-        </ng-container>
-        <ng-container *ngIf="useStaticStateMap && staticStateData?.stateMapImageUrl">
-          <img class="static-state-map-img" [src]="staticStateData?.stateMapImageUrl"
-            [alt]="'GeoDistricts map – ' + (staticStateData?.stateName ?? '')" />
-        </ng-container>
-        <div *ngIf="!useStaticAllMap && !useStaticStateMap" id="usMap" class="map"></div>
+        <div id="usMap" class="map"></div>
         <div *ngIf="isLoading && selectedState !== 'ALL'" class="loading-overlay">
           <div class="loading-spinner-container">
             <div class="loading-spinner"></div>

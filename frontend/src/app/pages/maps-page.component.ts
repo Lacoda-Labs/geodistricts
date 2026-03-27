@@ -8,7 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
-import { mergeMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
+import { concatMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, PerGroupStatus, FinalStepResponse } from '../services/geodistrict-algorithm.service';
@@ -63,29 +63,6 @@ interface MapsLandingResponse {
     finalStepNumber?: number;
   }>;
   districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
-}
-
-/** Per-state static JSON from CDN (states/{stateCode}.json) */
-export interface StaticStateGeodistrict {
-  groupKey: string;
-  startDistrictNumber: number;
-  endDistrictNumber: number;
-  population?: number | null;
-  variance?: number | null;
-  pctDem: number;
-  pctRep: number;
-  leadingParty: string;
-  leadingPartyPct: number;
-  imageUrl?: string | null;
-}
-export interface StaticStatePayload {
-  stateCode: string;
-  stateName: string;
-  districtCount: number;
-  targetPopulation: number;
-  finalStepNumber: number | null;
-  geodistricts: StaticStateGeodistrict[];
-  stateMapImageUrl?: string | null;
 }
 
 /** Fill opacity for district/tract polygons: 1 = solid when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
@@ -153,31 +130,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   get effectiveDevMode(): boolean {
     return this.isDevMode || this.selectedState === 'ALL';
   }
-  /** Static raster URL for All-states map (from env or cdnBaseUrl + asset name). Empty = use Leaflet. */
-  readonly staticAllMapImageUrl: string = environment.staticAllMapImageUrl
-    || (environment.cdnBaseUrl ? `${environment.cdnBaseUrl.replace(/\/$/, '')}/geodistricts-all-119.webp` : '');
-  /** True when static All map image failed to load; fall back to Leaflet. */
-  staticAllMapFailed: boolean = false;
-  /** True when showing static raster for All view (no Leaflet). */
-  get useStaticAllMap(): boolean {
-    return this.selectedState === 'ALL' && this.mapDisplayMode() === 'image' && !!this.staticAllMapImageUrl && !this.staticAllMapFailed;
-  }
-  /** CDN base URL for static state JSON (from environment). */
-  readonly cdnBaseUrl: string = (environment.cdnBaseUrl || '').replace(/\/$/, '');
-  /** Per-state static payload when loaded from CDN (states/{stateCode}.json). */
-  staticStateData: StaticStatePayload | null = null;
-  /** True when showing static state map image (state view, no Leaflet). */
-  get useStaticStateMap(): boolean {
-    return this.selectedState !== 'ALL' && this.mapDisplayMode() === 'image' && !!this.staticStateData?.stateMapImageUrl;
-  }
-
-  /** Show image ↔ interactive control when a CDN raster exists for the current view. */
-  get showMapModeToggle(): boolean {
-    if (this.selectedState === 'ALL') {
-      return !!this.staticAllMapImageUrl && !this.staticAllMapFailed;
-    }
-    return !!this.staticStateData?.stateMapImageUrl;
-  }
   /** True when current run uses isolation resolution (perStep/finalStepOnly); hide isolated-tracts UI when false (grid-only). */
   showIsolationResolutionUI: boolean = false;
   /** Collapsible "Step 0 isolated tracts" panel: false = collapsed to preserve real estate */
@@ -238,8 +190,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   isPlaying: boolean = false; // Track if auto-playing steps
   /** When true, Play runs move isolated + balance after each division step (backend option moveBalanceAfterStep). */
   moveBalancePerStep = signal(false);
-  /** Public /maps default: image (CDN WebP) when URLs exist; /dev/maps stays Leaflet-first. */
-  mapDisplayMode = signal<'image' | 'leaflet'>('leaflet');
   /** Guard to avoid re-entering runFinalStepToCompletion while move/balance is in flight (prevents play bouncing). */
   private _runningFinalStepCompletion = false;
 
@@ -387,7 +337,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.isDevMode = data['mode'] === 'development';
       if (this.isDevMode) {
         this.isVisualizationOnly = false;
-        this.mapDisplayMode.set('leaflet');
       }
       this.cdr.markForCheck();
     });
@@ -417,26 +366,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedState = 'ALL';
     }
 
-    this.initMapDisplayModePreference();
     this.loadMapsPageInitialSummaries();
-  }
-
-  /** /dev/maps: Leaflet-first. Public: prefer image when CDN URLs exist; else Leaflet; respect saved toggle. */
-  private initMapDisplayModePreference(): void {
-    if (this.isDevMode) {
-      this.mapDisplayMode.set('leaflet');
-      return;
-    }
-    const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('mapsPageDisplayMode')) as 'image' | 'leaflet' | null;
-    if (saved === 'image' || saved === 'leaflet') {
-      this.mapDisplayMode.set(saved);
-      return;
-    }
-    if (this.staticAllMapImageUrl || this.cdnBaseUrl) {
-      this.mapDisplayMode.set('image');
-    } else {
-      this.mapDisplayMode.set('leaflet');
-    }
   }
 
   private static landingSummariesPayloadIsUseful(data: MapsLandingSummariesResponse | null): boolean {
@@ -515,101 +445,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** User control: CDN raster vs interactive Leaflet (when raster exists for this view). */
-  toggleMapDisplayMode(): void {
-    if (!this.showMapModeToggle) return;
-    const next: 'image' | 'leaflet' = this.mapDisplayMode() === 'image' ? 'leaflet' : 'image';
-    if (next === 'image') {
-      if (this.selectedState === 'ALL' && (!this.staticAllMapImageUrl || this.staticAllMapFailed)) return;
-      if (this.selectedState !== 'ALL' && !this.staticStateData?.stateMapImageUrl) return;
-    }
-    this.mapDisplayMode.set(next);
-    if (!this.isDevMode) {
-      localStorage.setItem('mapsPageDisplayMode', next);
-    }
-    this.applyMapDisplayModeSideEffects();
-  }
-
-  private applyMapDisplayModeSideEffects(): void {
-    if (this.selectedState === 'ALL') {
-      if (this.useStaticAllMap) {
-        if (this.map) {
-          this.map.remove();
-          this.map = null;
-        }
-        this.tractLayer = null;
-        this.stateOutlinesLayer = null;
-        this.mapToggleControl = null;
-        this.loadLandingSummariesPreferStatic();
-        this.cdr.markForCheck();
-        return;
-      }
-      setTimeout(() => {
-        this.initializeMap();
-        setTimeout(() => {
-          this.updateMapView();
-          if (this.cachedUSMapStepDataByState && this.cachedUSMapStepDataByState.length > 0) {
-            this.usMapStepDataByState = [...this.cachedUSMapStepDataByState];
-            this.usMapTotalDistricts = this.cachedUSMapTotalDistricts;
-            this.completedStateCodes = new Set(this.cachedUSMapCompletedStateCodes);
-            if (this.stateOutlinesLayer) this.stateOutlinesLayer.clearLayers();
-            if (this.tractLayer) this.tractLayer.clearLayers();
-            this.tractGeoJsonLayers.clear();
-            this.tractGeoJsonLayerBorderColors.clear();
-            this.tractIdToLayer.clear();
-            this.map?.fitBounds(MapsPageComponent.CONTINENTAL_US_BOUNDS, { padding: [24, 24], maxZoom: 10 });
-            this.renderUSMapDistricts(this.usMapStepDataByState);
-            const statesWithFinalStep = this.usMapStepDataByState.filter((s): s is typeof s & { finalStepNumber: number } =>
-              s.finalStepNumber != null && s.finalStepNumber >= 0
-            );
-            if (statesWithFinalStep.length > 0) {
-              const vestYear = 2024;
-              forkJoin(
-                statesWithFinalStep.map((s) =>
-                  this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
-                    catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
-                  )
-                )
-              ).subscribe((results) => {
-                this.allStatesDistrictPartyByState = {};
-                results.forEach((r) => {
-                  this.allStatesDistrictPartyByState[r.state] = r.districts ?? {};
-                });
-                this.renderUSMapDistricts(this.usMapStepDataByState);
-                this.cdr.markForCheck();
-              });
-            }
-            this.cdr.markForCheck();
-          } else {
-            this.tryLandingThenLoadUSMapDistricts();
-          }
-        }, 100);
-      }, 100);
-      return;
-    }
-
-    if (this.useStaticStateMap) {
-      if (this.map) {
-        this.map.remove();
-        this.map = null;
-      }
-      this.tractLayer = null;
-      this.stateOutlinesLayer = null;
-      this.mapToggleControl = null;
-      this.cdr.markForCheck();
-      return;
-    }
-
-    this.proceedWithStateViewLoadMap();
-  }
-
   ngAfterViewInit(): void {
     setTimeout(() => {
-      if (this.useStaticAllMap) {
-        // All view with static raster: no Leaflet; load table data only
-        this.tryLandingForTableOnly();
-        return;
-      }
       this.initializeMap();
       if (this.selectedState === 'ALL') {
         this.updateMapView();
@@ -625,25 +462,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 100);
   }
 
-  /** Called when static All map image fails to load; fall back to Leaflet. */
-  onStaticAllMapError(): void {
-    this.staticAllMapFailed = true;
-    this.mapDisplayMode.set('leaflet');
-    if (!this.isDevMode) {
-      localStorage.setItem('mapsPageDisplayMode', 'leaflet');
-    }
-    this.cdr.markForCheck();
-    setTimeout(() => {
-      this.initializeMap();
-      if (this.selectedState === 'ALL') {
-        this.updateMapView();
-        this.loadUSMapDistricts();
-        this.tryLandingForTableOnly();
-      }
-    }, 100);
-  }
-
-  /** Load Leaflet map and map-polygons for state view (when static state JSON not used). */
+  /** Load Leaflet map and map-polygons for state view. */
   private proceedWithStateViewLoadMap(): void {
     setTimeout(() => {
       this.initializeMap();
@@ -652,50 +471,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadMapPolygons();
       }, 300);
     }, 100);
-  }
-
-  /** Apply per-state static JSON from CDN: synthetic final step and district list; no Leaflet. */
-  private applyStaticStateData(payload: StaticStatePayload): void {
-    this.staticStateData = payload;
-    this.finalStepNumber = payload.finalStepNumber ?? null;
-    const districtPartyByGroupKey: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> = {};
-    const districtGroups: DistrictGroup[] = payload.geodistricts.map((g) => {
-      districtPartyByGroupKey[g.groupKey] = {
-        pctDem: g.pctDem,
-        pctRep: g.pctRep,
-        votesDem: 0,
-        votesRep: 0,
-        totalVotes: 0,
-      };
-      const pop = g.population ?? 0;
-      const group: DistrictGroup & { variance?: number } = {
-        startDistrictNumber: g.startDistrictNumber,
-        endDistrictNumber: g.endDistrictNumber,
-        censusTracts: [],
-        totalDistricts: 1,
-        totalPopulation: pop,
-        bounds: { north: 0, south: 0, east: 0, west: 0 },
-        centroid: { lat: 0, lng: 0 },
-      };
-      if (typeof g.variance === 'number') group.variance = g.variance;
-      return group;
-    });
-    this.districtPartyByGroupKey = districtPartyByGroupKey;
-    this.currentStep = {
-      step: payload.finalStepNumber ?? 0,
-      level: 0,
-      districtGroups,
-      description: 'Final step',
-      totalGroups: districtGroups.length,
-      totalDistricts: districtGroups.length,
-      divisionDirection: 'latitude',
-    };
-    this.currentStepIndex = 0;
-    this.loadedSteps = [this.currentStep];
-    this.totalSteps = 1;
-    this.isVisualizationOnly = true;
-    this.mapPolygons = null;
-    this.mapPolygonsState = null;
   }
 
   ngOnDestroy(): void {
@@ -1015,14 +790,13 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tractPartyByGeoid = null;
 
       if (this.selectedState !== 'ALL') {
-        this.staticStateData = null;
         // Save All-states data to cache before clearing so we can restore when switching back
         if (this.usMapStepDataByState.length > 0) {
           this.cachedUSMapStepDataByState = [...this.usMapStepDataByState];
           this.cachedUSMapTotalDistricts = this.usMapTotalDistricts;
           this.cachedUSMapCompletedStateCodes = new Set(this.completedStateCodes);
         }
-        // State view: try CDN static state JSON first; else Leaflet + map-polygons
+        // State view: Leaflet + GET map-polygons (same path local and production)
         this.usMapStepDataByState = [];
         this.usMapTotalDistricts = 0;
         this.completedStateCodes = new Set();
@@ -1040,36 +814,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isLoading = false;
         this.isLoadingSteps = false;
 
-        if (this.cdnBaseUrl) {
-          const staticUrl = `${this.cdnBaseUrl}/states/${this.selectedState}.json`;
-          this.http.get<StaticStatePayload>(staticUrl).pipe(take(1), catchError(() => of(null))).subscribe((data) => {
-            if (data && data.geodistricts?.length) {
-              this.applyStaticStateData(data);
-              this.cdr.markForCheck();
-              if (!data.stateMapImageUrl) this.proceedWithStateViewLoadMap();
-              return;
-            }
-            this.proceedWithStateViewLoadMap();
-          });
-        } else {
-          this.proceedWithStateViewLoadMap();
-        }
+        this.proceedWithStateViewLoadMap();
       } else {
-        // US/ALL view: static raster or reuse Leaflet map
+        // US/ALL view: reuse Leaflet map and cached or fresh polygon data
         this.algorithmResult = null;
         this.currentStep = null;
         this.currentStepIndex = 0;
-        if (this.useStaticAllMap) {
-          if (this.map) {
-            this.map.remove();
-            this.map = null;
-          }
-          this.tractLayer = null;
-          this.stateOutlinesLayer = null;
-          this.tryLandingForTableOnly();
-          this.cdr.markForCheck();
-          return;
-        }
         setTimeout(() => {
           this.updateMapView();
           if (this.cachedUSMapStepDataByState && this.cachedUSMapStepDataByState.length > 0) {
@@ -1204,11 +954,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.setView(stateCenter, 5);
   }
 
-  /** Total duration in ms for the US map reveal (state outlines + geodistricts). */
-  private static readonly US_MAP_REVEAL_MS = 8000;
-  /** Match hero map: total draw duration 30s over ~435 districts; delay between each reveal. */
-  private static readonly US_MAP_REVEAL_TOTAL_MS = 30 * 1000;
-  private static readonly US_MAP_REVEAL_DELAY_MS = Math.max(1, Math.round(MapsPageComponent.US_MAP_REVEAL_TOTAL_MS / 435));
+  /** 0 = draw all US-map districts immediately when each state’s data arrives (no hero stagger). */
+  private static readonly US_MAP_REVEAL_DELAY_MS = 0;
   /** Timeout IDs for US map timed reveal (per-state); cleared in ngOnDestroy and when starting a new load. */
   private usMapRevealTimeouts: ReturnType<typeof setTimeout>[] = [];
   /** Count of district reveal timeouts that have fired (parallel state fetches make "last state" ambiguous). */
@@ -1327,7 +1074,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** After parallel state loads, finish only when all staggered district timeouts have run (or none were scheduled). */
+  /** Finish All-states load when HTTP sequence completes and any scheduled district reveal timeouts have fired. */
   private tryFinishUSMapLoadWhenRevealsDone(): void {
     if (!this.usMapAllFetchesComplete) return;
     const expected = this.usMapRevealTimeouts.length;
@@ -1381,7 +1128,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Fetch maps/landing/summaries for All-states table only (state comparison, party summaries). Use when static All map is shown and no Leaflet.
+   * Fetch bundled or API summaries for All-states table (comparison, party); complements Leaflet polygon load.
    */
   private tryLandingForTableOnly(): void {
     this.loadLandingSummariesPreferStatic();
@@ -1440,8 +1187,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Load district data for US map view.
-   * Fetches map-polygons for all states in parallel (mergeMap); per state, fetches district-party when final step exists.
-   * District polygons use staggered reveal (delay = 30s/435 per district) unless US_MAP_REVEAL_DELAY_MS is 0.
+   * Fetches map-polygons per state sequentially (concatMap); per state, fetches district-party when final step exists.
+   * Districts render immediately (US_MAP_REVEAL_DELAY_MS = 0).
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
@@ -1474,7 +1221,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const sub = from(shuffledStateCodes)
       .pipe(
-        mergeMap((stateCode) =>
+        concatMap((stateCode) =>
           this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
             switchMap((response) => {
               const hasFinal =
@@ -1529,8 +1276,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             });
           }
 
-          groups.forEach((district, districtIndex) => {
-            const t = setTimeout(() => {
+          if (delayMs <= 0) {
+            groups.forEach((district, districtIndex) => {
               this.addUSMapRevealItem({
                 type: 'district',
                 stateCode,
@@ -1538,12 +1285,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 districtIndex,
                 totalDistricts: groups.length,
               });
-              this.usMapRevealTimeoutsCompleted++;
-              this.tryFinishUSMapLoadWhenRevealsDone();
-              this.cdr.markForCheck();
-            }, (districtIndex + 1) * delayMs);
-            this.usMapRevealTimeouts.push(t);
-          });
+            });
+          } else {
+            groups.forEach((district, districtIndex) => {
+              const t = setTimeout(() => {
+                this.addUSMapRevealItem({
+                  type: 'district',
+                  stateCode,
+                  district,
+                  districtIndex,
+                  totalDistricts: groups.length,
+                });
+                this.usMapRevealTimeoutsCompleted++;
+                this.tryFinishUSMapLoadWhenRevealsDone();
+                this.cdr.markForCheck();
+              }, (districtIndex + 1) * delayMs);
+              this.usMapRevealTimeouts.push(t);
+            });
+          }
 
           this.isLoading = false;
           this.cdr.markForCheck();
@@ -2578,7 +2337,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** True when current step is the final step (all single-district groups). Used to show final-step actions and party totals on /maps and /dev/maps. */
   get isFinalStepActive(): boolean {
-    if (this.staticStateData) return true;
     if (!this.currentStep?.districtGroups?.length) return false;
     return this.currentStep.districtGroups.every(g => g.totalDistricts === 1);
   }

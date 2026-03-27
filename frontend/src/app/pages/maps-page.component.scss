@@ -33,19 +33,6 @@
   }
 }
 
-.map-mode-toolbar {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 6px 10px 0;
-  gap: 8px;
-}
-
-.map-mode-toggle {
-  font-size: 13px;
-}
-
 .map-container {
   width: 100%;
   flex: 1;
@@ -99,14 +86,6 @@
 .map {
   width: 100%;
   height: 100%;
-}
-
-.static-all-map-img,
-.static-state-map-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
 }
 
 .sort-slider-wrapper {
