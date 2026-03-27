@@ -30,7 +30,7 @@ export STATIC_MAPS_GCS_PREFIX='gs://YOUR_BUCKET/public-maps'
 npm run build:static-maps-cdn -- --upload
 ```
 
-Uses `gcloud storage cp -r` with `Cache-Control: public, max-age=86400`. Requires `gcloud` CLI and credentials with storage access.
+Uses `gcloud storage rsync --recursive` into `STATIC_MAPS_GCS_PREFIX` with `Cache-Control: public, max-age=86400` (mirrors `data/cdn-maps-static` contents so `geodistricts-all-119.webp` and `states/` sit directly under `public-maps/`, not under an extra `cdn-maps-static/` folder). Requires `gcloud` CLI and credentials with storage access.
 
 **Flags:** `--out DIR`, `--landing PATH`, `--dry-run`, `--help`. See `backend/scripts/build-static-maps-cdn-assets.js` header.
 

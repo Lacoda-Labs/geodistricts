@@ -11,7 +11,7 @@
  *   --landing PATH         Use this maps_landing.json
  *   --from-api BASE        Fetch GET {BASE}/api/maps/landing (no trailing /api)
  *   --from-gcs             Copy MAPS_LANDING_GCS_URI to data/maps_landing.json
- *   --upload                 After build, gcloud storage cp to STATIC_MAPS_GCS_PREFIX
+ *   --upload                 After build, gcloud storage rsync output dir to STATIC_MAPS_GCS_PREFIX (flat; no extra cdn-maps-static segment)
  *   --dry-run              Print steps only
  *
  * Env:
@@ -287,11 +287,20 @@ Produce landing on the server first: POST /api/admin/maps-landing/generate (see 
     }
     console.log(`\n── Upload to ${gcsPrefix || '$STATIC_MAPS_GCS_PREFIX'} ──`);
     if (opts.dryRun) {
-      console.log(`[dry-run] gcloud storage cp -r "${outDir}/." "${(gcsPrefix || 'gs://BUCKET/public-maps')}/" --cache-control="public, max-age=86400"`);
+      console.log(
+        `[dry-run] gcloud storage rsync --recursive --cache-control="public, max-age=86400" "${outDir}" "${gcsPrefix || 'gs://BUCKET/public-maps'}"`
+      );
     } else {
       const r = spawnSync(
         'gcloud',
-        ['storage', 'cp', '-r', `${outDir}/.`, `${gcsPrefix}/`, '--cache-control=public, max-age=86400'],
+        [
+          'storage',
+          'rsync',
+          '--recursive',
+          '--cache-control=public, max-age=86400',
+          outDir,
+          gcsPrefix,
+        ],
         { cwd: repoRoot, stdio: 'inherit' }
       );
       if (r.status !== 0) {

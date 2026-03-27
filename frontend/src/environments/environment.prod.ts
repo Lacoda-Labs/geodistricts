@@ -6,7 +6,7 @@ export const environment = {
    * CDN base for `states/{ST}.json` and `states/{ST}.webp` (no trailing slash).
    * Example: `https://storage.googleapis.com/YOUR_BUCKET/maps`
    */
-  cdnBaseUrl: '',
+  cdnBaseUrl: 'https://maps-cdn.geodistricts.org/public-maps',
   /**
    * Full URL to national GeoDistricts WebP, or leave empty to use `{cdnBaseUrl}/geodistricts-all-119.webp`.
    * Generate: `node backend/scripts/generate-geodistricts-all-raster.js`; upload to CDN. See doc/pages/STATIC_MAPS_CDN.md

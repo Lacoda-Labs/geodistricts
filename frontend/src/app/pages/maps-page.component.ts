@@ -8,7 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription, concat, lastValueFrom, of, forkJoin, from, timer } from 'rxjs';
-import { concatMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
+import { mergeMap, tap, last, map, catchError, take, finalize, switchMap, filter, timeout } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { GeodistrictAlgorithmService, GeodistrictResult, GeodistrictStep, GeodistrictOptions, DistrictGroup, DivisionLineInfo, MapPolygonsResponse, PerGroupStatus, FinalStepResponse } from '../services/geodistrict-algorithm.service';
@@ -1211,8 +1211,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly US_MAP_REVEAL_DELAY_MS = Math.max(1, Math.round(MapsPageComponent.US_MAP_REVEAL_TOTAL_MS / 435));
   /** Timeout IDs for US map timed reveal (per-state); cleared in ngOnDestroy and when starting a new load. */
   private usMapRevealTimeouts: ReturnType<typeof setTimeout>[] = [];
-  /** Last stateCode emitted by loadUSMapDistricts (used to call finishUSMapLoad when its last district is drawn). */
-  private usMapLastReceivedStateCode: string | null = null;
+  /** Count of district reveal timeouts that have fired (parallel state fetches make "last state" ambiguous). */
+  private usMapRevealTimeoutsCompleted = 0;
   /** True when the loadUSMapDistricts observable has completed (all state fetches done). */
   private usMapAllFetchesComplete = false;
 
@@ -1327,6 +1327,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** After parallel state loads, finish only when all staggered district timeouts have run (or none were scheduled). */
+  private tryFinishUSMapLoadWhenRevealsDone(): void {
+    if (!this.usMapAllFetchesComplete) return;
+    const expected = this.usMapRevealTimeouts.length;
+    if (expected === 0 || this.usMapRevealTimeoutsCompleted >= expected) {
+      this.finishUSMapLoad();
+    }
+  }
+
   /**
    * Try GET /api/maps/landing for All-states view; on success apply and render. On 404 or error, fall back to loadUSMapDistricts().
    * Same data path for /maps and /dev/maps when showing All states.
@@ -1431,14 +1440,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Load district data for US map view.
-   * Fetches map-polygons for each state (random order); after each response, fetches district-party for that state,
-   * then draws that state's outline and districts sequentially with hero-style timing (delay = 30s/435 per item).
+   * Fetches map-polygons for all states in parallel (mergeMap); per state, fetches district-party when final step exists.
+   * District polygons use staggered reveal (delay = 30s/435 per district) unless US_MAP_REVEAL_DELAY_MS is 0.
    */
   loadUSMapDistricts(): void {
     if (this.selectedState !== 'ALL' || !this.map || !this.tractLayer) return;
     this.usMapRevealTimeouts.forEach(t => clearTimeout(t));
     this.usMapRevealTimeouts = [];
-    this.usMapLastReceivedStateCode = null;
+    this.usMapRevealTimeoutsCompleted = 0;
     this.usMapAllFetchesComplete = false;
 
     this.isLoading = true;
@@ -1465,7 +1474,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const sub = from(shuffledStateCodes)
       .pipe(
-        concatMap((stateCode) =>
+        mergeMap((stateCode) =>
           this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
             switchMap((response) => {
               const hasFinal =
@@ -1502,7 +1511,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: ({ stateCode, response, districts }) => {
-          this.usMapLastReceivedStateCode = stateCode;
           const stepData = this.mapPolygonsResponseToStepData(response);
           const stateOutline = response.statePolygon;
           const finalStepNumber = response.finalStepNumber;
@@ -1530,10 +1538,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 districtIndex,
                 totalDistricts: groups.length,
               });
-              const isLastDistrict = districtIndex === groups.length - 1;
-              if (isLastDistrict && this.usMapAllFetchesComplete && this.usMapLastReceivedStateCode === stateCode) {
-                this.finishUSMapLoad();
-              }
+              this.usMapRevealTimeoutsCompleted++;
+              this.tryFinishUSMapLoadWhenRevealsDone();
               this.cdr.markForCheck();
             }, (districtIndex + 1) * delayMs);
             this.usMapRevealTimeouts.push(t);
@@ -1544,16 +1550,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         complete: () => {
           this.usMapAllFetchesComplete = true;
-          const lastCode = this.usMapLastReceivedStateCode;
-          if (lastCode == null || this.completedStateCodes.size === 0) {
-            this.finishUSMapLoad();
-            return;
-          }
-          const lastStateData = this.usMapStepDataByState.find((s) => s.stateCode === lastCode);
-          const lastStateDistrictCount = lastStateData?.stepData?.districtGroups?.length ?? 0;
-          if (lastStateDistrictCount === 0) {
-            this.finishUSMapLoad();
-          }
+          this.tryFinishUSMapLoadWhenRevealsDone();
         },
         error: (err) => {
           this.isLoading = false;
