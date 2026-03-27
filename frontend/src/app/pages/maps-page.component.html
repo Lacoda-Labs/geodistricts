@@ -482,20 +482,24 @@
                           {{ getGroupVariance(group).toFixed(2) }}%
                         </td>
                         <td *ngIf="isFinalStepActive" class="col-party"
-                          [class.party-cell-filled]="getDistrictPartyFillColor(group)"
                           (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
-                          <span [style.background]="getDistrictPartyFillColor(group)">
-                            <ng-container *ngIf="showPartyStatusIcon(i)">
+                          <mat-chip-set class="district-party-chip-set">
+                            <mat-chip *ngIf="showPartyStatusIcon(i)" class="district-party-chip district-party-chip--status"
+                              [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
                               <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
                                 class="status-icon in-progress">hourglass_empty</mat-icon>
                               <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'"
                                 class="status-icon fail">error</mat-icon>
                               <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'"
                                 class="status-icon missing">warning</mat-icon>
-                            </ng-container>
-                            <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text">{{
-                              getLeadingPartyDisplay(group) }}</span>
-                          </span>
+                            </mat-chip>
+                            <mat-chip *ngIf="!showPartyStatusIcon(i)" class="district-party-chip"
+                              [class.district-party-chip--filled]="!!getDistrictPartyFillColor(group)"
+                              [style.background-color]="getDistrictPartyFillColor(group) || null"
+                              [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
+                              {{ getLeadingPartyDisplay(group) }}
+                            </mat-chip>
+                          </mat-chip-set>
                         </td>
                       </tr>
                     </tbody>
@@ -814,21 +818,24 @@
                         {{ getGroupVariance(group).toFixed(2) }}%
                       </td>
                       <td *ngIf="isFinalStepActive" class="col-party"
-                        [class.party-cell-filled]="getDistrictPartyFillColor(group)"
                         (click)="isDevMode && getGroupStatusForIndex(i) && (getGroupStatusForIndex(i)?.party === 'missing' || getGroupStatusForIndex(i)?.party === 'fail') && triggerPartyForGroup(group, $event)">
-                        <span >
-                          <ng-container *ngIf="showPartyStatusIcon(i)">
+                        <mat-chip-set class="district-party-chip-set">
+                          <mat-chip *ngIf="showPartyStatusIcon(i)" class="district-party-chip district-party-chip--status"
+                            [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
                             <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'in_progress'"
                               class="status-icon in-progress">hourglass_empty</mat-icon>
                             <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'fail'"
                               class="status-icon fail">error</mat-icon>
                             <mat-icon *ngIf="getGroupStatusForIndex(i)?.party === 'missing'"
                               class="status-icon missing">warning</mat-icon>
-                          </ng-container>
-                          <span *ngIf="!showPartyStatusIcon(i)" class="party-tooltip-text"
-                          [style.background]="getDistrictPartyFillColor(group)">{{
-                            getLeadingPartyDisplay(group) }}</span>
-                        </span>
+                          </mat-chip>
+                          <mat-chip *ngIf="!showPartyStatusIcon(i)" class="district-party-chip"
+                            [class.district-party-chip--filled]="!!getDistrictPartyFillColor(group)"
+                            [style.background-color]="getDistrictPartyFillColor(group) || null"
+                            [matTooltip]="getGroupPartyTooltip(group, getGroupStatusForIndex(i))">
+                            {{ getLeadingPartyDisplay(group) }}
+                          </mat-chip>
+                        </mat-chip-set>
                       </td>
                     </tr>
                   </tbody>

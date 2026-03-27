@@ -61,6 +61,7 @@ interface MapsLandingResponse {
     finalDistrictPolygons?: GeoJsonFeature[];
     hasFinalStep: boolean;
     finalStepNumber?: number;
+    districtSummaries?: MapPolygonsResponse['districtSummaries'];
   }>;
   districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
 }
@@ -1427,17 +1428,24 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private mapPolygonsResponseToStepData(response: MapPolygonsResponse | null): GeodistrictStep {
     if (response?.finalDistrictPolygons?.length) {
-      const districtGroups = response.finalDistrictPolygons.map((polygon, i) => ({
-      startDistrictNumber: i + 1,
-      endDistrictNumber: i + 1,
-      unionPolygon: polygon,
-      unionPolygons: [polygon],
-      totalPopulation: 0,
-      censusTracts: [] as GeoJsonFeature[],
-      totalDistricts: 1,
-      bounds: { north: 0, south: 0, east: 0, west: 0 },
-      centroid: { lat: 0, lng: 0 }
-    }));
+      const polygons = response.finalDistrictPolygons;
+      const summaries = response.districtSummaries;
+      const useSummaries =
+        Array.isArray(summaries) && summaries.length === polygons.length;
+      const districtGroups = polygons.map((polygon, i) => {
+        const s = useSummaries ? summaries[i] : undefined;
+        return {
+          startDistrictNumber: s?.startDistrictNumber ?? i + 1,
+          endDistrictNumber: s?.endDistrictNumber ?? i + 1,
+          unionPolygon: polygon,
+          unionPolygons: [polygon],
+          totalPopulation: s?.totalPopulation ?? 0,
+          censusTracts: [] as GeoJsonFeature[],
+          totalDistricts: 1,
+          bounds: { north: 0, south: 0, east: 0, west: 0 },
+          centroid: { lat: 0, lng: 0 }
+        };
+      });
       return {
         step: 0,
         level: 0,
