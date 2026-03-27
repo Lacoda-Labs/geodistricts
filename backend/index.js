@@ -1482,6 +1482,9 @@ async function buildMapsLandingPayload() {
         finalDistrictPolygons: result.finalDistrictPolygons,
         hasFinalStep: !!result.hasFinalStep,
         finalStepNumber: result.finalStepNumber,
+        ...(Array.isArray(result.districtSummaries) && result.districtSummaries.length > 0
+          ? { districtSummaries: result.districtSummaries }
+          : {}),
       };
     }
   }

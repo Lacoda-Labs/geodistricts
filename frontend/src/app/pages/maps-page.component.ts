@@ -1426,6 +1426,31 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Convert map-polygons API response to stepData shape for renderUSMapDistricts.
    * Uses final district polygons when available; otherwise uses state outline (step 0) so each state draws something.
    */
+  /**
+   * When GET final-step returns groups with missing/zero totalPopulation but map-polygons included
+   * districtSummaries (same order as districts), fill counts so the public maps table matches the blob.
+   */
+  private mergeDistrictPopulationFromMapPolygonsSummaries(step: GeodistrictStep): void {
+    const summaries = this.mapPolygons?.districtSummaries;
+    const groups = step.districtGroups;
+    if (!summaries?.length || !groups?.length || summaries.length !== groups.length) {
+      return;
+    }
+    for (let i = 0; i < groups.length; i++) {
+      const s = summaries[i];
+      const g = groups[i];
+      if (!s || typeof s.totalPopulation !== 'number' || s.totalPopulation <= 0) {
+        continue;
+      }
+      const pop = g.totalPopulation ?? 0;
+      if (pop <= 0) {
+        g.totalPopulation = s.totalPopulation;
+        if (s.startDistrictNumber != null) g.startDistrictNumber = s.startDistrictNumber;
+        if (s.endDistrictNumber != null) g.endDistrictNumber = s.endDistrictNumber;
+      }
+    }
+  }
+
   private mapPolygonsResponseToStepData(response: MapPolygonsResponse | null): GeodistrictStep {
     if (response?.finalDistrictPolygons?.length) {
       const polygons = response.finalDistrictPolygons;
@@ -1863,6 +1888,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
           return;
         }
+        this.mergeDistrictPopulationFromMapPolygonsSummaries(data);
         this.loadedSteps[stepIndex] = data;
         this.currentStepIndex = stepIndex;
         this.currentStep = data;
@@ -1871,7 +1897,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.algorithmResult = {
           finalDistricts: data.districtGroups,
           steps: [data],
-          totalPopulation: data.districtGroups.reduce((sum, g) => sum + g.totalPopulation, 0),
+          totalPopulation: data.districtGroups.reduce((sum, g) => sum + (g.totalPopulation ?? 0), 0),
           averagePopulation: 0,
           populationVariance: 0,
           algorithmHistory: [],
