@@ -9,6 +9,8 @@
         "dev:frontend": "cd frontend && ng serve",
         "build": "cd frontend && ng build",
         "build:hero-asset": "node scripts/build-hero-asset.js",
+        "generate:state-map-rasters": "node backend/scripts/generate-state-map-rasters.js data/maps_landing.json data/static-states",
+        "build:static-maps-cdn": "node backend/scripts/build-static-maps-cdn-assets.js",
         "test": "cd backend && npm test",
         "install:all": "npm run install:backend && npm run install:frontend",
         "install:backend": "cd backend && npm install",

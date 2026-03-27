@@ -2,6 +2,48 @@
 
 Reduce Cloud Run traffic on the public maps experience by serving read-only table data from the Angular host (`/maps/maps-landing-summaries.json`) and map rasters from a CDN. Interactive Leaflet still uses the API when users choose it or when static assets are missing.
 
+## One-shot: build all static assets (and optional GCS upload)
+
+From **repo root**, with a **`maps_landing`** source (local file, API, or GCS) and the **public HTTPS base** where objects will be served:
+
+```bash
+export STATIC_MAPS_CDN_BASE='https://storage.googleapis.com/YOUR_BUCKET/public-maps'
+npm run build:static-maps-cdn
+```
+
+This runs, in order: `generate-frontend-maps-summaries.js`, `generate-geodistricts-all-raster.js`, `generate-state-map-rasters.js`, `generate-state-static-json.js`. Outputs:
+
+- `frontend/public/maps/maps-landing-summaries.json`
+- `data/cdn-maps-static/geodistricts-all-119.webp`
+- `data/cdn-maps-static/states/{ST}.webp` and `states/{ST}.json` (with `stateMapImageUrl` under `STATIC_MAPS_CDN_BASE`)
+
+**Resolve `data/maps_landing.json` if missing:**
+
+- `GET_MAPS_LANDING_URL=https://YOUR_API/api/maps/landing npm run build:static-maps-cdn`
+- `npm run build:static-maps-cdn -- --from-api https://YOUR_API_HOST` (no `/api` suffix)
+- `MAPS_LANDING_GCS_URI=gs://geodistricts-census-data/data/maps_landing.json npm run build:static-maps-cdn -- --from-gcs`
+
+**Upload to GCS** (separate prefix from `data/maps_landing.json` used by the API—e.g. `public-maps/`):
+
+```bash
+export STATIC_MAPS_GCS_PREFIX='gs://YOUR_BUCKET/public-maps'
+npm run build:static-maps-cdn -- --upload
+```
+
+Uses `gcloud storage cp -r` with `Cache-Control: public, max-age=86400`. Requires `gcloud` CLI and credentials with storage access.
+
+**Flags:** `--out DIR`, `--landing PATH`, `--dry-run`, `--help`. See `backend/scripts/build-static-maps-cdn-assets.js` header.
+
+### Prerequisites (GCP)
+
+- Install [Google Cloud SDK](https://cloud.google.com/sdk) and authenticate (`gcloud auth application-default login` or a service account).
+- **Public reads:** browsers must load `STATIC_MAPS_CDN_BASE` without private cookies. Typical approaches: make the **static maps bucket or prefix** world-readable for `objectViewer`, use a **dedicated public bucket**, or front GCS with **Cloud CDN** + HTTPS and set `STATIC_MAPS_CDN_BASE` to the CDN URL.
+- Ensure **`maps_landing` exists** before building: e.g. `POST /api/admin/maps-landing/generate` on the API, or [sync-maps-to-gcs.js](../../backend/scripts/sync-maps-to-gcs.js) (admin). If `GET /api/maps/landing` returns 404, the orchestrator cannot fetch input.
+
+### Frontend after upload
+
+Set `cdnBaseUrl` in `frontend/src/environments/environment.prod.ts` to **`STATIC_MAPS_CDN_BASE`** (no trailing slash). Leave `staticAllMapImageUrl` empty to use `{cdnBaseUrl}/geodistricts-all-119.webp`. The build script prints the same hints when it finishes.
+
 ## Regenerate table JSON (summaries, no polygons)
 
 From repo root, after `data/maps_landing.json` exists (or point at your API):
@@ -38,6 +80,8 @@ Use the same output base directory for WebP and JSON so both live under `…/sta
 ```bash
 node backend/scripts/generate-state-map-rasters.js data/maps_landing.json ./data/static-states
 ```
+
+From repo root you can also run `npm run generate:state-map-rasters`. In VS Code, use **Run and Debug** → `Debug generate-state-map-rasters` (same paths; workspace folder must be the repo root). For landing JSON from a running API instead of a file, use `Debug generate-state-map-rasters (GET_MAPS_LANDING_URL)` and set the URL in `.vscode/launch.json` if needed.
 
 2. Generate state JSON with public asset URLs:
 
