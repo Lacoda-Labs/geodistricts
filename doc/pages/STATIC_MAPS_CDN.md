@@ -40,6 +40,19 @@ Uses `gcloud storage cp -r` with `Cache-Control: public, max-age=86400`. Require
 - **Public reads:** browsers must load `STATIC_MAPS_CDN_BASE` without private cookies. Typical approaches: make the **static maps bucket or prefix** world-readable for `objectViewer`, use a **dedicated public bucket**, or front GCS with **Cloud CDN** + HTTPS and set `STATIC_MAPS_CDN_BASE` to the CDN URL.
 - Ensure **`maps_landing` exists** before building: e.g. `POST /api/admin/maps-landing/generate` on the API, or [sync-maps-to-gcs.js](../../backend/scripts/sync-maps-to-gcs.js) (admin). If `GET /api/maps/landing` returns 404, the orchestrator cannot fetch input.
 
+### Cloud CDN (provisioned load balancer)
+
+To serve assets from **Cloud CDN** on a custom hostname instead of `storage.googleapis.com`, use the repo script that provisions a **global HTTPS load balancer**, **backend bucket**, and **managed TLS certificate**:
+
+- **[deploy/static-maps-cdn/README.md](../../deploy/static-maps-cdn/README.md)** — prerequisites, env vars, DNS before cert becomes `ACTIVE`, troubleshooting.
+- **[deploy/static-maps-cdn/provision.sh](../../deploy/static-maps-cdn/provision.sh)** — idempotent `gcloud` setup (Cloud CDN on the backend bucket, URL map, static IP, SSL cert, HTTPS proxy, forwarding rule on `443`).
+
+**Order of operations:** create a dedicated public GCS bucket (uniform access) if needed → optional: `npm run build:static-maps-cdn -- --upload` to `gs://BUCKET/public-maps` → run `provision.sh` with `PROJECT_ID`, `STATIC_MAPS_BUCKET`, `CDN_HOSTNAME` → point DNS **A record** for `CDN_HOSTNAME` at the printed global IP → wait for managed cert → set **`STATIC_MAPS_CDN_BASE=https://<CDN_HOSTNAME>/public-maps`** (no trailing slash), rebuild static maps, upload again, and set **`cdnBaseUrl`** in `frontend/src/environments/environment.prod.ts` to the same value.
+
+**Two URLs:** keep **`STATIC_MAPS_GCS_PREFIX`** as `gs://.../public-maps` for uploads; set **`STATIC_MAPS_CDN_BASE`** to the **HTTPS** origin users and generated `stateMapImageUrl` values use (custom host or `storage.googleapis.com`).
+
+**Cache invalidation** after replacing objects under stable paths: see README (`gcloud compute url-maps invalidate-cdn-cache` on the URL map the script creates).
+
 ### Frontend after upload
 
 Set `cdnBaseUrl` in `frontend/src/environments/environment.prod.ts` to **`STATIC_MAPS_CDN_BASE`** (no trailing slash). Leave `staticAllMapImageUrl` empty to use `{cdnBaseUrl}/geodistricts-all-119.webp`. The build script prints the same hints when it finishes.
