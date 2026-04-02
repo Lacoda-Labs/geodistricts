@@ -8,6 +8,7 @@ import { GeodistrictCacheService } from './geodistrict-cache.service';
 import { environment } from '../../environments/environment';
 import * as turf from '@turf/turf';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { feature as topojsonFeature } from 'topojson-client';
 
 // Interface for DistrictGroup as defined in the algorithm
 export interface DistrictGroup {
@@ -128,6 +129,20 @@ export interface MapPolygonsResponse {
   finalStepNumber?: number;
   /** When present, same length and order as finalDistrictPolygons; used for header and list population. */
   districtSummaries?: MapPolygonsDistrictSummary[];
+}
+
+/** Raw API body when format=topojson (decoded to MapPolygonsResponse on the client). */
+export interface MapPolygonsTopoJsonEnvelope {
+  format: 'topojson';
+  hasFinalStep: boolean;
+  finalStepNumber?: number;
+  districtSummaries?: MapPolygonsDistrictSummary[];
+  topology: {
+    type: 'Topology';
+    objects: Record<string, unknown>;
+    arcs: unknown[];
+    bbox?: number[];
+  };
 }
 
 // Algorithm version - increment this when algorithm logic changes to invalidate old cache
@@ -649,25 +664,74 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
+   * Decode GET map-polygons when format=topojson.
+   */
+  private mapPolygonsFromTopoEnvelope(body: MapPolygonsTopoJsonEnvelope): MapPolygonsResponse {
+    const top = body.topology as {
+      type: string;
+      objects: Record<string, unknown>;
+      arcs: unknown[];
+    };
+    const stateObj = top.objects?.['statePolygon'];
+    const distObj = top.objects?.['districts'];
+    if (!stateObj) {
+      throw new Error('TopoJSON map-polygons missing objects.statePolygon');
+    }
+    const stateFc = topojsonFeature(top as never, stateObj as never) as GeoJSON.FeatureCollection;
+    const statePolygon = stateFc.features[0] as GeoJsonFeature;
+    let finalDistrictPolygons: GeoJsonFeature[] | undefined;
+    if (distObj) {
+      const distFc = topojsonFeature(top as never, distObj as never) as GeoJSON.FeatureCollection;
+      finalDistrictPolygons = distFc.features as GeoJsonFeature[];
+    }
+    return {
+      statePolygon,
+      finalDistrictPolygons: finalDistrictPolygons?.length ? finalDistrictPolygons : undefined,
+      hasFinalStep: body.hasFinalStep,
+      finalStepNumber: body.finalStepNumber,
+      districtSummaries: body.districtSummaries
+    };
+  }
+
+  /**
    * Get map polygons only for a state (state outline + optional final district polygons).
    * Does not run algorithm. For fast initial map display.
    * @param options.overview - When true, request reduced-precision polygons (for All-states map); smaller payload.
+   * @param options.stateOnly - When true, state boundary only (no map_polygons blob read on server).
+   * @param options.format - `topojson` for shared-arc encoding; default GeoJSON.
    */
-  getMapPolygons(state: string, options?: { overview?: boolean }): Observable<MapPolygonsResponse> {
+  getMapPolygons(
+    state: string,
+    options?: { overview?: boolean; stateOnly?: boolean; format?: 'geojson' | 'topojson' }
+  ): Observable<MapPolygonsResponse> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     // Cache-bust so 304 doesn't cause stale polygons (e.g. after build-all-union-polygons).
     let url = `${backendUrl}/api/algorithm/map-polygons/${state}?_=${Date.now()}`;
     if (options?.overview) {
       url += '&overview=true';
     }
-    return this.http.get<MapPolygonsResponse>(url, {
-      headers: { 'Content-Type': 'application/json' }
-    }).pipe(
-      catchError(error => {
-        console.error('❌ getMapPolygons failed:', error);
-        return this.handleError(error);
+    if (options?.stateOnly) {
+      url += '&stateOnly=true';
+    }
+    if (options?.format === 'topojson') {
+      url += '&format=topojson';
+    }
+    return this.http
+      .get<MapPolygonsResponse | MapPolygonsTopoJsonEnvelope>(url, {
+        headers: { 'Content-Type': 'application/json' }
       })
-    );
+      .pipe(
+        map((raw) => {
+          if (raw && typeof raw === 'object' && (raw as MapPolygonsTopoJsonEnvelope).format === 'topojson') {
+            return this.mapPolygonsFromTopoEnvelope(raw as MapPolygonsTopoJsonEnvelope);
+          }
+          return raw as MapPolygonsResponse;
+        }),
+        catchError((error) => {
+          console.error('❌ getMapPolygons failed:', error);
+          return this.handleError(error);
+        })
+      );
   }
 
   /**

@@ -4784,8 +4784,10 @@ async function getMapPolygonsForStateFromCacheOnly(stateCode, options = {}) {
 
 /**
  * GET /api/algorithm/map-polygons/:state
- * Returns only polygon GeoJSON for fast map display: state outline and optional final district polygons.
- * One Cloud Storage read: map_polygons_${state} blob (written by build-all-union-polygons). If missing, state boundary only.
+ * Returns polygon GeoJSON for map display: state outline and optional final district polygons.
+ * Query: overview=true | for=all → reduced-precision blob; stateOnly=true | parts=state → state boundary only (no map_polygons blob read);
+ * format=topojson → TopoJSON topology with objects statePolygon and districts (shared arcs).
+ * Default path: one Cloud Storage read of map_polygons_${state} (or _overview). If missing, state boundary only.
  */
 app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
   try {
@@ -4793,8 +4795,59 @@ app.get('/api/algorithm/map-polygons/:state', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
     }
+    const stateUpper = state.toUpperCase();
+    if (stateUpper.length !== 2) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+    const formatRaw = (req.query.format || 'geojson').toString().toLowerCase();
+    const useTopojson = formatRaw === 'topojson';
+    const stateOnly =
+      req.query.stateOnly === 'true' ||
+      req.query.stateOnly === '1' ||
+      req.query.parts === 'state';
+
+    const sendTopojson = (baseResult) => {
+      const { mapPolygonsResultToTopology } = require('./utils/map-polygons-topojson');
+      const topologyJson = mapPolygonsResultToTopology({
+        statePolygon: baseResult.statePolygon,
+        finalDistrictPolygons: baseResult.finalDistrictPolygons
+      });
+      if (!topologyJson) {
+        return res.status(404).json({ error: 'No geometry for TopoJSON' });
+      }
+      return res.json({
+        format: 'topojson',
+        hasFinalStep: baseResult.hasFinalStep,
+        finalStepNumber: baseResult.finalStepNumber,
+        ...(baseResult.districtSummaries && { districtSummaries: baseResult.districtSummaries }),
+        topology: topologyJson
+      });
+    };
+
+    if (stateOnly) {
+      const statePolygon = await getOrCreateStateBoundaryInCloudStorage(stateUpper);
+      const base = {
+        statePolygon,
+        finalDistrictPolygons: [],
+        hasFinalStep: false,
+        finalStepNumber: undefined,
+        districtSummaries: undefined
+      };
+      if (useTopojson) {
+        return sendTopojson(base);
+      }
+      return res.json({
+        statePolygon: base.statePolygon,
+        finalDistrictPolygons: [],
+        hasFinalStep: false
+      });
+    }
+
     const overview = req.query.overview === 'true' || req.query.for === 'all';
-    const result = await getMapPolygonsForState(state, { overview });
+    const result = await getMapPolygonsForState(stateUpper, { overview });
+    if (useTopojson) {
+      return sendTopojson(result);
+    }
     return res.json({
       statePolygon: result.statePolygon,
       finalDistrictPolygons: result.finalDistrictPolygons,
