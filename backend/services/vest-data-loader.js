@@ -497,6 +497,7 @@ class VESTDataLoader {
             stateFips,
             votes_dem_pres: 0,
             votes_rep_pres: 0,
+            votes_other_pres: 0,
             total_votes_pres: 0,
           };
         }
@@ -510,12 +511,30 @@ class VESTDataLoader {
           countyVotes[countyFips5].votes_dem_pres += candidateVotes;
         } else if (party === 'REPUBLICAN' || party === 'REP') {
           countyVotes[countyFips5].votes_rep_pres += candidateVotes;
+        } else {
+          countyVotes[countyFips5].votes_other_pres += candidateVotes;
         }
 
         // Use the maximum total votes (should be consistent per county)
         if (totalVotes > countyVotes[countyFips5].total_votes_pres) {
           countyVotes[countyFips5].total_votes_pres = totalVotes;
         }
+      }
+
+      for (const county of Object.values(countyVotes)) {
+        const dem = county.votes_dem_pres || 0;
+        const rep = county.votes_rep_pres || 0;
+        const otherFromCandidates = county.votes_other_pres || 0;
+        const reportedTotal = county.total_votes_pres || 0;
+        const knownTotal = dem + rep + otherFromCandidates;
+        const total = Math.max(reportedTotal, knownTotal);
+        const residualOther = Math.max(0, total - dem - rep);
+        const other = Math.max(otherFromCandidates, residualOther);
+        county.votes_other_pres = other;
+        county.total_votes_pres = total;
+        county.pct_dem_pres = total > 0 ? dem / total : 0;
+        county.pct_rep_pres = total > 0 ? rep / total : 0;
+        county.pct_other_pres = total > 0 ? other / total : 0;
       }
 
       console.log(`✅ Processed ${Object.keys(countyVotes).length} counties for ${year}`);
@@ -724,9 +743,19 @@ class VESTDataLoader {
 
         const votesDemPres = this.parseNumber(record[demPresKey] || record[`G${year.toString().substring(2)}PREDBID`] || record[`G${year.toString().substring(2)}PREDCli`] || 0);
         const votesRepPres = this.parseNumber(record[repPresKey] || record[`G${year.toString().substring(2)}PRERTRU`] || 0);
-
-        // Calculate total presidential votes
-        const totalPres = votesDemPres + votesRepPres;
+        const otherPresKey = config.columnMappings[`G${year.toString().substring(2)}PREDJOA`] ||
+          config.columnMappings[`G${year.toString().substring(2)}PREDJOH`] ||
+          Object.keys(record).find(k => k.includes('PRED') && (k.includes('JOA') || k.includes('JOH')));
+        const votesOtherPresRaw = this.parseNumber(
+          record[otherPresKey] ||
+          record[`G${year.toString().substring(2)}PREDJOA`] ||
+          record[`G${year.toString().substring(2)}PREDJOH`] ||
+          0
+        );
+        const reportedTotal = this.parseNumber(record.totalvotes || record.TOTALVOTES || record.total_votes || 0);
+        const knownTotal = votesDemPres + votesRepPres + votesOtherPresRaw;
+        const totalPres = Math.max(reportedTotal, knownTotal);
+        const votesOtherPres = Math.max(votesOtherPresRaw, Math.max(0, totalPres - votesDemPres - votesRepPres));
 
         if (totalPres === 0) {
           missingVoteDataCount++;
@@ -736,6 +765,7 @@ class VESTDataLoader {
         // Calculate percentages
         const pctDemPres = totalPres > 0 ? votesDemPres / totalPres : 0;
         const pctRepPres = totalPres > 0 ? votesRepPres / totalPres : 0;
+        const pctOtherPres = totalPres > 0 ? votesOtherPres / totalPres : 0;
 
         // Extract state and county FIPS from GEOID (first 2 digits = state, next 3 = county)
         const stateFips = normalizedGeoid.substring(0, 2);
@@ -748,9 +778,11 @@ class VESTDataLoader {
           county_fips: countyFips,
           votes_dem_pres: votesDemPres,
           votes_rep_pres: votesRepPres,
+          votes_other_pres: votesOtherPres,
           total_votes_pres: totalPres,
           pct_dem_pres: pctDemPres,
           pct_rep_pres: pctRepPres,
+          pct_other_pres: pctOtherPres,
         };
 
         processedCount++;
@@ -1028,18 +1060,26 @@ class VESTDataLoader {
       } else if (subKeys.length > 1) {
         let dem = 0;
         let rep = 0;
+        let other = 0;
         for (const k of subKeys) {
           const row = vestData.countyData[k];
           dem += row.votes_dem_pres || 0;
           rep += row.votes_rep_pres || 0;
+          other += row.votes_other_pres || 0;
         }
-        const two = dem + rep;
+        const total = Math.max(
+          dem + rep + other,
+          subKeys.reduce((sum, k) => sum + (vestData.countyData[k]?.total_votes_pres || 0), 0)
+        );
+        const residualOther = Math.max(0, total - dem - rep);
         countyVotes = {
           votes_dem_pres: dem,
           votes_rep_pres: rep,
-          total_votes_pres: two,
-          pct_dem_pres: two > 0 ? dem / two : 0,
-          pct_rep_pres: two > 0 ? rep / two : 0,
+          votes_other_pres: Math.max(other, residualOther),
+          total_votes_pres: total,
+          pct_dem_pres: total > 0 ? dem / total : 0,
+          pct_rep_pres: total > 0 ? rep / total : 0,
+          pct_other_pres: total > 0 ? Math.max(other, residualOther) / total : 0,
         };
       }
     }
@@ -1049,10 +1089,13 @@ class VESTDataLoader {
 
     const dem = Math.round(countyVotes.votes_dem_pres / divisor);
     const rep = Math.round(countyVotes.votes_rep_pres / divisor);
+    const other = Math.round((countyVotes.votes_other_pres || 0) / divisor);
     const pctDem = countyVotes.total_votes_pres > 0 ? countyVotes.votes_dem_pres / countyVotes.total_votes_pres : 0;
     const pctRep = countyVotes.total_votes_pres > 0 ? countyVotes.votes_rep_pres / countyVotes.total_votes_pres : 0;
-    // Use two-party total so tract total_votes_pres matches votes_dem_pres + votes_rep_pres (consistent with tract-level VEST).
-    const total = dem + rep;
+    const pctOther = countyVotes.total_votes_pres > 0
+      ? (countyVotes.votes_other_pres || 0) / countyVotes.total_votes_pres
+      : Math.max(0, 1 - pctDem - pctRep);
+    const total = dem + rep + other;
 
     return {
       GEOID: normalizedGeoid,
@@ -1060,9 +1103,11 @@ class VESTDataLoader {
       county_fips: countyFips,
       votes_dem_pres: dem,
       votes_rep_pres: rep,
+      votes_other_pres: other,
       total_votes_pres: total,
       pct_dem_pres: pctDem,
       pct_rep_pres: pctRep,
+      pct_other_pres: pctOther,
       allocationMethod: divisor > 1 ? 'geoid_county_proportional' : 'geoid_county',
     };
   }

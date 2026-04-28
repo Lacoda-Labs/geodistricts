@@ -10,6 +10,12 @@ import * as turf from '@turf/turf';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { feature as topojsonFeature } from 'topojson-client';
 
+export interface PartyPercentages {
+  pctDem: number;
+  pctRep: number;
+  pctOther?: number;
+}
+
 // Interface for DistrictGroup as defined in the algorithm
 export interface DistrictGroup {
   startDistrictNumber: number;
@@ -515,7 +521,8 @@ export class GeodistrictAlgorithmService {
    */
   getFinalStep(state: string): Observable<FinalStepResponse> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const finalStepUrl = `${backendUrl}/api/algorithm/final-step/${state}`;
+    // Cache-bust so browser/proxy does not serve a stale body; party/union flags must reflect latest cache writes.
+    const finalStepUrl = `${backendUrl}/api/algorithm/final-step/${state}?_=${Date.now()}`;
     return this.http.get<FinalStepResponse>(finalStepUrl, {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -530,19 +537,19 @@ export class GeodistrictAlgorithmService {
     stepNumber: number,
     maxIterations: number = 100,
     vestYear: number = 2024
-  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }> {
+  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, PartyPercentages>; vestYear?: number }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     // Cache-bust so 304 doesn't cause stale party data; backend/cache may have been updated (e.g. after Calc Party %).
     const url = `${backendUrl}/api/algorithm/district-party/${state}/${stepNumber}?maxIterations=${maxIterations}&vestYear=${vestYear}&_=${Date.now()}`;
-    return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }>(url, {
+    return this.http.get<{ state: string; step: number; maxIterations: number; districts: Record<string, PartyPercentages>; vestYear?: number }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
   /**
-   * Poll until tract_party_{state}_{year} exists locally (after async tract-party-persistence job).
+   * Poll until tract_party_{state}_{year} exists (after async tract-party-persistence job). Used after trash/clear-cache VEST rebuild.
    */
-  private waitForTractPartyData(state: string, year: number): Observable<void> {
+  waitUntilTractPartyReady(state: string, year: number = 2024): Observable<void> {
     return timer(2000, 2000).pipe(
       take(50),
       concatMap(() => this.getTractParty(state, year)),
@@ -558,26 +565,15 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * Same as getDistrictParty, but on 404 (missing tract-level VEST cache) triggers tract-party-persistence for this state, waits, then retries once.
+   * @deprecated Use getDistrictParty — the backend ensures tract_party before computing district aggregates.
    */
   getDistrictPartyWithTractHealIfNeeded(
     state: string,
     stepNumber: number,
     maxIterations: number = 100,
     vestYear: number = 2024
-  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>; vestYear?: number }> {
-    return this.getDistrictParty(state, stepNumber, maxIterations, vestYear).pipe(
-      catchError((err: unknown) => {
-        const status = err instanceof HttpErrorResponse ? err.status : 0;
-        if (status !== 404) {
-          return throwError(() => err);
-        }
-        return this.triggerTractPartyPersistence(vestYear, state).pipe(
-          switchMap(() => this.waitForTractPartyData(state, vestYear)),
-          switchMap(() => this.getDistrictParty(state, stepNumber, maxIterations, vestYear))
-        );
-      })
-    );
+  ): Observable<{ state: string; step: number; maxIterations: number; districts: Record<string, PartyPercentages>; vestYear?: number }> {
+    return this.getDistrictParty(state, stepNumber, maxIterations, vestYear);
   }
 
   /**
@@ -590,28 +586,15 @@ export class GeodistrictAlgorithmService {
   }
 
   /**
-   * If tract_party cache is missing, run persistence and wait; then POST district-party job.
-   * When tract data already exists, only the district-party POST runs.
+   * @deprecated Use triggerDistrictPartyJob — the async job ensures tract_party on the server before aggregating.
    */
   ensureTractPartyThenTriggerDistrictJob(
     state: string,
     finalStepNumber: number,
     maxIterations: number = 100,
-    vestYear: number = 2024
+    _vestYear: number = 2024
   ): Observable<unknown> {
-    return this.getTractParty(state, vestYear).pipe(
-      switchMap((res) => {
-        const ready =
-          res.available === true || (res.geoids != null && Object.keys(res.geoids).length > 0);
-        if (ready) {
-          return this.triggerDistrictPartyJob(state, finalStepNumber, maxIterations);
-        }
-        return this.triggerTractPartyPersistence(vestYear, state).pipe(
-          switchMap(() => this.waitForTractPartyData(state, vestYear)),
-          switchMap(() => this.triggerDistrictPartyJob(state, finalStepNumber, maxIterations))
-        );
-      })
-    );
+    return this.triggerDistrictPartyJob(state, finalStepNumber, maxIterations);
   }
 
   /**
@@ -645,10 +628,10 @@ export class GeodistrictAlgorithmService {
   /**
    * Get tract-level party percentages for a state and year (for tract coloring by party).
    */
-  getTractParty(state: string, year: number): Observable<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }>; available?: boolean }> {
+  getTractParty(state: string, year: number): Observable<{ state: string; year: number; geoids: Record<string, PartyPercentages>; available?: boolean }> {
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
-    const url = `${backendUrl}/api/algorithm/tract-party/${state}/${year}`;
-    return this.http.get<{ state: string; year: number; geoids: Record<string, { pctDem: number; pctRep: number }>; available?: boolean }>(url, {
+    const url = `${backendUrl}/api/algorithm/tract-party/${state}/${year}?_=${Date.now()}`;
+    return this.http.get<{ state: string; year: number; geoids: Record<string, PartyPercentages>; available?: boolean }>(url, {
       headers: { 'Content-Type': 'application/json' }
     });
   }

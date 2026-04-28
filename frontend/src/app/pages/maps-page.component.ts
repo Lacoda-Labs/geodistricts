@@ -18,13 +18,15 @@ type USMapRevealItem =
   | { type: 'state'; stateCode: string; stateOutline: GeoJsonFeature }
   | { type: 'district'; stateCode: string; district: DistrictGroup; districtIndex: number; totalDistricts: number };
 
+type PartyPercentages = { pctDem: number; pctRep: number; pctOther?: number };
+
 /** Queue item for timed US map reveal: state (with party + stepData for bookkeeping) or district. */
 type USMapRevealQueueItem =
   | {
       type: 'state';
       stateCode: string;
       stateOutline: GeoJsonFeature;
-      districtPartyByState: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>;
+      districtPartyByState: Record<string, PartyPercentages>;
       stepData: GeodistrictStep;
       finalStepNumber: number | undefined;
     }
@@ -49,7 +51,7 @@ const STATIC_MAPS_SUMMARIES_URL = '/maps/maps-landing-summaries.json';
 interface MapsLandingSummariesResponse {
   stateComparison?: { us: any; states: Record<string, any> };
   statePartySummaries?: { summaries: Record<string, { pctDem: number; pctRep: number; geodistrictsD: number; geodistrictsR: number; swing: number }> };
-  districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
+  districtPartyByState?: Record<string, Record<string, PartyPercentages>>;
 }
 
 /** Response from GET /api/maps/landing - single blob for All-states view */
@@ -63,10 +65,10 @@ interface MapsLandingResponse {
     finalStepNumber?: number;
     districtSummaries?: MapPolygonsResponse['districtSummaries'];
   }>;
-  districtPartyByState?: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>>;
+  districtPartyByState?: Record<string, Record<string, PartyPercentages>>;
 }
 
-/** Fill opacity for district/tract polygons: 1 = solid when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
+/** Default fill opacity for district/tract polygons (solid vs half used by render paths). */
 const POLYGON_OPACITY_SOLID = 1;
 const POLYGON_OPACITY_HALF = 0.5;
 
@@ -99,7 +101,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedState: string = '';
   showTractBoundaries: boolean = false;
   showDivisionLines: boolean = false;
-  /** Polygon fill opacity: 1 when toggle on, 0.8 when toggle off. Toggled by map overlay button. */
+  /** Polygon fill opacity for district/tract fills. */
   polygonFillOpacity: number = POLYGON_OPACITY_SOLID;
   isLoading: boolean = false;
   errorMessage: string = '';
@@ -149,6 +151,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   sortSliderValue: number = 0;
   readonly sliderMax: number = 1000;
   private map: L.Map | null = null;
+  /** Leaflet tract / division-line / opacity toggles (dev/maps only). */
+  private mapToggleControl: L.Control | null = null;
   /** State outline polygons for ALL view (below tractLayer). */
   private stateOutlinesLayer: L.LayerGroup | null = null;
   private tractLayer: L.LayerGroup | null = null;
@@ -179,6 +183,8 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Slider track length in px to align with state extent on map (set from projected bounds). */
   sliderTrackLengthPx: number | null = null;
   private subscriptions: Subscription[] = [];
+  /** Incremented on each district-party GET so an older in-flight response cannot overwrite newer party data. */
+  private districtPartyFetchSerial = 0;
   private divisionLineLayers: L.Polyline[] = []; // Track all division line layers
   private divisionLinesByStep: Map<number, L.Polyline[]> = new Map(); // Track division lines by step number
   private divisionLineMarkers: L.Marker[] = []; // Track all division line markers
@@ -187,7 +193,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private totalSteps: number = 0; // Total number of steps (known when complete)
   isLoadingSteps: boolean = false; // Track if we're currently loading steps (used in template)
   private allTracts: GeoJsonFeature[] = []; // Store all tracts for isolation detection
-  private mapToggleControl: L.Control | null = null; // Custom toggle control
   isPlaying: boolean = false; // Track if auto-playing steps
   /** When true, Play runs move isolated + balance after each division step (backend option moveBalanceAfterStep). */
   moveBalancePerStep = signal(false);
@@ -202,7 +207,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   completedStateCodes: Set<string> = new Set();
 
   /** Per-state, per-district party data for All view (stateCode -> groupKey -> party). Populated after sequential map-polygons fetches + district-party fetches. */
-  allStatesDistrictPartyByState: Record<string, Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>> = {};
+  allStatesDistrictPartyByState: Record<string, Record<string, PartyPercentages>> = {};
 
   /** In-memory cache for All-states map data so returning to ALL view does not refetch 51 states */
   private cachedUSMapStepDataByState: Array<{ stateCode: string; stepData: GeodistrictStep; finalStepNumber?: number }> | null = null;
@@ -249,10 +254,10 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** When true, color tracts by VEST party % (red = R, blue = D, light = 50%). Default on for final step. */
   showPartyColor: boolean = true;
-  /** Tract GEOID -> { pctDem } from GET tract-party (for party coloring). */
-  tractPartyByGeoid: Record<string, { pctDem: number }> | null = null;
+  /** Tract GEOID -> { pctDem, pctRep, pctOther } from GET tract-party (for party coloring). */
+  tractPartyByGeoid: Record<string, PartyPercentages> | null = null;
   /** District groupKey -> party data from GET district-party (for map coloring and tooltips). */
-  districtPartyByGroupKey: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> | null = null;
+  districtPartyByGroupKey: Record<string, PartyPercentages> | null = null;
 
   // US States with their congressional district counts
   states = [
@@ -584,8 +589,9 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     // Geodistricts and tracts
     this.tractLayer = L.layerGroup().addTo(this.map);
 
-    // Add custom toggle control
-    this.addMapToggleControl();
+    if (this.isDevMode) {
+      this.addMapToggleControl();
+    }
 
     // Update layers based on checkbox state
     this.updateMapLayers();
@@ -602,17 +608,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Add custom toggle control to the map
+   * Dev/maps only: tract boundaries, division lines, polygon opacity toggles (top-left stack).
    */
   private addMapToggleControl(): void {
     if (!this.map) return;
 
-    // Store reference to component for callbacks
     const component = this;
 
-    // Create custom control class
     const ToggleControl = L.Control.extend({
-      onAdd: (map: L.Map) => {
+      onAdd: (_map: L.Map) => {
         const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
         container.style.backgroundColor = 'white';
         container.style.border = '2px solid rgba(0,0,0,0.2)';
@@ -621,7 +625,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         container.style.flexDirection = 'column';
         container.style.gap = '0';
 
-        // Tracts toggle button
         const tractsButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
         tractsButton.href = '#';
         tractsButton.title = 'Toggle Tract Boundaries';
@@ -633,13 +636,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         tractsButton.style.textDecoration = 'none';
         tractsButton.style.color = '#333';
         tractsButton.style.borderBottom = '1px solid rgba(0,0,0,0.1)';
-        
+
         const tractsIcon = L.DomUtil.create('span', 'material-icons', tractsButton);
         tractsIcon.innerHTML = 'grid_on';
         tractsIcon.style.fontSize = '18px';
         tractsIcon.style.lineHeight = '1';
 
-        // Division lines toggle button
         const divisionButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
         divisionButton.href = '#';
         divisionButton.title = 'Toggle Division Lines';
@@ -657,7 +659,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         divisionIcon.style.fontSize = '18px';
         divisionIcon.style.lineHeight = '1';
 
-        // Polygon opacity toggle button (80% vs solid)
         const opacityButton = L.DomUtil.create('a', 'leaflet-control-custom-button', container);
         opacityButton.href = '#';
         opacityButton.title = 'Toggle polygon opacity (80% / solid)';
@@ -674,7 +675,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         opacityIcon.style.fontSize = '18px';
         opacityIcon.style.lineHeight = '1';
 
-        // Update button states
         const updateButtonStates = () => {
           if (component.showTractBoundaries) {
             tractsButton.style.backgroundColor = '#1976d2';
@@ -701,14 +701,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         };
 
-        // Initial state
         updateButtonStates();
 
-        // Prevent map click/drag when clicking buttons
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.on(container, 'mousewheel', L.DomEvent.stopPropagation);
 
-        // Tracts button click handler
         L.DomEvent.on(tractsButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
@@ -716,14 +713,12 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           localStorage.setItem('showTractBoundaries', component.showTractBoundaries.toString());
           component.updateMapLayers();
           updateButtonStates();
-          // Party for tracts comes with census tract metadata from backend; no separate fetch
           if (component.showTractBoundaries && component.currentStep) {
             component.renderFinalDistricts();
             component.cdr.markForCheck();
           }
         });
 
-        // Division lines button click handler (toggles red division lines only)
         L.DomEvent.on(divisionButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
@@ -732,11 +727,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           updateButtonStates();
         });
 
-        // Polygon opacity button click handler (80% vs solid)
         L.DomEvent.on(opacityButton, 'click', (e) => {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
-          component.polygonFillOpacity = component.polygonFillOpacity === POLYGON_OPACITY_SOLID ? POLYGON_OPACITY_HALF : POLYGON_OPACITY_SOLID;
+          component.polygonFillOpacity =
+            component.polygonFillOpacity === POLYGON_OPACITY_SOLID ? POLYGON_OPACITY_HALF : POLYGON_OPACITY_SOLID;
           component.updateMapLayers();
           updateButtonStates();
         });
@@ -744,20 +739,17 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         return container;
       },
 
-      onRemove: (map: L.Map) => {
-        // Cleanup if needed
-      }
+      onRemove: (_map: L.Map) => {
+        // Leaflet removes container from map
+      },
     });
 
-    // Create and add control
     this.mapToggleControl = new ToggleControl({
-      position: 'topleft'
+      position: 'topleft',
     });
 
     this.mapToggleControl.addTo(this.map);
 
-    // Position the control below the zoom control
-    // Wait for map to be fully initialized
     setTimeout(() => {
       const customControl = document.querySelector('.leaflet-control-custom');
       const zoomControl = document.querySelector('.leaflet-control-zoom');
@@ -767,7 +759,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }, 100);
   }
-
 
   onStateChange(): void {
     if (this.selectedState) {
@@ -847,7 +838,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               forkJoin(
                 statesWithFinalStep.map((s) =>
                   this.geodistrictService.getDistrictParty(s.stateCode, s.finalStepNumber, this.finalStepMaxIterations ?? 100, vestYear).pipe(
-                    catchError(() => of({ state: s.stateCode, districts: {} as Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }))
+                    catchError(() => of({ state: s.stateCode, districts: {} as Record<string, PartyPercentages> }))
                   )
                 )
               ).subscribe((results) => {
@@ -869,27 +860,6 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       // Clear saved state if no state is selected
       localStorage.removeItem('selectedState');
     }
-  }
-
-  onTractBoundariesChange(): void {
-    // Persist to localStorage
-    localStorage.setItem('showTractBoundaries', this.showTractBoundaries.toString());
-    
-    // Track with gtag
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'toggle_tract_boundaries', {
-        event_category: 'Map',
-        event_label: this.showTractBoundaries ? 'Show' : 'Hide',
-        value: this.showTractBoundaries ? 1 : 0
-      });
-    }
-    
-    this.updateMapLayers();
-  }
-
-  toggleTractBoundaries(): void {
-    this.showTractBoundaries = !this.showTractBoundaries;
-    this.onTractBoundariesChange();
   }
 
   private updateMapLayers(): void {
@@ -1221,7 +1191,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       {
         stateCode: string;
         response: MapPolygonsResponse;
-        districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>;
+        districts: Record<string, PartyPercentages>;
       }
     >();
 
@@ -1256,7 +1226,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ): Observable<{
     stateCode: string;
     response: MapPolygonsResponse;
-    districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }>;
+    districts: Record<string, PartyPercentages>;
   }> {
     return this.geodistrictService.getMapPolygons(stateCode, { overview: true }).pipe(
       switchMap((response) => {
@@ -1268,7 +1238,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
             response,
             districts: {} as Record<
               string,
-              { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }
+              PartyPercentages
             >,
           });
         }
@@ -1278,7 +1248,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
               state: stateCode,
               districts: {} as Record<
                 string,
-                { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }
+                PartyPercentages
               >,
             })
           ),
@@ -1291,7 +1261,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           response: null as unknown as MapPolygonsResponse,
           districts: {} as Record<
             string,
-            { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }
+            PartyPercentages
           >,
         })
       )
@@ -1306,7 +1276,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     shuffledOrder: string[],
     byState: Map<
       string,
-      { stateCode: string; response: MapPolygonsResponse | null; districts: Record<string, { pctDem: number; pctRep: number; votesDem: number; votesRep: number; totalVotes: number }> }
+      { stateCode: string; response: MapPolygonsResponse | null; districts: Record<string, PartyPercentages> }
     >,
     delayMs: number,
     options?: { districtsOnly?: boolean }
@@ -1935,16 +1905,19 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         }, 100);
         // Fetch district party when map-polygons has final step so single-state uses same approach as US view (party-colored polygons).
         if (response.hasFinalStep && response.finalStepNumber != null) {
+          const partySerial = ++this.districtPartyFetchSerial;
           const partySub = this.geodistrictService
-            .getDistrictPartyWithTractHealIfNeeded(stateRequested, response.finalStepNumber, 100, 2024)
+            .getDistrictParty(stateRequested, response.finalStepNumber, 100, 2024)
             .subscribe({
               next: (res) => {
                 if (this.selectedState !== stateRequested) return;
+                if (partySerial !== this.districtPartyFetchSerial) return;
                 this.districtPartyByGroupKey = res.districts ?? null;
                 this.renderMapPolygons();
                 this.cdr.markForCheck();
               },
               error: () => {
+                if (partySerial !== this.districtPartyFetchSerial) return;
                 this.districtPartyByGroupKey = null;
                 this.cdr.markForCheck();
               }
@@ -2034,14 +2007,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         if (isComplete && !this.districtPartyPercentagesCalculated && !this.districtPartyJobTriggered) {
           this.districtPartyJobTriggered = true;
           this.geodistrictService
-            .ensureTractPartyThenTriggerDistrictJob(stateRequested, stepIndex, this.finalStepMaxIterations, 2024)
+            .triggerDistrictPartyJob(stateRequested, stepIndex, this.finalStepMaxIterations)
             .subscribe({
               next: () => {},
               error: () => {
                 this.districtPartyJobTriggered = false;
               },
               complete: () => {
-                setTimeout(() => this.refetchFinalStepForStatus(stateRequested), 3000);
+                this.scheduleRefetchFinalStepForDistrictParty(stateRequested);
               }
             });
         }
@@ -2277,35 +2250,59 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Clear all algorithm cache for the selected state (trash) and reload step 0 from cache.
-   * Calls backend to delete algorithm step cache and algorithm state from storage; does not touch external data.
-   * Then loads step 0 via step-by-step without forceInvalidate (uses existing external caches).
+   * Clear all algorithm cache for the selected state (trash), remove persisted tract_party for that state,
+   * then the server rebuilds tract-level party from VEST (county→tract) synchronously before responding.
+   * Census tract cache (state_tracts) is kept. Client only POSTs clear-cache then reloads step 0.
    */
   forceRefreshAndReset(): void {
     if (!this.selectedState || this.selectedState === 'ALL') {
       this.errorMessage = 'Please select a state first';
       return;
     }
+    // Cancel in-flight algorithm requests so a late response cannot overwrite step 0 after clear-cache (same as resetToStart).
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
+    this.lastRestartAt = Date.now();
+
     const state = this.selectedState;
     const maxIterations = 100;
     const backendUrl = environment.censusProxyUrl || environment.apiUrl.replace('/api', '') || 'http://localhost:8080';
     const clearCacheUrl = `${backendUrl}/api/algorithm/clear-cache`;
     this.isLoadingSteps = true;
     this.isLoading = true;
-    this.loadingMessage = 'Clearing cache...';
-    console.log(`🗑️ Clear cache (trash): deleting algorithm cache for ${state}, then reloading step 0...`);
-    this.http.post<{ ok: boolean; message?: string }>(clearCacheUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } }).subscribe({
-      next: () => {
-        console.log(`✅ Algorithm cache cleared for ${state}, reloading step 0 (no external refetch)...`);
-        this.resetToStartWithOptions(false);
-      },
-      error: (err) => {
-        this.errorMessage = err?.message || 'Failed to clear algorithm cache';
-        this.isLoadingSteps = false;
-        this.isLoading = false;
-        console.error('Clear cache failed:', err);
-      }
-    });
+    this.loadingMessage = 'Clearing cache and rebuilding tract party…';
+    console.log(`🗑️ Clear cache (trash): algorithm + district_party + tract_party for ${state} (server rebuilds VEST tract party), then step 0…`);
+    const sub = this.http
+      .post<{
+        ok: boolean;
+        message?: string;
+        tractPartyRebuild?: { ok: boolean; tractCount?: number; error?: string; rebuilt?: boolean };
+      }>(clearCacheUrl, { state, maxIterations }, { headers: { 'Content-Type': 'application/json' } })
+      .pipe(
+        tap((body) => {
+          if (body.tractPartyRebuild && !body.tractPartyRebuild.ok) {
+            this.errorMessage =
+              body.tractPartyRebuild.error ||
+              'Tract party rebuild failed on the server after clear-cache. Step 0 may load without party coloring.';
+            this.cdr.markForCheck();
+          }
+        })
+      )
+      .subscribe({
+        next: () => {
+          if (this.selectedState !== state) return;
+          console.log(`✅ Trash pipeline complete for ${state}, loading step 0…`);
+          this.resetToStartWithOptions(false);
+        },
+        error: (err) => {
+          this.errorMessage = this.httpClientErrorMessage(err, 'Failed to clear algorithm cache');
+          this.isLoadingSteps = false;
+          this.isLoading = false;
+          console.error('Clear cache failed:', err);
+          this.cdr.markForCheck();
+        }
+      });
+    this.subscriptions.push(sub);
   }
 
   /**
@@ -2337,12 +2334,27 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.resetToStartWithOptions(false);
       },
       error: (err) => {
-        this.errorMessage = err?.message || 'Failed to restart';
+        this.errorMessage = this.httpClientErrorMessage(err, 'Failed to restart');
         this.isLoadingSteps = false;
         this.isLoading = false;
         console.error('Restart failed:', err);
       }
     });
+  }
+
+  /** User-visible message from Angular HttpClient errors (body.message preferred). */
+  private httpClientErrorMessage(err: unknown, fallback: string): string {
+    if (err && typeof err === 'object') {
+      const e = err as { error?: unknown; message?: string; statusText?: string };
+      const body = e.error;
+      if (body && typeof body === 'object' && body !== null && 'message' in body) {
+        const m = (body as { message?: unknown }).message;
+        if (typeof m === 'string' && m.length) return m;
+      }
+      if (typeof e.message === 'string' && e.message.length) return e.message;
+      if (typeof e.statusText === 'string' && e.statusText.length) return e.statusText;
+    }
+    return fallback;
   }
 
   private resetToStartWithOptions(forceInvalidate: boolean): void {
@@ -5502,15 +5514,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * Get party data for a tract. Prefer census tract metadata (tract.properties) when backend
    * includes party with step data; fall back to tractPartyByGeoid only for older cached steps.
    */
-  private getPartyFromTract(tract: GeoJsonFeature): { pctDem: number; pctRep?: number; votesDem?: number; votesRep?: number; totalVotes?: number } | null {
+  private getPartyFromTract(tract: GeoJsonFeature): PartyPercentages | null {
     const p = tract.properties as Record<string, unknown> | undefined;
     if (p && typeof p['pctDem'] === 'number') {
+      const pctDem = p['pctDem'] as number;
+      const pctRep = typeof p['pctRep'] === 'number' ? (p['pctRep'] as number) : Math.max(0, 1 - pctDem);
       return {
-        pctDem: p['pctDem'] as number,
-        pctRep: typeof p['pctRep'] === 'number' ? (p['pctRep'] as number) : 1 - (p['pctDem'] as number),
-        votesDem: p['votesDem'] as number | undefined,
-        votesRep: p['votesRep'] as number | undefined,
-        totalVotes: p['totalVotes'] as number | undefined
+        pctDem,
+        pctRep,
+        pctOther: typeof p['pctOther'] === 'number' ? (p['pctOther'] as number) : Math.max(0, 1 - pctDem - pctRep)
       };
     }
     const tractId = this.getTractId(tract);
@@ -6311,13 +6323,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       this.districtPartyByGroupKey = null;
       return;
     }
+    const serial = ++this.districtPartyFetchSerial;
     const stepToFetch = this.currentStepIndex ?? this.finalStepNumber ?? 0;
     const maxIter = this.finalStepMaxIterations ?? 100;
     const vestYear = 2024;
     this.geodistrictService
-      .getDistrictPartyWithTractHealIfNeeded(this.selectedState, stepToFetch, maxIter, vestYear)
+      .getDistrictParty(this.selectedState, stepToFetch, maxIter, vestYear)
       .subscribe({
         next: (res) => {
+          if (serial !== this.districtPartyFetchSerial) return;
           this.districtPartyByGroupKey = res.districts ?? null;
           this.cdr.markForCheck();
           onLoaded?.();
@@ -6325,11 +6339,26 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
           setTimeout(() => this.renderFinalDistricts(), 0);
         },
         error: () => {
+          if (serial !== this.districtPartyFetchSerial) return;
           this.districtPartyByGroupKey = null;
           this.cdr.markForCheck();
           onLoaded?.();
         }
       });
+  }
+
+  /**
+   * After POST district-party (202), the job runs async. One refetch at 3s often races the write or stale GET order;
+   * poll final-step a few times so perGroupStatus / districtPartyPercentagesCalculated and a fresh district-party GET align.
+   */
+  private scheduleRefetchFinalStepForDistrictParty(state: string): void {
+    const delaysMs = [2000, 5000, 9000, 15000];
+    for (const ms of delaysMs) {
+      setTimeout(() => {
+        if (this.selectedState !== state) return;
+        this.refetchFinalStepForStatus(state);
+      }, ms);
+    }
   }
 
   /** Refetch final step to update status (e.g. after district party job or union polygon build). */
@@ -6386,11 +6415,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxIter = this.finalStepMaxIterations ?? 100;
     const vestYear = 2024;
     this.geodistrictService
-      .ensureTractPartyThenTriggerDistrictJob(this.selectedState, this.finalStepNumber, maxIter, vestYear)
+      .triggerDistrictPartyJob(this.selectedState, this.finalStepNumber, maxIter)
       .subscribe({
         next: () => {
           this.cdr.markForCheck();
-          setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
+          this.scheduleRefetchFinalStepForDistrictParty(this.selectedState!);
         },
         error: () => {
           this.districtPartyJobTriggered = false;
@@ -6423,7 +6452,7 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** Trigger district party for one DG (dev/maps). When party is missing/fail, runs tract-party-persistence first, then district party for the state. */
+  /** Trigger district party for one DG (dev/maps). Backend ensures tract_party before persisting aggregates. */
   triggerPartyForGroup(group: DistrictGroup, e: Event): void {
     e.stopPropagation();
     if (!this.selectedState || this.currentStepIndex == null) return;
@@ -6434,11 +6463,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxIter = this.algorithmResult?.maxIterations ?? this.finalStepMaxIterations ?? 100;
     const finalStep = this.finalStepNumber ?? this.currentStepIndex!;
     this.districtPartyJobTriggered = true;
-    this.geodistrictService.ensureTractPartyThenTriggerDistrictJob(this.selectedState, finalStep, maxIter, vestYear).subscribe({
+    this.geodistrictService.triggerDistrictPartyJob(this.selectedState, finalStep, maxIter).subscribe({
       next: () => {
         this.triggeringForGroupKey = null;
         this.errorMessage = '';
-        setTimeout(() => this.refetchFinalStepForStatus(this.selectedState!), 3000);
+        this.scheduleRefetchFinalStepForDistrictParty(this.selectedState!);
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -6518,17 +6547,15 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
       const d = this.districtPartyByGroupKey[groupKey];
       const pctDem = (d.pctDem * 100).toFixed(1);
       const pctRep = (d.pctRep * 100).toFixed(1);
-      const twoPartyVotes = (d.votesDem ?? 0) + (d.votesRep ?? 0);
-      const votesStr = twoPartyVotes > 0 ? ` · ${twoPartyVotes.toLocaleString()} votes` : '';
-      return `D ${pctDem}% · R ${pctRep}%${votesStr}`;
+      const pctOther = ((d.pctOther ?? Math.max(0, 1 - d.pctDem - d.pctRep)) * 100).toFixed(1);
+      return `D ${pctDem}% · R ${pctRep}% · O ${pctOther}%`;
     }
     if (this.districtPartyByGroupKey?.[groupKey]) {
       const d = this.districtPartyByGroupKey[groupKey];
       const pctDem = (d.pctDem * 100).toFixed(1);
       const pctRep = (d.pctRep * 100).toFixed(1);
-      const twoPartyVotes = (d.votesDem ?? 0) + (d.votesRep ?? 0);
-      const votesStr = twoPartyVotes > 0 ? ` · ${twoPartyVotes.toLocaleString()} votes` : '';
-      return `D ${pctDem}% · R ${pctRep}%${votesStr}`;
+      const pctOther = ((d.pctOther ?? Math.max(0, 1 - d.pctDem - d.pctRep)) * 100).toFixed(1);
+      return `D ${pctDem}% · R ${pctRep}% · O ${pctOther}%`;
     }
     if (status?.party === 'done') return 'Party % calculated';
     if (status?.party === 'missing') return 'Click to calculate party %';
@@ -6536,14 +6563,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Returns HTML line for popup: "Party: D xx% · R yy% (votes)" or "" when no data. Uses two-party total (D+R) for vote count. */
-  private getPopupPartyLine(party: { pctDem: number; pctRep?: number; votesDem?: number; votesRep?: number; totalVotes?: number } | null): string {
+  private getPopupPartyLine(party: PartyPercentages | null): string {
     if (!party || typeof party.pctDem !== 'number') return '';
     const pctDem = (party.pctDem * 100).toFixed(1);
     const pctRep = (typeof party.pctRep === 'number' ? party.pctRep : 1 - party.pctDem) * 100;
+    const pctOther = (typeof party.pctOther === 'number' ? party.pctOther : Math.max(0, 1 - party.pctDem - (party.pctRep ?? 0))) * 100;
     const pctRepStr = pctRep.toFixed(1);
-    const twoParty = (party.votesDem ?? 0) + (party.votesRep ?? 0);
-    const votesStr = twoParty > 0 ? ` (${twoParty.toLocaleString()} votes)` : '';
-    return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}%${votesStr}<br>`;
+    const pctOtherStr = pctOther.toFixed(1);
+    return `<strong>Party:</strong> D ${pctDem}% · R ${pctRepStr}% · O ${pctOtherStr}%<br>`;
   }
 
   /** Message when party coloring is on but tract party data is not loaded for this state. */
@@ -6862,7 +6889,11 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const geoid = this.normalizeTractPartyGeoid(this.getTractId(tract));
     const row = this.tractPartyByGeoid[geoid];
     if (row == null) return '—';
-    return row.pctDem > 0.5 ? 'D' : 'R';
+    const pctRep = typeof row.pctRep === 'number' ? row.pctRep : Math.max(0, 1 - row.pctDem);
+    const pctOther = typeof row.pctOther === 'number' ? row.pctOther : Math.max(0, 1 - row.pctDem - pctRep);
+    if (row.pctDem >= pctRep && row.pctDem >= pctOther) return 'D';
+    if (pctRep >= row.pctDem && pctRep >= pctOther) return 'R';
+    return 'O';
   }
 
   /**
@@ -6871,12 +6902,14 @@ export class MapsPageComponent implements OnInit, AfterViewInit, OnDestroy {
   getTractPartyPercentages(tract: GeoJsonFeature): string {
     if (!this.tractPartyByGeoid) return '—';
     const geoid = this.normalizeTractPartyGeoid(this.getTractId(tract));
-    const row = this.tractPartyByGeoid[geoid] as { pctDem: number; pctRep?: number } | undefined;
+    const row = this.tractPartyByGeoid[geoid] as PartyPercentages | undefined;
     if (row == null || typeof row.pctDem !== 'number') return '—';
     const pctDem = (row.pctDem * 100).toFixed(0);
     const pctRep = (typeof row.pctRep === 'number' ? row.pctRep : 1 - row.pctDem) * 100;
+    const pctOther = (typeof row.pctOther === 'number' ? row.pctOther : Math.max(0, 1 - row.pctDem - (row.pctRep ?? 0))) * 100;
     const pctRepStr = pctRep.toFixed(0);
-    return `R ${pctRepStr}% D ${pctDem}%`;
+    const pctOtherStr = pctOther.toFixed(0);
+    return `R ${pctRepStr}% D ${pctDem}% O ${pctOtherStr}%`;
   }
 
   /**

@@ -44,7 +44,7 @@ const STATE_FIPS_TO_CODE = {
  * Load tract-level party data for a state and year from Firestore/Cloud Storage.
  * @param {string} state - State code (e.g. 'CA')
  * @param {number} year - VEST year (e.g. 2020)
- * @returns {Promise<{ [geoid: string]: { pctDem: number, pctRep: number, votesDem: number, votesRep: number, totalVotes: number } } | null>}
+ * @returns {Promise<{ [geoid: string]: { pctDem: number, pctRep: number, pctOther: number } } | null>}
  */
 async function loadTractPartyForState(state, year) {
   const key = `tract_party_${state.toUpperCase()}_${year}`;
@@ -84,7 +84,7 @@ async function loadTractPartyForState(state, year) {
  *
  * Tract party is computed once per (state, year) and persisted per tract. Re-run this job
  * when VEST data is refreshed or when the election year changes. District group party at
- * any step is then derived by summing these stored tract totals (votesDem, votesRep).
+ * any step is then derived by population-weighted aggregation of these tract percentages.
  *
  * @param {number} year - VEST year (e.g. 2020)
  * @param {{ apiBaseUrl?: string, state?: string }} options - Optional. apiBaseUrl for tract boundaries; state to run for one state only (e.g. 'RI').
@@ -115,16 +115,19 @@ async function runTractPartyPersistenceJob(year, options = {}) {
       if (stateCodeFilter && stateCode !== stateCodeFilter) continue;
       if (!byState[stateCode]) byState[stateCode] = {};
       const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
-      const votesDem = row.votes_dem_pres ?? 0;
-      const votesRep = row.votes_rep_pres ?? 0;
-      // Always store two-party total so percentages and district totals are consistent (D+R)
-      const totalVotes = votesDem + votesRep;
+      const pctDemValue = Number(row.pct_dem_pres);
+      const pctRepValue = Number(row.pct_rep_pres);
+      const pctOtherValue = Number(row.pct_other_pres);
+      const pctDem = Number.isFinite(pctDemValue) ? pctDemValue : 0;
+      const pctRep = Number.isFinite(pctRepValue) ? pctRepValue : 0;
+      const pctOtherRaw = Number.isFinite(pctOtherValue)
+        ? pctOtherValue
+        : Math.max(0, 1 - pctDem - pctRep);
+      const pctOther = Math.max(0, Math.min(1, pctOtherRaw));
       byState[stateCode][normalizedGeoid] = {
-        pctDem: row.pct_dem_pres ?? 0,
-        pctRep: row.pct_rep_pres ?? 0,
-        votesDem,
-        votesRep,
-        totalVotes
+        pctDem,
+        pctRep,
+        pctOther
       };
     }
     if (USE_LOCAL_CACHE) {

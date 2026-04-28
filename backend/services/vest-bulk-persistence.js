@@ -303,12 +303,13 @@ class VESTBulkPersistence {
       const geoidFips = geoid.substring(0, 2);
       if (geoidFips === stateFips) {
         const normalizedGeoid = String(geoid).padStart(11, '0').substring(0, 11);
+        const pctDem = Number(row.pct_dem_pres);
+        const pctRep = Number(row.pct_rep_pres);
+        const pctOtherValue = Number(row.pct_other_pres);
         byState[state][normalizedGeoid] = {
-          pctDem: row.pct_dem_pres ?? 0,
-          pctRep: row.pct_rep_pres ?? 0,
-          votesDem: row.votes_dem_pres ?? 0,
-          votesRep: row.votes_rep_pres ?? 0,
-          totalVotes: row.total_votes_pres ?? 0
+          pctDem: Number.isFinite(pctDem) ? pctDem : 0,
+          pctRep: Number.isFinite(pctRep) ? pctRep : 0,
+          pctOther: Number.isFinite(pctOtherValue) ? pctOtherValue : Math.max(0, 1 - (Number.isFinite(pctDem) ? pctDem : 0) - (Number.isFinite(pctRep) ? pctRep : 0))
         };
       }
     }

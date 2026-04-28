@@ -87,23 +87,26 @@ function getDistrictsForState(state) {
 function getTractId(tract) {
   // Prefer GEOID as it's the full unique identifier (state+county+tract)
   if (tract.properties?.GEOID) {
-    return tract.properties.GEOID;
+    const digits = String(tract.properties.GEOID).replace(/\D/g, '');
+    return digits.padStart(11, '0').substring(0, 11);
   }
   
   // If GEOID not available, try GEO_ID (may have "US" prefix)
   if (tract.properties?.GEO_ID) {
     // Remove "US" prefix if present
     const geoId = tract.properties.GEO_ID;
-    if (geoId.startsWith('US')) {
-      return geoId.substring(2);
-    }
-    return geoId;
+    const raw = typeof geoId === 'string' && geoId.startsWith('US') ? geoId.substring(2) : String(geoId);
+    const digits = raw.replace(/\D/g, '');
+    return digits.padStart(11, '0').substring(0, 11);
   }
   
-  // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS
+  // Fallback: construct from STATE_FIPS + COUNTY_FIPS + TRACT_FIPS (pad to match VEST / tract_party keys)
   // This ensures uniqueness across the entire state
-  if (tract.properties?.STATE_FIPS && tract.properties?.COUNTY_FIPS && tract.properties?.TRACT_FIPS) {
-    return `${tract.properties.STATE_FIPS}${tract.properties.COUNTY_FIPS}${tract.properties.TRACT_FIPS}`;
+  if (tract.properties?.STATE_FIPS != null && tract.properties?.COUNTY_FIPS != null && tract.properties?.TRACT_FIPS != null) {
+    const s = String(tract.properties.STATE_FIPS).padStart(2, '0');
+    const c = String(tract.properties.COUNTY_FIPS).padStart(3, '0');
+    const t = String(tract.properties.TRACT_FIPS).replace(/\.\d+$/, '').padStart(6, '0').substring(0, 6);
+    return `${s}${c}${t}`;
   }
   
   // Last resort: use TRACT_FIPS alone (not ideal, but better than null)

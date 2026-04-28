@@ -89,7 +89,7 @@
               [canGoToNext]="canGoToNextStep()" [canGoToLast]="canGoToLastStep()" [isPlaying]="isPlaying"
               [currentStepIndex]="currentStepIndex" [totalSteps]="getTotalSteps()" (firstStep)="goToFirstStep()"
               (previousStep)="previousStep()" (playPause)="playSteps()" (nextStep)="nextStep()"
-              (lastStep)="goToLastStep()" (toggleTracts)="toggleTractBoundaries()" (restart)="resetToStart()"
+              (lastStep)="goToLastStep()" (restart)="resetToStart()"
               (clearCache)="forceRefreshAndReset()">
             </app-step-btn-bar>
           </div>

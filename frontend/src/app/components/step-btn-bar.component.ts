@@ -26,7 +26,6 @@ export class StepBtnBarComponent {
   @Output() playPause = new EventEmitter<void>();
   @Output() nextStep = new EventEmitter<void>();
   @Output() lastStep = new EventEmitter<void>();
-  @Output() toggleTracts = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() clearCache = new EventEmitter<void>();
 
@@ -48,10 +47,6 @@ export class StepBtnBarComponent {
 
   onLastStep(): void {
     this.lastStep.emit();
-  }
-
-  onToggleTracts(): void {
-    this.toggleTracts.emit();
   }
 
   onRestart(): void {

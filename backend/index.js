@@ -1240,22 +1240,26 @@ app.get('/api/maps/state-party-summaries', async (req, res) => {
       if (!data || !data.districts || typeof data.districts !== 'object') continue;
 
       const districts = data.districts;
-      let totalVotesDem = 0;
-      let totalVotesRep = 0;
+      let weightedDem = 0;
+      let weightedRep = 0;
+      let seatWeightTotal = 0;
       let geodistrictsD = 0;
       let geodistrictsR = 0;
-      for (const d of Object.values(districts)) {
-        const vd = d.votesDem || 0;
-        const vr = d.votesRep || 0;
-        totalVotesDem += vd;
-        totalVotesRep += vr;
-        if ((d.pctDem || 0) >= 0.5) geodistrictsD++;
-        else geodistrictsR++;
+      for (const [groupKey, d] of Object.entries(districts)) {
+        const [startStr, endStr] = String(groupKey).split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        const seatCount = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start + 1) : 1;
+        const pctDem = Number(d.pctDem) || 0;
+        const pctRep = Number(d.pctRep) || 0;
+        weightedDem += pctDem * seatCount;
+        weightedRep += pctRep * seatCount;
+        seatWeightTotal += seatCount;
+        if (pctDem >= pctRep) geodistrictsD += seatCount;
+        else geodistrictsR += seatCount;
       }
-      // Use two-party total (D+R) so percentages sum to 100%
-      const totalVotes = totalVotesDem + totalVotesRep;
-      const pctDem = totalVotes > 0 ? totalVotesDem / totalVotes : 0;
-      const pctRep = totalVotes > 0 ? totalVotesRep / totalVotes : 0;
+      const pctDem = seatWeightTotal > 0 ? weightedDem / seatWeightTotal : 0;
+      const pctRep = seatWeightTotal > 0 ? weightedRep / seatWeightTotal : 0;
       const congress = congressSummary.states[stateCode] || { D: 0, R: 0 };
       const congressD = congress.D || 0;
       const swing = geodistrictsD - congressD;
@@ -1431,21 +1435,26 @@ async function buildMapsLandingPayload() {
     if (stateCode.length !== 2) continue;
     if (!data || !data.districts || typeof data.districts !== 'object') continue;
     const districts = data.districts;
-    let totalVotesDem = 0;
-    let totalVotesRep = 0;
+    let weightedDem = 0;
+    let weightedRep = 0;
+    let seatWeightTotal = 0;
     let geodistrictsD = 0;
     let geodistrictsR = 0;
-    for (const d of Object.values(districts)) {
-      const vd = d.votesDem || 0;
-      const vr = d.votesRep || 0;
-      totalVotesDem += vd;
-      totalVotesRep += vr;
-      if ((d.pctDem || 0) >= 0.5) geodistrictsD++;
-      else geodistrictsR++;
+    for (const [groupKey, d] of Object.entries(districts)) {
+      const [startStr, endStr] = String(groupKey).split('-');
+      const start = parseInt(startStr, 10);
+      const end = parseInt(endStr, 10);
+      const seatCount = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start + 1) : 1;
+      const pctDem = Number(d.pctDem) || 0;
+      const pctRep = Number(d.pctRep) || 0;
+      weightedDem += pctDem * seatCount;
+      weightedRep += pctRep * seatCount;
+      seatWeightTotal += seatCount;
+      if (pctDem >= pctRep) geodistrictsD += seatCount;
+      else geodistrictsR += seatCount;
     }
-    const totalVotes = totalVotesDem + totalVotesRep;
-    const pctDem = totalVotes > 0 ? totalVotesDem / totalVotes : 0;
-    const pctRep = totalVotes > 0 ? totalVotesRep / totalVotes : 0;
+    const pctDem = seatWeightTotal > 0 ? weightedDem / seatWeightTotal : 0;
+    const pctRep = seatWeightTotal > 0 ? weightedRep / seatWeightTotal : 0;
     const congress = congressSummary.states[stateCode] || { D: 0, R: 0 };
     const congressD = congress.D || 0;
     const swing = geodistrictsD - congressD;
@@ -4943,6 +4952,7 @@ app.get('/api/algorithm/step-list/:state', async (req, res) => {
  */
 app.get('/api/algorithm/final-step/:state', async (req, res) => {
   console.log(`🔍 GET /api/algorithm/final-step/:state called with state: ${req.params.state}`);
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   // Declare getTractId once at function scope to avoid duplicate declaration errors
   const { getTractId } = require('./services/geodistrict-algorithm');
   try {
@@ -5199,7 +5209,13 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
                   // Use stepData field if available, otherwise use cachedEntry directly
                   const dataToReconstruct = hasStepDataField ? cachedEntry.stepData : cachedEntry;
                   deserializeStepDataFromFirestore(dataToReconstruct);
-                  let stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state);
+                  let stepData = await reconstructStepFromCache(
+                    dataToReconstruct,
+                    tractMap,
+                    true,
+                    state,
+                    `${req.protocol}://${req.get('host')}`
+                  );
                   
                   // For Step 0, ensure TIGER state boundaries are used
                   if (finalStepNumber === 0 || finalStepNumber === '0') {
@@ -5489,9 +5505,10 @@ app.get('/api/algorithm/final-step/:state', async (req, res) => {
 
 /**
  * POST /api/algorithm/clear-cache
- * Delete all algorithm cache for a state (trash). Removes step 0..N, algorithm state, union polygons.
- * Does NOT delete state_tracts_{state} (census/original-source tract data). After clear, step-by-step
- * will use state tract cache (local or Cloud Storage fallback) when available, avoiding TIGER refetch.
+ * Delete all algorithm cache for a state (trash). Removes step 0..N, algorithm state, district_party_{state}_* aggregates,
+ * tract_party_{state}_* (VEST tract-level cache for that state), and union polygons.
+ * Does NOT delete state_tracts_{state} (census/original-source tract geometry/population).
+ * After delete, tract_party for this state is rebuilt synchronously from VEST (county→tract) on the server.
  */
 app.post('/api/algorithm/clear-cache', async (req, res) => {
   try {
@@ -5499,11 +5516,15 @@ app.post('/api/algorithm/clear-cache', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: 'State is required' });
     }
-    const result = await deleteAlgorithmCacheForState(state, maxIterations);
+    const stateNorm = String(state).toUpperCase().trim();
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const result = await deleteAlgorithmCacheForState(stateNorm, maxIterations);
+    const tractPartyRebuild = await ensureTractPartyCacheForState(stateNorm, DEFAULT_VEST_YEAR, apiBaseUrl);
     res.json({
       ok: true,
-      message: `Algorithm cache cleared for ${state}`,
-      ...result
+      message: `Algorithm cache cleared for ${stateNorm}`,
+      ...result,
+      tractPartyRebuild
     });
   } catch (err) {
     console.error('Clear algorithm cache error:', err);
@@ -5896,7 +5917,13 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                         if (tractMap) {
                           console.log(`🔄 RECONSTRUCTING: Reconstructing step 0 with ${Array.isArray(tractMap) ? tractMap.length : 'non-array'} tracts from cache`);
                           // Don't recreate union polygons during reconstruction - we'll replace tracts and recreate union polygon after
-                          stepData = await reconstructStepFromCache(stepData, tractMap, false, state); // Pass flag to skip union polygon creation
+                          stepData = await reconstructStepFromCache(
+                            stepData,
+                            tractMap,
+                            false,
+                            state,
+                            `${req.protocol}://${req.get('host')}`
+                          ); // Pass flag to skip union polygon creation
                           console.log(`✅ RECONSTRUCTED: Step 0 now has ${stepData.districtGroups?.[0]?.censusTracts?.length || 0} tracts in first group`);
                         } else {
                           console.warn(`⚠️ RECONSTRUCTION: No tractMap available for reconstruction`);
@@ -5947,8 +5974,11 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                   // For Step 0, ensure TIGER state boundaries are used
                   stepData = await ensureStep0UsesTigerBoundaries(stepData, state, 0, req);
 
-                  // Enrich tracts with party data (same as reconstructStepFromCache) so popup and coloring use tract.properties
-                  const tractPartyByGeoid = state ? await tractPartyPersistence.loadTractPartyForState(state, 2024) : null;
+                  // Enrich tracts with party percentages (same as reconstructStepFromCache) so popup and coloring use tract.properties
+                  if (state) {
+                    await ensureTractPartyCacheForState(state, DEFAULT_VEST_YEAR, `${req.protocol}://${req.get('host')}`);
+                  }
+                  const tractPartyByGeoid = state ? await tractPartyPersistence.loadTractPartyForState(state, DEFAULT_VEST_YEAR) : null;
                   if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0 && stepData.districtGroups[0].censusTracts) {
                     stepData.districtGroups[0].censusTracts = stepData.districtGroups[0].censusTracts.map(t => {
                       const tid = getTractId(t);
@@ -5960,9 +5990,7 @@ app.post('/api/algorithm/execute/step-by-step', async (req, res) => {
                           ...(t.properties || {}),
                           pctDem: row.pctDem,
                           pctRep: row.pctRep,
-                          votesDem: row.votesDem,
-                          votesRep: row.votesRep,
-                          totalVotes: row.totalVotes
+                          pctOther: row.pctOther
                         }
                       };
                     });
@@ -6673,7 +6701,13 @@ app.get('/api/algorithm/step/:state/:stepNumber', async (req, res) => {
             
             // Reconstruct step with tract geometries
             if (tractMap) {
-              stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, true, state); // Load union polygons
+              stepData = await reconstructStepFromCache(
+                dataToReconstruct,
+                tractMap,
+                true,
+                state,
+                `${req.protocol}://${req.get('host')}`
+              ); // Load union polygons
               if (!stepData || !stepData.districtGroups) {
                 return res.status(404).json({ error: `Failed to reconstruct step ${stepNum}` });
               }
@@ -6864,7 +6898,7 @@ async function runUnionPolygonGenerationJob(state, stepNum, maxIterations) {
       tractMap = stateTractData.data;
     }
     if (!tractMap) throw new Error('State tract data not available for reconstruction');
-    stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+    stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state, null);
     if (!stepData || !stepData.districtGroups || stepData.districtGroups.length === 0) {
       throw new Error(`Failed to reconstruct step ${stepNum}`);
     }
@@ -7045,7 +7079,6 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
     }
     const { stepCacheKey, cachedEntry } = stepResult;
     const districtGroups = cachedEntry.stepData?.districtGroups ?? cachedEntry.districtGroups ?? [];
-    const divisionLines = cachedEntry.stepData?.divisionLines ?? cachedEntry.divisionLines ?? [];
     if (districtGroups.length === 0) {
       console.warn(`⚠️ Build-all: step ${stepNum} has no district groups, skipping`);
       continue;
@@ -7056,6 +7089,11 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
       throw new Error(`Build-all: step ${stepNum + 1} not in cache for ${state} (required for backward pass)`);
     }
     const nextGroups = nextStepResult.cachedEntry.stepData?.districtGroups ?? nextStepResult.cachedEntry.districtGroups ?? [];
+    // Splits that produced step (stepNum+1) from step (stepNum) are stored on the *next* step's
+    // divisionLines (sibling DGs and parentGroup match the parents in this step's districtGroups).
+    // This step's own divisionLines describe the *previous* split (e.g. step 1 has parent 1-5, not 1-3).
+    const divisionLinesForChildSplit =
+      nextStepResult.cachedEntry.stepData?.divisionLines ?? nextStepResult.cachedEntry.divisionLines ?? [];
     const childGroupsWithPolygons = await loadUnionPolygonsFromCache(state, stepNum + 1, nextGroups, { unionPolygonsCached: true });
 
     const childPolygonsByKey = {};
@@ -7073,7 +7111,7 @@ async function runBuildAllUnionPolygonsForState(state, finalStepNumber, maxItera
       const dgKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
       let unionFeature = childPolygonsByKey[dgKey];
       if (!unionFeature) {
-        const divLine = divisionLines.find(
+        const divLine = divisionLinesForChildSplit.find(
           (line) => line.parentGroup &&
             line.parentGroup.startDistrictNumber === group.startDistrictNumber &&
             line.parentGroup.endDistrictNumber === group.endDistrictNumber
@@ -7279,6 +7317,7 @@ app.post('/api/algorithm/tract-party-persistence', async (req, res) => {
  * Return tract-level party percentages for a state and year (for coloring or district aggregation).
  */
 app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     const state = (req.params.state || '').toUpperCase();
     const year = parseInt(req.params.year, 10);
@@ -7298,6 +7337,56 @@ app.get('/api/algorithm/tract-party/:state/:year', async (req, res) => {
 
 /** Default VEST year for district party aggregation */
 const DEFAULT_VEST_YEAR = 2024;
+
+function isTractPartyMissing(rows) {
+  return !rows || typeof rows !== 'object' || Object.keys(rows).length === 0;
+}
+
+/** API / UI: two-party shares only (D vs R), normalized to sum to 1. */
+function districtPartyForApiClient(entry) {
+  if (!entry || typeof entry !== 'object') return { pctDem: 0, pctRep: 0 };
+  const d = Number(entry.pctDem) || 0;
+  const r = Number(entry.pctRep) || 0;
+  const sum = d + r;
+  if (sum <= 0) return { pctDem: 0, pctRep: 0 };
+  return { pctDem: d / sum, pctRep: r / sum };
+}
+
+function mapDistrictsForApiClient(districts) {
+  if (!districts || typeof districts !== 'object') return {};
+  const out = {};
+  for (const [k, v] of Object.entries(districts)) {
+    out[k] = districtPartyForApiClient(v);
+  }
+  return out;
+}
+
+/**
+ * Ensure tract_party cache exists for (state, year). Rebuilds synchronously from VEST when missing.
+ * @param {string|null|undefined} apiBaseUrl - e.g. https://host for /api/census/tract-geoids during county allocation
+ */
+async function ensureTractPartyCacheForState(stateNorm, vestYear = DEFAULT_VEST_YEAR, apiBaseUrl = null) {
+  const state = String(stateNorm || '').toUpperCase().trim();
+  if (state.length !== 2) {
+    return { ok: false, error: 'Invalid state', tractCount: 0, rebuilt: false };
+  }
+  let rows = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
+  if (!isTractPartyMissing(rows)) {
+    return { ok: true, tractCount: Object.keys(rows).length, rebuilt: false };
+  }
+  console.log(`📊 tract_party missing or empty for ${state} ${vestYear}; rebuilding from VEST (server)...`);
+  const job = await tractPartyPersistence.runTractPartyPersistenceJob(vestYear, { apiBaseUrl, state });
+  if (job.error) {
+    console.warn(`⚠️ tract_party rebuild failed for ${state}: ${job.error}`);
+    return { ok: false, error: job.error, tractCount: 0, rebuilt: true };
+  }
+  rows = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
+  const n = rows && typeof rows === 'object' ? Object.keys(rows).length : 0;
+  if (n === 0) {
+    return { ok: false, error: 'Tract party still empty after rebuild', tractCount: 0, rebuilt: true };
+  }
+  return { ok: true, tractCount: n, rebuilt: true };
+}
 
 /**
  * Load district-level party percentages for a state/step (from cache).
@@ -7344,7 +7433,121 @@ function uniqueTractGeoids(tractIds) {
 }
 
 /**
- * Compute district-level party for any step by summing persisted tract totals (no persistence).
+ * Build tract population lookup for a state from state_tracts cache.
+ * Supports state cache formats: [id, tract][] pairs, tract arrays, Map, and object maps.
+ * @param {string} state - State code
+ * @returns {Promise<Map<string, number>>}
+ */
+async function loadTractPopulationLookupForState(state) {
+  const populationByGeoid = new Map();
+  const tractCacheKeysToTry = [
+    `state_tracts_${state}`,
+    `state_tracts_${state.toLowerCase()}`,
+    `state_tracts_${state.toUpperCase()}`
+  ];
+  let tractMap = null;
+  for (const key of tractCacheKeysToTry) {
+    tractMap = await getCacheDoc(key);
+    if (tractMap) break;
+  }
+  if (!tractMap) return populationByGeoid;
+
+  const { getTractId } = require('./services/geodistrict-algorithm');
+  const addPopulation = (tractId, tractValue) => {
+    const geoid = String(tractId).padStart(11, '0').substring(0, 11);
+    const p = tractValue?.properties || {};
+    const pop = Number(p.POPULATION ?? p.POP100 ?? 0);
+    if (geoid.length === 11 && Number.isFinite(pop) && pop > 0) {
+      populationByGeoid.set(geoid, pop);
+    }
+  };
+
+  const asPairs = (value) =>
+    Array.isArray(value) &&
+    value.length > 0 &&
+    Array.isArray(value[0]) &&
+    value[0].length === 2;
+
+  if (asPairs(tractMap)) {
+    for (const [tractId, tractValue] of tractMap) addPopulation(tractId, tractValue);
+    return populationByGeoid;
+  }
+  if (Array.isArray(tractMap)) {
+    for (const tractValue of tractMap) {
+      const tractId = getTractId(tractValue);
+      if (tractId) addPopulation(tractId, tractValue);
+    }
+    return populationByGeoid;
+  }
+  if (tractMap instanceof Map) {
+    for (const [tractId, tractValue] of tractMap.entries()) addPopulation(tractId, tractValue);
+    return populationByGeoid;
+  }
+  if (tractMap && typeof tractMap === 'object') {
+    const dataValue = tractMap.data;
+    if (asPairs(dataValue)) {
+      for (const [tractId, tractValue] of dataValue) addPopulation(tractId, tractValue);
+      return populationByGeoid;
+    }
+    if (Array.isArray(dataValue)) {
+      for (const tractValue of dataValue) {
+        const tractId = getTractId(tractValue);
+        if (tractId) addPopulation(tractId, tractValue);
+      }
+      return populationByGeoid;
+    }
+    for (const [tractId, tractValue] of Object.entries(tractMap)) {
+      addPopulation(tractId, tractValue);
+    }
+  }
+  return populationByGeoid;
+}
+
+/**
+ * Compute population-weighted district party percentages from tract-level rows.
+ * Uses tract POPULATION as weight; if unavailable, falls back to weight=1 for that tract.
+ * @param {string[]} uniqueGeoids
+ * @param {Record<string, { pctDem: number, pctRep: number, pctOther?: number }>} tractParty
+ * @param {Map<string, number>} populationByGeoid
+ * @returns {{ pctDem: number, pctRep: number, pctOther: number }}
+ */
+function computeWeightedPartyFromTracts(uniqueGeoids, tractParty, populationByGeoid) {
+  let weightedDem = 0;
+  let weightedRep = 0;
+  let weightedOther = 0;
+  let weightTotal = 0;
+
+  for (const geoid of uniqueGeoids) {
+    const row = tractParty[geoid];
+    if (!row) continue;
+    const pctDem = Number(row.pctDem) || 0;
+    const pctRep = Number(row.pctRep) || 0;
+    const pctOtherRaw = row.pctOther != null ? Number(row.pctOther) : Math.max(0, 1 - pctDem - pctRep);
+    const pctOther = Number.isFinite(pctOtherRaw) ? pctOtherRaw : 0;
+    const pop = Number(populationByGeoid.get(geoid));
+    const weight = Number.isFinite(pop) && pop > 0 ? pop : 1;
+
+    weightedDem += pctDem * weight;
+    weightedRep += pctRep * weight;
+    weightedOther += pctOther * weight;
+    weightTotal += weight;
+  }
+
+  if (weightTotal <= 0) return { pctDem: 0, pctRep: 0, pctOther: 0 };
+  const pctDem = weightedDem / weightTotal;
+  const pctRep = weightedRep / weightTotal;
+  const pctOther = weightedOther / weightTotal;
+  const sum = pctDem + pctRep + pctOther;
+  if (sum <= 0) return { pctDem: 0, pctRep: 0, pctOther: 0 };
+  return {
+    pctDem: pctDem / sum,
+    pctRep: pctRep / sum,
+    pctOther: pctOther / sum
+  };
+}
+
+/**
+ * Compute district-level party for any step by population-weighted tract percentages (no persistence).
  * Used when GET district-party is called for a step that has no cached doc (e.g. intermediate steps).
  * @param {string} state - State code
  * @param {number} stepNumber - Step number (0, 1, 2, ... or final)
@@ -7360,28 +7563,15 @@ async function computeDistrictPartyForStep(state, stepNumber, maxIterations, ves
   if (districtGroups.length === 0) return null;
   const tractParty = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
   if (!tractParty || Object.keys(tractParty).length === 0) return null;
+  const populationByGeoid = await loadTractPopulationLookupForState(state);
   const districts = {};
   for (const group of districtGroups) {
     const tractIds = group.censusTractIds && group.censusTractIds.length > 0
       ? group.censusTractIds
       : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
     const uniqueGeoids = uniqueTractGeoids(tractIds);
-    let votesDem = 0;
-    let votesRep = 0;
-    let totalVotes = 0;
-    for (const geoid of uniqueGeoids) {
-      const row = tractParty[geoid];
-      if (row) {
-        votesDem += row.votesDem || 0;
-        votesRep += row.votesRep || 0;
-        totalVotes += row.totalVotes || 0;
-      }
-    }
-    const twoPartyTotal = votesDem + votesRep;
-    const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
-    const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
     const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
-    districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+    districts[groupKey] = computeWeightedPartyFromTracts(uniqueGeoids, tractParty, populationByGeoid);
   }
   return { districts, vestYear };
 }
@@ -7394,9 +7584,14 @@ async function computeDistrictPartyForStep(state, stepNumber, maxIterations, ves
  * @param {number} [vestYear] - VEST year (default 2024)
  * @returns {Promise<{ success: boolean, districtsWritten: number, error?: string }>}
  */
-async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear = DEFAULT_VEST_YEAR) {
+async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear = DEFAULT_VEST_YEAR, options = {}) {
+  const { apiBaseUrl = null } = options;
   const { getTractId } = require('./services/geodistrict-algorithm');
   try {
+    const ensure = await ensureTractPartyCacheForState(state, vestYear, apiBaseUrl);
+    if (!ensure.ok) {
+      return { success: false, districtsWritten: 0, error: ensure.error || 'Tract party rebuild failed' };
+    }
     const stepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
     if (!stepResult) {
       return { success: false, districtsWritten: 0, error: 'Final step not found in cache' };
@@ -7407,32 +7602,18 @@ async function runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYe
     }
     const tractParty = await tractPartyPersistence.loadTractPartyForState(state, vestYear);
     if (!tractParty || Object.keys(tractParty).length === 0) {
-      return { success: false, districtsWritten: 0, error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' };
+      return { success: false, districtsWritten: 0, error: 'Tract party data not available after ensure.' };
     }
+    const populationByGeoid = await loadTractPopulationLookupForState(state);
     const districts = {};
     for (const group of districtGroups) {
       const tractIds = group.censusTractIds && group.censusTractIds.length > 0
         ? group.censusTractIds
         : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
       const uniqueGeoids = uniqueTractGeoids(tractIds);
-      let votesDem = 0;
-      let votesRep = 0;
-      let totalVotes = 0;
-      for (const geoid of uniqueGeoids) {
-        const row = tractParty[geoid];
-        if (row) {
-          votesDem += row.votesDem || 0;
-          votesRep += row.votesRep || 0;
-          totalVotes += row.totalVotes || 0;
-        }
-      }
-      // Use two-party total (D+R) as denominator so percentages are share of two-party vote and sum to 100%.
-      // Tract totalVotes can be total ballots (when from county allocation), so totalVotes may exceed D+R.
-      const twoPartyTotal = votesDem + votesRep;
-      const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
-      const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
       const groupKey = `${group.startDistrictNumber}-${group.endDistrictNumber}`;
-      districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+      const weighted = computeWeightedPartyFromTracts(uniqueGeoids, tractParty, populationByGeoid);
+      districts[groupKey] = districtPartyForApiClient(weighted);
     }
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
     const districtPartyDoc = {
@@ -7483,9 +7664,10 @@ app.post('/api/algorithm/district-party/:state', async (req, res) => {
     if (isNaN(finalStepNumber) || finalStepNumber < 0) {
       return res.status(400).json({ error: 'finalStepNumber is required and must be >= 0' });
     }
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
     setImmediate(async () => {
       try {
-        await runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear);
+        await runDistrictPartyJob(state, finalStepNumber, maxIterations, vestYear, { apiBaseUrl });
       } catch (e) {
         console.error('❌ District party job error:', e.message);
       }
@@ -7510,6 +7692,7 @@ app.post('/api/algorithm/district-party/:state', async (req, res) => {
  * Query: maxIterations (optional), vestYear (optional, default 2024).
  */
 app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     const state = (req.params.state || '').toUpperCase();
     const stepNumber = parseInt(req.params.stepNumber, 10);
@@ -7518,14 +7701,29 @@ app.get('/api/algorithm/district-party/:state/:stepNumber', async (req, res) => 
     if (!state || state.length !== 2 || isNaN(stepNumber)) {
       return res.status(400).json({ error: 'Invalid state or step number' });
     }
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const tractEnsure = await ensureTractPartyCacheForState(state, vestYear, apiBaseUrl);
+    if (!tractEnsure.ok) {
+      return res.status(503).json({
+        error: 'Tract party data unavailable',
+        message: tractEnsure.error || 'Rebuild failed',
+        tractPartyRebuild: tractEnsure
+      });
+    }
     let loaded = await loadDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
     if (loaded == null) {
       loaded = await computeDistrictPartyForStep(state, stepNumber, maxIterations, vestYear);
       if (loaded == null) {
-        return res.status(404).json({ error: 'District party data not found. Ensure step is cached and tract party persistence has been run (POST /api/algorithm/tract-party-persistence).' });
+        return res.status(404).json({ error: 'District party data not found. Ensure the algorithm step is cached.' });
       }
     }
-    return res.json({ state, step: stepNumber, maxIterations, districts: loaded.districts, vestYear: loaded.vestYear });
+    return res.json({
+      state,
+      step: stepNumber,
+      maxIterations,
+      districts: mapDistrictsForApiClient(loaded.districts),
+      vestYear: loaded.vestYear
+    });
   } catch (error) {
     console.error('❌ GET district-party error:', error);
     res.status(500).json({ error: 'Failed to load district party data', message: error.message });
@@ -7546,6 +7744,15 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     if (!state || state.length !== 2 || isNaN(finalStepNumber) || finalStepNumber < 0 || !groupKey) {
       return res.status(400).json({ error: 'state, finalStepNumber (>=0), and groupKey (e.g. "1-1" or "1-38") are required' });
     }
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const tractEnsure = await ensureTractPartyCacheForState(state, DEFAULT_VEST_YEAR, apiBaseUrl);
+    if (!tractEnsure.ok) {
+      return res.status(503).json({
+        error: 'Tract party data unavailable',
+        message: tractEnsure.error || 'Rebuild failed',
+        tractPartyRebuild: tractEnsure
+      });
+    }
     const { getTractId } = require('./services/geodistrict-algorithm');
     const stepResult = await getStepCacheEntry(state, finalStepNumber, maxIterations);
     if (!stepResult) {
@@ -7558,25 +7765,15 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     }
     const tractParty = await tractPartyPersistence.loadTractPartyForState(state, DEFAULT_VEST_YEAR);
     if (!tractParty || Object.keys(tractParty).length === 0) {
-      return res.status(503).json({ error: 'Tract party data not found. Run POST /api/algorithm/tract-party-persistence first.' });
+      return res.status(503).json({ error: 'Tract party data not available after ensure.' });
     }
+    const populationByGeoid = await loadTractPopulationLookupForState(state);
     const tractIds = group.censusTractIds && group.censusTractIds.length > 0
       ? group.censusTractIds
       : (group.censusTracts ? group.censusTracts.map(t => getTractId(t)).filter(Boolean) : []);
     const uniqueGeoids = uniqueTractGeoids(tractIds);
-    let votesDem = 0, votesRep = 0, totalVotes = 0;
-    for (const geoid of uniqueGeoids) {
-      const row = tractParty[geoid];
-      if (row) {
-        votesDem += row.votesDem || 0;
-        votesRep += row.votesRep || 0;
-        totalVotes += row.totalVotes || 0;
-      }
-    }
-    // Use two-party total (D+R) as denominator so percentages are share of two-party vote and sum to 100%.
-    const twoPartyTotal = votesDem + votesRep;
-    const pctDem = twoPartyTotal > 0 ? votesDem / twoPartyTotal : 0;
-    const pctRep = twoPartyTotal > 0 ? votesRep / twoPartyTotal : 0;
+    const weighted = computeWeightedPartyFromTracts(uniqueGeoids, tractParty, populationByGeoid);
+    const pair = districtPartyForApiClient(weighted);
     const vestYear = DEFAULT_VEST_YEAR;
     const key = `district_party_${state}_${finalStepNumber}_${maxIterations}_${vestYear}`;
     let prev = await getCacheDoc(key) || {};
@@ -7585,7 +7782,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
       if (legacy.districts) prev = legacy;
     }
     const districts = prev.districts && typeof prev.districts === 'object' ? { ...prev.districts } : {};
-    districts[groupKey] = { pctDem, pctRep, votesDem, votesRep, totalVotes };
+    districts[groupKey] = pair;
     const districtPartyDoc = {
       districts,
       state,
@@ -7609,7 +7806,7 @@ app.post('/api/algorithm/district-party-for-group/:state', async (req, res) => {
     } catch (cloudErr) {
       console.warn(`⚠️ District party: cloud write skipped for ${state}:`, cloudErr.message);
     }
-    return res.json({ ok: true, groupKey, pctDem, pctRep, votesDem, votesRep, totalVotes });
+    return res.json({ ok: true, groupKey, pctDem: pair.pctDem, pctRep: pair.pctRep });
   } catch (error) {
     console.error('❌ POST district-party-for-group error:', error);
     res.status(500).json({ error: 'District party for group failed', message: error.message });
@@ -7667,7 +7864,13 @@ app.post('/api/algorithm/step/:state/:stepNumber/union-polygon-for-group', async
         tractMap = stateTractData.data;
       }
       if (!tractMap) return res.status(500).json({ error: 'Tract data not available' });
-      stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+      stepData = await reconstructStepFromCache(
+        dataToReconstruct,
+        tractMap,
+        false,
+        state,
+        `${req.protocol}://${req.get('host')}`
+      );
       if (!stepData?.districtGroups?.length) return res.status(500).json({ error: 'Reconstruction failed' });
     }
     const groups = stepData.districtGroups || [];
@@ -7957,7 +8160,13 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
                   
                   // Reconstruct step with tract geometries
                   if (tractMap) {
-                    stepData = await reconstructStepFromCache(stepData, tractMap, true, state);
+                    stepData = await reconstructStepFromCache(
+                      stepData,
+                      tractMap,
+                      true,
+                      state,
+                      `${req.protocol}://${req.get('host')}`
+                    );
                     const totalReconstructed = stepData.districtGroups?.reduce((sum, g) => sum + (g.censusTracts?.length || 0), 0) || 0;
                     if (totalReconstructed === 0) {
                       console.warn(`⚠️ Step ${nextStepNumber} reconstruction resulted in 0 tracts - cache may have wrong ID format, will need to re-execute`);
@@ -8203,7 +8412,7 @@ app.post('/api/algorithm/execute/next-step', async (req, res) => {
     }
 
     // Enrich step tracts with party data so client gets same coloring as after refresh (cache-hit path enriches via reconstructStepFromCache)
-    step = await enrichStepTractsWithParty(step, state);
+    step = await enrichStepTractsWithParty(step, state, `${req.protocol}://${req.get('host')}`);
 
     res.json({
       step: updatedState.iteration,
@@ -8945,9 +9154,60 @@ async function deleteTractAndPolygonCacheForState(state, options = {}) {
 }
 
 /**
+ * Remove persisted district-level party aggregates for a state (keys district_party_{STATE}_* including legacy vest-year-less keys).
+ * Safe to call after algorithm cache clear so new runs do not reuse stale D/R totals for reused groupKey labels.
+ * @param {string} stateNorm - Two-letter state code, uppercased
+ * @returns {Promise<number>} Number of cache keys deleted
+ */
+async function deleteDistrictPartyCacheForState(stateNorm) {
+  if (!stateNorm || stateNorm.length !== 2) return 0;
+  const prefix = `district_party_${stateNorm}_`;
+  let deleted = 0;
+  try {
+    const ids = await listCacheDocIds(prefix);
+    for (const key of ids) {
+      try {
+        await deleteCacheDoc(key);
+        deleted++;
+      } catch (e) {
+        console.warn(`🗑️ CLEAR-CACHE district_party: skip ${key}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`🗑️ CLEAR-CACHE district_party list failed for ${stateNorm}: ${e.message}`);
+  }
+  return deleted;
+}
+
+/**
+ * Remove persisted tract-level VEST party for a state (keys tract_party_{STATE}_*).
+ * @param {string} stateNorm - Two-letter state code, uppercased
+ * @returns {Promise<number>} Number of cache keys deleted
+ */
+async function deleteTractPartyCacheForState(stateNorm) {
+  if (!stateNorm || stateNorm.length !== 2) return 0;
+  const prefix = `tract_party_${stateNorm}_`;
+  let deleted = 0;
+  try {
+    const ids = await listCacheDocIds(prefix);
+    for (const key of ids) {
+      try {
+        await deleteCacheDoc(key);
+        deleted++;
+      } catch (e) {
+        console.warn(`🗑️ CLEAR-CACHE tract_party: skip ${key}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`🗑️ CLEAR-CACHE tract_party list failed for ${stateNorm}: ${e.message}`);
+  }
+  return deleted;
+}
+
+/**
  * Delete all algorithm cache for a state (trash/clear-cache).
- * Removes step 0..N, algorithm state, and union polygons from Firestore and Cloud Storage.
- * Does NOT touch external data (tract boundaries, census tract data, state tract cache).
+ * Removes step 0..N, algorithm state, district_party and tract_party aggregates for that state, and union polygons from Firestore and Cloud Storage.
+ * Does NOT touch state_tracts_{state} (census tract cache) or tract boundaries.
  */
 async function deleteAlgorithmCacheForState(state, maxIterations) {
   const stateNorm = (state || '').toUpperCase().trim();
@@ -8980,6 +9240,12 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
   await deleteCachedAlgorithmState(stateKey);
   firestoreDeleted++; // count as one logical delete
 
+  // 2b. District-party docs are keyed by state/final step; they must not survive a full clear-cache or D/R % stays wrong for new district groups.
+  const districtPartyDeleted = await deleteDistrictPartyCacheForState(stateNorm);
+
+  // 2c. Tract-level VEST cache for this state so trash can rebuild from external VEST sources (client triggers tract-party-persistence).
+  const tractPartyDeleted = await deleteTractPartyCacheForState(stateNorm);
+
   // 3. List union polygon keys, delete cache docs and (when not local) Cloud Storage files
   if (USE_LOCAL_CACHE) {
     const allKeys = await listCacheDocIds(`union_polygon_${stateNorm}_`);
@@ -8990,8 +9256,8 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
         if (doc) { await deleteCacheDoc(key); firestoreDeleted++; }
       } catch (e) { /* continue */ }
     }
-    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} local doc(s) (state_tracts preserved)`);
-    return { firestoreDeleted, cloudDeleted: 0 };
+    console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} local doc(s), district_party=${districtPartyDeleted}, tract_party=${tractPartyDeleted} (state_tracts preserved)`);
+    return { firestoreDeleted, cloudDeleted: 0, districtPartyDeleted, tractPartyDeleted };
   }
   const unionKeys = await cloudStorageCache.listUnionPolygonKeysForState(stateNorm, 0);
   for (const key of unionKeys) {
@@ -9001,8 +9267,8 @@ async function deleteAlgorithmCacheForState(state, maxIterations) {
     } catch (e) { /* continue */ }
   }
   const cloudResult = await cloudStorageCache.deleteUnionPolygonsForState(stateNorm, 0);
-  console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s)`);
-  return { firestoreDeleted, cloudDeleted: cloudResult.deleted };
+  console.log(`🗑️ CLEAR-CACHE: Deleted algorithm cache for ${stateNorm}: ${firestoreDeleted} Firestore doc(s), ${cloudResult.deleted} Cloud Storage union file(s), district_party=${districtPartyDeleted}, tract_party=${tractPartyDeleted}`);
+  return { firestoreDeleted, cloudDeleted: cloudResult.deleted, districtPartyDeleted, tractPartyDeleted };
 }
 
 /**
@@ -9067,17 +9333,18 @@ async function deleteAlgorithmCacheFromStep1ForState(state, maxIterations) {
 }
 
 /**
-/**
- * Enrich a step's census tracts with party data (pctDem, pctRep, etc.) so the client can color by party
+ * Enrich a step's census tracts with party percentages (pctDem, pctRep, pctOther) so the client can color by party
  * without needing a separate tract-party request. Used when returning step from executeNextStep (cache miss)
  * so the result matches what the client gets after refresh (reconstructStepFromCache enriches cached steps).
  * @param {Object} step - Step data with districtGroups[].censusTracts (full tract objects)
  * @param {string} state - State code (e.g. 'TX')
+ * @param {string|null} apiBaseUrl - Optional backend base URL for tract-party rebuild
  * @returns {Promise<Object>} Step with tract.properties enriched (new object, does not mutate)
  */
-async function enrichStepTractsWithParty(step, state) {
+async function enrichStepTractsWithParty(step, state, apiBaseUrl = null) {
   if (!state || !step || !step.districtGroups || step.districtGroups.length === 0) return step;
-  const tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(state, 2024);
+  await ensureTractPartyCacheForState(state, DEFAULT_VEST_YEAR, apiBaseUrl);
+  const tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(state, DEFAULT_VEST_YEAR);
   if (!tractPartyByGeoid || Object.keys(tractPartyByGeoid).length === 0) return step;
   const { getTractId } = require('./services/geodistrict-algorithm');
   const districtGroups = step.districtGroups.map(group => {
@@ -9092,9 +9359,7 @@ async function enrichStepTractsWithParty(step, state) {
           ...(t.properties || {}),
           pctDem: row.pctDem,
           pctRep: row.pctRep,
-          votesDem: row.votesDem,
-          votesRep: row.votesRep,
-          totalVotes: row.totalVotes
+          pctOther: row.pctOther
         }
       };
     });
@@ -9112,7 +9377,7 @@ async function enrichStepTractsWithParty(step, state) {
  * @param {string} requestedState - The state code that was requested (for validation and union polygon loading)
  * @returns {Promise<Object>} Reconstructed step data
  */
-async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionPolygons = true, requestedState = null) {
+async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionPolygons = true, requestedState = null, apiBaseUrl = null) {
   if (!normalizedStep || !normalizedStep.districtGroups || !tractMap) {
     console.warn(`⚠️ RECONSTRUCT: Missing data - normalizedStep: ${!!normalizedStep}, districtGroups: ${!!normalizedStep?.districtGroups}, tractMap: ${!!tractMap}`);
     // Return null to indicate reconstruction failed - don't return incomplete data
@@ -9241,7 +9506,8 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
   // Enrich tracts with party data from tract_party_{state}_{year} so popup and coloring can use tract.properties
   let tractPartyByGeoid = null;
   if (requestedState) {
-    tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(requestedState, 2024);
+    await ensureTractPartyCacheForState(requestedState, DEFAULT_VEST_YEAR, apiBaseUrl);
+    tractPartyByGeoid = await tractPartyPersistence.loadTractPartyForState(requestedState, DEFAULT_VEST_YEAR);
     if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0) {
       console.log(`✅ RECONSTRUCT: Enriching tracts with party data (${Object.keys(tractPartyByGeoid).length} tract party rows)`);
     }
@@ -9277,7 +9543,7 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
         console.log(`   ⚠️ Group ${idx + 1}: ${missingCount} missing tracts. Sample missing IDs: ${missingIds.join(', ')}`);
       }
 
-      // Enrich each tract with party metadata (pctDem, pctRep, votesDem, votesRep, totalVotes) so popup and coloring use tract.properties
+      // Enrich each tract with party metadata (pctDem, pctRep, pctOther) so popup and coloring use tract.properties
       if (tractPartyByGeoid && Object.keys(tractPartyByGeoid).length > 0) {
         const { getTractId } = require('./services/geodistrict-algorithm');
         tracts = tracts.map(t => {
@@ -9290,9 +9556,7 @@ async function reconstructStepFromCache(normalizedStep, tractMap, recreateUnionP
               ...(t.properties || {}),
               pctDem: row.pctDem,
               pctRep: row.pctRep,
-              votesDem: row.votesDem,
-              votesRep: row.votesRep,
-              totalVotes: row.totalVotes
+              pctOther: row.pctOther
             }
           };
         });
@@ -10351,7 +10615,13 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
       }
       
       // Reconstruct step data
-      const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+      const stepData = await reconstructStepFromCache(
+        dataToReconstruct,
+        tractMap,
+        false,
+        state,
+        `${req.protocol}://${req.get('host')}`
+      );
       if (!stepData || !stepData.districtGroups) {
         console.error(`❌ Failed to reconstruct step ${step} from cache`);
         return res.status(404).json({ error: `Failed to reconstruct step ${step}. Please re-run the algorithm.` });
@@ -10458,7 +10728,13 @@ app.post('/api/algorithm/move-all-isolated-tracts', async (req, res) => {
           if (tractMap) break;
         }
         if (tractMap) {
-          const stepData = await reconstructStepFromCache(dataToReconstruct, tractMap, false, state);
+          const stepData = await reconstructStepFromCache(
+            dataToReconstruct,
+            tractMap,
+            false,
+            state,
+            `${req.protocol}://${req.get('host')}`
+          );
           if (stepData && stepData.districtGroups) {
             currentStep = stepData;
             algorithmState.steps[step] = stepData;
